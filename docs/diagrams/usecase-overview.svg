@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 720" width="1120" height="720" font-family="Segoe UI, Arial, sans-serif">
+  <style>
+    .boundary { fill: #fbfcfd; stroke: #90a4ae; stroke-width: 2; }
+    .boundary-label { font-size: 15px; font-weight: 600; fill: #37474f; }
+    .uc { fill: #e3f2fd; stroke: #1976d2; stroke-width: 1.6; }
+    .uc-ai { fill: #f3e5f5; stroke: #7b1fa2; stroke-width: 1.6; }
+    .uc-ui { fill: #e8f5e9; stroke: #388e3c; stroke-width: 1.6; }
+    .uc-text { font-size: 12.5px; fill: #0d2b45; text-anchor: middle; }
+    .actor-line { stroke: #37474f; stroke-width: 1.8; fill: none; }
+    .actor-label { font-size: 13px; font-weight: 600; fill: #263238; text-anchor: middle; }
+    .actor-sub { font-size: 10.5px; fill: #607d8b; text-anchor: middle; }
+    .assoc { stroke: #546e7a; stroke-width: 1.3; fill: none; }
+    .assoc-sec { stroke: #7b1fa2; stroke-width: 1.3; fill: none; stroke-dasharray: 6 4; }
+    .assoc-ext { stroke: #388e3c; stroke-width: 1.3; fill: none; }
+    .rel { stroke: #78909c; stroke-width: 1.1; fill: none; stroke-dasharray: 5 4; }
+    .rel-text { font-size: 10px; fill: #546e7a; font-style: italic; text-anchor: middle; }
+    .title { font-size: 19px; font-weight: 700; fill: #1a237e; }
+    .subtitle { font-size: 12px; fill: #546e7a; }
+    .note { fill: #fff8e1; stroke: #ffb300; stroke-width: 1.2; }
+    .note-text { font-size: 10.5px; fill: #5d4037; }
+  </style>
+
+  <rect width="1120" height="720" fill="#ffffff"/>
+  <text class="title" x="30" y="34">Code → L3 Generator — Use Case Diagram (tổng quan hệ thống)</text>
+  <text class="subtitle" x="30" y="54">Actor chính bên trái · Hệ thống ngoài bên phải · Tím = bước có dùng LLM · Xanh lá = phần mở rộng (Web UI)</text>
+
+  <rect class="boundary" x="300" y="80" width="520" height="600" rx="8"/>
+  <text class="boundary-label" x="560" y="106" text-anchor="middle">L3 Generator (CLI tool)</text>
+
+  <g transform="translate(120, 200)">
+    <circle cx="0" cy="-26" r="13" class="actor-line"/>
+    <line x1="0" y1="-13" x2="0" y2="16" class="actor-line"/>
+    <line x1="-17" y1="-4" x2="17" y2="-4" class="actor-line"/>
+    <line x1="0" y1="16" x2="-14" y2="40" class="actor-line"/>
+    <line x1="0" y1="16" x2="14" y2="40" class="actor-line"/>
+    <text class="actor-label" x="0" y="60">Developer</text>
+    <text class="actor-sub" x="0" y="76">người chạy tool</text>
+  </g>
+
+  <g transform="translate(120, 470)">
+    <circle cx="0" cy="-26" r="13" class="actor-line"/>
+    <line x1="0" y1="-13" x2="0" y2="16" class="actor-line"/>
+    <line x1="-17" y1="-4" x2="17" y2="-4" class="actor-line"/>
+    <line x1="0" y1="16" x2="-14" y2="40" class="actor-line"/>
+    <line x1="0" y1="16" x2="14" y2="40" class="actor-line"/>
+    <text class="actor-label" x="0" y="60">Architect /</text>
+    <text class="actor-label" x="0" y="75">Reviewer</text>
+    <text class="actor-sub" x="0" y="91">chỉ đọc kết quả</text>
+  </g>
+
+  <g transform="translate(985, 300)">
+    <rect x="-64" y="-36" width="128" height="64" rx="5" fill="#f3e5f5" stroke="#7b1fa2" stroke-width="1.6"/>
+    <text class="actor-label" x="0" y="-14">LLM Provider</text>
+    <text class="actor-sub" x="0" y="2">hệ thống ngoài</text>
+    <text class="actor-sub" x="0" y="17">(có thể vắng mặt)</text>
+  </g>
+
+  <g transform="translate(985, 560)">
+    <rect x="-74" y="-36" width="148" height="64" rx="5" fill="#e8f5e9" stroke="#388e3c" stroke-width="1.6"/>
+    <text class="actor-label" x="0" y="-14">Hệ thống khác</text>
+    <text class="actor-sub" x="0" y="2">đọc graph.json / IAM</text>
+    <text class="actor-sub" x="0" y="17">(tích hợp về sau)</text>
+  </g>
+
+  <ellipse class="uc" cx="560" cy="160" rx="122" ry="30"/>
+  <text class="uc-text" x="560" y="156">UC1 · Sinh tài liệu L3</text>
+  <text class="uc-text" x="560" y="172" font-size="11" fill="#546e7a">từ một thư mục source</text>
+
+  <ellipse class="uc" cx="560" cy="236" rx="122" ry="28"/>
+  <text class="uc-text" x="560" y="240">UC2 · Chạy không cần AI</text>
+
+  <ellipse class="uc-ai" cx="560" cy="308" rx="122" ry="28"/>
+  <text class="uc-text" x="560" y="305">UC3 · Bổ sung mô tả</text>
+  <text class="uc-text" x="560" y="320" font-size="11" fill="#546e7a">dễ đọc cho từng thành phần</text>
+
+  <ellipse class="uc-ai" cx="560" cy="380" rx="122" ry="28"/>
+  <text class="uc-text" x="560" y="377">UC4 · Cảnh báo chỗ</text>
+  <text class="uc-text" x="560" y="392" font-size="11" fill="#546e7a">nghi ngờ thiếu sót</text>
+
+  <ellipse class="uc" cx="560" cy="452" rx="122" ry="28"/>
+  <text class="uc-text" x="560" y="449">UC5 · Tra nguồn gốc</text>
+  <text class="uc-text" x="560" y="464" font-size="11" fill="#546e7a">một dòng về file:line</text>
+
+  <ellipse class="uc" cx="560" cy="524" rx="122" ry="28"/>
+  <text class="uc-text" x="560" y="521">UC6 · Xem mức tin cậy</text>
+  <text class="uc-text" x="560" y="536" font-size="11" fill="#546e7a">và giới hạn đã biết</text>
+
+  <ellipse class="uc" cx="560" cy="596" rx="122" ry="28"/>
+  <text class="uc-text" x="560" y="593">UC7 · Xuất graph</text>
+  <text class="uc-text" x="560" y="608" font-size="11" fill="#546e7a">cho hệ thống khác dùng</text>
+
+  <ellipse class="uc-ui" cx="560" cy="652" rx="122" ry="28"/>
+  <text class="uc-text" x="560" y="649">UC8 · Xem kết quả trên</text>
+  <text class="uc-text" x="560" y="664" font-size="11" fill="#546e7a">giao diện web (mở rộng)</text>
+
+  <line class="assoc" x1="150" y1="196" x2="440" y2="163"/>
+  <line class="assoc" x1="150" y1="208" x2="440" y2="234"/>
+  <path class="assoc" d="M 156 222 Q 300 420 440 588"/>
+
+  <line class="assoc" x1="150" y1="455" x2="440" y2="452"/>
+  <line class="assoc" x1="150" y1="463" x2="440" y2="522"/>
+  <line class="assoc" x1="150" y1="447" x2="440" y2="384"/>
+  <path class="assoc" d="M 152 500 Q 210 640 440 654"/>
+
+  <line class="assoc-sec" x1="682" y1="304" x2="918" y2="292"/>
+  <line class="assoc-sec" x1="682" y1="376" x2="918" y2="312"/>
+  <line class="assoc-ext" x1="682" y1="594" x2="908" y2="558"/>
+
+  <path class="rel" d="M 560 190 L 560 206"/>
+  <polygon points="560,208 555,198 565,198" fill="#78909c"/>
+  <text class="rel-text" x="616" y="203">«extend»</text>
+
+  <path class="rel" d="M 624 184 Q 704 238 642 284"/>
+  <polygon points="640,286 646,277 651,286" fill="#78909c"/>
+  <text class="rel-text" x="706" y="228">«extend»</text>
+
+  <path class="rel" d="M 634 186 Q 736 288 648 356"/>
+  <polygon points="646,358 651,348 657,357" fill="#78909c"/>
+  <text class="rel-text" x="752" y="298">«extend»</text>
+
+  <path class="rel" d="M 498 186 Q 416 380 468 574"/>
+  <polygon points="469,577 463,568 473,566" fill="#78909c"/>
+  <text class="rel-text" x="400" y="330">«include»</text>
+
+  <path class="rel" d="M 486 184 Q 392 404 478 632"/>
+  <polygon points="479,635 473,626 483,624" fill="#78909c"/>
+  <text class="rel-text" x="352" y="474">«include»</text>
+
+  <g transform="translate(838, 96)">
+    <rect class="note" x="0" y="0" width="258" height="88" rx="4"/>
+    <text class="note-text" x="10" y="19" font-weight="600">Ranh giới quan trọng nhất</text>
+    <text class="note-text" x="10" y="37">UC3 và UC4 là hai bước dùng LLM,</text>
+    <text class="note-text" x="10" y="52">chạy ĐỘC LẬP với nhau và không</text>
+    <text class="note-text" x="10" y="67">bao giờ sửa dữ liệu do UC1 tạo ra.</text>
+    <text class="note-text" x="10" y="82" font-style="italic">(SPEC mục 3.1)</text>
+  </g>
+
+  <g transform="translate(838, 380)">
+    <rect class="note" x="0" y="0" width="258" height="74" rx="4"/>
+    <text class="note-text" x="10" y="19" font-weight="600">UC2 luôn khả dụng</text>
+    <text class="note-text" x="10" y="37">Thiếu API key hoặc LLM lỗi → tool</text>
+    <text class="note-text" x="10" y="52">vẫn sinh đủ tài liệu, thiếu UC3/UC4.</text>
+    <text class="note-text" x="10" y="67" font-style="italic">(SPEC mục 4.3)</text>
+  </g>
+
+  <g transform="translate(24, 96)">
+    <rect class="note" x="0" y="0" width="238" height="76" rx="4"/>
+    <text class="note-text" x="10" y="19" font-weight="600">Không có actor "quản trị"</text>
+    <text class="note-text" x="10" y="37">Tool chạy một lần rồi kết thúc:</text>
+    <text class="note-text" x="10" y="52">không state, không đăng nhập,</text>
+    <text class="note-text" x="10" y="67">không ghi vào repo đang phân tích.</text>
+  </g>
+
+  <g transform="translate(24, 520)">
+    <rect x="0" y="0" width="238" height="76" rx="4" fill="#e8f5e9" stroke="#388e3c" stroke-width="1.2"/>
+    <text class="note-text" x="10" y="19" font-weight="600">UC8 là lớp phủ, không phải lõi</text>
+    <text class="note-text" x="10" y="37">Web UI chỉ đọc IAM.json / graph.json</text>
+    <text class="note-text" x="10" y="52">đã sinh sẵn. Xoá UI đi thì CLI vẫn</text>
+    <text class="note-text" x="10" y="67">chạy nguyên vẹn. (SPEC mục 13.1)</text>
+  </g>
+</svg>

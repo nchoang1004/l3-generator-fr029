@@ -1,0 +1,66 @@
+# Python bytecode and build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Tests, coverage, linters and type checkers
+.pytest_cache/
+.pytest-runtime/
+.audit-output/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.pyright/
+.ruff_cache/
+.hypothesis/
+
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Generated l3gen output. Curated files under examples/ remain tracked.
+l3-output/
+.l3gen-output/
+out/
+*.generated.md
+
+# Local evaluation runs and cloned reference repositories
+evaluation/run_*/
+sample-repos/
+
+# Personal and agent-specific notes
+PROGRESS.md
+CLAUDE.md
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+~$*
+
+# IDE and operating-system files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+Desktop.ini

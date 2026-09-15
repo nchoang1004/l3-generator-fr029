@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>l3gen — Tài liệu kiến trúc L3</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <strong>l3gen</strong>
+    <span class="muted" id="service-name">—</span>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-screen="overview" class="active">Tổng quan</button>
+    <button data-screen="routes">API Routes</button>
+    <button data-screen="entities">Bảng dữ liệu</button>
+    <button data-screen="graph">Đồ thị</button>
+    <button data-screen="findings">Cảnh báo</button>
+    <button data-screen="limits">Giới hạn đã biết</button>
+  </nav>
+  <button id="theme-toggle" class="ghost" title="Đổi nền sáng/tối">Nền tối</button>
+</header>
+
+<div id="loading" class="pad">Đang đọc dữ liệu…</div>
+<div id="load-error" class="pad error hidden"></div>
+
+<main id="app" class="hidden">
+
+  <!-- U-01 ------------------------------------------------------------ -->
+  <section id="screen-overview" class="screen">
+    <h1>Tổng quan</h1>
+    <p class="note">
+      Mọi con số dưới đây đọc thẳng từ <code>IAM.json</code>, không làm tròn.
+    </p>
+
+    <div id="ai-mode" class="banner"></div>
+
+    <div class="cards" id="metric-cards"></div>
+
+    <h2>Đơn vị phân tích</h2>
+    <p class="note">
+      Liệt kê <strong>tất cả</strong> đơn vị tìm thấy, kể cả đơn vị bị bỏ qua — để
+      biết ngay tài liệu này bao phủ phần nào của hệ thống.
+    </p>
+    <div class="scroll-x"><table id="services-table"></table></div>
+
+    <h2>Phân bố nhãn</h2>
+    <p class="note">
+      <span class="tag inferred">suy ra</span> nghĩa là kết luận suy từ một quy tắc,
+      dễ sai hơn. <span class="tag partial">chưa đầy đủ</span> nghĩa là thực thể chắc
+      chắn có thật nhưng còn thuộc tính chưa biết. Hai nhãn trả lời hai câu hỏi khác
+      nhau, không gộp được.
+    </p>
+    <div class="cards" id="label-cards"></div>
+  </section>
+
+  <!-- U-02 ------------------------------------------------------------ -->
+  <section id="screen-routes" class="screen hidden">
+    <h1>API Routes</h1>
+    <div class="filters">
+      <input type="search" id="route-search" placeholder="Tìm đường dẫn hoặc tên hàm…">
+      <select id="route-method"><option value="">Mọi method</option></select>
+      <select id="route-confidence">
+        <option value="">Mọi mức bằng chứng</option>
+        <option value="exact">exact</option>
+        <option value="inferred">inferred</option>
+      </select>
+      <select id="route-completeness">
+        <option value="">Mọi mức đầy đủ</option>
+        <option value="full">full</option>
+        <option value="partial">partial</option>
+      </select>
+      <span class="muted" id="route-count"></span>
+    </div>
+    <div class="split">
+      <div class="scroll-y"><table id="routes-table"></table></div>
+      <aside id="route-detail" class="detail">
+        <p class="muted">Bấm một dòng để xem chi tiết.</p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- U-03 ------------------------------------------------------------ -->
+  <section id="screen-entities" class="screen hidden">
+    <h1>Bảng dữ liệu</h1>
+    <div class="filters">
+      <input type="search" id="entity-search" placeholder="Tìm tên class hoặc tên bảng…">
+      <span class="muted" id="entity-count"></span>
+    </div>
+    <div class="split">
+      <div class="scroll-y"><table id="entities-table"></table></div>
+      <aside id="entity-detail" class="detail">
+        <p class="muted">Bấm một dòng để xem cột và khoá ngoại.</p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- U-04 ------------------------------------------------------------ -->
+  <section id="screen-graph" class="screen hidden">
+    <h1>Đồ thị phụ thuộc</h1>
+    <div class="filters" id="graph-filters"></div>
+    <p class="note" id="graph-note"></p>
+    <div class="graph-wrap">
+      <svg id="graph-svg"></svg>
+      <aside id="graph-detail" class="detail floating hidden"></aside>
+    </div>
+    <p class="note">Kéo để di chuyển node. Lăn chuột để phóng to. Kéo nền để dời khung nhìn.</p>
+  </section>
+
+  <!-- U-05 ------------------------------------------------------------ -->
+  <section id="screen-findings" class="screen hidden">
+    <h1>Cảnh báo</h1>
+    <div id="findings-body"></div>
+  </section>
+
+  <!-- U-06 ------------------------------------------------------------ -->
+  <section id="screen-limits" class="screen hidden">
+    <h1>Giới hạn đã biết</h1>
+    <p class="note">Màn này luôn hiển thị, kể cả khi không có giới hạn nào.</p>
+    <div id="limits-body"></div>
+  </section>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

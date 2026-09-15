@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "l3gen"
+version = "0.1.0"
+description = "Sinh tài liệu kiến trúc L3 từ source code Python/FastAPI bằng phân tích cú pháp tĩnh"
+requires-python = ">=3.10"
+# Chốt cận trên để bản chính mới của thư viện không làm vỡ tool bất ngờ
+# (SPEC mục 12.1). Nới lên khi đã chạy test với bản mới.
+dependencies = ["pydantic>=2.0,<3"]
+
+[project.optional-dependencies]
+ai = ["anthropic>=0.40,<1"]
+dev = ["pytest>=8.0,<9"]
+
+[project.scripts]
+l3gen = "l3gen.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# File giao diện web không phải .py nên phải khai báo, nếu không `pip install`
+# sẽ bỏ sót và `l3gen ui` chạy được nhưng không có gì để phục vụ.
+[tool.setuptools.package-data]
+"l3gen.ui" = ["assets/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

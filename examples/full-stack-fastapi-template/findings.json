@@ -1,0 +1,224 @@
+{
+  "findings": [
+    {
+      "category": "empty_handler_calls",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 72,
+        "line_start": 62
+      },
+      "related_iam_ref": "routes[1].calls",
+      "summary": "Hàm xử lý 'create_item' của POST /{settings.API_V1_STR}/items/: mọi lời gọi đều chưa nối được đích. Có thể tài liệu chưa phản ánh đủ việc route này làm."
+    },
+    {
+      "category": "empty_handler_calls",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 58,
+        "line_start": 49
+      },
+      "related_iam_ref": "routes[3].calls",
+      "summary": "Hàm xử lý 'read_item' của GET /{settings.API_V1_STR}/items/{id}: mọi lời gọi đều chưa nối được đích. Có thể tài liệu chưa phản ánh đủ việc route này làm."
+    },
+    {
+      "category": "empty_handler_calls",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 96,
+        "line_start": 76
+      },
+      "related_iam_ref": "routes[4].calls",
+      "summary": "Hàm xử lý 'update_item' của PUT /{settings.API_V1_STR}/items/{id}: mọi lời gọi đều chưa nối được đích. Có thể tài liệu chưa phản ánh đủ việc route này làm."
+    },
+    {
+      "category": "empty_handler_calls",
+      "evidence_location": {
+        "file": "app/api/routes/login.py",
+        "line_end": 50,
+        "line_start": 46
+      },
+      "related_iam_ref": "routes[6].calls",
+      "summary": "Hàm xử lý 'test_token' của POST /{settings.API_V1_STR}/login/test-token: không thấy lời gọi nào. Có thể tài liệu chưa phản ánh đủ việc route này làm."
+    },
+    {
+      "category": "empty_handler_calls",
+      "evidence_location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 129,
+        "line_start": 125
+      },
+      "related_iam_ref": "routes[14].calls",
+      "summary": "Hàm xử lý 'read_user_me' của GET /{settings.API_V1_STR}/users/me: không thấy lời gọi nào. Có thể tài liệu chưa phản ánh đủ việc route này làm."
+    },
+    {
+      "category": "empty_handler_calls",
+      "evidence_location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 179,
+        "line_start": 163
+      },
+      "related_iam_ref": "routes[19].calls",
+      "summary": "Hàm xử lý 'read_user_by_id' của GET /{settings.API_V1_STR}/users/{user_id}: mọi lời gọi đều chưa nối được đích. Có thể tài liệu chưa phản ánh đủ việc route này làm."
+    },
+    {
+      "category": "empty_handler_calls",
+      "evidence_location": {
+        "file": "app/api/routes/utils.py",
+        "line_end": 31,
+        "line_start": 30
+      },
+      "related_iam_ref": "routes[21].calls",
+      "summary": "Hàm xử lý 'health_check' của GET /{settings.API_V1_STR}/utils/health-check/: không thấy lời gọi nào. Có thể tài liệu chưa phản ánh đủ việc route này làm."
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/alembic/env.py",
+        "line_end": 80,
+        "line_start": 58
+      },
+      "related_iam_ref": "unresolved_references[0]",
+      "summary": "Tham chiếu chưa xác định được đích: app.alembic.env.run_migrations_online gọi 'config.get_section': không tìm thấy khai báo của 'app.alembic.env.config.get_section' trong repo"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 45,
+        "line_start": 14
+      },
+      "related_iam_ref": "unresolved_references[1]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.items.read_items gọi 'session.exec': không tìm thấy class 'app.api.deps.SessionDep' trong repo"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 58,
+        "line_start": 49
+      },
+      "related_iam_ref": "unresolved_references[2]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.items.read_item gọi 'session.get': không tìm thấy class 'app.api.deps.SessionDep' trong repo"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 72,
+        "line_start": 62
+      },
+      "related_iam_ref": "unresolved_references[3]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.items.create_item gọi 'session.add': không tìm thấy class 'app.api.deps.SessionDep' trong repo"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 72,
+        "line_start": 62
+      },
+      "related_iam_ref": "unresolved_references[4]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.items.create_item gọi 'session.commit': không tìm thấy class 'app.api.deps.SessionDep' trong repo"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 72,
+        "line_start": 62
+      },
+      "related_iam_ref": "unresolved_references[5]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.items.create_item gọi 'session.refresh': không tìm thấy class 'app.api.deps.SessionDep' trong repo"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 96,
+        "line_start": 76
+      },
+      "related_iam_ref": "unresolved_references[6]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.items.update_item gọi 'session.get': không tìm thấy class 'app.api.deps.SessionDep' trong repo"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 96,
+        "line_start": 76
+      },
+      "related_iam_ref": "unresolved_references[7]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.items.update_item gọi 'item.sqlmodel_update': không biết 'item' là gì trong file này"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 96,
+        "line_start": 76
+      },
+      "related_iam_ref": "unresolved_references[8]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.items.update_item gọi 'session.add': không tìm thấy class 'app.api.deps.SessionDep' trong repo"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 96,
+        "line_start": 76
+      },
+      "related_iam_ref": "unresolved_references[9]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.items.update_item gọi 'session.commit': không tìm thấy class 'app.api.deps.SessionDep' trong repo"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 96,
+        "line_start": 76
+      },
+      "related_iam_ref": "unresolved_references[10]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.items.update_item gọi 'session.refresh': không tìm thấy class 'app.api.deps.SessionDep' trong repo"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 113,
+        "line_start": 100
+      },
+      "related_iam_ref": "unresolved_references[11]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.items.delete_item gọi 'session.get': không tìm thấy class 'app.api.deps.SessionDep' trong repo"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 113,
+        "line_start": 100
+      },
+      "related_iam_ref": "unresolved_references[12]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.items.delete_item gọi 'session.delete': không tìm thấy class 'app.api.deps.SessionDep' trong repo"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 113,
+        "line_start": 100
+      },
+      "related_iam_ref": "unresolved_references[13]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.items.delete_item gọi 'session.commit': không tìm thấy class 'app.api.deps.SessionDep' trong repo"
+    },
+    {
+      "category": "unresolved_reference",
+      "evidence_location": {
+        "file": "app/api/routes/private.py",
+        "line_end": 38,
+        "line_start": 24
+      },
+      "related_iam_ref": "unresolved_references[14]",
+      "summary": "Tham chiếu chưa xác định được đích: app.api.routes.private.create_user gọi 'session.add': không tìm thấy class 'app.api.deps.SessionDep' trong repo"
+    }
+  ]
+}

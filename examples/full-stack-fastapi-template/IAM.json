@@ -1,0 +1,4624 @@
+{
+  "detected_stack": {
+    "analyzed_count": 1,
+    "services": [
+      {
+        "analyzed": true,
+        "completeness": "full",
+        "confidence": "exact",
+        "detection_reason": "fastapi có trong pyproject.toml và trong source",
+        "file_count": 25,
+        "frameworks": [
+          "fastapi"
+        ],
+        "language": "python",
+        "manifest_file": "pyproject.toml",
+        "name": "backend",
+        "orm": "sqlalchemy",
+        "root_path": "",
+        "skip_reason": null
+      }
+    ],
+    "skipped_count": 0
+  },
+  "entities": [
+    {
+      "base_class": {
+        "completeness": "full",
+        "confidence": "exact",
+        "name": "ItemBase",
+        "reason": null,
+        "resolved": true,
+        "resolved_module": "app/models.py",
+        "resolved_symbol": null
+      },
+      "class_name": "Item",
+      "columns": [
+        {
+          "foreign_key_ref": null,
+          "is_primary_key": true,
+          "name": "id",
+          "type": "uuid.UUID"
+        },
+        {
+          "foreign_key_ref": null,
+          "is_primary_key": false,
+          "name": "created_at",
+          "type": "datetime | None"
+        },
+        {
+          "foreign_key_ref": "user.id",
+          "is_primary_key": false,
+          "name": "owner_id",
+          "type": "uuid.UUID"
+        }
+      ],
+      "completeness": "full",
+      "confidence": "inferred",
+      "location": {
+        "file": "app/models.py",
+        "line_end": 100,
+        "line_start": 91
+      },
+      "reason": "không khai báo __tablename__; SQLModel lấy mặc định là tên class viết thường",
+      "service": "backend",
+      "table_name": "item"
+    },
+    {
+      "base_class": {
+        "completeness": "full",
+        "confidence": "exact",
+        "name": "UserBase",
+        "reason": null,
+        "resolved": true,
+        "resolved_module": "app/models.py",
+        "resolved_symbol": null
+      },
+      "class_name": "User",
+      "columns": [
+        {
+          "foreign_key_ref": null,
+          "is_primary_key": true,
+          "name": "id",
+          "type": "uuid.UUID"
+        },
+        {
+          "foreign_key_ref": null,
+          "is_primary_key": false,
+          "name": "hashed_password",
+          "type": "str"
+        },
+        {
+          "foreign_key_ref": null,
+          "is_primary_key": false,
+          "name": "created_at",
+          "type": "datetime | None"
+        }
+      ],
+      "completeness": "full",
+      "confidence": "inferred",
+      "location": {
+        "file": "app/models.py",
+        "line_end": 59,
+        "line_start": 52
+      },
+      "reason": "không khai báo __tablename__; SQLModel lấy mặc định là tên class viết thường",
+      "service": "backend",
+      "table_name": "user"
+    }
+  ],
+  "external_calls": [],
+  "functions": [
+    {
+      "calls": [],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/alembic/env.py",
+        "line_end": 34,
+        "line_start": 33
+      },
+      "module": "app/alembic/env.py",
+      "name": "get_url",
+      "qualified_name": "app.alembic.env.get_url",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "get_url",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/alembic/env.py",
+          "resolved_symbol": "app.alembic.env.get_url"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "context.configure",
+          "reason": "'alembic.context' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "context.begin_transaction",
+          "reason": "'alembic.context' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "context.run_migrations",
+          "reason": "'alembic.context' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/alembic/env.py",
+        "line_end": 55,
+        "line_start": 37
+      },
+      "module": "app/alembic/env.py",
+      "name": "run_migrations_offline",
+      "qualified_name": "app.alembic.env.run_migrations_offline",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "config.get_section",
+          "reason": "không tìm thấy khai báo của 'app.alembic.env.config.get_section' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "get_url",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/alembic/env.py",
+          "resolved_symbol": "app.alembic.env.get_url"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "engine_from_config",
+          "reason": "'sqlalchemy.engine_from_config' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "connectable.connect",
+          "reason": "'sqlalchemy.engine_from_config' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "context.configure",
+          "reason": "'alembic.context' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "context.begin_transaction",
+          "reason": "'alembic.context' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "context.run_migrations",
+          "reason": "'alembic.context' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/alembic/env.py",
+        "line_end": 80,
+        "line_start": 58
+      },
+      "module": "app/alembic/env.py",
+      "name": "run_migrations_online",
+      "qualified_name": "app.alembic.env.run_migrations_online",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.drop_constraint",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.create_foreign_key",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.alter_column",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.UUID",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/alembic/versions/1a31ce608336_add_cascade_delete_relationships.py",
+        "line_end": 36,
+        "line_start": 30
+      },
+      "module": "app/alembic/versions/1a31ce608336_add_cascade_delete_relationships.py",
+      "name": "downgrade",
+      "qualified_name": "app.alembic.versions.1a31ce608336_add_cascade_delete_relationships.downgrade",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.alter_column",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.UUID",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.drop_constraint",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.create_foreign_key",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/alembic/versions/1a31ce608336_add_cascade_delete_relationships.py",
+        "line_end": 26,
+        "line_start": 20
+      },
+      "module": "app/alembic/versions/1a31ce608336_add_cascade_delete_relationships.py",
+      "name": "upgrade",
+      "qualified_name": "app.alembic.versions.1a31ce608336_add_cascade_delete_relationships.upgrade",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.alter_column",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.String",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/alembic/versions/9c0a54914c78_add_max_length_for_string_varchar_.py",
+        "line_end": 69,
+        "line_start": 46
+      },
+      "module": "app/alembic/versions/9c0a54914c78_add_max_length_for_string_varchar_.py",
+      "name": "downgrade",
+      "qualified_name": "app.alembic.versions.9c0a54914c78_add_max_length_for_string_varchar_.downgrade",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.alter_column",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.String",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/alembic/versions/9c0a54914c78_add_max_length_for_string_varchar_.py",
+        "line_end": 43,
+        "line_start": 20
+      },
+      "module": "app/alembic/versions/9c0a54914c78_add_max_length_for_string_varchar_.py",
+      "name": "upgrade",
+      "qualified_name": "app.alembic.versions.9c0a54914c78_add_max_length_for_string_varchar_.upgrade",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.add_column",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.Column",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.execute",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.drop_constraint",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.drop_column",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.alter_column",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.create_primary_key",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.create_foreign_key",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/alembic/versions/d98dd8ec85a3_edit_replace_id_integers_in_all_models_.py",
+        "line_end": 90,
+        "line_start": 57
+      },
+      "module": "app/alembic/versions/d98dd8ec85a3_edit_replace_id_integers_in_all_models_.py",
+      "name": "downgrade",
+      "qualified_name": "app.alembic.versions.d98dd8ec85a3_edit_replace_id_integers_in_all_models_.downgrade",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.execute",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.add_column",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.Column",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "postgresql.UUID",
+          "reason": "'sqlalchemy.dialects.postgresql' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.text",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.alter_column",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.drop_constraint",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.drop_column",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.create_primary_key",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.create_foreign_key",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/alembic/versions/d98dd8ec85a3_edit_replace_id_integers_in_all_models_.py",
+        "line_end": 55,
+        "line_start": 21
+      },
+      "module": "app/alembic/versions/d98dd8ec85a3_edit_replace_id_integers_in_all_models_.py",
+      "name": "upgrade",
+      "qualified_name": "app.alembic.versions.d98dd8ec85a3_edit_replace_id_integers_in_all_models_.upgrade",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.drop_table",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.drop_index",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.f",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/alembic/versions/e2412789c190_initialize_models.py",
+        "line_end": 53,
+        "line_start": 49
+      },
+      "module": "app/alembic/versions/e2412789c190_initialize_models.py",
+      "name": "downgrade",
+      "qualified_name": "app.alembic.versions.e2412789c190_initialize_models.downgrade",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.create_table",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.Column",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.PrimaryKeyConstraint",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sqlmodel.sql.sqltypes.AutoString",
+          "reason": "'sqlmodel' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.Boolean",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.Integer",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.create_index",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.f",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.ForeignKeyConstraint",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/alembic/versions/e2412789c190_initialize_models.py",
+        "line_end": 45,
+        "line_start": 19
+      },
+      "module": "app/alembic/versions/e2412789c190_initialize_models.py",
+      "name": "upgrade",
+      "qualified_name": "app.alembic.versions.e2412789c190_initialize_models.upgrade",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.drop_column",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/alembic/versions/fe56fa70289e_add_created_at_to_user_and_item.py",
+        "line_end": 30,
+        "line_start": 27
+      },
+      "module": "app/alembic/versions/fe56fa70289e_add_created_at_to_user_and_item.py",
+      "name": "downgrade",
+      "qualified_name": "app.alembic.versions.fe56fa70289e_add_created_at_to_user_and_item.downgrade",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "op.add_column",
+          "reason": "'alembic.op' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.Column",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "sa.DateTime",
+          "reason": "'sqlalchemy' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/alembic/versions/fe56fa70289e_add_created_at_to_user_and_item.py",
+        "line_end": 23,
+        "line_start": 20
+      },
+      "module": "app/alembic/versions/fe56fa70289e_add_created_at_to_user_and_item.py",
+      "name": "upgrade",
+      "qualified_name": "app.alembic.versions.fe56fa70289e_add_created_at_to_user_and_item.upgrade",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "Item.model_validate",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_validate' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.refresh",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Item",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Item"
+        }
+      ],
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 72,
+        "line_start": 62
+      },
+      "module": "app/api/routes/items.py",
+      "name": "create_item",
+      "qualified_name": "app.api.routes.items.create_item",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.get",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.delete",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Item",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Item"
+        }
+      ],
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 113,
+        "line_start": 100
+      },
+      "module": "app/api/routes/items.py",
+      "name": "delete_item",
+      "qualified_name": "app.api.routes.items.delete_item",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.get",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Item",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Item"
+        }
+      ],
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 58,
+        "line_start": 49
+      },
+      "module": "app/api/routes/items.py",
+      "name": "read_item",
+      "qualified_name": "app.api.routes.items.read_item",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "select",
+          "reason": "'sqlmodel.select' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.exec",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "func.count",
+          "reason": "'sqlmodel.func' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "col",
+          "reason": "'sqlmodel.col' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "ItemPublic.model_validate",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_validate' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "ItemsPublic",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.ItemsPublic"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Item",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Item"
+        }
+      ],
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 45,
+        "line_start": 14
+      },
+      "module": "app/api/routes/items.py",
+      "name": "read_items",
+      "qualified_name": "app.api.routes.items.read_items",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.get",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "item_in.model_dump",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_dump' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "item.sqlmodel_update",
+          "reason": "không biết 'item' là gì trong file này",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.refresh",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Item",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Item"
+        }
+      ],
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 96,
+        "line_start": 76
+      },
+      "module": "app/api/routes/items.py",
+      "name": "update_item",
+      "qualified_name": "app.api.routes.items.update_item",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.authenticate",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.authenticate"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "timedelta",
+          "reason": "'datetime.timedelta' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Token",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Token"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "security.create_access_token",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/core/security.py",
+          "resolved_symbol": "app.core.security.create_access_token"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/api/routes/login.py",
+        "line_end": 42,
+        "line_start": 24
+      },
+      "module": "app/api/routes/login.py",
+      "name": "login_access_token",
+      "qualified_name": "app.api.routes.login.login_access_token",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "generate_password_reset_token",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.generate_password_reset_token"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "generate_reset_password_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.generate_reset_password_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "send_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.send_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/api/routes/login.py",
+        "line_end": 74,
+        "line_start": 54
+      },
+      "module": "app/api/routes/login.py",
+      "name": "recover_password",
+      "qualified_name": "app.api.routes.login.recover_password",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "generate_password_reset_token",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.generate_password_reset_token"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "generate_reset_password_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.generate_reset_password_email"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTMLResponse",
+          "reason": "'fastapi.responses.HTMLResponse' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/api/routes/login.py",
+        "line_end": 123,
+        "line_start": 105
+      },
+      "module": "app/api/routes/login.py",
+      "name": "recover_password_html_content",
+      "qualified_name": "app.api.routes.login.recover_password_html_content",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "verify_password_reset_token",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.verify_password_reset_token"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "UserUpdate",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.UserUpdate"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.update_user",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.update_user"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/api/routes/login.py",
+        "line_end": 97,
+        "line_start": 78
+      },
+      "module": "app/api/routes/login.py",
+      "name": "reset_password",
+      "qualified_name": "app.api.routes.login.reset_password",
+      "service": "backend"
+    },
+    {
+      "calls": [],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/api/routes/login.py",
+        "line_end": 50,
+        "line_start": 46
+      },
+      "module": "app/api/routes/login.py",
+      "name": "test_token",
+      "qualified_name": "app.api.routes.login.test_token",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "User",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.User"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "get_password_hash",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/core/security.py",
+          "resolved_symbol": "app.core.security.get_password_hash"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "User",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.User"
+        }
+      ],
+      "location": {
+        "file": "app/api/routes/private.py",
+        "line_end": 38,
+        "line_start": 24
+      },
+      "module": "app/api/routes/private.py",
+      "name": "create_user",
+      "qualified_name": "app.api.routes.private.create_user",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.create_user",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.create_user"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "generate_new_account_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.generate_new_account_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "send_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.send_email"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 78,
+        "line_start": 57
+      },
+      "module": "app/api/routes/users.py",
+      "name": "create_user",
+      "qualified_name": "app.api.routes.users.create_user",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.get",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "delete",
+          "reason": "'sqlmodel.delete' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "col",
+          "reason": "'sqlmodel.col' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.exec",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.delete",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "User",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.User"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Item",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Item"
+        }
+      ],
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 232,
+        "line_start": 215
+      },
+      "module": "app/api/routes/users.py",
+      "name": "delete_user",
+      "qualified_name": "app.api.routes.users.delete_user",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.delete",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 143,
+        "line_start": 133
+      },
+      "module": "app/api/routes/users.py",
+      "name": "delete_user_me",
+      "qualified_name": "app.api.routes.users.delete_user_me",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.get",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "User",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.User"
+        }
+      ],
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 179,
+        "line_start": 163
+      },
+      "module": "app/api/routes/users.py",
+      "name": "read_user_by_id",
+      "qualified_name": "app.api.routes.users.read_user_by_id",
+      "service": "backend"
+    },
+    {
+      "calls": [],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 129,
+        "line_start": 125
+      },
+      "module": "app/api/routes/users.py",
+      "name": "read_user_me",
+      "qualified_name": "app.api.routes.users.read_user_me",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "select",
+          "reason": "'sqlmodel.select' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "func.count",
+          "reason": "'sqlmodel.func' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.exec",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "col",
+          "reason": "'sqlmodel.col' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "UserPublic.model_validate",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_validate' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "UsersPublic",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.UsersPublic"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "User",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.User"
+        }
+      ],
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 51,
+        "line_start": 37
+      },
+      "module": "app/api/routes/users.py",
+      "name": "read_users",
+      "qualified_name": "app.api.routes.users.read_users",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "UserCreate.model_validate",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_validate' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.create_user",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.create_user"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 159,
+        "line_start": 147
+      },
+      "module": "app/api/routes/users.py",
+      "name": "register_user",
+      "qualified_name": "app.api.routes.users.register_user",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "verify_password",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/core/security.py",
+          "resolved_symbol": "app.core.security.verify_password"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "get_password_hash",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/core/security.py",
+          "resolved_symbol": "app.core.security.get_password_hash"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 121,
+        "line_start": 104
+      },
+      "module": "app/api/routes/users.py",
+      "name": "update_password_me",
+      "qualified_name": "app.api.routes.users.update_password_me",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.get",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.update_user",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.update_user"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "User",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.User"
+        }
+      ],
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 211,
+        "line_start": 187
+      },
+      "module": "app/api/routes/users.py",
+      "name": "update_user",
+      "qualified_name": "app.api.routes.users.update_user",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "user_in.model_dump",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_dump' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "current_user.sqlmodel_update",
+          "reason": "không tìm thấy class 'app.api.deps.CurrentUser' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.refresh",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 100,
+        "line_start": 82
+      },
+      "module": "app/api/routes/users.py",
+      "name": "update_user_me",
+      "qualified_name": "app.api.routes.users.update_user_me",
+      "service": "backend"
+    },
+    {
+      "calls": [],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/api/routes/utils.py",
+        "line_end": 31,
+        "line_start": 30
+      },
+      "module": "app/api/routes/utils.py",
+      "name": "health_check",
+      "qualified_name": "app.api.routes.utils.health_check",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "generate_test_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.generate_test_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "send_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.send_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/api/routes/utils.py",
+        "line_end": 26,
+        "line_start": 16
+      },
+      "module": "app/api/routes/utils.py",
+      "name": "test_email",
+      "qualified_name": "app.api.routes.utils.test_email",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "warnings.warn",
+          "reason": "'warnings' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": "Settings",
+      "entity_refs": [],
+      "location": {
+        "file": "app/core/config.py",
+        "line_end": 77,
+        "line_start": 68
+      },
+      "module": "app/core/config.py",
+      "name": "_check_default_secret",
+      "qualified_name": "app.core.config.Settings._check_default_secret",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "self._check_default_secret",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/core/config.py",
+          "resolved_symbol": "app.core.config.Settings._check_default_secret"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "self.DATABASE_URL.hosts",
+          "reason": "không biết 'self' là gì trong file này",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": "Settings",
+      "entity_refs": [],
+      "location": {
+        "file": "app/core/config.py",
+        "line_end": 88,
+        "line_start": 80
+      },
+      "module": "app/core/config.py",
+      "name": "_enforce_non_default_secrets",
+      "qualified_name": "app.core.config.Settings._enforce_non_default_secrets",
+      "service": "backend"
+    },
+    {
+      "calls": [],
+      "class_name": "Settings",
+      "entity_refs": [],
+      "location": {
+        "file": "app/core/config.py",
+        "line_end": 55,
+        "line_start": 52
+      },
+      "module": "app/core/config.py",
+      "name": "_set_default_emails_from",
+      "qualified_name": "app.core.config.Settings._set_default_emails_from",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "database_url.startswith",
+          "reason": "không biết 'database_url' là gì trong file này",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "database_url.replace",
+          "reason": "không biết 'database_url' là gì trong file này",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": "Settings",
+      "entity_refs": [],
+      "location": {
+        "file": "app/core/config.py",
+        "line_end": 40,
+        "line_start": 35
+      },
+      "module": "app/core/config.py",
+      "name": "_use_psycopg_driver",
+      "qualified_name": "app.core.config.Settings._use_psycopg_driver",
+      "service": "backend"
+    },
+    {
+      "calls": [],
+      "class_name": "Settings",
+      "entity_refs": [],
+      "location": {
+        "file": "app/core/config.py",
+        "line_end": 62,
+        "line_start": 61
+      },
+      "module": "app/core/config.py",
+      "name": "emails_enabled",
+      "qualified_name": "app.core.config.Settings.emails_enabled",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.exec",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "select",
+          "reason": "'sqlmodel.select' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "UserCreate",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.UserCreate"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.create_user",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.create_user"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "User",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.User"
+        }
+      ],
+      "location": {
+        "file": "app/core/db.py",
+        "line_end": 33,
+        "line_start": 15
+      },
+      "module": "app/core/db.py",
+      "name": "init_db",
+      "qualified_name": "app.core.db.init_db",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "datetime.now",
+          "reason": "'datetime.datetime' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "jwt.encode",
+          "reason": "'jwt' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/core/security.py",
+        "line_end": 26,
+        "line_start": 22
+      },
+      "module": "app/core/security.py",
+      "name": "create_access_token",
+      "qualified_name": "app.core.security.create_access_token",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "password_hash.hash",
+          "reason": "'app.core.security.password_hash' là kết quả gọi thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/core/security.py",
+        "line_end": 36,
+        "line_start": 35
+      },
+      "module": "app/core/security.py",
+      "name": "get_password_hash",
+      "qualified_name": "app.core.security.get_password_hash",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "password_hash.verify_and_update",
+          "reason": "'app.core.security.password_hash' là kết quả gọi thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/core/security.py",
+        "line_end": 32,
+        "line_start": 29
+      },
+      "module": "app/core/security.py",
+      "name": "verify_password",
+      "qualified_name": "app.core.security.verify_password",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "verify_password",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/core/security.py",
+          "resolved_symbol": "app.core.security.verify_password"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.refresh",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/crud.py",
+        "line_end": 60,
+        "line_start": 45
+      },
+      "module": "app/crud.py",
+      "name": "authenticate",
+      "qualified_name": "app.crud.authenticate",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "Item.model_validate",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_validate' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.refresh",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Item",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Item"
+        }
+      ],
+      "location": {
+        "file": "app/crud.py",
+        "line_end": 68,
+        "line_start": 63
+      },
+      "module": "app/crud.py",
+      "name": "create_item",
+      "qualified_name": "app.crud.create_item",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "User.model_validate",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_validate' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "get_password_hash",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/core/security.py",
+          "resolved_symbol": "app.core.security.get_password_hash"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.refresh",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "User",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.User"
+        }
+      ],
+      "location": {
+        "file": "app/crud.py",
+        "line_end": 17,
+        "line_start": 10
+      },
+      "module": "app/crud.py",
+      "name": "create_user",
+      "qualified_name": "app.crud.create_user",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "select",
+          "reason": "'sqlmodel.select' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.exec",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "User",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.User"
+        }
+      ],
+      "location": {
+        "file": "app/crud.py",
+        "line_end": 37,
+        "line_start": 34
+      },
+      "module": "app/crud.py",
+      "name": "get_user_by_email",
+      "qualified_name": "app.crud.get_user_by_email",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "user_in.model_dump",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_dump' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "get_password_hash",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/core/security.py",
+          "resolved_symbol": "app.core.security.get_password_hash"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "db_user.sqlmodel_update",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'sqlmodel_update' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.refresh",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/crud.py",
+        "line_end": 31,
+        "line_start": 20
+      },
+      "module": "app/crud.py",
+      "name": "update_user",
+      "qualified_name": "app.crud.update_user",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "Session",
+          "reason": "'sqlmodel.Session' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "init_db",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/core/db.py",
+          "resolved_symbol": "app.core.db.init_db"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/initial_data.py",
+        "line_end": 13,
+        "line_start": 11
+      },
+      "module": "app/initial_data.py",
+      "name": "init",
+      "qualified_name": "app.initial_data.init",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "logger.info",
+          "reason": "'app.initial_data.logger' là kết quả gọi thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "init",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/initial_data.py",
+          "resolved_symbol": "app.initial_data.init"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/initial_data.py",
+        "line_end": 19,
+        "line_start": 16
+      },
+      "module": "app/initial_data.py",
+      "name": "main",
+      "qualified_name": "app.initial_data.main",
+      "service": "backend"
+    },
+    {
+      "calls": [],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/main.py",
+        "line_end": 15,
+        "line_start": 14
+      },
+      "module": "app/main.py",
+      "name": "custom_generate_unique_id",
+      "qualified_name": "app.main.custom_generate_unique_id",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "datetime.now",
+          "reason": "'datetime.datetime' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/models.py",
+        "line_end": 10,
+        "line_start": 9
+      },
+      "module": "app/models.py",
+      "name": "get_datetime_utc",
+      "qualified_name": "app.models.get_datetime_utc",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "render_email_template",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.render_email_template"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "EmailData",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.EmailData"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/utils.py",
+        "line_end": 102,
+        "line_start": 87
+      },
+      "module": "app/utils.py",
+      "name": "generate_new_account_email",
+      "qualified_name": "app.utils.generate_new_account_email",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "timedelta",
+          "reason": "'datetime.timedelta' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "datetime.now",
+          "reason": "'datetime.datetime' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "expires.timestamp",
+          "reason": "không biết 'expires' là gì trong file này",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "jwt.encode",
+          "reason": "'jwt' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/utils.py",
+        "line_end": 115,
+        "line_start": 105
+      },
+      "module": "app/utils.py",
+      "name": "generate_password_reset_token",
+      "qualified_name": "app.utils.generate_password_reset_token",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "render_email_template",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.render_email_template"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "EmailData",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.EmailData"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/utils.py",
+        "line_end": 84,
+        "line_start": 70
+      },
+      "module": "app/utils.py",
+      "name": "generate_reset_password_email",
+      "qualified_name": "app.utils.generate_reset_password_email",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "render_email_template",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.render_email_template"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "EmailData",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.EmailData"
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/utils.py",
+        "line_end": 67,
+        "line_start": 60
+      },
+      "module": "app/utils.py",
+      "name": "generate_test_email",
+      "qualified_name": "app.utils.generate_test_email",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "Path",
+          "reason": "'pathlib.Path' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "Template",
+          "reason": "'jinja2.Template' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "template.render",
+          "reason": "'jinja2.Template' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/utils.py",
+        "line_end": 31,
+        "line_start": 25
+      },
+      "module": "app/utils.py",
+      "name": "render_email_template",
+      "qualified_name": "app.utils.render_email_template",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "emails.message.Message",
+          "reason": "'emails' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "message.send",
+          "reason": "'emails.message.Message' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "logger.info",
+          "reason": "'app.utils.logger' là kết quả gọi thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/utils.py",
+        "line_end": 57,
+        "line_start": 34
+      },
+      "module": "app/utils.py",
+      "name": "send_email",
+      "qualified_name": "app.utils.send_email",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "jwt.decode",
+          "reason": "'jwt' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "class_name": null,
+      "entity_refs": [],
+      "location": {
+        "file": "app/utils.py",
+        "line_end": 125,
+        "line_start": 118
+      },
+      "module": "app/utils.py",
+      "name": "verify_password_reset_token",
+      "qualified_name": "app.utils.verify_password_reset_token",
+      "service": "backend"
+    }
+  ],
+  "metrics": {
+    "ai_enabled": false,
+    "files_analyzed": 24,
+    "files_found": 25,
+    "files_skipped": 1,
+    "is_partial": true,
+    "lines_of_code": 1487,
+    "tool_version": "0.1.0"
+  },
+  "parse_errors": [
+    {
+      "error_message": "lỗi cú pháp dòng 36: multiple exception types must be parenthesized",
+      "file": "app/api/deps.py"
+    }
+  ],
+  "routes": [
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "select",
+          "reason": "'sqlmodel.select' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.exec",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "func.count",
+          "reason": "'sqlmodel.func' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "col",
+          "reason": "'sqlmodel.col' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "ItemPublic.model_validate",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_validate' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "ItemsPublic",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.ItemsPublic"
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "read_items",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 45,
+        "line_start": 14
+      },
+      "method": "GET",
+      "path": "/{settings.API_V1_STR}/items/",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "Item.model_validate",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_validate' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.refresh",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "create_item",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 72,
+        "line_start": 62
+      },
+      "method": "POST",
+      "path": "/{settings.API_V1_STR}/items/",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.get",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.delete",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "delete_item",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 113,
+        "line_start": 100
+      },
+      "method": "DELETE",
+      "path": "/{settings.API_V1_STR}/items/{id}",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.get",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "read_item",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 58,
+        "line_start": 49
+      },
+      "method": "GET",
+      "path": "/{settings.API_V1_STR}/items/{id}",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.get",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "item_in.model_dump",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_dump' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "item.sqlmodel_update",
+          "reason": "không biết 'item' là gì trong file này",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.refresh",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "update_item",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 96,
+        "line_start": 76
+      },
+      "method": "PUT",
+      "path": "/{settings.API_V1_STR}/items/{id}",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.authenticate",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.authenticate"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "timedelta",
+          "reason": "'datetime.timedelta' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Token",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Token"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "security.create_access_token",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/core/security.py",
+          "resolved_symbol": "app.core.security.create_access_token"
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "login_access_token",
+      "location": {
+        "file": "app/api/routes/login.py",
+        "line_end": 42,
+        "line_start": 24
+      },
+      "method": "POST",
+      "path": "/{settings.API_V1_STR}/login/access-token",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "test_token",
+      "location": {
+        "file": "app/api/routes/login.py",
+        "line_end": 50,
+        "line_start": 46
+      },
+      "method": "POST",
+      "path": "/{settings.API_V1_STR}/login/test-token",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "generate_password_reset_token",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.generate_password_reset_token"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "generate_reset_password_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.generate_reset_password_email"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTMLResponse",
+          "reason": "'fastapi.responses.HTMLResponse' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "recover_password_html_content",
+      "location": {
+        "file": "app/api/routes/login.py",
+        "line_end": 123,
+        "line_start": 105
+      },
+      "method": "POST",
+      "path": "/{settings.API_V1_STR}/password-recovery-html-content/{email}",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "generate_password_reset_token",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.generate_password_reset_token"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "generate_reset_password_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.generate_reset_password_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "send_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.send_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "recover_password",
+      "location": {
+        "file": "app/api/routes/login.py",
+        "line_end": 74,
+        "line_start": 54
+      },
+      "method": "POST",
+      "path": "/{settings.API_V1_STR}/password-recovery/{email}",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "User",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.User"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "get_password_hash",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/core/security.py",
+          "resolved_symbol": "app.core.security.get_password_hash"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "create_user",
+      "location": {
+        "file": "app/api/routes/private.py",
+        "line_end": 38,
+        "line_start": 24
+      },
+      "method": "POST",
+      "path": "/{settings.API_V1_STR}/private/users/",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}; chỉ được đăng ký khi settings.FASTAPI_ENV == 'development' — route này không tồn tại ở mọi môi trường",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "verify_password_reset_token",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.verify_password_reset_token"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "UserUpdate",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.UserUpdate"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.update_user",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.update_user"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "reset_password",
+      "location": {
+        "file": "app/api/routes/login.py",
+        "line_end": 97,
+        "line_start": 78
+      },
+      "method": "POST",
+      "path": "/{settings.API_V1_STR}/reset-password/",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "select",
+          "reason": "'sqlmodel.select' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "func.count",
+          "reason": "'sqlmodel.func' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.exec",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "col",
+          "reason": "'sqlmodel.col' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "UserPublic.model_validate",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_validate' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "UsersPublic",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.UsersPublic"
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "read_users",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 51,
+        "line_start": 37
+      },
+      "method": "GET",
+      "path": "/{settings.API_V1_STR}/users/",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.create_user",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.create_user"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "generate_new_account_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.generate_new_account_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "send_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.send_email"
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "create_user",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 78,
+        "line_start": 57
+      },
+      "method": "POST",
+      "path": "/{settings.API_V1_STR}/users/",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.delete",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "delete_user_me",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 143,
+        "line_start": 133
+      },
+      "method": "DELETE",
+      "path": "/{settings.API_V1_STR}/users/me",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "read_user_me",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 129,
+        "line_start": 125
+      },
+      "method": "GET",
+      "path": "/{settings.API_V1_STR}/users/me",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "user_in.model_dump",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_dump' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "current_user.sqlmodel_update",
+          "reason": "không tìm thấy class 'app.api.deps.CurrentUser' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.refresh",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "update_user_me",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 100,
+        "line_start": 82
+      },
+      "method": "PATCH",
+      "path": "/{settings.API_V1_STR}/users/me",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "verify_password",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/core/security.py",
+          "resolved_symbol": "app.core.security.verify_password"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "get_password_hash",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/core/security.py",
+          "resolved_symbol": "app.core.security.get_password_hash"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.add",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "update_password_me",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 121,
+        "line_start": 104
+      },
+      "method": "PATCH",
+      "path": "/{settings.API_V1_STR}/users/me/password",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "UserCreate.model_validate",
+          "reason": "class cha 'SQLModel' nằm ngoài repo, không đọc được định nghĩa của 'model_validate' — thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.create_user",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.create_user"
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "register_user",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 159,
+        "line_start": 147
+      },
+      "method": "POST",
+      "path": "/{settings.API_V1_STR}/users/signup",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.get",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "delete",
+          "reason": "'sqlmodel.delete' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "col",
+          "reason": "'sqlmodel.col' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.exec",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.delete",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.commit",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "delete_user",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 232,
+        "line_start": 215
+      },
+      "method": "DELETE",
+      "path": "/{settings.API_V1_STR}/users/{user_id}",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.get",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "read_user_by_id",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 179,
+        "line_start": 163
+      },
+      "method": "GET",
+      "path": "/{settings.API_V1_STR}/users/{user_id}",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "session.get",
+          "reason": "không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "partial",
+          "confidence": null,
+          "name": "HTTPException",
+          "reason": "'fastapi.HTTPException' thuộc thư viện ngoài, ngoài phạm vi repo",
+          "resolved": false,
+          "resolved_module": null,
+          "resolved_symbol": null
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.get_user_by_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.get_user_by_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "crud.update_user",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/crud.py",
+          "resolved_symbol": "app.crud.update_user"
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "update_user",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 211,
+        "line_start": 187
+      },
+      "method": "PATCH",
+      "path": "/{settings.API_V1_STR}/users/{user_id}",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "health_check",
+      "location": {
+        "file": "app/api/routes/utils.py",
+        "line_end": 31,
+        "line_start": 30
+      },
+      "method": "GET",
+      "path": "/{settings.API_V1_STR}/utils/health-check/",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    },
+    {
+      "calls": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "generate_test_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.generate_test_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "send_email",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/utils.py",
+          "resolved_symbol": "app.utils.send_email"
+        },
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "name": "Message",
+          "reason": null,
+          "resolved": true,
+          "resolved_module": "app/models.py",
+          "resolved_symbol": "app.models.Message"
+        }
+      ],
+      "completeness": "partial",
+      "confidence": "exact",
+      "handler_function": "test_email",
+      "location": {
+        "file": "app/api/routes/utils.py",
+        "line_end": 26,
+        "line_start": 16
+      },
+      "method": "POST",
+      "path": "/{settings.API_V1_STR}/utils/test-email/",
+      "reason": "đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR}",
+      "service": "backend"
+    }
+  ],
+  "unresolved_references": [
+    {
+      "description": "app.alembic.env.run_migrations_online gọi 'config.get_section': không tìm thấy khai báo của 'app.alembic.env.config.get_section' trong repo",
+      "location": {
+        "file": "app/alembic/env.py",
+        "line_end": 80,
+        "line_start": 58
+      }
+    },
+    {
+      "description": "app.api.routes.items.read_items gọi 'session.exec': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 45,
+        "line_start": 14
+      }
+    },
+    {
+      "description": "app.api.routes.items.read_item gọi 'session.get': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 58,
+        "line_start": 49
+      }
+    },
+    {
+      "description": "app.api.routes.items.create_item gọi 'session.add': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 72,
+        "line_start": 62
+      }
+    },
+    {
+      "description": "app.api.routes.items.create_item gọi 'session.commit': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 72,
+        "line_start": 62
+      }
+    },
+    {
+      "description": "app.api.routes.items.create_item gọi 'session.refresh': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 72,
+        "line_start": 62
+      }
+    },
+    {
+      "description": "app.api.routes.items.update_item gọi 'session.get': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 96,
+        "line_start": 76
+      }
+    },
+    {
+      "description": "app.api.routes.items.update_item gọi 'item.sqlmodel_update': không biết 'item' là gì trong file này",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 96,
+        "line_start": 76
+      }
+    },
+    {
+      "description": "app.api.routes.items.update_item gọi 'session.add': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 96,
+        "line_start": 76
+      }
+    },
+    {
+      "description": "app.api.routes.items.update_item gọi 'session.commit': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 96,
+        "line_start": 76
+      }
+    },
+    {
+      "description": "app.api.routes.items.update_item gọi 'session.refresh': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 96,
+        "line_start": 76
+      }
+    },
+    {
+      "description": "app.api.routes.items.delete_item gọi 'session.get': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 113,
+        "line_start": 100
+      }
+    },
+    {
+      "description": "app.api.routes.items.delete_item gọi 'session.delete': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 113,
+        "line_start": 100
+      }
+    },
+    {
+      "description": "app.api.routes.items.delete_item gọi 'session.commit': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/items.py",
+        "line_end": 113,
+        "line_start": 100
+      }
+    },
+    {
+      "description": "app.api.routes.private.create_user gọi 'session.add': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/private.py",
+        "line_end": 38,
+        "line_start": 24
+      }
+    },
+    {
+      "description": "app.api.routes.private.create_user gọi 'session.commit': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/private.py",
+        "line_end": 38,
+        "line_start": 24
+      }
+    },
+    {
+      "description": "app.api.routes.users.read_users gọi 'session.exec': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 51,
+        "line_start": 37
+      }
+    },
+    {
+      "description": "app.api.routes.users.update_user_me gọi 'current_user.sqlmodel_update': không tìm thấy class 'app.api.deps.CurrentUser' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 100,
+        "line_start": 82
+      }
+    },
+    {
+      "description": "app.api.routes.users.update_user_me gọi 'session.add': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 100,
+        "line_start": 82
+      }
+    },
+    {
+      "description": "app.api.routes.users.update_user_me gọi 'session.commit': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 100,
+        "line_start": 82
+      }
+    },
+    {
+      "description": "app.api.routes.users.update_user_me gọi 'session.refresh': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 100,
+        "line_start": 82
+      }
+    },
+    {
+      "description": "app.api.routes.users.update_password_me gọi 'session.add': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 121,
+        "line_start": 104
+      }
+    },
+    {
+      "description": "app.api.routes.users.update_password_me gọi 'session.commit': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 121,
+        "line_start": 104
+      }
+    },
+    {
+      "description": "app.api.routes.users.delete_user_me gọi 'session.delete': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 143,
+        "line_start": 133
+      }
+    },
+    {
+      "description": "app.api.routes.users.delete_user_me gọi 'session.commit': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 143,
+        "line_start": 133
+      }
+    },
+    {
+      "description": "app.api.routes.users.read_user_by_id gọi 'session.get': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 179,
+        "line_start": 163
+      }
+    },
+    {
+      "description": "app.api.routes.users.update_user gọi 'session.get': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 211,
+        "line_start": 187
+      }
+    },
+    {
+      "description": "app.api.routes.users.delete_user gọi 'session.get': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 232,
+        "line_start": 215
+      }
+    },
+    {
+      "description": "app.api.routes.users.delete_user gọi 'session.exec': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 232,
+        "line_start": 215
+      }
+    },
+    {
+      "description": "app.api.routes.users.delete_user gọi 'session.delete': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 232,
+        "line_start": 215
+      }
+    },
+    {
+      "description": "app.api.routes.users.delete_user gọi 'session.commit': không tìm thấy class 'app.api.deps.SessionDep' trong repo",
+      "location": {
+        "file": "app/api/routes/users.py",
+        "line_end": 232,
+        "line_start": 215
+      }
+    },
+    {
+      "description": "app.core.config.Settings._use_psycopg_driver gọi 'database_url.startswith': không biết 'database_url' là gì trong file này",
+      "location": {
+        "file": "app/core/config.py",
+        "line_end": 40,
+        "line_start": 35
+      }
+    },
+    {
+      "description": "app.core.config.Settings._use_psycopg_driver gọi 'database_url.replace': không biết 'database_url' là gì trong file này",
+      "location": {
+        "file": "app/core/config.py",
+        "line_end": 40,
+        "line_start": 35
+      }
+    },
+    {
+      "description": "app.core.config.Settings._enforce_non_default_secrets gọi 'self.DATABASE_URL.hosts': không biết 'self' là gì trong file này",
+      "location": {
+        "file": "app/core/config.py",
+        "line_end": 88,
+        "line_start": 80
+      }
+    },
+    {
+      "description": "app.utils.generate_password_reset_token gọi 'expires.timestamp': không biết 'expires' là gì trong file này",
+      "location": {
+        "file": "app/utils.py",
+        "line_end": 115,
+        "line_start": 105
+      }
+    }
+  ]
+}

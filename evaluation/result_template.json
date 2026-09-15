@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "repo": "fastapi/full-stack-fastapi-template",
+    "commit": "cb740b656d7a0a6c5e12c7bf8e50343ec94ee9c7",
+    "local_path": "sample-repos/full-stack-fastapi-template/backend",
+    "ngay_lap": "2026-09-15",
+    "nguoi_lap": "Agent (Claude Opus 5) đọc tay source. KHÔNG phải hai kỹ sư đọc độc lập như SPEC mục 8.5.1 yêu cầu.",
+    "quy_trinh": "Lập ground truth trước khi chạy công cụ trên repo này.",
+    "ly_do_chon": "Repo dispatch không có route đăng ký trong if, không có prefix là biến, và không có file lỗi cú pháp. Repo này có cả ba.",
+    "scope_dirs": [
+      "app/"
+    ],
+    "so_file_trong_pham_vi": 25,
+    "pham_vi_external_call": "app/ — repo này không có lời gọi HTTP ra ngoài nào",
+    "app_prefix_expr": "/{settings.API_V1_STR}",
+    "app_prefix_note": "app/main.py:35 có app.include_router(api_router, prefix=settings.API_V1_STR). Giá trị thật là /api/v1 (app/core/config.py:22) nhưng chỉ biết khi chạy. Công cụ ĐÚNG khi ghi /{settings.API_V1_STR} và hạ partial; công cụ SAI nếu đoán ra /api/v1.",
+    "parse_error_expected": {
+      "file": "app/api/deps.py",
+      "line": 36,
+      "why": "except InvalidTokenError, ValidationError: — cú pháp Python 2"
+    }
+  },
+  "parse_errors": [
+    {
+      "error_message": "lỗi cú pháp dòng 36: multiple exception types must be parenthesized",
+      "file": "app/api/deps.py"
+    }
+  ],
+  "route": {
+    "ground_truth": 23,
+    "tool_reported": 23,
+    "tp": 23,
+    "fn": 0,
+    "fp": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "missed": [],
+    "extra": [],
+    "wrong_location": [],
+    "precision_by_confidence": {
+      "exact": {
+        "tp": 23,
+        "fp": 0,
+        "precision": 1.0
+      }
+    },
+    "completeness": {
+      "partial": 23
+    },
+    "routes_with_mount_prefix": null,
+    "app_prefix": {
+      "carried_expr": 23,
+      "guessed_value": 0
+    }
+  },
+  "entity": {
+    "ground_truth": 2,
+    "tool_reported": 2,
+    "tp": 2,
+    "fn": 0,
+    "fp": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "missed": [],
+    "extra": [],
+    "table_name_correct": 2,
+    "table_name_wrong": [],
+    "table_name_unknown": []
+  },
+  "external_call": {
+    "ground_truth": 0,
+    "tool_reported": 0,
+    "tp": 0,
+    "fn": 0,
+    "fp": 0,
+    "fp_bia": 0,
+    "fp_borderline": 0,
+    "precision": null,
+    "precision_real_call": null,
+    "recall": null,
+    "missed": [],
+    "extra": [],
+    "try_except_flag_wrong": [],
+    "http_method_wrong": [],
+    "confidence": {},
+    "completeness": {}
+  },
+  "thresholds": {
+    "all_pass": false,
+    "checks": [
+      {
+        "name": "Route — recall",
+        "measured": 1.0,
+        "threshold": 0.85,
+        "pass": true
+      },
+      {
+        "name": "Route — precision nhóm exact",
+        "measured": 1.0,
+        "threshold": 0.95,
+        "pass": true
+      },
+      {
+        "name": "Bảng dữ liệu — recall",
+        "measured": 1.0,
+        "threshold": 0.9,
+        "pass": true
+      },
+      {
+        "name": "Gọi ra ngoài — recall",
+        "measured": null,
+        "threshold": 0.8,
+        "pass": false
+      }
+    ]
+  }
+}
