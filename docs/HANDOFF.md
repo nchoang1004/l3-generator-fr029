@@ -22,9 +22,13 @@ Người dùng đã chốt hướng kéo sản phẩm về đúng Code → L3:
 
 Đã tạo PRD gốc dạng draft tại
 [`PRD-L3GEN.md`](../.aide/product/prd/PRD-L3GEN.md) theo đủ khung I–IX của mentor.
-PRD chưa qua Scope Gate; FR/NFR/OBS được liệt kê bằng key dự kiến nhưng chưa có artifact.
-`SCENARIOS.md`, SPEC và README chưa được đồng bộ với đầu vào UI mới (thư mục/ZIP/GitHub)
-trong lượt này, nên không được coi câu mô tả CLI-only ở các file đó là quyết định mới nhất.
+PRD ở revision 6. Đã tạo 5 FR với 52 AC tại `.aide/requirements/fr/` và 5 NFR tại
+`.aide/requirements/nfr/`. PRD chưa qua Scope Gate; OBS chưa được tạo nên coverage
+KPI→OBS còn thiếu.
+Sơ đồ use case, `USE_CASES.md`, `SCENARIOS.md`, SPEC và README đã cùng mô tả sản phẩm
+có giao diện với ba hình thức đầu vào và lịch sử phân tích. Đây là phạm vi mục tiêu:
+code hiện chỉ nhận thư mục cục bộ qua dòng lệnh, giao diện chỉ đọc output đã sinh, và
+phần ZIP/GitHub/lịch sử chưa được viết code.
 
 Tạm bỏ qua EVALUATION và examples; không dùng số đo V1 để chứng minh V2. Chưa sửa code
 sản phẩm và chưa thực hiện thao tác Git trong lượt đồng bộ tài liệu này.
@@ -223,3 +227,53 @@ Quy tắc này là yêu cầu thường xuyên của người dùng, không cầ
 - File sửa: `.aide/product/prd/PRD-L3GEN.md`, `docs/HANDOFF.md`.
 - Thay đổi: bump PRD draft lên revision 5, bổ sung retention và edge cases; OQ-008 còn mở phần xóa thủ công.
 - Git: người dùng yêu cầu publish branch `feat/language-first-semantic-v2`; sẽ push lên `origin` sau commit tài liệu này.
+
+### 16/09/2026 — Đồng bộ use case theo sơ đồ và viết lại scenario
+
+- Yêu cầu: lấy `usecase-overview.svg` làm chuẩn để sửa `USE_CASES.md`, sau đó sửa `SCENARIOS.md` theo use case.
+- File sửa: `docs/USE_CASES.md`, `docs/SCENARIOS.md`, `docs/HANDOFF.md`.
+- Đối chiếu trước khi sửa: tính lại tọa độ từng cạnh trong SVG và khớp với ellipse gần nhất. Cả 6 association/include/extend đều nối đúng đích; hình học sơ đồ không có lỗi. Lệch nằm ở phần chữ giữa hai tài liệu.
+- Sửa use case theo sơ đồ: `Kiểm tra bằng chứng nguồn` chuyển từ cách xem thứ sáu thành hành vi `extend` của `Truy vết phụ thuộc`; `GitHub` gắn vào biến thể `Nhập URL GitHub` thay vì làm actor hỗ trợ của UC1; thêm bảng quan hệ UML đầy đủ cho cả use case và actor; đưa bốn nguyên tắc tổ chức giao diện từ note trong SVG vào tài liệu.
+- Ngoại lệ có chủ ý: giữ hành vi mở lại lịch sử phân tích trong `USE_CASES.md` dù sơ đồ chưa vẽ, vì PRD đã chốt nó thuộc MVP (OQ-L3GEN-005, 10 lần/14 ngày), có trong FR-L3GEN-003, DoD, edge cases và Phase 1. Đây là chỗ sơ đồ thiếu, không phải tài liệu thừa. Đã ghi chú trong `USE_CASES.md` và cần bổ sung vào SVG ở lượt sau.
+- Sửa scenario: tách Scenario 1 thành 1a (giao diện, luồng chính) và 1b (dòng lệnh, biến thể tự động hóa); thêm 1c cho ba hình thức đầu vào và các lỗi kèm theo; Scenario 3 viết lại theo quan hệ `extend`; thêm Scenario 12 (mở lại lịch sử) và 13 (xuất tài liệu).
+- Sửa lỗi liên kết: bảng cuối `SCENARIOS.md` đang trỏ tới UC1–UC7 của mô hình 9 use case đã bị thay ở commit `977c749`. Đã thay bằng bảng theo UC1/UC2/UC3 hiện hành và thêm bảng độ phủ ngược để thấy use case nào chưa có scenario.
+- Kiểm chứng: `grep` xác nhận không còn tham chiếu UC4–UC9 trong cả hai file; rà lại thứ tự heading sau khi thêm mục mới. Không chạy test vì chỉ sửa tài liệu.
+- Việc còn lại: bổ sung lịch sử phân tích vào SVG; đồng bộ SPEC và README theo mô hình UI-first; sau đó mới viết FR/AC và NFR.
+- Kinh nghiệm: khi viết lại hai tài liệu liên kết nhau trong cùng một commit, bảng tham chiếu chéo là chỗ dễ sót nhất vì nội dung chính đã đúng. Nên kiểm bằng `grep` các mã định danh cũ thay vì đọc lướt.
+
+### 16/09/2026 — Thêm lịch sử vào sơ đồ và chuyển SPEC/README sang mô hình có giao diện
+
+- Yêu cầu: bổ sung lịch sử phân tích vào SVG và tài liệu; sửa SPEC/README để sản phẩm không còn được mô tả như CLI đơn thuần.
+- File sửa: `docs/diagrams/usecase-overview.svg`, `docs/USE_CASES.md`, `docs/SCENARIOS.md`, `SPEC_Code_to_L3_Generator.md`, `README.md`, `docs/HANDOFF.md`.
+- Sơ đồ: thêm use case `Mở lần phân tích đã lưu` ở nhóm 3, nối `UC3.1 «include» Mở lần phân tích đã lưu`. Chọn `include` vì muốn xem kết quả chi tiết thì trước hết phải chọn được một lần phân tích. Cập nhật `<desc>` cho khớp nội dung mới.
+- Tài liệu: bỏ ghi chú ngoại lệ trong `USE_CASES.md` vì sơ đồ đã có lịch sử; thêm mục con mô tả use case được include kèm giới hạn 10 lần/14 ngày; thêm quan hệ vào bảng và vào bảng độ phủ của `SCENARIOS.md`.
+- SPEC: đổi mục 0.1 từ "một CLI tool" sang phần mềm có giao diện; viết lại mục 4 thành `Input và interface contract` gồm hai đường dùng chung một engine, ba nguồn mã nguồn, nhóm màn hình, lưu trữ lần phân tích, dòng lệnh và bảng lỗi dùng chung; thêm mục 10.0 acceptance criteria cho input/interface; bổ sung năm tiêu chí giao diện vào Definition of Done mục 14.
+- README: mở đầu mô tả phần mềm có giao diện, dòng lệnh là đường tự động hóa; đổi tiêu đề mục 5 thành "Dòng lệnh"; ghi rõ đầu vào hiện chỉ là thư mục cục bộ.
+- Ranh giới mục tiêu và hiện trạng: cả SPEC lẫn README đều có cảnh báo rằng đầu vào ZIP/GitHub và lịch sử là phạm vi mục tiêu, chưa có code. Không được đọc SPEC mục 4 như mô tả năng lực hiện tại.
+- Kiểm chứng: SVG parse XML thành công và render bằng Chrome headless ba lần để sửa đường nối; lần cuối arrow rời UC3.1 và tới đúng ellipse mới, không chồng UC3.2, nằm trong khung nhóm 3. Tính toán va chạm bằng Bezier trước khi render. Bảng markdown của bốn file đều cân đối. Không còn tham chiếu UC4–UC9.
+- Test: `python -m pytest -q -p no:cacheprovider` — lần chạy đầu `1 failed, 111 passed`, lần chạy lại `112 passed`. Test hỏng là `tests/unit/test_ui_boundary.py::test_xoa_thu_muc_ui_thi_lenh_phan_tich_van_chay`; nó di chuyển `src/l3gen/ui/` trong lúc chạy nên thỉnh thoảng hỏng. Chạy riêng thì đạt. Không liên quan thay đổi lượt này vì lượt này không sửa code Python, nhưng đây là test không ổn định cần xử lý riêng.
+- Việc tiếp theo: viết FR/AC rồi NFR. `NFR-L3GEN-PERF-001` và `NFR-L3GEN-SEC-001` vẫn chờ OQ-L3GEN-004 để có ngưỡng.
+- Kinh nghiệm: với sơ đồ, tính toán tọa độ chưa đủ để kết luận đường nối dễ hiểu. Đường nối không chạm ellipse nào vẫn có thể bị đọc nhầm điểm xuất phát; phải render ra ảnh để kiểm tra.
+
+### 16/09/2026 — Đóng Open Questions và viết FR/NFR
+
+- Quyết định người dùng: chốt ngưỡng tài nguyên pilot; **Kafka thuộc MVP** (phương án B, không chuyển Phase 3); Java giới hạn Spring Boot; lịch sử có cả xóa thủ công và tự động xóa.
+- File sửa: `.aide/product/prd/PRD-L3GEN.md` lên revision 6.
+- File tạo: 5 FR tại `.aide/requirements/fr/` và 5 NFR tại `.aide/requirements/nfr/`.
+- PRD revision 6: đóng OQ-004, 006, 007, 008; thêm Kafka và xóa thủ công vào In Scope; thêm broker khác Kafka và framework Java ngoài Spring Boot vào Out of Scope; thêm 3 edge case; Kafka vào Phase 1 và Phase 2 vì Python và Java cần adapter riêng.
+- FR: 001 đầu vào (11 AC), 002 phân tích (15 AC), 003 xem/lưu/xóa (11 AC), 004 evidence/giới hạn (8 AC), 005 xuất tài liệu (7 AC). Tổng 52 AC dạng given/when/then.
+- NFR: PERF-001 giữ ngưỡng tài nguyên, SEC-001 giữ an toàn archive và vòng đời dữ liệu lịch sử, REL-001 suy giảm dần, USA-001 dùng được không cần hướng dẫn, COMP-001 artifact ổn định.
+- Nguồn nội dung AC: SPEC mục 10, SCENARIOS 1a–13 và edge cases trong PRD. Không tự nghĩ ra hành vi mới; đây là bước chuyển hành vi đã chốt sang dạng có key để truy vết.
+- Kiểm chứng: 52/52 AC đủ given/when/then; mọi `constrained_by` trỏ tới NFR có thật; cả 3 GOAL đều được FR tham chiếu và không có GOAL bịa; frontmatter parse được; link tương đối không hỏng. Đã sửa một vi phạm luật §B.5 khi FR-003 chép lại ngưỡng 10 lần/14 ngày, nay trỏ sang NFR-SEC-001.
+- Test: `python -m pytest -q -p no:cacheprovider` đạt `112 passed in 2.27s`. Lượt này không sửa code Python; chạy test để xác nhận không có tác dụng phụ.
+- Còn lại trước Scope Gate: OQ-L3GEN-003 (ngưỡng KPI) vẫn mở nhưng chỉ chặn GOAL-001/002, không chặn FR nào; chưa tạo OBS nên coverage KPI→OBS còn thiếu; `validated_by` trỏ tới TEST-* chưa tồn tại.
+- Kinh nghiệm: luật "số liệu ngưỡng thì trỏ NFR, không gõ lại" rất dễ vi phạm ở phần mô tả FR chứ không phải ở AC. Nên kiểm bằng script tìm số có đơn vị thay vì đọc lại bằng mắt.
+
+### 16/09/2026 — Sinh ULID và commit theo phạm vi
+
+- Yêu cầu: tự sinh UID cho các artifact mới rồi commit, chia nhỏ để dễ xem, không ghi author/co-author.
+- Làm rõ: `01M2MQ12YPDN94K6MSP63DS8DT` là UID của riêng file PRD, không phải của cả hệ thống. Theo execution guide §A.3 và §A.4, mỗi artifact chuẩn tắc mang UID riêng.
+- Sinh 10 ULID cho 5 FR và 5 NFR bằng Python standard library: 48 bit timestamp mili giây cộng 80 bit ngẫu nhiên, mã Crockford base32. Repo vẫn chưa có lệnh `aide` hay script cấp ULID.
+- Kiểm chứng: cả 11 UID dài đúng 26 ký tự, chỉ dùng bảng chữ Crockford, không trùng nhau, giải mã timestamp ra đúng 16/09/2026.
+- Commit: 5 commit tách theo phạm vi — use case và scenario; SPEC và README; PRD revision 6; FR/NFR; bàn giao. Không push. Không thêm `Author`, `Co-authored-by` hoặc trailer AI vào message.
+- Trạng thái ba phần mentor yêu cầu hôm nay: PRD, FR và NFR đã đủ. Chưa qua Scope Gate vì còn thiếu OBS và OQ-L3GEN-003.
