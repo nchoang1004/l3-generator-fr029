@@ -1,202 +1,181 @@
 # Use Cases — Code → L3 Generator
 
-> Sơ đồ: [usecase-overview.svg](diagrams/usecase-overview.svg)
-> Tài liệu này đặc tả phần **requirement** (ai cần gì), tách khỏi [SPEC](../SPEC_Code_to_L3_Generator.md) là phần **giải pháp** (làm thế nào).
+Tài liệu này mô tả **người dùng muốn làm gì và nhận được gì**. Cách engine phân tích
+source nằm trong [ARCHITECTURE_V2_IDEA.md](ARCHITECTURE_V2_IDEA.md) và
+[SPEC](../SPEC_Code_to_L3_Generator.md).
 
----
+Mục tiêu, KPI và phạm vi sản phẩm nằm trong
+[PRD-L3GEN](../.aide/product/prd/PRD-L3GEN.md); tài liệu này chỉ chi tiết hóa hành vi
+người dùng ở mức use case.
 
-## 1. Actor
+Use case dưới đây là phạm vi sản phẩm mục tiêu. Một use case có trong tài liệu không
+đồng nghĩa code hiện tại đã triển khai đầy đủ.
 
-| Actor | Loại | Mô tả | Quan tâm chính |
-|---|---|---|---|
-| **Developer** | Chính | Người chạy tool trên một repo | Hiểu nhanh một service chưa quen, không phải đọc hết code |
-| **Architect / Reviewer** | Chính | Người đọc tài liệu sinh ra, không chạy tool | Đối chiếu thiết kế với code thực tế, phát hiện chỗ lệch |
-| **LLM Provider** | Phụ (ngoài) | Dịch vụ LLM được gọi ở UC3, UC4 | — (là dependency, không phải người dùng) |
-| **Hệ thống khác** | Phụ (ngoài) | Tool/platform đọc `graph.json` hoặc IAM về sau | Có contract ổn định để tiêu thụ dữ liệu |
+Sơ đồ tổng quan: [usecase-overview.svg](diagrams/usecase-overview.svg).
 
-**Về phạm vi stack:** giai đoạn hiện tại tool chỉ hỗ trợ Python + FastAPI, nhưng mục tiêu dài hạn là đa ngôn ngữ. Quan trọng hơn: **một repo có thể chứa nhiều service với stack khác nhau** (ví dụ ứng dụng mobile Java và AI service FastAPI trong cùng repo). Tool phải chia repo thành các đơn vị phân tích trước, nhận diện từng đơn vị sau — và khi một đơn vị dùng stack chưa hỗ trợ thì bỏ qua riêng nó, nói rõ ra, chứ không bỏ cả repo và cũng không im lặng.
+## 1. Actors
 
-**Không có actor "quản trị viên".** Tool chạy một lần rồi kết thúc: không lưu state, không đăng nhập, không phân quyền, không ghi gì vào repo đang phân tích.
-
----
-
-## 2. Đặc tả use case
-
-### UC1 · Sinh tài liệu L3 từ một thư mục source
-
-| | |
+| Actor | Vai trò và nhu cầu |
 |---|---|
-| **Actor** | Developer |
-| **Tiền điều kiện** | Có đường dẫn tới thư mục chứa ít nhất 1 file `.py` hợp lệ |
-| **Kích hoạt** | Chạy `l3gen <path>` |
-| **Kết quả** | 4 file trong thư mục output: `L3.md`, `diagram.mmd`, `graph.json`, `IAM.json` |
+| **Engineering User** *(actor trừu tượng)* | Nhóm chung của những người cần đọc và kiểm tra kiến trúc từ source code |
+| **Developer** | Phân tích codebase chưa quen, tìm application/component và lần theo các quan hệ quan trọng |
+| **Architect / Reviewer** | Xem mô hình tổng quát, kiểm tra độ phủ, giới hạn và bằng chứng của từng kết luận |
+| **GitHub** *(hệ thống bên ngoài)* | Cung cấp repository khi người dùng nhập URL GitHub |
 
-**Luồng chính:**
-1. Developer chỉ định thư mục source
-2. Hệ thống **chia repo thành các đơn vị phân tích** theo vị trí file manifest (một service triển khai độc lập = một đơn vị)
-3. Hệ thống **nhận diện ngôn ngữ và framework của từng đơn vị**, báo lại danh sách cho người dùng
-4. Hệ thống quét, parse, trích xuất từng đơn vị bằng bộ extractor tương ứng với stack của nó
-5. Hệ thống resolve tham chiếu xuyên file trong phạm vi mỗi đơn vị
-6. Hệ thống sinh tài liệu, sơ đồ và graph — mỗi thực thể mang trường chỉ rõ thuộc service nào
-7. Hệ thống báo tóm tắt: danh sách đơn vị (đã phân tích / bị bỏ qua), số file, số thành phần, thời gian chạy
+`Developer` và `Architect / Reviewer` kế thừa các hành vi chung của `Engineering
+User`. File ZIP và thư mục cục bộ là **hình thức đầu vào**, không phải actor.
 
-**Luồng thay thế:**
-- *2a. Không tìm thấy manifest nào* → coi cả thư mục đầu vào là một đơn vị, nhận diện theo phần mở rộng file, ghi `confidence = partial`
-- *2b. Không tìm thấy đơn vị nào có source* → báo lỗi rõ ràng, dừng (exit 1)
-- *3a. Một số đơn vị dùng stack chưa hỗ trợ* → **bỏ qua riêng các đơn vị đó**, vẫn phân tích phần còn lại, ghi vào Known Limitations
-- *3b. Mọi đơn vị đều chưa hỗ trợ* → dừng, liệt kê từng đơn vị kèm stack đã phát hiện và stack đang hỗ trợ
-- *3c. Một đơn vị dùng nhiều framework* → ghi nhận tất cả, chạy extractor của từng cái
-- *4a. Gặp file lỗi cú pháp* → bỏ qua file đó, ghi vào Known Limitations, tiếp tục
-- *5a. Tham chiếu trỏ ra ngoài phạm vi đơn vị* → đánh dấu chưa resolve được, **không đoán**
+Hệ thống chỉ đọc source. Hệ thống không chạy source, không sửa source và không ghi
+ngược vào repository được phân tích.
 
-**Ràng buộc:** Không bao giờ import hoặc thực thi code của repo đang phân tích (SPEC mục 3.2).
+## 2. Câu hỏi kiến trúc mà sản phẩm phải trả lời
 
----
+1. Repository có những application hoặc component nào?
+2. Entry point nằm ở đâu?
+3. Application/component cung cấp API nào?
+4. API hoặc route được component nào xử lý?
+5. Component nào phụ thuộc component nào?
+6. Component nào đọc hoặc ghi entity/table nào?
+7. Component nào gọi hệ thống bên ngoài?
+8. Event, queue hoặc configuration quan trọng nào được phát hiện?
+9. Phần nào chưa được phân tích hoặc chưa đủ bằng chứng, và vì sao?
 
-### UC2 · Chạy không cần AI
+Chi tiết function/call chỉ là bằng chứng nội bộ để trả lời các câu hỏi trên. Sản phẩm
+không hiển thị toàn bộ function graph như kết quả kiến trúc chính.
 
-| | |
+## 3. General Use Cases
+
+### UC1 — Phân tích kho mã
+
+| Thuộc tính | Nội dung |
 |---|---|
-| **Actor** | Developer |
-| **Quan hệ** | `«extend»` UC1 |
-| **Kích hoạt** | Cờ `--no-ai`, **hoặc** tự động khi không có API key |
-| **Kết quả** | Tài liệu đầy đủ nhưng không có cột "Mô tả" và mục "Review Findings" |
+| Actor chính | Developer |
+| Actor hỗ trợ | GitHub, khi nguồn vào là URL GitHub public |
+| Kích hoạt | Developer mở giao diện và cung cấp một nguồn mã |
+| Tiền điều kiện | Nguồn mã tồn tại và người dùng có quyền truy cập |
+| Kết quả chính | Một lần phân tích có L3, mô hình thành phần, sơ đồ phụ thuộc, bằng chứng và giới hạn |
 
-Use case này tồn tại vì hai lý do độc lập: (a) giai đoạn đầu dự án chưa có phần AI nhưng vẫn phải chạy được toàn bộ pipeline; (b) khi trình bày mà không có mạng hoặc API lỗi, tool vẫn phải cho ra kết quả.
+#### Các cách cung cấp mã nguồn
 
-**Đây là ràng buộc kiến trúc, không chỉ là một tùy chọn CLI:** tầng phân tích tĩnh không được phụ thuộc tầng AI theo bất kỳ chiều nào.
+`Cung cấp mã nguồn` là use case chung, gồm ba biến thể:
 
----
+1. Chọn thư mục cục bộ.
+2. Tải lên file ZIP.
+3. Nhập URL GitHub public.
 
-### UC3 · Bổ sung mô tả dễ đọc cho từng thành phần
+Đây là ba cách bắt đầu cùng một quá trình phân tích, không phải ba quy trình sản phẩm
+khác nhau.
 
-| | |
+#### Luồng chính
+
+1. Developer mở màn hình phân tích kho mã.
+2. Developer chọn một trong ba hình thức đầu vào.
+3. Hệ thống kiểm tra đầu vào và cho biết phạm vi source sẽ được đọc.
+4. Developer bắt đầu phân tích.
+5. Hệ thống đọc source bằng static analysis và hiển thị trạng thái xử lý.
+6. Hệ thống hoàn thành với kết quả đầy đủ hoặc kết quả một phần có giải thích.
+7. Developer được chuyển tới phần tổng quan kiến trúc.
+
+#### Luồng thay thế và lỗi
+
+- Thư mục không đọc được hoặc ZIP không hợp lệ: dừng trước khi phân tích và giải thích
+  cách sửa.
+- URL GitHub không hợp lệ, không truy cập được hoặc yêu cầu quyền: không coi repository
+  là rỗng; hiển thị đúng nguyên nhân.
+- Có file lỗi cú pháp: ghi lỗi của file đó và tiếp tục phần còn lại khi an toàn.
+- Có ngôn ngữ/framework chưa hỗ trợ: vẫn kiểm kê và công bố phần chưa hỗ trợ.
+- Chạm giới hạn xử lý: trả kết quả `partial` cùng lý do, không im lặng cắt dữ liệu.
+- Không tìm thấy thành phần kiến trúc: vẫn trả báo cáo phạm vi và giới hạn thay vì một
+  kết quả trống gây hiểu nhầm.
+
+### UC2 — Khám phá kiến trúc
+
+| Thuộc tính | Nội dung |
 |---|---|
-| **Actor** | Developer (thụ hưởng) · LLM Provider (hệ thống ngoài) |
-| **Quan hệ** | `«extend»` UC1 |
-| **Tiền điều kiện** | Có API key; UC1 đã tạo xong dữ liệu |
-| **Kết quả** | Mỗi route/entity/external call có thêm 1-2 câu mô tả |
+| Actor chính | Engineering User |
+| Tiền điều kiện | Có kết quả từ UC1 hoặc một kết quả phân tích đã lưu |
+| Kết quả chính | Người dùng hiểu cấu trúc L3 và truy được quan hệ quan trọng |
 
-**Ràng buộc cứng:** LLM chỉ được trả về trường mô tả. Không có đường nào để nó thêm/sửa/xoá một route hay entity. Ràng buộc này được cưỡng chế bằng schema, không bằng lời nhắc trong prompt (SPEC mục 8.3).
+UC2 gồm các cách xem sau:
 
-**Luồng thay thế:** *Gọi LLM thất bại* → thử lại tối đa 2 lần, vẫn hỏng thì tiếp tục không có mô tả, ghi vào Known Limitations. Không mất kết quả phân tích tĩnh.
+1. **Xem tổng quan:** application, entry point, component chính và phạm vi phân tích.
+2. **Xem ứng dụng và thành phần:** trách nhiệm và dependency giữa các component.
+3. **Xem API và luồng yêu cầu:** API/route thuộc component nào và đi qua đâu ở mức L3.
+4. **Xem kho dữ liệu và tích hợp:** table/entity, external system, event hoặc queue đã
+   được xác định.
+5. **Truy vết phụ thuộc:** đi từ một API/component tới component, dữ liệu hoặc hệ thống
+   liên quan.
+6. **Kiểm tra bằng chứng nguồn:** mở vị trí source và đường bằng chứng của kết luận.
 
----
+Diagram mặc định phải tổng quát hóa ở mức application/component. Nó không hiển thị
+mọi function, class, biến hoặc raw call.
 
-### UC4 · Cảnh báo chỗ nghi ngờ thiếu sót
+Ví dụ kết quả mong muốn:
 
-| | |
+```text
+Order API → Order Service → Order Repository → Orders DB
+                          └→ Payment Gateway
+```
+
+Nếu không đủ bằng chứng, hệ thống dừng ở phần chắc chắn và ghi rõ phần chưa biết. Hệ
+thống không tự nối các thành phần chỉ vì tên class, biến hoặc folder có vẻ liên quan.
+
+### UC3 — Xem xét và sử dụng kết quả
+
+| Thuộc tính | Nội dung |
 |---|---|
-| **Actor** | Architect / Reviewer (thụ hưởng) · LLM Provider |
-| **Quan hệ** | `«extend»` UC1 |
-| **Kết quả** | Danh sách cảnh báo, mỗi cảnh báo kèm vị trí bằng chứng cụ thể |
+| Actor chính | Engineering User |
+| Tiền điều kiện | Có kết quả phân tích |
+| Kết quả chính | Người dùng đánh giá được độ tin cậy và lấy được tài liệu cần sử dụng |
 
-Bốn loại cảnh báo được phép: tham chiếu không resolve được; route có handler rỗng hoặc không resolve được; entity không nơi nào dùng tới; external call không thấy xử lý lỗi bao quanh.
+#### UC3.1 — Xem kết quả chi tiết
 
-**Ràng buộc cứng:**
-- Chỉ tạo cảnh báo, **không sửa dữ liệu** của UC1
-- Mỗi cảnh báo bắt buộc trỏ về `file:line` cụ thể
-- Không được tự tạo loại cảnh báo mới ngoài bốn loại trên
-- **Nhận dữ liệu độc lập với UC3** — không đọc mô tả do UC3 sinh ra, để lỗi của bước này không lây sang bước kia
+1. Người dùng mở kết quả vừa tạo hoặc chọn một lần phân tích trong lịch sử.
+2. Hệ thống hiển thị nội dung L3, component/dependency diagram và các danh sách API,
+   dữ liệu, tích hợp hoặc event đã phát hiện.
+3. Người dùng xem coverage, file/ngôn ngữ/framework chưa hỗ trợ, lỗi phân tích, kết
+   quả `partial`, trường hợp phụ thuộc runtime và các giới hạn khác.
+4. Người dùng chọn một kết luận để xem evidence `file:line` khi cần kiểm chứng.
 
----
+Kết quả phải phân biệt rõ:
 
-### UC5 · Tra nguồn gốc một dòng về `file:line`
+- source không có một thành phần;
+- hệ thống chưa hỗ trợ hoặc chưa đủ bằng chứng để tìm thành phần đó.
 
-| | |
+Một raw call chưa resolve không được biến thành cạnh kiến trúc chỉ để diagram đầy hơn.
+
+#### UC3.2 — Xuất tài liệu kiến trúc
+
+1. Người dùng chọn xuất kết quả.
+2. Hệ thống tạo các artifact thuộc phạm vi đã hỗ trợ, gồm L3 Markdown, Diagram-as-Code
+   và mô hình kiến trúc có cấu trúc.
+3. Các artifact cùng một lần phân tích phải nhất quán về component, quan hệ, bằng
+   chứng và giới hạn.
+
+## 4. Quan hệ giữa các use case
+
+| Use case | Quan hệ |
 |---|---|
-| **Actor** | Architect / Reviewer |
-| **Quan hệ** | `«include»` trong UC1 |
-| **Kết quả** | Mọi dòng dữ liệu trong tài liệu đều dẫn về đúng vị trí trong source |
+| UC1 Phân tích kho mã | `include` Cung cấp mã nguồn |
+| Chọn thư mục / Tải ZIP / Nhập URL GitHub | Ba biến thể của Cung cấp mã nguồn |
+| UC2 Khám phá kiến trúc | Nhóm chung của các cách xem kiến trúc |
+| UC3 Xem xét và sử dụng kết quả | Nhóm chung của UC3.1 và UC3.2 |
 
-Đây là use case định nghĩa giá trị cốt lõi của sản phẩm: người đọc **không phải tin tool**, họ kiểm chứng được. Nếu một dòng không tra ngược được, đó là lỗi nghiêm trọng chứ không phải thiếu sót nhỏ.
+AI không có use case riêng. Nếu được dùng để viết mô tả, đó là chi tiết bên trong quá
+trình phân tích và không được thay đổi fact, component hoặc relationship.
 
----
+## 5. Ngoài phạm vi MVP
 
-### UC6 · Xem mức tin cậy và giới hạn đã biết
+- Hiểu đầy đủ mọi ngôn ngữ, framework hoặc mọi semantics của Python.
+- Resolve chính xác mọi function/method call.
+- Vẽ mọi function, class và variable trong diagram L3.
+- Chạy, import hoặc dùng `exec` với source đầu vào.
+- Tự sửa source hoặc ghi ngược vào repository đầu vào.
+- Khẳng định deployment topology khi source/config không đủ.
+- Repository Knowledge Graph đầy đủ với graph query/search API.
+- Change impact, test impact và incremental analysis.
+- AI tự tạo fact, relation, edge hoặc framework rule.
+- Quản trị tài khoản người dùng và phân quyền tổ chức trong MVP hiện tại.
 
-| | |
-|---|---|
-| **Actor** | Architect / Reviewer |
-| **Quan hệ** | `«include»` trong UC1 |
-| **Kết quả** | Mỗi dòng có nhãn `exact`/`partial`/`inferred`; mục "Known Limitations" luôn hiện diện |
-
-Người đọc cần biết **tài liệu này đáng tin tới đâu**, không chỉ nội dung của nó. Mục Known Limitations bắt buộc xuất hiện kể cả khi rỗng — sự vắng mặt của nó khiến người đọc phải tự đoán.
-
----
-
-### UC7 · Xuất graph cho hệ thống khác dùng
-
-| | |
-|---|---|
-| **Actor** | Developer (chạy) · Hệ thống khác (tiêu thụ) |
-| **Kết quả** | File `graph.json` với cấu trúc node/edge ổn định |
-
-Use case này phục vụ tiêu chí "có contract rõ để tích hợp vào platform lớn sau này". Ở phạm vi hiện tại chỉ là file tĩnh — chưa có API truy vấn.
-
-**Ràng buộc:** mọi edge trong graph phải truy ngược được về đúng một phần tử dữ liệu do UC1 tạo ra. Graph là cách trình bày khác của cùng dữ liệu, không phải nguồn tri thức mới.
-
----
-
-### UC8 · Xem kết quả trên giao diện web *(phần mở rộng)*
-
-| | |
-|---|---|
-| **Actor** | Developer · Architect / Reviewer |
-| **Kích hoạt** | `l3gen ui ./l3-output/` |
-| **Tiền điều kiện** | Đã chạy UC1 và có `IAM.json` + `graph.json` trong thư mục output |
-| **Kết quả** | Giao diện web tĩnh với 6 màn hình: Tổng quan, API Routes, DB Entities, Dependency Graph, Review Findings, Known Limitations |
-
-**Ràng buộc kiến trúc:** UI là **lớp phủ đặt lên trên**, không phải một phần của lõi:
-- Chỉ đọc `IAM.json` / `graph.json` đã sinh sẵn, **không tự phân tích lại source code**
-- Xoá toàn bộ thư mục UI đi thì CLI vẫn chạy đúng như cũ
-- Không hiển thị thông tin nào không có trong dữ liệu gốc
-- Phải phân biệt được bằng mắt đâu là dữ liệu từ AST, đâu là mô tả do AI sinh
-
-**Lý do đưa vào phạm vi:** đọc bảng Markdown nhiều cột khá vất vả, và một đồ thị tương tác cho thấy quan hệ giữa các thành phần rõ hơn hẳn sơ đồ tĩnh. Với người xem lần đầu, đây là cách nhanh nhất để nắm được cấu trúc một service.
-
-Chi tiết màn hình và quy tắc hiển thị: SPEC mục 13.
-
----
-
-### UC9 · Xem sơ đồ phụ thuộc dạng Mermaid
-
-| | |
-|---|---|
-| **Actor** | Developer · Architect / Reviewer |
-| **Kết quả** | File Mermaid render được trực tiếp trên GitLab/GitHub |
-
-Khi graph quá lớn (>40 node), sơ đồ trong tài liệu được rút gọn, bản đầy đủ nằm ở `graph.json`. Đây là đường xem nhanh ngay trong tài liệu, không cần mở giao diện web (UC8).
-
----
-
-## 3. Ma trận actor × use case
-
-| Use case | Developer | Architect/Reviewer | LLM Provider | Hệ thống khác |
-|---|:---:|:---:|:---:|:---:|
-| UC1 Sinh tài liệu | ● | | | |
-| UC2 Chạy không cần AI | ● | | | |
-| UC3 Bổ sung mô tả | ○ | ○ | ● | |
-| UC4 Cảnh báo thiếu sót | | ○ | ● | |
-| UC5 Tra nguồn gốc | ○ | ● | | |
-| UC6 Mức tin cậy | ○ | ● | | |
-| UC7 Xuất graph | ● | | | ● |
-| UC8 Giao diện web *(mở rộng)* | ● | ● | | |
-| UC9 Sơ đồ Mermaid | ● | ● | | |
-
-● tham gia trực tiếp · ○ thụ hưởng kết quả
-
----
-
-## 4. Ngoài phạm vi
-
-Những use case **không** thuộc sản phẩm này, ghi rõ để tránh hiểu nhầm là thiếu sót:
-
-- Chỉnh sửa tài liệu sinh ra từ trong tool (tool chỉ sinh, người sửa bằng công cụ khác)
-- Lưu lịch sử các lần chạy, so sánh giữa hai lần
-- Chạy tự động trong CI khi có commit mới
-- Phân tích ngôn ngữ/framework ngoài Python + FastAPI
-- Quản lý người dùng, phân quyền, đăng nhập
-- Truy vấn graph qua API (chỉ xuất file tĩnh)
-- Chỉnh sửa dữ liệu từ giao diện web (UI chỉ để xem, không ghi ngược lại)
-- Giao diện web có backend, database hoặc lưu phiên làm việc (chỉ là site tĩnh đọc JSON)
+Repository GitHub riêng tư nằm ngoài MVP. Hệ thống không yêu cầu hoặc lưu credential
+để truy cập repository riêng tư.
