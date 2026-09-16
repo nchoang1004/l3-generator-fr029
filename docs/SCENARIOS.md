@@ -3,19 +3,26 @@
 Các scenario dưới đây là tiêu chí hành vi, không phải số đo thực tế. Chúng tập trung
 vào mức L3; chi tiết function/call chỉ xuất hiện khi cần làm evidence.
 
-Use case liên quan: [USE_CASES.md](USE_CASES.md).
+Use case liên quan: [USE_CASES.md](USE_CASES.md). Mỗi scenario ghi use case mà nó kiểm
+chứng; bảng đối chiếu đầy đủ ở cuối tài liệu.
 
-## Scenario 1 — Hiểu một service chưa quen
+Giao diện là đường dùng chính. Scenario dùng dòng lệnh được ghi rõ là biến thể tự động
+hóa, không phải luồng chính của sản phẩm.
+
+## Scenario 1a — Hiểu một service chưa quen, qua giao diện
+
+*UC1 Phân tích kho mã · UC2 Khám phá kiến trúc*
 
 **Tiền điều kiện:** repository có application FastAPI, route, service, repository,
 SQLAlchemy entity và một external HTTP call.
 
 **Luồng:**
 
-1. Developer chạy `l3gen <repo> --no-ai -o out`.
-2. Tool kiểm kê source và báo phần được/không được hỗ trợ.
-3. Tool sinh L3, diagram và architecture model.
-4. Developer mở L3 và thấy:
+1. Developer mở màn hình phân tích kho mã và chọn thư mục cục bộ.
+2. Hệ thống kiểm tra đầu vào và cho biết phạm vi source sẽ được đọc.
+3. Developer bắt đầu phân tích; hệ thống hiển thị trạng thái xử lý.
+4. Hệ thống hoàn thành và chuyển Developer tới phần tổng quan kiến trúc.
+5. Developer thấy trong kết quả:
    - application/entry point;
    - các component chính;
    - bảng route;
@@ -23,7 +30,7 @@ SQLAlchemy entity và một external HTTP call.
    - external system;
    - dependency giữa các component;
    - coverage và limitations.
-5. Developer mở diagram và thấy mô hình tổng quát:
+6. Developer mở diagram và thấy mô hình tổng quát:
 
 ```text
 Order API → Order Service → Order Repository → Orders DB
@@ -32,6 +39,49 @@ Order API → Order Service → Order Repository → Orders DB
 
 **Kết quả mong đợi:** Developer nắm được cấu trúc mà không phải xem một node cho từng
 function. Mỗi quan hệ có thể drill-down về source.
+
+## Scenario 1b — Cùng repository, chạy bằng dòng lệnh
+
+*UC1 Phân tích kho mã — biến thể tự động hóa*
+
+**Luồng:**
+
+1. Developer chạy `l3gen <repo> --no-ai -o out`.
+2. Tool kiểm kê source và báo phần được/không được hỗ trợ.
+3. Tool sinh L3, diagram và architecture model.
+
+**Kết quả mong đợi:** cùng một repository cho cùng kết quả phân tích dù chạy qua giao
+diện hay dòng lệnh. Dòng lệnh không có thêm hoặc bớt component, quan hệ và limitation
+so với Scenario 1a.
+
+## Scenario 1c — Ba hình thức cung cấp mã nguồn
+
+*UC1 Phân tích kho mã · biến thể Chọn thư mục / Tải ZIP / Nhập URL GitHub*
+
+Ba hình thức đầu vào bắt đầu cùng một quá trình phân tích. Sau khi source được chấp
+nhận, kết quả không phụ thuộc vào cách nguồn được cung cấp.
+
+**Luồng thư mục cục bộ:** Developer chọn thư mục; hệ thống báo phạm vi source sẽ đọc.
+
+**Luồng ZIP:** Developer tải lên file ZIP; hệ thống giải nén trong vùng xử lý riêng
+rồi báo phạm vi source.
+
+**Luồng GitHub:** Developer nhập URL GitHub public; hệ thống liên hệ GitHub, lấy
+source và báo phạm vi cùng phiên bản source đã dùng.
+
+**Luồng thay thế và lỗi:**
+
+| Tình huống | Hành vi mong đợi |
+|---|---|
+| Thư mục không tồn tại hoặc không đọc được | Dừng trước khi phân tích; chỉ rõ đường dẫn hoặc quyền cần sửa |
+| ZIP hỏng hoặc sai định dạng | Từ chối an toàn; không giải nén ra ngoài vùng xử lý |
+| ZIP chứa đường dẫn thoát khỏi thư mục giải nén | Từ chối; không ghi file ra ngoài vùng xử lý |
+| URL GitHub sai hoặc repository không tồn tại | Báo lỗi nhập/truy cập; không hiển thị như repository rỗng |
+| Repository GitHub yêu cầu quyền | Nói rõ chưa có quyền; không yêu cầu người dùng cung cấp credential |
+| Mất kết nối khi đang lấy source GitHub | Cho phép thử lại; không tạo kết quả phân tích giả |
+
+**Kết quả mong đợi:** lỗi đầu vào được phân biệt rõ với kết quả phân tích rỗng. Không
+trường hợp nào tạo ra một lần phân tích trống mà không giải thích nguyên nhân.
 
 ## Scenario 2 — Theo route tới database
 
@@ -69,8 +119,10 @@ repository, kết quả dừng ở Order Service, ghi partial và lý do; không
 
 ## Scenario 3 — Kiểm chứng một dependency
 
-1. Reviewer thấy `Order Service → Payment Gateway`.
-2. Reviewer mở evidence.
+*UC2 Truy vết phụ thuộc · `extend` Kiểm tra bằng chứng nguồn*
+
+1. Reviewer đang truy vết phụ thuộc và thấy `Order Service → Payment Gateway`.
+2. Reviewer chọn quan hệ này và yêu cầu xem bằng chứng.
 3. Evidence chỉ ra route/handler hoặc component call tới HTTP client cùng URL/host và
    vị trí source.
 4. Reviewer mở source tại vị trí đó.
@@ -78,6 +130,9 @@ repository, kết quả dừng ở Order Service, ghi partial và lý do; không
 
 **Kết quả mong đợi:** người đọc không phải tin mô tả AI. Description không được dùng
 làm evidence.
+
+**Luồng thay thế:** Reviewer truy vết xong chuỗi phụ thuộc mà không mở bằng chứng lần
+nào. Việc truy vết vẫn hoàn thành; kiểm tra bằng chứng chỉ chạy khi được yêu cầu.
 
 ## Scenario 4 — Repo phẳng hoặc trộn ngôn ngữ
 
@@ -229,16 +284,77 @@ Giả sử repository có 500 function nhưng chỉ có:
 - không đưa 500 function vào diagram;
 - bảng route chi tiết vẫn có đủ 20 route.
 
+## Scenario 12 — Mở lại một lần phân tích đã lưu
+
+*UC3.1 Xem kết quả chi tiết · `include` Mở lần phân tích đã lưu*
+
+Hệ thống giữ tối đa 10 lần phân tích cho mỗi repository; mỗi kết quả hết hạn sau 14
+ngày.
+
+**Luồng:**
+
+1. Người dùng mở danh sách các lần phân tích đã lưu.
+2. Người dùng chọn một lần phân tích theo repository và thời điểm chạy.
+3. Hệ thống mở đúng kết quả đó, gồm mô hình, evidence và limitations của lần chạy ấy.
+4. Kết quả ghi rõ phiên bản source đã dùng để evidence không trỏ nhầm.
+
+**Luồng thay thế:**
+
+| Tình huống | Hành vi mong đợi |
+|---|---|
+| Repository đã có 10 lần phân tích, người dùng chạy lần thứ 11 | Giữ 10 kết quả gần nhất, loại kết quả cũ nhất |
+| Kết quả đã quá 14 ngày | Không còn mở lại được; nói rõ lý do hết hạn |
+| Source đã thay đổi sau lần phân tích | Kết quả vẫn là snapshot của lần chạy cũ, không tự cập nhật theo source mới |
+
+**Kết quả mong đợi:** mở lại kết quả cũ cho đúng nội dung tại thời điểm chạy. Hệ thống
+không trộn kết quả cũ với source hiện tại.
+
+## Scenario 13 — Xuất tài liệu kiến trúc
+
+*UC3.2 Xuất tài liệu kiến trúc*
+
+**Luồng:**
+
+1. Người dùng chọn xuất kết quả của một lần phân tích.
+2. Hệ thống tạo L3 Markdown, Diagram-as-Code và architecture model có cấu trúc.
+3. Các artifact được tạo từ cùng một analysis result.
+
+**Kết quả mong đợi:** artifact xuất ra và nội dung trên giao diện nhất quán về
+component, quan hệ, evidence và limitation. Không có quan hệ nào chỉ xuất hiện ở một
+trong hai nơi.
+
+**Luồng thay thế:** nếu một artifact tạo thất bại, analysis result được giữ nguyên, hệ
+thống báo rõ artifact nào thất bại và cho phép thử lại.
+
 ## Bảng liên kết
 
-| Scenario | Use case chính |
+| Scenario | Use case kiểm chứng |
 |---|---|
-| 1 | UC1, UC2 |
-| 2 | UC3, UC4 |
-| 3 | UC4 |
-| 4, 5 | UC1, UC5 |
-| 6 | UC5 |
-| 7, 8 | UC1, UC2, UC5 |
-| 9 | UC5 |
-| 10 | UC6 |
-| 11 | UC2, UC7 |
+| 1a | UC1, UC2 |
+| 1b | UC1 *(biến thể dòng lệnh)* |
+| 1c | UC1 — Cung cấp mã nguồn và ba biến thể đầu vào |
+| 2 | UC2 Truy vết phụ thuộc |
+| 3 | UC2 Truy vết phụ thuộc, `extend` Kiểm tra bằng chứng nguồn |
+| 4, 5 | UC1, UC3.1 |
+| 6 | UC2, UC3.1 |
+| 7, 8 | UC1, UC2, UC3.1 |
+| 9 | UC3.1 |
+| 10 | UC1, UC3.2 |
+| 11 | UC2 Xem ứng dụng và thành phần |
+| 12 | UC3.1 *(mở lại lịch sử)* |
+| 13 | UC3.2 |
+
+Độ phủ theo chiều ngược lại:
+
+| Use case | Scenario |
+|---|---|
+| UC1 Phân tích kho mã | 1a, 1b, 1c, 4, 5, 7, 8, 10 |
+| UC2 Xem tổng quan | 1a |
+| UC2 Xem ứng dụng và thành phần | 1a, 11 |
+| UC2 Xem API và luồng yêu cầu | 2, 7, 8 |
+| UC2 Xem kho dữ liệu và tích hợp | 2 |
+| UC2 Truy vết phụ thuộc | 2, 3 |
+| `extend` Kiểm tra bằng chứng nguồn | 3 |
+| UC3.1 Xem kết quả chi tiết | 4, 5, 6, 9, 12 |
+| `include` Mở lần phân tích đã lưu | 12 |
+| UC3.2 Xuất tài liệu kiến trúc | 10, 13 |

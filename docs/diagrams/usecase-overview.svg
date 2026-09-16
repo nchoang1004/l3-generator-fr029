@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1040" viewBox="0 0 1500 1040" role="img" aria-labelledby="title description">
   <title id="title">L3 Architecture Generator - Use Case Overview</title>
-  <desc id="description">Sơ đồ use case tổng quan cho giao diện phân tích kho mã, nhận thư mục cục bộ, file ZIP hoặc liên kết GitHub, khám phá kiến trúc, kiểm tra bằng chứng và xuất kết quả.</desc>
+  <desc id="description">Sơ đồ use case tổng quan cho giao diện phân tích kho mã, nhận thư mục cục bộ, file ZIP hoặc liên kết GitHub, khám phá kiến trúc, kiểm tra bằng chứng, mở lại lần phân tích đã lưu và xuất kết quả.</desc>
 
   <defs>
     <style>
@@ -130,8 +130,14 @@
   <text class="uc-small" x="795" y="872">UC3.2 Xuất</text>
   <text class="uc-small" x="795" y="887">tài liệu kiến trúc</text>
 
+  <ellipse class="uc-input" cx="1080" cy="875" rx="118" ry="30"/>
+  <text class="uc-small" x="1080" y="872">Mở lần phân tích</text>
+  <text class="uc-small" x="1080" y="887">đã lưu</text>
+
   <path class="generalization" d="M 540 847 C 565 828, 590 814, 610 807" marker-end="url(#triangle)"/>
   <path class="generalization" d="M 760 847 C 735 828, 710 814, 690 807" marker-end="url(#triangle)"/>
+  <path class="relation" d="M 607 899 C 670 924, 890 924, 1006 897" marker-end="url(#arrow)"/>
+  <text class="relation-label" x="800" y="922">«include»</text>
 
   <!-- Left-side actors -->
   <g aria-label="Developer actor">

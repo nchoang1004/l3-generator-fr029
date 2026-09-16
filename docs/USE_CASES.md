@@ -11,7 +11,8 @@ người dùng ở mức use case.
 Use case dưới đây là phạm vi sản phẩm mục tiêu. Một use case có trong tài liệu không
 đồng nghĩa code hiện tại đã triển khai đầy đủ.
 
-Sơ đồ tổng quan: [usecase-overview.svg](diagrams/usecase-overview.svg).
+Sơ đồ tổng quan: [usecase-overview.svg](diagrams/usecase-overview.svg). Khi sơ đồ và
+tài liệu này khác nhau, sơ đồ là bản chuẩn.
 
 ## 1. Actors
 
@@ -24,6 +25,9 @@ Sơ đồ tổng quan: [usecase-overview.svg](diagrams/usecase-overview.svg).
 
 `Developer` và `Architect / Reviewer` kế thừa các hành vi chung của `Engineering
 User`. File ZIP và thư mục cục bộ là **hình thức đầu vào**, không phải actor.
+
+`GitHub` chỉ tham gia đúng một biến thể đầu vào là `Nhập URL GitHub`, không tham gia
+mọi lần phân tích. Chọn thư mục cục bộ hoặc tải file ZIP không liên hệ với GitHub.
 
 Hệ thống chỉ đọc source. Hệ thống không chạy source, không sửa source và không ghi
 ngược vào repository được phân tích.
@@ -50,7 +54,7 @@ không hiển thị toàn bộ function graph như kết quả kiến trúc chí
 | Thuộc tính | Nội dung |
 |---|---|
 | Actor chính | Developer |
-| Actor hỗ trợ | GitHub, khi nguồn vào là URL GitHub public |
+| Actor hỗ trợ | Không có ở mức UC1. `GitHub` chỉ gắn với biến thể `Nhập URL GitHub` |
 | Kích hoạt | Developer mở giao diện và cung cấp một nguồn mã |
 | Tiền điều kiện | Nguồn mã tồn tại và người dùng có quyền truy cập |
 | Kết quả chính | Một lần phân tích có L3, mô hình thành phần, sơ đồ phụ thuộc, bằng chứng và giới hạn |
@@ -96,7 +100,8 @@ khác nhau.
 | Tiền điều kiện | Có kết quả từ UC1 hoặc một kết quả phân tích đã lưu |
 | Kết quả chính | Người dùng hiểu cấu trúc L3 và truy được quan hệ quan trọng |
 
-UC2 gồm các cách xem sau:
+UC2 gồm năm cách xem. Mỗi cách là một dạng cụ thể của UC2, người dùng chọn cách nào
+tùy mục tiêu đang cần:
 
 1. **Xem tổng quan:** application, entry point, component chính và phạm vi phân tích.
 2. **Xem ứng dụng và thành phần:** trách nhiệm và dependency giữa các component.
@@ -105,7 +110,18 @@ UC2 gồm các cách xem sau:
    được xác định.
 5. **Truy vết phụ thuộc:** đi từ một API/component tới component, dữ liệu hoặc hệ thống
    liên quan.
-6. **Kiểm tra bằng chứng nguồn:** mở vị trí source và đường bằng chứng của kết luận.
+
+#### Kiểm tra bằng chứng nguồn — hành vi mở rộng
+
+`Kiểm tra bằng chứng nguồn` **không phải cách xem thứ sáu**. Nó mở rộng
+(`extend`) `Truy vết phụ thuộc`: khi đang truy vết, người dùng có thể dừng ở một
+quan hệ và yêu cầu xem vị trí source cùng đường bằng chứng dẫn tới kết luận đó.
+
+Phân biệt này có hậu quả thực tế:
+
+- Truy vết phụ thuộc hoàn thành được mà người dùng không cần mở bằng chứng.
+- Kiểm tra bằng chứng chỉ chạy khi người dùng chủ động yêu cầu, không tự bật.
+- Điểm mở rộng là một quan hệ hoặc kết luận đang được chọn trong lúc truy vết.
 
 Diagram mặc định phải tổng quát hóa ở mức application/component. Nó không hiển thị
 mọi function, class, biến hoặc raw call.
@@ -144,6 +160,22 @@ Kết quả phải phân biệt rõ:
 
 Một raw call chưa resolve không được biến thành cạnh kiến trúc chỉ để diagram đầy hơn.
 
+##### Mở lần phân tích đã lưu
+
+UC3.1 `include` use case `Mở lần phân tích đã lưu`: muốn xem kết quả chi tiết thì trước
+hết phải chọn được một lần phân tích để xem, dù đó là lần vừa chạy hay một lần đã lưu.
+
+1. Người dùng mở danh sách các lần phân tích đã lưu.
+2. Hệ thống liệt kê theo repository, thời điểm chạy và trạng thái kết quả.
+3. Người dùng chọn một lần phân tích.
+4. Hệ thống mở đúng kết quả đó cùng phiên bản source đã dùng, để evidence không trỏ
+   nhầm sang source hiện tại.
+
+Giới hạn lưu trữ đã chốt trong [PRD-L3GEN](../.aide/product/prd/PRD-L3GEN.md):
+
+- mỗi repository giữ tối đa 10 lần phân tích gần nhất; vượt quá thì loại lần cũ nhất;
+- mỗi kết quả hết hạn sau 14 ngày và không còn mở lại được.
+
 #### UC3.2 — Xuất tài liệu kiến trúc
 
 1. Người dùng chọn xuất kết quả.
@@ -154,17 +186,51 @@ Một raw call chưa resolve không được biến thành cạnh kiến trúc c
 
 ## 4. Quan hệ giữa các use case
 
-| Use case | Quan hệ |
-|---|---|
-| UC1 Phân tích kho mã | `include` Cung cấp mã nguồn |
-| Chọn thư mục / Tải ZIP / Nhập URL GitHub | Ba biến thể của Cung cấp mã nguồn |
-| UC2 Khám phá kiến trúc | Nhóm chung của các cách xem kiến trúc |
-| UC3 Xem xét và sử dụng kết quả | Nhóm chung của UC3.1 và UC3.2 |
+Bảng này khớp với [usecase-overview.svg](diagrams/usecase-overview.svg); sơ đồ là bản
+chuẩn khi hai bên khác nhau.
+
+| Nguồn | Quan hệ | Đích |
+|---|---|---|
+| UC1 Phân tích kho mã | `include` | Cung cấp mã nguồn *(abstract)* |
+| Chọn thư mục cục bộ | `generalization` | Cung cấp mã nguồn |
+| Tải lên file ZIP | `generalization` | Cung cấp mã nguồn |
+| Nhập URL GitHub | `generalization` | Cung cấp mã nguồn |
+| Xem tổng quan | `generalization` | UC2 Khám phá kiến trúc *(abstract)* |
+| Xem ứng dụng và thành phần | `generalization` | UC2 |
+| Xem API và luồng yêu cầu | `generalization` | UC2 |
+| Xem kho dữ liệu và tích hợp | `generalization` | UC2 |
+| Truy vết phụ thuộc | `generalization` | UC2 |
+| Kiểm tra bằng chứng nguồn | `extend` | Truy vết phụ thuộc |
+| UC3.1 Xem kết quả chi tiết | `generalization` | UC3 *(abstract)* |
+| UC3.2 Xuất tài liệu kiến trúc | `generalization` | UC3 |
+| UC3.1 Xem kết quả chi tiết | `include` | Mở lần phân tích đã lưu |
+
+Quan hệ giữa actor:
+
+| Nguồn | Quan hệ | Đích |
+|---|---|---|
+| Developer | `generalization` | Engineering User *(abstract)* |
+| Architect / Reviewer | `generalization` | Engineering User |
+| Developer | `association` | UC1 Phân tích kho mã |
+| Engineering User | `association` | UC2 Khám phá kiến trúc |
+| Engineering User | `association` | UC3 Xem xét và sử dụng kết quả |
+| GitHub *(external system)* | `association` | Nhập URL GitHub |
 
 AI không có use case riêng. Nếu được dùng để viết mô tả, đó là chi tiết bên trong quá
 trình phân tích và không được thay đổi fact, component hoặc relationship.
 
-## 5. Ngoài phạm vi MVP
+## 5. Nguyên tắc tổ chức giao diện
+
+Giao diện được tổ chức theo mục tiêu người dùng, không theo từng bước của engine:
+
+- nhìn tổng quan trước;
+- đi sâu theo thành phần;
+- truy vết về source evidence;
+- luôn thấy giới hạn phân tích.
+
+Bốn nguyên tắc này áp cho mọi màn hình kết quả, không riêng một use case.
+
+## 6. Ngoài phạm vi MVP
 
 - Hiểu đầy đủ mọi ngôn ngữ, framework hoặc mọi semantics của Python.
 - Resolve chính xác mọi function/method call.
