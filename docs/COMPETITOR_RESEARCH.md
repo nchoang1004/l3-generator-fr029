@@ -1,5 +1,13 @@
 # Nghiên cứu đối thủ và định hướng cải tiến Code → Architecture / L3 Generator
 
+> **Tài liệu khảo sát lịch sử.** Trạng thái implementation, ma trận và roadmap bên
+> dưới phản ánh thời điểm khảo sát trước khi code V2 tồn tại. Các đề xuất về canonical
+> function graph, trace/impact query, MCP hoặc graph database **không phải requirement
+> hiện tại**. Quyết định đang có hiệu lực nằm trong
+> [ARCHITECTURE_V2_IDEA.md](ARCHITECTURE_V2_IDEA.md) và
+> [SPEC](../SPEC_Code_to_L3_Generator.md): phân tích function/call chỉ để làm evidence,
+> còn sản phẩm chính là component-level L3.
+
 ## 1. Kết luận điều hành
 
 Dự án đang có một bản đặc tả tốt hơn mặt bằng chung ở ba điểm: coi source tĩnh là nguồn sự thật, tách AI khỏi dữ liệu kiến trúc, và yêu cầu mọi thông tin quan trọng phải truy ngược được về `file:line`. Tuy nhiên, tại thời điểm khảo sát, repository mới có SPEC, use case, scenario và nhật ký tiến độ; chưa có package chạy được, parser, fixture, test, output mẫu hay báo cáo evaluation. Vì vậy, các năng lực hiện tại phải được gọi đúng là **năng lực đã thiết kế**, chưa phải **năng lực đã chứng minh**.[^1][^2]
@@ -17,7 +25,9 @@ Sáu repository được khảo sát không có sản phẩm nào trùng hoàn t
 
 > **Evidence-first L3 generator:** sinh tài liệu kiến trúc theo từng service, mô tả API–data–external flow, và cho phép kiểm chứng từng kết luận về source; AI chỉ diễn giải dữ liệu đã được bộ phân tích xác nhận.
 
-Không nên cạnh tranh trực diện bằng số ngôn ngữ hay một UI graph chung chung. Khoảng trống thị trường đáng chiếm là **tài liệu L3 có thể audit**, nằm giữa công cụ call graph quá thấp và sơ đồ AI quá dễ sai.
+Không nên mở rộng số ngôn ngữ hoặc UI graph khi lõi chưa ổn định. Hướng sản phẩm được
+khảo sát là **tài liệu L3 có thể kiểm chứng**, nằm giữa call graph mức thấp và sơ đồ AI
+không có bằng chứng source.
 
 Ưu tiên quan trọng nhất trong timebox 2–3 người/4–6 tuần là thu nhỏ scope để có một lát cắt hoàn chỉnh: Python + FastAPI + SQLAlchemy + HTTP outbound, chạy offline, output deterministic, có fixture và evaluation. AI Reviewer và Web UI nên ở sau lõi này. Nếu lõi chưa được đo mà đã đầu tư UI/AI, dự án sẽ trông hoàn chỉnh nhưng chưa trả lời được câu hỏi quan trọng nhất: “dòng nào trong tài liệu này đáng tin, và tại sao?”.
 
@@ -164,7 +174,7 @@ PyAnalyzer không cố làm tài liệu đẹp. Nó tập trung trả lời chí
 
 #### Pipeline thực tế
 
-Engine parse AST, tạo entity/reference database, phân tích statement/expression và môi trường binding, rồi có thể dựng CFG/value-flow. Resolver dùng summary, abstract heap object và worklist/fixed point để lan truyền points-to trước khi kết tinh call graph. Đây là lớp semantic sâu hơn nhiều so với thuật toán bốn bước trong SPEC hiện tại.
+Engine parse AST, tạo entity/reference database, phân tích statement/expression và môi trường binding, rồi có thể dựng CFG/value-flow. Resolver dùng summary, abstract heap object và worklist/fixed point để lan truyền points-to trước khi kết tinh call graph. Đây là lớp semantic sâu hơn nhiều so với thuật toán bốn bước trong bản SPEC V1 tại thời điểm khảo sát. SPEC V2 hiện không lấy full call graph làm sản phẩm chính.
 
 Data model của PyAnalyzer cũng rộng ở cấp ngôn ngữ: Package, Module, Function, Class, Variable, Parameter, Alias, Unknown/Ambiguous Attribute; relation gồm Define, Contain, Import, Inherit, Call, Use, Set, Alias, Annotate và HasAmbiguous.
 
@@ -414,7 +424,7 @@ IAM/Graph đã xác minh → DiagramViewModel có schema → validator → Merma
 
 Thay đổi này giữ vẻ đẹp và độ bền của GitDiagram nhưng không hy sinh nguyên tắc static truth.
 
-## 5. Ma trận so sánh
+## 5. Ma trận so sánh tại thời điểm khảo sát
 
 Ký hiệu: `✓` có và là phần chính; `△` có một phần/không đồng đều; `—` không phải mục tiêu hoặc chưa thấy trong artifact.
 
@@ -443,7 +453,11 @@ Ký hiệu: `✓` có và là phần chính; `△` có một phần/không đồ
 
 Điều ma trận cho thấy: không có đối thủ nào đồng thời làm tốt **domain extraction**, **line-level evidence**, **L3 narrative** và **empirical accuracy**. Đây là khoảng trống hợp lý, nhưng chỉ trở thành lợi thế khi dự án có output chạy thật và evaluation công khai.
 
-## 6. Kiến trúc mục tiêu đề xuất
+## 6. Kiến trúc từng được đề xuất tại thời điểm khảo sát
+
+Phần này được giữ để hiểu nguồn gốc quyết định, không phải kiến trúc hiện hành. Đặc
+biệt, query `trace/impact/context` và canonical function graph đã được đưa ra ngoài
+contract L3 chính. Xem pipeline hiện hành trong ARCHITECTURE_V2_IDEA.
 
 Ba tầng sau giữ lõi nhỏ nhưng mở đường cho các bài học tốt từ đối thủ:
 
@@ -518,7 +532,10 @@ Mỗi view có giới hạn node/edge và ghi rõ `truncated`/`frontier_truncate
 
 Markdown, Mermaid, UI, MCP hay graph database chỉ là consumer. AI được cấp một IAM/context slice có budget; output của AI chứa reference tới ID/evidence ban đầu. Diagram nên được compile từ schema nội bộ, không yêu cầu model viết Mermaid tự do.
 
-## 7. Các cải tiến cụ thể cho SPEC
+## 7. Các cải tiến lịch sử từng đề xuất cho SPEC
+
+Danh sách này chưa được tự động chuyển thành requirement. Mục nào liên quan full code
+graph/query API thuộc dự án Repository Knowledge Graph hoặc giai đoạn sau.
 
 ### P0 — phải có để gọi là MVP đáng tin
 
@@ -613,7 +630,10 @@ EVALUATION phải mở đầu bằng một đoạn dễ hiểu, sau đó mới c
 
 Cách báo cáo này hữu ích hơn một badge “100% test coverage”.
 
-## 9. Roadmap khả thi cho 2–3 người trong 4–6 tuần
+## 9. Roadmap lịch sử — không còn là kế hoạch thực thi hiện tại
+
+Roadmap này được viết trước khi implementation V2 và trước lần reset phạm vi. Thứ tự
+hiện tại nằm ở SPEC mục 13.1 và HANDOFF.
 
 ### Tuần 1 — khóa contract và đường chạy đầu tiên
 
@@ -670,7 +690,7 @@ Chỉ chọn **một** trong ba nhánh, dựa trên tiến độ thực:
 
 Không nên làm đồng thời cả ba. AI Reviewer là candidate đầu tiên bị cắt nếu static quality chưa đạt threshold; UI có thể trình bày bằng output mẫu; graph database/MCP để sau MVP.
 
-## 10. Thứ tự quyết định đề xuất
+## 10. Thứ tự quyết định tại thời điểm khảo sát
 
 Nếu team cần chốt ngay, thứ tự nên là:
 

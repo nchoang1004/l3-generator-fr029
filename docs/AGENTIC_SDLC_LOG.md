@@ -158,3 +158,45 @@ bằng `diff`**: chạy có AI và không AI cho ra `IAM.json`, `graph.json`,
 SPEC mục 6c.3 yêu cầu đánh dấu lời gọi ra ngoài có nằm trong try/except không,
 nhưng không nói cất ở đâu — `ExternalCall` ở mục 5 không có trường nào chứa. Đây
 là chỗ SPEC tự mâu thuẫn lần thứ hai (lần đầu ghi ở mục 4 phần trên).
+
+---
+
+## 16/09 — Reset phạm vi V2 về đúng Code → L3
+
+### 13. Phát hiện requirement đã lấn sang một dự án khác
+
+Đề bài tách **Code → L3 Generator** và **Repository Knowledge Graph** thành hai dự
+án. Bản SPEC cũ lại đưa `FunctionNode`, full call graph và Repository Knowledge
+Graph vào contract chính của Code → L3. Điều này kéo kiến trúc sang mục tiêu hiểu
+mọi function/call, trong khi output gốc cần component model và dependency diagram.
+
+**Quyết định mới:** phân tích mức function vẫn được dùng làm evidence, nhưng public
+L3/diagram/architecture graph tập trung application, component, API, data, external
+system, event và configuration quan trọng.
+
+### 14. Bài học: độ sâu phân tích khác độ sâu trình bày
+
+Route → Service → Repository → DB có thể cần lần qua parameter, return, attribute và
+call. Vì vậy không xóa resolver chỉ vì L3 cần tổng quát. Ngược lại, việc resolver biết
+500 function không có nghĩa diagram phải vẽ 500 function.
+
+Nguyên tắc chốt:
+
+> Analyze deep enough; present at L3.
+
+Resolver chỉ tiếp tục được mở rộng khi có use case/acceptance criterion chứng minh nó
+giúp tìm hoặc tránh báo sai một quan hệ kiến trúc.
+
+### 15. Không biến unresolved thành cạnh kiến trúc
+
+Raw call chưa xác định receiver được giữ trong evidence/limitations. Không vẽ cạnh
+framework nét đứt chỉ vì method có tên `mount`, `post` hoặc `include_router`. Chỉ khi
+adapter khớp symbol đầy đủ mới được tạo semantic edge.
+
+### 16. Artifact đã đồng bộ
+
+Đã viết lại Architecture V2, Use Cases, Scenarios, SPEC và README theo contract mới;
+HANDOFF cũng được cập nhật. COMPETITOR_RESEARCH được đánh dấu rõ là snapshot lịch sử
+để roadmap cũ không bị đọc như requirement hiện hành. Chưa sửa code, chưa chạy
+test/benchmark và chưa cập nhật EVALUATION/examples. Bước implementation kế tiếp phải
+bắt đầu từ acceptance test cho Architecture IAM/projection và component relation.

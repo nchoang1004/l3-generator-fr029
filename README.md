@@ -1,255 +1,234 @@
 # l3gen
 
-Đọc source code Python/FastAPI và sinh ra tài liệu kiến trúc L3 — danh sách API route,
-bảng dữ liệu, lời gọi ra ngoài — trong đó **mọi dòng đều bấm được về đúng `file:dòng`
-trong source thật**.
+`l3gen` đọc source code bằng static analysis và sinh tài liệu kiến trúc L3.
 
-Công cụ **không chạy code** của repo được phân tích. Chỉ đọc file rồi phân tích cây cú
-pháp.
+Mục tiêu của V2 là trả lời:
 
----
+- repository có application/component nào;
+- application cung cấp API nào;
+- component nào phụ thuộc component nào;
+- component nào dùng DB, external system hoặc event;
+- mỗi kết luận được chứng minh bởi dòng source nào;
+- phần nào tool chưa đọc được.
 
-## 1. Chạy thử trong 3 lệnh
+Chi tiết function/call có thể được dùng làm bằng chứng nội bộ. Diagram L3 mục tiêu
+không liệt kê mọi function, class hoặc biến.
+
+> **Trạng thái chuyển đổi V2 (16/09/2026):** pipeline hiện đã có inventory, Python
+> frontend, resolver/dataflow và adapter FastAPI/SQLAlchemy/HTTP. Output hiện còn thiên
+> về route/entity/external và graph mức function/class. Component synthesis và
+> architecture projection theo SPEC V2 chưa hoàn chỉnh. Không dùng README này để hiểu
+> rằng V2 đã đạt Definition of Done.
+
+## 1. Chạy thử
+
+Yêu cầu Python 3.10 trở lên.
 
 ```bash
 pip install -e .
 l3gen tests/fixtures/python/fastapi/sample_app --no-ai -o out
-cat out/L3.md
 ```
 
-Muốn xem bằng giao diện web thay vì đọc Markdown thô:
+Kết quả hiện tại:
+
+| File | Nội dung |
+|---|---|
+| `L3.md` | Tài liệu Markdown |
+| `diagram.mmd` | Sơ đồ Mermaid rút gọn |
+| `graph.json` | Graph hiện tại; còn chứa chi tiết function/class trong giai đoạn chuyển đổi |
+| `IAM.json` | Dữ liệu phân tích và kiến trúc hiện tại |
+| `inventory.json` | File đã phát hiện, trạng thái và lý do bỏ qua |
+| `findings.json` | Finding từ detector/reviewer |
+| `descriptions.json` | Chỉ có khi AI sinh mô tả |
+| `run.json` | Thông tin lần chạy và thời gian từng bước |
+
+Xem bằng giao diện:
 
 ```bash
 l3gen ui out
 ```
 
-Kết quả nằm trong thư mục `out/`:
+UI chỉ đọc output đã sinh; nó không phân tích source lại.
 
-| File | Nội dung |
-|---|---|
-| `L3.md` | Tài liệu chính, đọc bằng mắt |
-| `diagram.mmd` | Sơ đồ phụ thuộc (Mermaid) |
-| `graph.json` | Node và cạnh, để máy đọc |
-| `IAM.json` | Toàn bộ dữ liệu đọc được từ code |
-| `findings.json` | Cảnh báo từ bước rà soát |
-| `ui/` | File giao diện web, chỉ xuất hiện sau khi chạy `l3gen ui` |
+## 2. Output mục tiêu của V2
 
-Không muốn cài gì? Xem [`examples/`](examples/) — có sẵn kết quả đã chạy trên hai repo
-mã nguồn mở thật.
+### L3 document
 
----
+L3 mục tiêu gồm:
 
-## 2. Output thật trông thế nào
+1. coverage;
+2. applications và components;
+3. API routes;
+4. data entities/stores;
+5. external systems;
+6. events/configurations quan trọng;
+7. component dependencies;
+8. evidence;
+9. findings và known limitations.
 
-Trích từ [`examples/full-stack-fastapi-template/L3.md`](examples/full-stack-fastapi-template/L3.md):
+### Diagram
 
-```markdown
-## 2. API Routes
+Diagram phải tổng quát hóa:
 
-| Method | Đường dẫn | Hàm xử lý | Bằng chứng / đầy đủ | Lý do | Vị trí |
-|---|---|---|---|---|---|
-| GET | `/{settings.API_V1_STR}/items/` | `read_items` | `exact / partial` | đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR} | app/api/routes/items.py:14 |
-| PATCH | `/{settings.API_V1_STR}/users/me/password` | `update_password_me` | `exact / partial` | đường dẫn có phần phụ thuộc lúc chạy: {settings.API_V1_STR} | app/api/routes/users.py:104 |
+```text
+Order API → Order Service → Order Repository → Orders DB
+                          └→ Payment Gateway
 ```
 
-Chú ý cột **Đường dẫn**: công cụ ghi `{settings.API_V1_STR}` chứ **không đoán** ra giá
-trị thật `/api/v1`. Giá trị đó chỉ biết khi chạy chương trình. Hai nhãn
-`exact / partial` nói: route này chắc chắn có thật, nhưng đường dẫn còn một phần chưa
-biết — và cột *Lý do* nói rõ phần nào.
+Không dùng diagram chính để vẽ chuỗi mọi function call. Function-level path chỉ dùng
+khi người đọc mở evidence.
 
-Đây là nguyên tắc xuyên suốt: **không biết thì nói không biết, không đoán cho đẹp.**
+### Architecture graph
 
----
+Public graph mục tiêu chứa application/component/API/data/external/event. Graph kỹ
+thuật mức function, nếu còn giữ để chẩn đoán, phải được tách hoặc đánh dấu rõ và không
+được coi là L3 mặc định.
 
-## 3. Công cụ này KHÔNG làm gì
+## 3. Nguyên tắc an toàn và độ tin cậy
 
-Đặt ở đây, không giấu xuống cuối.
+- Không import hoặc chạy code của repository đầu vào.
+- Không đoán framework chỉ từ tên biến/method.
+- Không coi folder hoặc language group là service.
+- Không tạo architecture edge từ unresolved raw call.
+- Mọi relation L3 phải có evidence về `file:line`.
+- `resolved` không có nghĩa câu lệnh chắc chắn được thực thi.
+- Điều kiện, phần phụ thuộc runtime và budget phải xuất hiện trong limitations.
+- AI không được thêm/sửa/xóa structural fact hoặc edge.
 
-**Không nhận diện được:**
+Ví dụ:
 
-- ORM khác SQLAlchemy và SQLModel — Tortoise, Django ORM, câu lệnh SQL viết tay.
-- Hàng đợi tin nhắn — Celery, Kafka, RabbitMQ.
-- Framework khác FastAPI — Flask, Django, Spring. Gặp thì báo rõ, không im lặng trả
-  về rỗng.
-- Ngôn ngữ khác Python. Gặp thì bỏ qua riêng đơn vị đó, vẫn phân tích phần còn lại.
+```python
+disk_manager.mount("/dev/sdb")
+```
 
-**Không làm:**
+Không được trở thành `MountApplication` chỉ vì method tên `mount`.
 
-- Không chạy code của repo được phân tích. Chỉ đọc file và phân tích cú pháp.
-- Không phân tích hành vi lúc chạy. Giá trị biến môi trường, route đăng ký động trong
-  vòng lặp — nằm ngoài tầm với.
-- Không đọc sâu vào hàm bên trong `Depends(...)`.
-- Không nối tham chiếu tới thư viện ngoài repo. Chỉ ghi nhận "gọi ra ngoài phạm vi".
-- Không quét lại theo kiểu tăng dần. Mỗi lần chạy đọc lại toàn bộ.
-- Không tích hợp CI. Chạy tay qua dòng lệnh.
+Ví dụ runtime:
 
-**AI trong công cụ này bị giới hạn cứng:** AI chỉ viết thêm cột mô tả cho dễ đọc và
-viết lại câu tóm tắt cảnh báo. **AI không được thêm, sửa, hay xoá bất kỳ dữ liệu nào**
-trong `IAM.json`. Kiểm chứng được: chạy hai lần có AI và không AI, `diff IAM.json` ra
-rỗng.
+```python
+handler_name = config["handler"]
+handler = getattr(module, handler_name)
+handler()
+```
 
----
+Nếu không có configuration, kết quả đúng là `runtime` kèm lý do, không phải chọn
+một handler có vẻ phù hợp.
 
-## 4. Kết quả kiểm chứng
+## 4. Phạm vi hiện tại
 
-Đo trên hai repo mã nguồn mở không do đội viết: `Netflix/dispatch` (48 file) và
-`fastapi/full-stack-fastapi-template` (25 file). Trước khi chạy công cụ, chúng tôi đọc
-tay toàn bộ source để lập sẵn danh sách đối chiếu gồm 84 API route, 11 bảng dữ liệu và
-14 lời gọi HTTP ra ngoài.
+Frontend phân tích đang tập trung Python. Các adapter hiện có trong source bao gồm:
 
-Công cụ tìm đúng cả 84 route, cả 11 bảng dữ liệu, cả 14 lời gọi ra ngoài. **Không có
-trường hợp nào công cụ báo ra một thứ không tồn tại** — kể cả với bốn cái bẫy cài sẵn,
-ví dụ một biến local trùng tên với thư viện `requests`.
+- FastAPI/Starlette ở phạm vi rule hiện có;
+- SQLAlchemy/SQLModel;
+- httpx/requests.
 
-Lần đo đầu tìm ra ba lỗi thật, nặng nhất là: mọi đường dẫn của `dispatch` đều thiếu
-tiền tố `/api/v1` mà công cụ lại đánh dấu là "đã đầy đủ". Cả ba đã sửa và đo lại —
-61/61 đường dẫn giờ đúng, và **số lần đoán sai tên bảng đi từ 7 xuống 0**.
+File ngôn ngữ khác vẫn được inventory ghi nhận nhưng chưa có frontend tương ứng.
 
-Một điều phải nói rõ: danh sách đối chiếu do **Agent lập, không phải hai kỹ sư đọc độc
-lập** như đặc tả yêu cầu. Con số 100% vì thế yếu hơn vẻ ngoài của nó.
+Những phần của đề bài gốc chưa hoàn chỉnh trong V2:
 
-→ Bảng số đầy đủ, phân tích từng lỗi, và giải thích vì sao 100% chưa đủ để tin:
-**[EVALUATION.md](EVALUATION.md)**
+- component synthesis cho service/business/repository layer;
+- event/queue relationship;
+- configuration relationship ở mức kiến trúc;
+- component-level Mermaid/graph contract;
+- phân biệt đầy đủ declared registration với potentially reachable;
+- framework version range trong registry.
 
----
-
-## 5. Cấu hình
-
-### Tùy chọn dòng lệnh
+## 5. CLI
 
 ```bash
-l3gen <đường-dẫn-source> [tùy chọn]
+l3gen <source-dir> [options]
 ```
 
 | Tùy chọn | Mặc định | Ý nghĩa |
 |---|---|---|
-| `-o, --output <dir>` | `./l3-output/` | Nơi ghi kết quả |
-| `--no-ai` | tắt | Chạy thuần phân tích cú pháp, không gọi AI. Tài liệu vẫn đủ, chỉ thiếu cột mô tả |
-| `--exclude <tên>` | `__pycache__`, `.venv`, `venv`, `tests` | Thư mục bỏ qua, lặp lại được nhiều lần |
-| `--fail-on-empty` | tắt | Thoát với mã lỗi nếu không tìm thấy route hay bảng nào |
-| `-v, --verbose` | tắt | In chi tiết từng bước |
+| `-o, --output <dir>` | `./l3-output` | Nơi ghi kết quả |
+| `--no-ai` | tắt | Không gọi AI |
+| `--exclude <name>` | danh sách mặc định | Thư mục bỏ qua; dùng nhiều lần được |
+| `--fail-on-empty` | tắt | Exit 1 nếu không có route/entity |
+| `-v, --verbose` | tắt | In metrics chi tiết |
 | `--version` | | In phiên bản |
+
+UI:
+
+```bash
+l3gen ui <output-dir> [-p PORT] [--no-browser]
+```
 
 Mã thoát:
 
-| Mã | Khi nào |
+| Mã | Nghĩa |
 |---|---|
-| `0` | Thành công |
-| `1` | Thư mục không tồn tại; không có file `.py` nào; mọi đơn vị đều dùng stack chưa hỗ trợ; hoặc `--fail-on-empty` bật mà không tìm thấy route/bảng nào |
-| `2` | Lỗi không lường trước |
+| 0 | Thành công |
+| 1 | Lỗi input hoặc điều kiện `--fail-on-empty` |
+| 2 | Lỗi không lường trước |
 
-### Xem kết quả bằng giao diện web
+## 6. AI là tùy chọn
+
+Không có API key, tool tự chạy static-only. Muốn bảo đảm không gọi AI:
 
 ```bash
-l3gen ui <thư-mục-kết-quả> [-p CỔNG] [--no-browser]
+l3gen <source-dir> --no-ai -o out
 ```
 
-Mở một máy chủ tĩnh ở `127.0.0.1` rồi bật trình duyệt. Sáu màn: Tổng quan, API
-Routes, Bảng dữ liệu, Đồ thị, Cảnh báo, Giới hạn đã biết.
-
-Vì sao cần máy chủ mà không mở thẳng file HTML: trình duyệt chặn `fetch` trên
-`file://`, nên trang sẽ không đọc được `IAM.json`.
-
-Giao diện **chỉ đọc** các file JSON đã sinh, không phân tích lại source. Xoá cả
-thư mục `src/l3gen/ui/` thì lệnh phân tích vẫn chạy y nguyên — có test khoá điều
-này (`tests/unit/test_ui_boundary.py`). Không tải gì từ mạng, mở được khi ngắt
-mạng.
-
-### Biến môi trường
-
-Chỉ cần khi muốn có mô tả do AI viết:
-
-| Biến | Ghi chú |
-|---|---|
-| `L3GEN_API_KEY` | Ưu tiên trước |
-| `ANTHROPIC_API_KEY` | Dùng khi không có biến trên |
-
-**Không có key cũng chạy được.** Công cụ tự chuyển sang chế độ không AI và báo một
-dòng, không dừng lại. Muốn chắc chắn không gọi mạng thì thêm `--no-ai`.
-
-Cài phần AI:
+Cài dependency AI:
 
 ```bash
 pip install -e ".[ai]"
 ```
 
-### Yêu cầu
+Biến môi trường:
 
-Python 3.10 trở lên. Phụ thuộc bắt buộc chỉ có `pydantic`.
+- `L3GEN_API_KEY`;
+- `ANTHROPIC_API_KEY` nếu biến trên không có.
 
----
+AI chỉ viết description hoặc diễn đạt lại finding đã có. Structural artifacts phải
+giống nhau khi bật/tắt AI.
 
-## 6. Hạn chế đã biết
+## 7. Giới hạn
 
-### Không đọc được, và nói thẳng là không đọc được
+Static analysis không thể biết dữ liệu chỉ xuất hiện lúc runtime, ví dụ environment,
+database-loaded plugin, reflection hoặc dynamic import.
 
-Đây không phải lỗi mà là ranh giới của phân tích cú pháp. Công cụ ghi rõ ở cột *Lý do*
-và ở mục "Giới hạn đã biết" của mỗi `L3.md`:
+Các giới hạn implementation cần kiểm chứng thêm:
 
-| Tình huống | Công cụ ghi gì |
-|---|---|
-| Prefix route là biến config | giữ nguyên `/{settings.API_V1_STR}/users/me`, **không** đoán thành `/api/v1/...` |
-| Lớp cơ sở tự sinh tên bảng lúc chạy | cột *Bảng* ghi *chưa đọc được*, kèm lý do |
-| Route đăng ký trong khối `if` | nêu rõ điều kiện, cảnh báo route không có ở mọi môi trường |
+- source root/module trùng tên;
+- context sensitivity khi một function được gọi với nhiều object khác nhau;
+- application factory tạo nhiều instance;
+- conditional/unreached registration;
+- adapter compatibility theo framework version;
+- budget/candidate truncation;
+- memory/thời gian trên repository lớn.
 
-### Lỗi còn lại chưa sửa
+Không dùng số test, precision/recall hoặc benchmark cũ như bằng chứng cho V2. Các con
+số chỉ được đưa trở lại README sau khi chạy trên đúng contract và source hiện tại.
 
-**Lớp cơ sở khai báo bị đếm như một bảng.** Trên `Netflix/dispatch`, lớp `Base` ở
-`database/core.py:95` nằm trong danh sách bảng dù nó không phải bảng. Dấu hiệu nhận ra:
-nó có 0 cột. Ảnh hưởng 1 trên 113 thực thể của repo đó.
-
-### Chưa đo
-
-**Repo đăng ký route động** — trong vòng lặp, qua `add_api_route`, hay qua decorator
-bọc ngoài. Hai repo mẫu không có kiểu này nên chưa có số liệu.
-
-Ngoài ra, khoảng 37% lời gọi hàm chưa nối được về đích. Phần lớn do code không khai báo
-kiểu biến:
-
-```python
-def get(*, db_session, case_id: int):   # db_session không khai kiểu
-    return db_session.query(Case)...
-```
-
-Không có cách nào biết `db_session` là gì mà không đoán. Chúng tôi **không** thêm luật
-kiểu "tham số tên `db_session` thì chắc là Session" — đó là đoán. 63% là con số trung
-thực.
-
-### Hướng phát triển
-
-1. Sửa lỗi lớp cơ sở bị đếm như bảng.
-2. Đo trên repo có đăng ký route động, để biết giới hạn thật ở đâu.
-3. Thêm Flask và Django. Cùng ngôn ngữ nên chủ yếu là viết luật nhận diện, ước tính
-   2–3 ngày mỗi framework.
-4. Thêm ngôn ngữ mới thì tốn hơn nhiều. `ast` chỉ đọc được Python; Java cần bộ phân
-   tích cú pháp khác, ước tính 1–1,5 tuần.
-
----
-
-## 7. Tài liệu trong repo
+## 8. Tài liệu
 
 | File | Nội dung |
 |---|---|
-| [EVALUATION.md](EVALUATION.md) | Kết quả đo độ chính xác, phân tích từng lỗi |
-| [SPEC_Code_to_L3_Generator.md](SPEC_Code_to_L3_Generator.md) | Đặc tả gốc |
-| [examples/](examples/) | Kết quả đã chạy sẵn trên hai repo thật |
-| [docs/USE_CASES.md](docs/USE_CASES.md), [docs/SCENARIOS.md](docs/SCENARIOS.md) | Requirement |
-| [docs/AGENTIC_SDLC_LOG.md](docs/AGENTIC_SDLC_LOG.md) | Nhật ký: đặc tả thiếu gì, chỗ nào cố ý làm khác |
+| [ARCHITECTURE_V2_IDEA.md](docs/ARCHITECTURE_V2_IDEA.md) | Pipeline và ranh giới phân tích |
+| [USE_CASES.md](docs/USE_CASES.md) | Nhu cầu người dùng |
+| [SCENARIOS.md](docs/SCENARIOS.md) | Hành vi cần đạt |
+| [SPEC_Code_to_L3_Generator.md](SPEC_Code_to_L3_Generator.md) | Contract V2 |
+| [HANDOFF.md](docs/HANDOFF.md) | Hiện trạng và việc tiếp theo |
+| [AGENTIC_SDLC_LOG.md](docs/AGENTIC_SDLC_LOG.md) | Nhật ký quyết định/thay đổi |
 
-### Chạy test
+EVALUATION và examples đang tạm hoãn trong giai đoạn chốt requirement.
+
+## 9. Phát triển
+
+Cài dependency dev và chạy test:
 
 ```bash
 pip install -e ".[dev]"
 python -m pytest -q
 ```
 
-### Tự kiểm chứng: chạy hai lần ra kết quả giống hệt
+Việc cần làm tiếp theo không phải mở rộng resolver cho mọi Python pattern. Thứ tự là:
 
-```bash
-l3gen <repo> --no-ai -o r1
-l3gen <repo> --no-ai -o r2
-diff r1/IAM.json r2/IAM.json && diff r1/graph.json r2/graph.json && echo "giống hệt"
-# IAM.json, graph.json, diagram.mmd, findings.json giống hệt từng byte.
-# Riêng L3.md khác hai chỗ cố ý: dòng thời điểm chạy ở đầu file, và con số
-# thời lượng chạy ở mục 1.
-```
+1. viết acceptance test cho architecture relation;
+2. tạo Architecture IAM/projection;
+3. component synthesis;
+4. đổi Markdown/Mermaid/graph/UI sang component view;
+5. đo đóng góp của resolver và chỉ đơn giản hóa dựa trên kết quả;
+6. sau đó mới cập nhật EVALUATION/examples.
