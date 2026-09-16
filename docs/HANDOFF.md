@@ -1,370 +1,217 @@
 # Bàn giao — Code → L3 Generator
 
-Đọc file này là đủ để tiếp tục công việc, không cần hỏi lại từ đầu.
+Cập nhật: 16/09/2026. Đây là bản tiếp tục công việc, không phải chứng nhận V2 đã hoàn tất.
+Đọc file này đầu phiên; đối chiếu code trước khi khẳng định năng lực hiện tại.
 
-Cập nhật: 14/09/2026, sau khi xong Mốc 6.
+## 1. Việc đang làm và thứ tự đã chốt
 
----
+Người dùng đã chốt hướng kéo sản phẩm về đúng Code → L3:
 
-## 1. Dự án này làm gì
+1. Phân tích chi tiết chỉ để chứng minh quan hệ kiến trúc.
+2. L3 và diagram trình bày application/component, không liệt kê toàn bộ function/class.
+3. Repository Knowledge Graph đầy đủ không phải sản phẩm chính của dự án này.
+4. Resolver được giữ làm công cụ nội bộ nhưng không tiếp tục mở rộng nếu không phục vụ câu hỏi L3.
+5. Unresolved raw call không được biến thành semantic edge nét đứt.
+6. Giao diện web là đường dùng chính cho người dùng tương tác; CLI/script/CI là đường tự động hóa phụ, không phải hình thức duy nhất của sản phẩm.
+7. Thiết kế đầu vào của giao diện gồm thư mục cục bộ, file ZIP và URL GitHub; mở lại kết quả phân tích đã có là một use case riêng. Đây là phạm vi yêu cầu/thiết kế, chưa phải tuyên bố code hiện tại đã hỗ trợ.
+8. Kết quả được khám phá theo mục tiêu: tổng quan, application/component, API/luồng gọi, dữ liệu/tích hợp, phụ thuộc, bằng chứng nguồn, chất lượng/giới hạn và xuất artifact.
 
-Một công cụ dòng lệnh đọc source code Python/FastAPI (chỉ đọc cú pháp, **không
-chạy code**) và sinh ra tài liệu kiến trúc L3, sơ đồ, và file graph. Mọi dòng
-trong tài liệu tra ngược được về `file:dòng` trong source thật.
+Đã đồng bộ [ARCHITECTURE_V2_IDEA.md](ARCHITECTURE_V2_IDEA.md),
+[USE_CASES.md](USE_CASES.md), [SCENARIOS.md](SCENARIOS.md),
+[SPEC](../SPEC_Code_to_L3_Generator.md) và [README](../README.md).
 
-Thuộc chương trình "Platform Satellite Projects" (đề bài mục 3.6), làm theo
-Agentic SDLC: người viết spec và tiêu chí, Agent sinh code.
+Đã tạo PRD gốc dạng draft tại
+[`PRD-L3GEN.md`](../.aide/product/prd/PRD-L3GEN.md) theo đủ khung I–IX của mentor.
+PRD chưa qua Scope Gate; FR/NFR/OBS được liệt kê bằng key dự kiến nhưng chưa có artifact.
+`SCENARIOS.md`, SPEC và README chưa được đồng bộ với đầu vào UI mới (thư mục/ZIP/GitHub)
+trong lượt này, nên không được coi câu mô tả CLI-only ở các file đó là quyết định mới nhất.
 
-**Chạy thử ngay:**
+Tạm bỏ qua EVALUATION và examples; không dùng số đo V1 để chứng minh V2. Chưa sửa code
+sản phẩm và chưa thực hiện thao tác Git trong lượt đồng bộ tài liệu này.
 
-```bash
-pip install -e .
-l3gen tests/fixtures/python/fastapi/sample_app --no-ai -o out
-```
+## 2. Những nguyên tắc đã thống nhất
 
----
+- Đọc source, không chạy hoặc import code của repo được phân tích.
+- Kiểm kê theo file và ngôn ngữ. Không coi mỗi folder hay nhóm ngôn ngữ là một service triển khai.
+- Python là ngôn ngữ phân tích chính hiện tại. Nhận diện file Java/TypeScript không đồng nghĩa đã phân tích được chúng.
+- Dùng AST (cây biểu diễn cú pháp), dữ liệu trung gian, nối tên và truyền giá trị để tìm quan hệ.
+- Framework adapter diễn giải API bằng luật đã duyệt. Không nhận diện chỉ bằng tên ngắn như `mount`.
+- AI chỉ viết mô tả hoặc hỗ trợ diễn đạt review; không sửa dữ kiện, tự nối call hoặc tự tạo luật trong V2.
+- Agent đề xuất framework rule thuộc ý tưởng V2.5, không triển khai trong V2 hiện tại.
+- Thiếu bằng chứng phải ghi phần chưa biết và lý do. Không tự dựng cạnh để graph trông đầy đủ.
+- Áp dụng nguyên tắc “Analyze deep enough; present at L3”: function/call là evidence nội bộ, không mặc nhiên là node L3.
+- Architecture graph công khai tập trung application/component/API/data/external/event. Function graph, nếu giữ, là diagnostic artifact riêng.
+- Chỉ phân tích sâu từ architectural anchor hoặc trên đường trả lời câu hỏi kiến trúc đã chốt.
+- Giữ tên các bước pipeline bằng tiếng Anh; phần giải thích dùng tiếng Việt dễ hiểu, giải nghĩa thuật ngữ mới.
+- CLAUDE.md là hướng dẫn cục bộ, đang có trong .gitignore. Không tự đưa vào commit hay sao chép nội dung riêng tư sang tài liệu công khai.
 
-## 2. Hiện trạng — làm được tới đâu
+## 3. Code hiện có
 
-| Mốc | Trạng thái | Số đo thật |
+Luồng chính đã dùng các thành phần V2 dưới đây. “Có code” không có nghĩa mọi tình huống đã được kiểm chứng.
+
+| Phần | Bằng chứng trong source | Hiện trạng |
 |---|---|---|
-| 1. Khung chạy được | Xong | quét + đọc cây cú pháp, bỏ qua file lỗi |
-| 2. Nối tham chiếu | Xong | dispatch: nối được 2930/4617 (63%) |
-| 3. Ba bộ trích xuất | Xong | route, bảng dữ liệu, gọi ra ngoài |
-| 4. Gộp IAM + graph | Xong | dispatch: 8916 node, 9895 cạnh |
-| 5. Sinh tài liệu | Xong | 4 file, chạy hai lần giống hệt |
-| 6. Hai bước AI | Xong | 15 test khoá ranh giới AI |
-| **7. Đo độ chính xác** | **Đang làm — chưa bắt đầu** | |
-| 8. Đóng gói | Chưa | |
-| 9. Giao diện web | Chưa | |
+| Điều phối | [pipeline.py](../src/l3gen/pipeline.py), [builder.py](../src/l3gen/core/builder.py) | Builder gọi frontend, resolver và adapter V2 |
+| File Inventory | [discovery.py](../src/l3gen/detection/discovery.py) | Kiểm kê, nhóm ngôn ngữ và ghi phần bỏ qua |
+| Python Frontend + Common Semantic IR | [frontend.py](../src/l3gen/languages/python/frontend.py), [semantic.py](../src/l3gen/models/semantic.py) | Thu import, khai báo, phạm vi tên, phép gán, call, tham số, return… |
+| Tên module | [modules.py](../src/l3gen/languages/python/modules.py) | Suy từ package; tên trùng được tách bằng namespace theo file và ghi chú |
+| Resolver + Dataflow | [dataflow.py](../src/l3gen/core/resolution/dataflow.py) | Truyền tập giá trị bằng hàng đợi, nối call, giữ bằng chứng và giới hạn xử lý |
+| Kiến thức thư viện | [registry.py](../src/l3gen/core/semantics/registry.py) | Bảng kiểu và thao tác tất định; phiên bản bảng là builtin-semantics-v1 |
+| FastAPI | [adapter_v2.py](../src/l3gen/languages/python/frameworks/fastapi/adapter_v2.py) | Nhận thao tác đăng ký, ghép route từ quan hệ app/router |
+| ORM và gọi ra ngoài | [sqlalchemy_v2.py](../src/l3gen/orm/sqlalchemy_v2.py), [external_v2.py](../src/l3gen/languages/python/frameworks/fastapi/external_v2.py) | Đọc entity và lời gọi HTTP qua dữ liệu V2 |
+| IAM và graph | [graph_builder.py](../src/l3gen/core/graph_builder.py) | Tạo node/cạnh; ranh giới application ở mức candidate/unknown |
+| Đầu ra và UI | [output](../src/l3gen/output), [ui](../src/l3gen/ui) | Đã có code sinh tài liệu, JSON, sơ đồ và giao diện; không còn trạng thái “chưa làm UI” |
 
-**Quy mô:** 4.012 dòng code, 947 dòng test, **55 test đạt**, 14 fixture.
+Các file V1 còn tồn tại không có nghĩa chúng còn là luồng chạy chính.
+Trường `service="python"` trong builder hiện là tương thích dữ liệu cũ, không chứng minh có một service tên Python.
+Comment đầu builder còn nói application boundary là việc tương lai, trong khi graph_builder đã có phần tạo boundary. Đây là lệch comment/code cần xử lý khi được phép sửa code.
 
-### Đã chạy thật trên hai repo mã nguồn mở
+## 4. Mức kiểm chứng và giới hạn
 
-| Repo | File | Route | Bảng | Gọi ra ngoài | Thời gian |
-|---|---|---|---|---|---|
-| `Netflix/dispatch` @ `dd2837e` | 657 (0 lỗi cú pháp) | 290 | 113 | 15 | 1,6 giây |
-| `fastapi/full-stack-fastapi-template` @ `cb740b6` | 24 (1 lỗi) | 23 | 2 | 0 | <1 giây |
+### Kiểm chứng
 
-Cả hai clone sẵn trong `sample-repos/` (thư mục này nằm trong `.gitignore`).
+- Phiên cập nhật này: đọc source, đối chiếu tài liệu và kiểm tra hai file bàn giao; không chạy test hoặc benchmark.
+- Bản HANDOFF cũ ghi 55 test và số đo V1. Những số đó không đại diện cho source V2 hiện tại.
+- Không công bố số test đạt mới khi chưa có lần chạy tương ứng với đúng trạng thái code.
+- Các số đo lịch sử trong PROGRESS/EVALUATION cần kiểm tra lại phiên bản và phạm vi trước khi sử dụng.
+- Phiên bản sản phẩm, phiên bản frontend và phiên bản bảng luật là ba thông tin khác nhau.
 
-**Kiểm chứng chéo:** đếm tay decorator route trên template ra đúng 23/23. Trên
-dispatch grep ra 278, công cụ ra 290 — công cụ đúng, grep thiếu vì chỉ bắt
-`@router.` và `@app.`, bỏ sót `@user_router.`, `@auth_router.`, `@api_router.`.
+### Giới hạn thấy trong source hoặc cần kiểm chứng thêm
 
----
+- Source root (thư mục gốc để tính tên import) chưa có mô hình cấu hình đầy đủ. Trùng tên module được tránh gộp nhầm, nhưng chưa vì thế resolve được import.
+- Dataflow có giới hạn 32 đích mỗi call, 128 giá trị mỗi ô lưu và 250.000 lượt truyền. Giới hạn này không phải cam kết thời gian/RAM tối đa.
+- Tham số và kết quả trả về dùng chung theo định nghĩa hàm có thể trộn thông tin giữa nhiều lần gọi. Cần test riêng factory tạo nhiều app/router.
+- Cần kiểm chứng điều kiện, thứ tự và ngữ cảnh thực thi khi kết luận route đã được gắn vào app; không đồng nhất “có câu lệnh trong source” với “chắc chắn được thực thi”.
+- Chưa có cơ chế lưu kết quả file không đổi để phân tích tăng dần.
+- Phiên bản registry chưa chứng minh tương thích với mọi phiên bản framework.
+- Parse được file không đồng nghĩa hiểu hết ngữ nghĩa trong file. Phải giữ ghi chú phần chưa hỗ trợ.
+- Chưa xác nhận chất lượng V2 bằng đánh giá đầy đủ. Không ghi “hoàn tất V2” chỉ vì các tầng đã có code.
 
-## 3. Cơ chế cốt lõi — hiểu cái này là hiểu cả dự án
+## 5. Pipeline và contract đã chốt ở mức tài liệu
 
-### Câu then chốt
-
-> **Cây cú pháp cho biết TÊN, không cho biết NGHĨA.**
-
-Nhìn `svc.confirm()`, cây chỉ nói: *có một biến tên `svc`, gọi một method tên
-`confirm`*. Nó **không biết** `svc` là cái gì, `confirm` nằm ở file nào. Toàn bộ
-phần khó của dự án nằm ở câu này.
-
-### Cách bắc cầu: hai bảng tra cứu
-
-**Bảng 1 — danh bạ.** Duyệt hết file `.py`, ghi ai định nghĩa ở đâu:
-
-```
-app.services.order.OrderService          -> app/services/order.py:6
-app.services.order.OrderService.confirm  -> app/services/order.py:7
-```
-
-**Bảng 2 — tên gọi trong TỪNG file.** Trong `api/orders.py`, tên `OrderService`
-nghĩa là `app.services.order.OrderService`.
-
-> **Bảng 2 tuyệt đối không được gộp chung cho cả repo.** File A lấy
-> `OrderService` từ `app.services.order`, file B có thể lấy cùng tên đó từ
-> `legacy.service`. Gộp chung thì graph vẫn đẹp, test vẫn qua, chỉ có vài cạnh
-> trỏ nhầm file và không cách nào phát hiện. `fixture_8` bắt đúng lỗi này.
-
-Có hai bảng rồi thì mọi việc còn lại thành tra bảng. Chi tiết đầy đủ (5 câu hỏi,
-5 cơ chế, kèm ví dụ 4 file chạy xuyên suốt) nằm ở plan:
-`C:\Users\Khiem\.claude\plans\khi-vi-t-c-c-file-refactored-stonebraker.md` mục 2.
-
-### Đoán kiểu biến — chỉ nhận 5 dạng
-
-| Dạng | Ví dụ |
-|---|---|
-| Chú thích kiểu | `def f(svc: OrderService)` |
-| Gán trực tiếp | `svc = OrderService()` |
-| Tiêm phụ thuộc | `svc = Depends(get_service)` → tra kiểu trả về |
-| Thuộc tính `__init__` | `self.repo = OrderRepository()` |
-| **Bí danh kiểu** | `SessionDep = Annotated[Session, Depends(get_db)]` |
-
-Dạng thứ 5 không có trong SPEC — phát hiện khi chạy trên repo thật. Cả hai repo
-mẫu đều dùng.
-
-Dạng khác → `resolved = False`. **Đây là kết quả ĐÚNG, không phải lỗi.**
-
----
-
-## 4. Các quyết định đã thống nhất — không mở lại
-
-| # | Quyết định | Lý do |
-|---|---|---|
-| 1 | Mô tả AI ghi ra `descriptions.json`, cảnh báo ra `findings.json` — **không vào `IAM.json`** | Biến "AI không sửa dữ liệu" từ lời hứa thành thứ `diff` kiểm chứng được |
-| 2 | Bước rà soát **phát hiện tất định**, AI chỉ viết lại câu tóm tắt | Bốn ràng buộc ở SPEC mục 6b.1 đều là luật đếm được. Để AI tự quyết là mở đường cho nó bịa cảnh báo |
-| 3 | Bỏ `core/resolution/orchestrator.py` (SPEC mục 14.1 có) | Logic điều phối gọn trong `resolve_call()` ~30 dòng. Một ngôn ngữ mà tách tầng riêng chỉ thêm chỗ để lạc |
-| 4 | Chưa tạo thư mục rỗng `flask/`, `django/`, `java/` (SPEC mục 14.4 muốn) | Thư mục rỗng không tồn tại được trong git |
-| 5 | `.gitignore` giữ nguyên, `PROGRESS.md` không commit | Người dùng đã chốt, không bàn lại |
-| 6 | Giao diện web làm sau cùng | Lõi chạy đúng trước; xoá thư mục UI đi thì dòng lệnh vẫn chạy |
-| 7 | Không đoán khi thiếu thông tin | 37% lời gọi chưa nối được là con số trung thực, không thêm luật đoán để đẩy số lên |
-
-### Bốn trường thêm vào IAM ngoài SPEC
-
-Đều là bổ sung, không sửa cái đã có. Lý do ghi trong docstring của từng trường.
-
-| Trường | Ở đâu | Vì sao cần |
-|---|---|---|
-| `resolved_symbol` | `Reference` | `resolved_module` chỉ cho biết FILE. Nối cạnh giữa hai hàm cần tên hàm đầy đủ |
-| `qualified_name` | `FunctionNode` | Khớp với `resolved_symbol` |
-| `entity_refs` | `FunctionNode` | `db.query(Order)` — `Order` là tên trần, không phải lời gọi. Đây là chỗ cho biết route nào đọc bảng nào |
-| `inside_try_except` | `ExternalCall` | SPEC mục 6c.3 yêu cầu đánh dấu nhưng không có chỗ chứa |
-
----
-
-## 5. Quy tắc phải tuân thủ
-
-### 5.1 Cách viết tài liệu (`CLAUDE.md` mục 0)
-
-Lỗi đã xảy ra trong dự án này: **tài liệu quá dài và nói phức tạp những chuyện
-đơn giản**. Đọc `CLAUDE.md` mục 0 trước khi viết bất cứ file `.md` nào.
-
-Tóm tắt: viết ngắn, một câu một ý, hạn chế từ tiếng Anh, ví dụ cụ thể thay mô tả
-trừu tượng, gọi đúng tên (hàm duyệt cây cú pháp thì gọi là hàm duyệt cây cú pháp,
-không gọi là "chuyên viên trích xuất").
-
-### 5.2 Cách làm việc
-
-- **Hỏi trước khi làm thêm việc không được giao** (`CLAUDE.md` đầu file).
-- **Báo cáo vào chat sau mỗi mốc quan trọng**, chi tiết và dễ hiểu.
-- Số liệu phải là số đo thật, hoặc ghi rõ "chưa đo".
-
-### 5.3 Nguyên tắc bất biến của sản phẩm (SPEC mục 0.5)
-
-1. Không bao giờ chạy code của repo đang phân tích — chỉ `read_text()` rồi
-   `ast.parse()`.
-2. AI không được thêm/sửa/xoá dữ liệu trong IAM.
-3. Không đoán khi thiếu thông tin. Ghi `resolved = False` hoặc hạ `partial`.
-4. Mọi dòng trong tài liệu tra ngược được về `file:dòng`.
-5. Tầng phân tích tĩnh không phụ thuộc tầng AI. AI hỏng chỉ làm giảm chất lượng.
-6. Không có con số nào không truy được về nguồn.
-
----
-
-## 6. Việc tiếp theo
-
-### Mốc 7 — Đo độ chính xác (đang làm, chưa bắt đầu)
-
-Đây là thứ tách dự án này khỏi mọi bài tập khác. Theo SPEC mục 8.5.
-
-**Bước 1 — lập ground truth (việc của người, không giao Agent).**
-Chọn repo, hai người **đọc tay độc lập** toàn bộ, mỗi người tự liệt kê route,
-bảng dữ liệu, lời gọi ra ngoài. Đối chiếu, chỗ lệch thì bàn tới khi thống nhất.
-Chốt thành `ground_truth.json`.
-
-Ước tính 1–1,5 ngày cho 2 người. Nếu chỉ có một người: đọc hai lượt cách nhau, và
-**ghi rõ trong `EVALUATION.md` là do một người lập** — nói thật còn hơn giả vờ.
-
-**Bước 2 — đo và viết `EVALUATION.md`.** Precision/recall cho từng loại thực thể,
-phân tích từng ca bỏ sót và báo thừa, mở đầu bằng đoạn tóm tắt 3–5 câu không dùng
-thuật ngữ thống kê.
-
-**Ngưỡng đặt trước, không được hạ sau khi thấy kết quả** (SPEC mục 8.5.3):
-route recall ≥ 85%, route precision nhóm `exact` ≥ 95%, bảng recall ≥ 90%,
-gọi ra ngoài recall ≥ 80%.
-
-**Repo nào?** `full-stack-fastapi-template/backend` (24 file) hơi nhỏ so với mức
-30–80 SPEC đề ra, nhưng đọc tay được trong ngày. `dispatch` (657 file) quá lớn để
-đọc tay. Cần chốt: dùng template và ghi rõ cỡ mẫu nhỏ, hay tìm repo thứ ba.
-
-### Mốc 8 — Đóng gói
-
-`README.md` 7 phần, thư mục `examples/` có kết quả đã chạy và commit,
-`pip install` được. Kiểm chứng: xoá môi trường ảo, cài lại theo README, chạy được.
-
-### Mốc 9 — Giao diện web
-
-SPEC mục 13. Thứ tự: tổng quan → bảng route → graph tương tác → cảnh báo → bảng
-dữ liệu → giới hạn. Kiểm chứng: xoá cả thư mục giao diện, dòng lệnh vẫn chạy.
-
-### Việc chưa làm, phải xong trước khi demo
-
-**Dọn ngôn từ thổi phồng trong tài liệu cũ.** SPEC gọi năm hàm duyệt cây cú pháp
-là "5 chuyên viên độc lập". `docs/COMPETITOR_RESEARCH.md` có "khoảng trống thị
-trường đáng chiếm". Vi phạm `CLAUDE.md` mục 0.3.
-
----
-
-## 7. Vấn đề đang tồn tại
-
-### 7.1 37% lời gọi chưa nối được — và vì sao không nên cố
-
-Phần lớn là code không khai báo kiểu:
-
-```python
-def get(*, db_session, case_id: int) -> Case | None:   # db_session không khai kiểu
-    return db_session.query(Case)...
+```text
+File Inventory + Analysis Context
+→ Language Frontends
+→ Common Semantic IR
+→ Architectural Anchor Discovery
+→ Targeted Resolver + Dataflow ↔ Library Models
+→ Framework Adapters
+→ Registration & Composition
+→ Component Synthesis + Architecture IAM
+→ L3 Projection + Validation + Outputs
 ```
 
-Không có cách nào biết `db_session` là gì mà không đoán. **Không thêm luật kiểu
-"tham số tên `db_session` thì chắc là Session"** — đó là đoán, vi phạm nguyên tắc
-gốc. 63% là con số trung thực.
+Khoảng cách chính giữa code và contract mới:
 
-### 7.2 Ba nhóm cần phân biệt khi báo số
+- chưa có Component Synthesis hoàn chỉnh;
+- IAM còn trộn dữ liệu kỹ thuật và kiến trúc;
+- graph còn lấy function/class/call làm node chính;
+- Mermaid hiện chủ yếu route/entity/external, chưa phải component diagram hoàn chỉnh;
+- registration chưa phân biệt đầy đủ declared/potentially reachable;
+- event/config relationship chưa hoàn chỉnh;
+- registry chưa thể hiện dải phiên bản framework.
 
-Đây là chỗ tôi từng làm sai và đã sửa:
+Thứ tự code tiếp theo: acceptance test → Architecture IAM/projection → component
+synthesis → output/UI → đo resolver → sau đó mới EVALUATION/examples. Không xóa resolver
+ồ ạt và không mở rộng resolver tổng quát trước khi có acceptance criterion L3.
 
-| Nhóm | Nghĩa |
-|---|---|
-| Nối được | Tìm thấy định nghĩa trong repo |
-| Gọi thư viện ngoài | Biết chính xác nó đi đâu, chỉ không đọc được bên trong. **Phân loại đúng, không phải thất bại** |
-| Chưa biết | Thật sự không xác định được |
+## 6. Quy tắc tự cập nhật bàn giao
 
-Bản đầu tôi in "không biết `session` là gì" cho 37 lời gọi, trong khi code có
-`session: Session` rõ ràng. Nói vậy là **nói dối về năng lực của chính mình theo
-hướng khiêm tốn giả tạo**. Sau khi phân loại lại, tỷ lệ đi từ 57% lên 63% mà
-không đổi một dòng logic nào.
+Quy tắc này là yêu cầu thường xuyên của người dùng, không cần đợi nhắc ở mỗi phiên.
 
-### 7.3 Lỗi thật trong repo mẫu
+- Đầu phiên: đọc HANDOFF, xác định việc đã chốt, việc còn chờ duyệt và trạng thái kiểm chứng.
+- Sau mỗi nhóm thay đổi có ý nghĩa về code, test, cấu hình, tài liệu hoặc quyết định: cập nhật mục hiện trạng liên quan và thêm nhật ký ngắn ở mục 7. Không cần ghi từng lần gõ.
+- Hoàn tất cập nhật trước khi kết thúc phiên hoặc chuyển giao; ghi cả việc đang dở và bước tiếp theo.
+- Nếu chỉ điều tra mà không sửa, ghi kết luận hữu ích khi phạm vi cho phép. Nếu người dùng yêu cầu chỉ đọc/không sửa file, tôn trọng yêu cầu đó và báo nội dung cần cập nhật trong chat.
+- Mỗi nhật ký ghi: yêu cầu, file thay đổi, làm gì/vì sao, kiểm chứng thực tế, việc còn lại và kinh nghiệm nếu có.
+- Ghi rõ kiểm chứng “đạt”, “thất bại” hoặc “chưa chạy”, kèm lệnh/phạm vi khi có. Không chuyển kết quả cũ thành kết quả mới.
+- Tách rõ đề xuất, quyết định đã duyệt, code đã viết và kết quả đã đo. Không tự coi im lặng là phê duyệt.
+- Sửa trạng thái hiện hành khi thông tin cũ sai; giữ nhật ký đã có để hiểu quá trình thay đổi. Không chỉ nối nhật ký rồi để phần đầu tiếp tục sai.
+- Bàn giao không mở rộng quyền: không tự sửa tính năng, tài liệu khác, commit hoặc push ngoài yêu cầu.
+- Không đưa khóa, dữ liệu riêng tư hoặc đường dẫn phiên chat cá nhân vào HANDOFF.
 
-`full-stack-fastapi-template` @ `cb740b6`, file `backend/app/api/deps.py` dòng 36:
+## 7. Nhật ký thay đổi
 
-```python
-except InvalidTokenError, ValidationError:   # cú pháp Python 2, không chạy được
-```
+### 16/09/2026 — Thu hẹp sản phẩm về Code → L3
 
-Công cụ báo đúng vị trí và chạy tiếp thay vì sập. Hệ quả đo được: **một file hỏng
-kéo theo 29 lời gọi không nối được**, vì chính nó khai báo `SessionDep`. Tư liệu
-demo tốt.
+- Yêu cầu: chỉnh tài liệu sau khi xác nhận dự án có nguy cơ lấn sang Repository Knowledge Graph.
+- File sửa: `docs/ARCHITECTURE_V2_IDEA.md`, `docs/USE_CASES.md`, `docs/SCENARIOS.md`, `SPEC_Code_to_L3_Generator.md`, `README.md`, `docs/COMPETITOR_RESEARCH.md`, `docs/AGENTIC_SDLC_LOG.md`, `PROGRESS.md` (cục bộ, ignored), `docs/HANDOFF.md`.
+- Thay đổi: tách phân tích kỹ thuật khỏi L3 projection; định nghĩa architectural anchor, targeted resolver, Component Synthesis, Architecture IAM và component-level graph; bỏ full function graph khỏi public L3 contract; đánh dấu các đề xuất/roadmap khảo sát cũ là lịch sử.
+- Kết quả: architecture, requirement, scenarios, spec và README cùng một hướng; README nói rõ code hiện mới phù hợp một phần.
+- Kiểm chứng: rà heading, liên kết tài liệu và các cụm từ dễ mâu thuẫn; chưa chạy test/benchmark vì không sửa code.
+- Kinh nghiệm: mức chi tiết cần cho evidence không phải mức chi tiết phải đưa vào diagram. Spec mở rộng sai có thể kéo toàn bộ implementation lệch khỏi đề bài gốc.
+- Việc tiếp theo: review diff tài liệu; sau khi người dùng đồng ý mới lập test/code migration theo SPEC mục 10 và 13.
 
-### 7.4 Cỡ mẫu cho Mốc 7 chưa chốt
+### 16/09/2026 — Đồng bộ bàn giao với V2 và thiết lập tự cập nhật
 
-Xem mục 6 ở trên.
+- Yêu cầu: ưu tiên chốt pipeline rồi mới UC/scenario, SPEC/README; tạm bỏ qua EVALUATION/examples.
+- File sửa: docs/HANDOFF.md và CLAUDE.md cục bộ.
+- Thay đổi: thay ảnh chụp hiện trạng V1 bằng bảng đối chiếu code V2; ghi giới hạn, đề xuất chờ duyệt và quy tắc cập nhật sau thay đổi.
+- Kiểm chứng: đọc lại hai tài liệu và kiểm tra các đường dẫn source; không chạy test/benchmark vì không sửa code.
+- Kết quả: có điểm tiếp tục cho phiên sau; chưa phê duyệt hoặc triển khai thay đổi pipeline.
+- Kinh nghiệm: HANDOFF phải cập nhật theo thay đổi thực tế, không phụ thuộc lời nhắc. Viết xong code, test đạt và đo chất lượng là ba trạng thái khác nhau.
+- Bước tiếp theo: người dùng xem đề xuất pipeline trong chat. Sau khi chốt mới sửa ARCHITECTURE_V2_IDEA theo phạm vi đã duyệt.
 
----
+### 16/09/2026 — Thiết kế lại use case tổng quan theo hướng UI-first
 
-## 8. Cấu trúc code
+- Yêu cầu: bổ sung đầu vào thư mục cục bộ, file ZIP và URL GitHub; tham khảo cách tổ chức UI của RepoDNA; vẽ lại `docs/diagrams/usecase-overview.svg`.
+- File sửa: `docs/diagrams/usecase-overview.svg`, `docs/HANDOFF.md`.
+- Thay đổi: bỏ mô hình cũ coi hệ thống là CLI tool; dùng actor trừu tượng `Engineering User` cho Developer và Architect/Reviewer; tách ba nhóm use case phân tích kho mã, khám phá kiến trúc, xem xét/sử dụng kết quả; thể hiện ba cách cung cấp source và GitHub. Sơ đồ tổng quan không tách riêng automation, theo dõi/cấu hình phân tích, AI hay nền tảng tiếp nhận. Phần kết quả được rút gọn thành xem chi tiết và xuất tài liệu.
+- Kết quả: sơ đồ mô tả mục tiêu/người dùng và quan hệ UML ở mức tổng quan, không đưa pipeline phân tích nội bộ vào use case.
+- Kiểm chứng: parse XML thành công và render SVG bằng Chrome headless để kiểm tra bố cục; không chạy test sản phẩm vì chỉ sửa tài liệu/sơ đồ.
+- Kinh nghiệm: input format là biến thể của use case cung cấp source, không phải actor; GitHub là external system vì hệ thống thực sự trao đổi với nó. Các view nên bám câu hỏi người dùng muốn trả lời, không bám trực tiếp từng bước engine.
+- Việc tiếp theo: đồng bộ `USE_CASES.md`, scenario, PRD/FR/NFR với mô hình này sau khi người dùng duyệt; cần chốt riêng phạm vi repository GitHub private, xác thực và giới hạn an toàn khi giải nén ZIP.
 
-```
-src/l3gen/
-├── cli.py                    lệnh dòng lệnh, xử lý lỗi
-├── pipeline.py               điều phối 8 bước
-├── models/
-│   ├── iam.py                cấu trúc dữ liệu trung gian (SPEC mục 5)
-│   ├── stack.py              ServiceUnit, DetectedStack
-│   ├── graph.py              GraphNode, GraphEdge
-│   └── findings.py           ReviewFinding (4 loại, khoá bằng Literal)
-├── detection/discovery.py    chia repo thành service theo file manifest
-├── languages/python/
-│   ├── parser.py             quét file + ast.parse
-│   ├── literals.py           đọc chuỗi, giữ nguyên phần là biến
-│   ├── resolution.py         hai bảng tra cứu + đoán kiểu + nối lời gọi
-│   ├── common/callgraph.py   duyệt hàm, thu lời gọi và tham chiếu bảng
-│   └── frameworks/fastapi/
-│       ├── routes.py         ghép đường dẫn qua cây gắn router
-│       └── external.py       httpx / requests + cờ try/except
-├── orm/sqlalchemy.py         SQLAlchemy + SQLModel
-├── core/
-│   ├── resolution/           symbol_table.py, inheritance.py
-│   ├── builder.py            gộp thành IAM
-│   └── graph_builder.py      IAM -> node/cạnh
-├── ai/
-│   ├── schemas.py            khoá cứng dạng dữ liệu AI trả về
-│   ├── client.py             gọi claude-opus-5, hỏng thì bỏ qua
-│   ├── enrichment.py         viết mô tả
-│   └── reviewer.py           phát hiện tất định + AI viết lại câu
-└── output/                   markdown.py, mermaid.py, json_export.py
-```
+### 16/09/2026 — Đồng bộ use case và tạo PRD gốc
 
-### File đầu ra
+- Yêu cầu: cập nhật `USE_CASES.md` theo sơ đồ mới nhất và làm PRD theo từng mục trong mẫu mentor.
+- File sửa/tạo: `docs/USE_CASES.md`, `.aide/product/prd/PRD-L3GEN.md`, `docs/HANDOFF.md`.
+- Thay đổi use case: chỉ giữ UC1 Phân tích kho mã, UC2 Khám phá kiến trúc, UC3 Xem xét và sử dụng kết quả; đầu vào gồm thư mục, ZIP, GitHub URL; UC3 gồm xem chi tiết và xuất tài liệu; AI không là use case riêng.
+- Thay đổi PRD: tạo đúng một PRD cho `SYS-L3GEN`, đủ frontmatter và các phần I–IX; thêm GOAL/KPI draft, persona, giả định/ràng buộc/phụ thuộc, in/out scope, chỉ mục FR/NFR dự kiến, hai user flow sequence diagram, edge cases, DoD, screen inventory, phasing, Scope Gate và Open Questions.
+- Kiểm chứng: rà đủ heading theo mẫu mentor và kiểm tra không còn UC cũ trong `USE_CASES.md`; không chạy test code vì chỉ thay tài liệu.
+- Trạng thái: PRD là `draft`, chưa baseline. KPI target và ngày OQ là đề xuất; FR/NFR/OBS chưa được tạo nên chưa thể qua Scope Gate.
+- Việc tiếp theo: người dùng review lần lượt PRD I→IX; chốt Open Questions quan trọng, sau đó tạo mỗi FR và NFR thành một file riêng. Đồng bộ scenario/SPEC/README sau khi phạm vi PRD được duyệt.
 
-| File | Nội dung | Giống hệt qua hai lần chạy? |
-|---|---|---|
-| `L3.md` | Tài liệu chính | Chỉ khác con số thời lượng chạy |
-| `diagram.mmd` | Sơ đồ Mermaid rút gọn | Có |
-| `graph.json` | Node và cạnh | Có |
-| `IAM.json` | Toàn bộ dữ liệu đọc từ code | Có |
-| `findings.json` | Cảnh báo | Có |
-| `descriptions.json` | Mô tả do AI viết (chỉ khi có AI) | — |
-| `run.json` | Thời điểm và thời lượng chạy | Không (cố ý tách ra) |
+### 16/09/2026 — Không tái sử dụng tab preview trong workspace
 
----
+- Yêu cầu: giữ đồng thời nhiều file Markdown thay vì file sau thay thế tab preview trước.
+- File tạo: `.vscode/settings.json`.
+- Thay đổi: tắt `workbench.editor.enablePreview` và `workbench.editor.enablePreviewFromQuickOpen` ở mức workspace.
+- Kiểm chứng: JSON parse thành công. Markdown Preview dạng render vẫn cần khóa từng tab bằng lệnh `Markdown: Toggle Preview Locking`, vì VS Code không có workspace setting tương đương cho trạng thái khóa của từng preview.
 
-## 9. Fixture
+### 16/09/2026 — Chốt một phần Open Questions của PRD
 
-14 cái. SPEC mục 8.1 quy định 12, phát sinh thêm 2.
+- Quyết định người dùng: MVP không hỗ trợ GitHub private; thêm Java bên cạnh Python; phải lưu/mở lịch sử phân tích. Giới hạn tài nguyên và KPI chưa chốt.
+- File sửa: `.aide/product/prd/PRD-L3GEN.md`, `docs/USE_CASES.md`, `docs/HANDOFF.md`.
+- Thay đổi: bump PRD draft lên revision 2; chuyển OQ-001, OQ-002, OQ-005 sang đã trả lời; đưa Java và history vào scope/flow/DoD/phasing; GitHub private thành out of scope dứt khoát.
+- Đề xuất chờ duyệt: Java dùng Spring Boot; MVP đọc cấu hình ứng dụng/environment và chỉ hỗ trợ Kafka cho event producer/consumer/topic; giới hạn pilot tạm thời 100 MB ZIP nén, 500 MB sau giải nén, 50.000 file và 10 phút phân tích.
+- Open Questions mới: framework Java cụ thể và retention/dung lượng/xóa lịch sử. KPI vẫn mở vì người dùng chưa trả lời mục 6.
+- Kiểm chứng: rà các đoạn scope, phase và OQ liên quan; không chạy test code vì chỉ sửa requirement.
 
-| Fixture | Kiểm cái gì |
-|---|---|
-| 1 | Route khai báo thẳng trên `FastAPI()` |
-| 2 | Router lồng 3 tầng, một tầng prefix là biến |
-| 3 | Bảng SQLAlchemy: khoá chính, khoá ngoại, tên bảng ghép từ biến |
-| 4 | Gọi `httpx` và `requests`, URL ghép từ biến |
-| 5 | File lỗi cú pháp không kéo sập file khác |
-| 6 | Gọi hàm xuyên file + import thư viện ngoài |
-| 7 | Bảng kế thừa qua class trung gian ở file khác |
-| **8** | **Cùng tên class, khác module — bắt lỗi thiết kế âm thầm** |
-| 9 | Kế thừa sâu 3 tầng qua 3 file |
-| 10 | Class cha thuộc thư viện ngoài → `resolved=False` là đúng |
-| **11** | **Kế thừa vòng `A(B)`, `B(A)` — tool không được treo** |
-| 12 | Đa kế thừa, method có ở cả hai cha |
-| 13 | Bí danh kiểu `Annotated[...]` (phát sinh thêm) |
-| `sample_app` | Ví dụ 4 file trong plan, chạy xuyên suốt |
-| `detection/multi_service` | Repo có Java + FastAPI |
+### 16/09/2026 — Ghi nhận nhóm, mentor và chia lại phasing
 
----
+- Thông tin người dùng: nhóm thực hiện gồm Khiêm và Hoàng trong 4 tuần; mentor là Nguyễn Chí Thức và Đinh Thái Hà.
+- File sửa: `.aide/product/prd/PRD-L3GEN.md`, `docs/HANDOFF.md`.
+- Thay đổi: bump PRD draft lên revision 3; Khiêm là document PIC, Hoàng là internal technical reviewer chờ xác nhận vai trò; hai mentor là reviewer chờ Scope Gate; MVP chia Phase 1 FastAPI (tuần 1–2), Phase 2 Java (tuần 3–4), Phase 3 sau pilot.
+- Làm rõ mã: KPI sống trong PRD; OBS là artifact đo lường riêng sẽ tạo sau khi KPI được duyệt; đồ án không dùng OKR cấp khối.
+- Chưa chốt: người kiêm QA/Test owner, Spring Boot hay Java framework khác, resource limits, Kafka/config scope, history retention, KPI/OBS và quy tắc cần một hay cả hai mentor phê duyệt.
+- Kiểm chứng: rà lại các trường `chưa/planned/pending` trong PRD để lập danh sách thiếu; không chạy test code.
 
-## 10. Kịch bản demo (10 phút)
+### 16/09/2026 — Chốt mốc MVP, Test owner và quy tắc mentor duyệt
 
-Thứ tạo cảm giác dự án được đầu tư nhiều **không phải công nghệ cao siêu**, mà là
-chạy thật trước mặt người xem, trên code họ tự kiểm chứng được, và tự nói giới
-hạn trước khi bị hỏi.
+- Quyết định: FastAPI hoàn thiện 26/09/2026; Java hoàn thiện 30/09/2026; Hoàng phụ trách Test/QA; Scope Gate chỉ cần ít nhất một trong hai mentor duyệt.
+- File sửa: `.aide/product/prd/PRD-L3GEN.md`, `docs/HANDOFF.md`.
+- Thay đổi: bump PRD draft lên revision 4, điền reviewer/phase/approval và sinh ULID `01M2MQ12YPDN94K6MSP63DS8DT` cho PRD.
+- UID: quy trình tham chiếu `aide generate prd` và script cấp UID trước commit, nhưng repo hiện không cài lệnh `aide` và không có script ULID. UID lần này được sinh bằng Python standard library với timestamp + 80-bit randomness, không gõ tay.
+- Kiểm chứng: ULID đủ 26 ký tự và giải mã timestamp đúng 16/09/2026; rà lại các dòng phase, Test/QA và OQ-009.
+- Bước tiếp theo: có thể soạn FR/AC rồi NFR ở trạng thái draft; chỉ chờ mentor trước khi đổi trạng thái sang approved/baseline.
 
-| Phút | Làm gì |
-|---|---|
-| 0:30 | Mở tài liệu kiến trúc viết tay của repo mẫu, chỉ hai chỗ đã lệch với code |
-| 1:30 | `l3gen ./dispatch --no-ai` chạy trực tiếp, đếm giây (1,6 giây / 657 file) |
-| 3:00 | **Mời mentor tự chọn một dòng bất kỳ** trong `L3.md`, bấm vào, mở đúng chỗ trong source. Khoảnh khắc mạnh nhất — không phải mình chọn dòng đẹp để khoe |
-| 4:00 | Chạy lần hai, `diff` → rỗng. Chạy có AI, so `IAM.json` → giống hệt, chỉ khác mô tả |
-| 5:30 | Mở `EVALUATION.md`, nói thẳng số bỏ sót và số báo thừa |
-| 6:30 | Chạy trên repo có Java + FastAPI, tự chia, nói rõ phần bỏ qua |
-| 8:00 | Giao diện web |
-| 8:30 | Tự liệt kê ba thứ chưa làm được, kèm lý do kỹ thuật |
+### 16/09/2026 — Kiểm chứng và chia commit theo phạm vi
 
-**Chuẩn bị:** repo clone sẵn không phụ thuộc mạng; một bản chạy sẵn dự phòng;
-câu trả lời cho *"tool này khác gì hỏi thẳng AI đọc code?"*.
-
----
-
-## 11. Tài liệu liên quan
-
-| File | Nội dung |
-|---|---|
-| `CLAUDE.md` | **Đọc mục 0 trước khi viết tài liệu** |
-| `SPEC_Code_to_L3_Generator.md` | Đặc tả gốc, 1689 dòng |
-| `Đề bài.md` | Đề bài chương trình, mục 3.6 là dự án này |
-| `docs/AGENTIC_SDLC_LOG.md` | **Sản phẩm bàn giao bắt buộc.** Spec thiếu gì, tôi sai gì, chỗ nào cố ý khác SPEC |
-| `docs/USE_CASES.md`, `docs/SCENARIOS.md` | Requirement |
-| `docs/COMPETITOR_RESEARCH.md` | Khảo sát đối thủ (còn ngôn từ cần dọn) |
-| `PROGRESS.md` | Nhật ký + bảng số đo (không commit) |
-
----
-
-## 12. Lệnh hay dùng
-
-```bash
-python -m pytest -q                                    # 55 test
-l3gen <đường-dẫn> --no-ai -o out                       # chạy không AI
-l3gen <đường-dẫn> -o out                               # có AI (cần L3GEN_API_KEY)
-l3gen <đường-dẫn> --no-ai -o out -v                    # in chi tiết
-
-# Chứng minh chạy hai lần giống hệt
-l3gen <repo> --no-ai -o r1 && l3gen <repo> --no-ai -o r2
-diff r1/IAM.json r2/IAM.json && diff r1/graph.json r2/graph.json
-```
+- Yêu cầu: commit nhưng không push, chia nhỏ để dễ quản lý và không thêm author/co-author vào commit message.
+- Test: `python -m pytest -q -p no:cacheprovider --basetemp .pytest-runtime-codex-commit` đạt `112 passed in 2.41s`. Lần chạy mặc định trước đó có 96 pass và 16 setup error do không có quyền với thư mục temp của user khác; không phải lỗi assertion của code.
+- Commit implementation + tests: `f1c6505` — `feat: implement language-first semantic analysis v2`.
+- Commit kiến trúc/spec: `b666e81` — `docs: align architecture and specification with L3 scope`.
+- Commit use case/PRD: `977c749` — `docs: define UI-first use cases and product requirements`.
+- Commit cuối chỉ chứa `.gitignore` và HANDOFF để tách repository hygiene khỏi nội dung sản phẩm.
+- Không push. Commit dùng danh tính Git đã cấu hình sẵn; không thêm `Author`, `Co-authored-by` hoặc trailer AI vào message.

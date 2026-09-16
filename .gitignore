@@ -17,7 +17,7 @@ ENV/
 
 # Tests, coverage, linters and type checkers
 .pytest_cache/
-.pytest-runtime/
+.pytest-runtime*/
 .audit-output/
 .coverage
 .coverage.*
