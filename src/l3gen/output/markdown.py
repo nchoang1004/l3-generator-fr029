@@ -28,7 +28,7 @@ def write_markdown(
 ) -> Path:
     path = output_dir / "L3.md"
     text = "\n".join(_render(iam, descriptions or Descriptions(), review or Review()))
-    path.write_text(text + "\n", encoding="utf-8")
+    path.write_text(text + "\n", encoding="utf-8", errors="backslashreplace")
     return path
 
 
@@ -71,8 +71,9 @@ def _header(iam: IntermediateArchitectureModel) -> list[str]:
 def _overview(iam: IntermediateArchitectureModel) -> list[str]:
     m = iam.metrics
     stack = iam.detected_stack
+    inventory_counts = iam.file_inventory.status_counts
 
-    lines = ["## 1. Tổng quan", "", "### Các đơn vị phân tích đã phát hiện", ""]
+    lines = ["## 1. Tổng quan", "", "### Các nhóm ngôn ngữ đã phát hiện", ""]
     lines += [
         "| Đơn vị | Ngôn ngữ | Framework | Số file | Bằng chứng / đầy đủ | Trạng thái |",
         "|---|---|---|---|---|---|",
@@ -86,13 +87,15 @@ def _overview(iam: IntermediateArchitectureModel) -> list[str]:
         )
     lines += [
         "",
-        "*Bảng này liệt kê **tất cả** đơn vị tìm thấy, kể cả đơn vị bị bỏ qua — để người"
-        " đọc biết ngay tài liệu này bao phủ phần nào của hệ thống.*",
+        "*Đây là nhóm kỹ thuật để chọn parser, không phải kết luận rằng mỗi nhóm là một"
+        " service. Graph ghi application boundary ở mức `candidate` hoặc `unknown`, kèm bằng chứng.*",
         "",
         "### Kết quả lần chạy này",
         "",
-        f"- Đã đọc **{m.files_analyzed}/{m.files_found}** file Python "
+        f"- Đã parse **{m.files_analyzed}/{m.files_found}** source file "
         f"({m.lines_of_code:,} dòng) trong {m.duration_seconds:.2f} giây",
+        "- File inventory: "
+        + ", ".join(f"**{count} {status}**" for status, count in inventory_counts.items()),
         f"- Đã phân tích **{stack.analyzed_count}/{len(stack.services)}** đơn vị; "
         f"kết quả {'chưa đầy đủ' if m.is_partial else 'đầy đủ'}",
         f"- Phát hiện: **{len(iam.routes)}** route, **{len(iam.entities)}** bảng dữ liệu, "
@@ -107,6 +110,12 @@ def _overview(iam: IntermediateArchitectureModel) -> list[str]:
         "",
     ]
     lines += _effort_estimate(iam)
+    stats = iam.resolution.metrics
+    lines += ["### Resolver + Dataflow", "",
+              f"- {stats.resolved_calls} call đã nối; {stats.candidate_calls} có nhiều khả năng; "
+              f"{stats.unresolved_calls} chưa nối; {stats.runtime_calls} phụ thuộc runtime.",
+              f"- {stats.truncated_calls} call chịu ảnh hưởng của giới hạn phân tích.",
+              "- Thời gian từng bước và peak memory của process nằm trong `run.json`.", ""]
     return lines
 
 
@@ -331,6 +340,14 @@ def _tool_limitations(iam: IntermediateArchitectureModel) -> list[str]:
     """
     unknown = [entity for entity in iam.entities if entity.table_name is None]
     lines = ["### Chỗ trong tài liệu này chưa đầy đủ", ""]
+    for reason in iam.resolution.partial_reasons[:10]:
+        lines.append(f"- Giới hạn resolver: {reason}")
+    notes = [note for module in iam.semantic_program.modules for note in module.analysis_notes]
+    if notes:
+        lines += [f"- {len(notes)} cấu trúc chưa được mô hình hóa đầy đủ; xem `semantic_program.modules[].analysis_notes` trong IAM.json."]
+    if iam.framework_analysis.dropped_operations:
+        lines += [f"- {len(iam.framework_analysis.dropped_operations)} thao tác framework chưa dựng được đầy đủ; xem IAM.json."]
+    lines.append("")
 
     if unknown:
         lines += [
@@ -347,7 +364,7 @@ def _tool_limitations(iam: IntermediateArchitectureModel) -> list[str]:
             lines.append(f"- *… và {len(unknown) - 10} lớp nữa, xem `IAM.json`*")
         lines.append("")
 
-    conditional = [r for r in iam.routes if r.reason and "chỉ được đăng ký khi" in r.reason]
+    conditional = [r for r in iam.routes if r.reason and "chỉ đăng ký khi" in r.reason]
     if conditional:
         lines += [
             f"**{len(conditional)} route chỉ tồn tại ở một số môi trường.** Chúng được"

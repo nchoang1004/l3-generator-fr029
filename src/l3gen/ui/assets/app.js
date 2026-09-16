@@ -529,6 +529,7 @@ function renderLimits() {
 /* ------------------------------------------------------------ U-04 Đồ thị */
 
 const NODE_COLOR = {
+  Application: '#e68a00', Class: '#17a2a4',
   Route: '#1f77b4', Entity: '#2ca02c', Function: '#7f7f7f',
   Module: '#9467bd', ExternalHost: '#d62728', Unresolved: '#bbbbbb',
 };
@@ -541,10 +542,10 @@ const NODE_COLOR = {
  *
  * Module và Unresolved để tắt: chúng đông nhất mà nói ít nhất về kiến trúc.
  * Người dùng bật thêm được ở bộ lọc. */
-const DEFAULT_ON = ['Route', 'Entity', 'ExternalHost', 'Function'];
+const DEFAULT_ON = ['Application', 'Route', 'Entity', 'ExternalHost', 'Function'];
 
 /* Thứ tự ưu tiên khi phải cắt bớt. */
-const KEEP_ORDER = ['Route', 'Entity', 'ExternalHost', 'Function', 'Module', 'Unresolved'];
+const KEEP_ORDER = ['Application', 'Route', 'Entity', 'ExternalHost', 'Function', 'Class', 'Module', 'Unresolved'];
 const MAX_NODES = 400;
 
 /* Bao nhiêu suất dành cho node "quan trọng", phần còn lại để nối chúng lại.

@@ -1,8 +1,8 @@
-"""Gộp kết quả các bộ trích xuất thành một IAM hoàn chỉnh (bước 4).
+"""Gộp inventory và kết quả các frontend/adapter thành IAM hoàn chỉnh.
 
-Mỗi đơn vị phân tích chạy độc lập: quét file, dựng hai bảng tra cứu, chạy các bộ
-trích xuất. Kết quả gộp lại thành một IAM chung, nhưng mọi thực thể đều mang
-trường `service` chỉ rõ nó thuộc đơn vị nào.
+Source được kiểm kê trước rồi nhóm theo ngôn ngữ để chọn parser. Framework không
+quyết định file nào được parse. Trường ``service`` của mô hình V1 hiện mang tên
+nhóm ngôn ngữ; application boundary thật sẽ được dựng sau graph ở mốc V2.5.
 """
 
 import time
@@ -11,11 +11,17 @@ from pathlib import Path
 
 from l3gen import __version__
 from l3gen.detection.discovery import Unit, discover
-from l3gen.languages.python.common.callgraph import extract_functions
-from l3gen.languages.python.frameworks.fastapi.external import extract_external_calls
-from l3gen.languages.python.frameworks.fastapi.routes import extract_routes
+from l3gen.core.resolution.dataflow import resolve_program
+from l3gen.core.semantic_extractors import attach_entity_references, extract_functions_v2
+from l3gen.core.semantics.registry import builtin_registry
+from l3gen.languages.python.frontend import build_semantic_program
+from l3gen.languages.python.frameworks.fastapi.adapter_v2 import (
+    analyze_fastapi,
+    materialize_routes,
+)
+from l3gen.languages.python.frameworks.fastapi.external_v2 import extract_external_calls_v2
 from l3gen.languages.python.parser import FailedFile, parse_all
-from l3gen.languages.python.resolution import build_resolver, is_external
+from l3gen.languages.python.modules import module_map
 from l3gen.models.iam import (
     IntermediateArchitectureModel,
     ParseError,
@@ -23,7 +29,7 @@ from l3gen.models.iam import (
     SourceLocation,
     UnresolvedReference,
 )
-from l3gen.orm.sqlalchemy import extract_entities
+from l3gen.orm.sqlalchemy_v2 import extract_entities_v2
 
 
 class EmptyInputError(Exception):
@@ -36,74 +42,101 @@ class EmptyInputError(Exception):
 
 def build(root: Path, excludes: tuple[str, ...], ai_enabled: bool) -> IntermediateArchitectureModel:
     started = time.perf_counter()
-    stack, units = discover(root, excludes)
+    discovery_started = time.perf_counter()
+    stack, units, inventory = discover(root, excludes)
+    discovery_seconds = time.perf_counter() - discovery_started
 
     if not stack.services:
         raise EmptyInputError(f"không tìm thấy file source nào trong '{root}'")
-    if not units:
-        lines = [
-            f"  - {s.name or '(thư mục gốc)'}: {s.language or 'chưa rõ'}"
-            f"{', ' + ', '.join(s.frameworks) if s.frameworks else ''} — {s.skip_reason}"
-            for s in stack.services
-        ]
-        raise EmptyInputError(
-            "không đơn vị nào dùng stack đang hỗ trợ (Python + FastAPI):\n" + "\n".join(lines)
-        )
 
-    routes, entities, external_calls, functions = [], [], [], []
-    parse_errors: list[ParseError] = []
-    unresolved: list[UnresolvedReference] = []
-    files_found = files_analyzed = 0
+    parse_errors = [
+        ParseError(file=item.path, error_message=item.reason or "không đọc được file")
+        for item in inventory.files
+        if item.status == "parse_error"
+    ]
+    parsed_files = []
+    files_analyzed = 0
     lines_of_code = 0
+    inventory_by_path = {item.path: item for item in inventory.files}
 
+    frontend_started = time.perf_counter()
     for unit in units:
-        service = unit.rel_root or unit.root.name
         parsed, failed = parse_all(unit.files, unit.root)
 
-        files_found += len(unit.files)
         files_analyzed += len(parsed)
         lines_of_code += sum(f.line_count for f in parsed)
         parse_errors.extend(_prefix_errors(failed, unit, root))
+        for parsed_file in parsed:
+            record = inventory_by_path[parsed_file.rel_path]
+            record.status = "parsed"
+            record.reason = None
+        for failed_file in failed:
+            record = inventory_by_path[failed_file.rel_path]
+            record.status = "parse_error"
+            record.reason = failed_file.error_message
 
-        resolver, module_of = build_resolver(parsed)
+        parsed_files.extend(parsed)
 
-        unit_entities = extract_entities(parsed, resolver, module_of, service)
-        entity_classes = frozenset(_entity_qualified_names(unit_entities, resolver))
+    module_of = module_map([item.rel_path for item in parsed_files])
+    semantic_program = build_semantic_program(parsed_files, module_of)
+    for module in semantic_program.modules:
+        if module.module.startswith("@file:"):
+            module.analysis_notes.append("module trùng tên ở nhiều source root; import cần cấu hình root để phân giải duy nhất")
+    semantic_program.modules.sort(key=lambda module: module.file)
+    frontend_seconds = time.perf_counter() - frontend_started
 
-        unit_routes, dropped = extract_routes(parsed, resolver, module_of, service)
-        routes.extend(_reroot_routes(unit_routes, unit, root))
-        entities.extend(_reroot(unit_entities, unit, root))
-        external_calls.extend(
-            _reroot(extract_external_calls(parsed, resolver, module_of, service), unit, root)
+    registry = builtin_registry()
+    resolution_started = time.perf_counter()
+    resolution = resolve_program(semantic_program, registry)
+    resolution_seconds = time.perf_counter() - resolution_started
+
+    adapters_started = time.perf_counter()
+    functions, unresolved = extract_functions_v2(
+        semantic_program, resolution, registry, service="python"
+    )
+    entities = extract_entities_v2(semantic_program, resolution, service="python")
+    attach_entity_references(functions, entities, semantic_program, resolution)
+    framework_analysis = analyze_fastapi(semantic_program, resolution, registry)
+    routes, dropped = materialize_routes(framework_analysis, functions, service="python")
+    external_calls = extract_external_calls_v2(
+        semantic_program, resolution, service="python"
+    )
+    unresolved.extend(
+        UnresolvedReference(
+            description=f"framework operation chưa hoàn chỉnh: {item}",
+            location=SourceLocation(file=".", line_start=0, line_end=0),
         )
+        for item in dropped
+    )
+    adapter_seconds = time.perf_counter() - adapters_started
 
-        unit_functions = extract_functions(
-            parsed, resolver, module_of, service, entity_classes
-        )
-        functions.extend(_reroot_functions(unit_functions, unit, root))
-        unresolved.extend(_collect_unresolved(unit_functions, unit, root))
-        unresolved.extend(
-            UnresolvedReference(
-                description=f"route không lần được về ứng dụng gốc: {item}",
-                location=SourceLocation(file=unit.rel_root or ".", line_start=0, line_end=0),
-            )
-            for item in dropped
-        )
-
-    files_skipped = len(parse_errors)
+    files_found = len(inventory.files)
+    files_skipped = files_found - files_analyzed
     metrics = RunMetrics(
         scanned_at=datetime.now(timezone.utc),
         files_found=files_found,
         files_analyzed=files_analyzed,
         files_skipped=files_skipped,
-        is_partial=files_skipped > 0 or stack.skipped_count > 0,
+        is_partial=files_skipped > 0 or stack.skipped_count > 0 or resolution.partial or bool(unresolved)
+                   or any(module.analysis_notes for module in semantic_program.modules)
+                   or any(item.completeness == "partial" for item in [*routes, *entities, *external_calls]),
         lines_of_code=lines_of_code,
         duration_seconds=round(time.perf_counter() - started, 3),
         ai_enabled=ai_enabled,
         tool_version=__version__,
+        stage_seconds={
+            "file_inventory": round(discovery_seconds, 6),
+            "language_frontend": round(frontend_seconds, 6),
+            "resolver_dataflow": round(resolution_seconds, 6),
+            "framework_adapters": round(adapter_seconds, 6),
+        },
     )
 
     return IntermediateArchitectureModel(
+        file_inventory=inventory,
+        semantic_program=semantic_program,
+        resolution=resolution,
+        framework_analysis=framework_analysis,
         detected_stack=stack,
         routes=sorted(routes, key=lambda r: (r.service, r.path, r.method)),
         entities=sorted(entities, key=lambda e: (e.service, e.table_name or "", e.class_name)),
@@ -115,52 +148,9 @@ def build(root: Path, excludes: tuple[str, ...], ai_enabled: bool) -> Intermedia
     )
 
 
-def _entity_qualified_names(entities, resolver) -> list[str]:
-    """Tên đầy đủ của các class bảng, tra ngược từ danh bạ."""
-    names = []
-    for entity in entities:
-        for qname, definition in resolver.index.definitions.items():
-            if (
-                definition.rel_path == entity.location.file
-                and definition.line == entity.location.line_start
-                and qname.split(".")[-1] == entity.class_name
-            ):
-                names.append(qname)
-                break
-    return names
-
-
 def _full_path(rel_path: str, unit: Unit, root: Path) -> str:
     """Đường dẫn trong đơn vị -> đường dẫn tính từ thư mục đầu vào."""
     return f"{unit.rel_root}/{rel_path}" if unit.rel_root else rel_path
-
-
-def _reroot(items, unit: Unit, root: Path):
-    for item in items:
-        item.location.file = _full_path(item.location.file, unit, root)
-    return items
-
-
-def _reroot_routes(routes, unit: Unit, root: Path):
-    for route in routes:
-        route.location.file = _full_path(route.location.file, unit, root)
-        _reroot_refs(route.calls, unit, root)
-    return routes
-
-
-def _reroot_functions(functions, unit: Unit, root: Path):
-    for function in functions:
-        function.module = _full_path(function.module, unit, root)
-        function.location.file = _full_path(function.location.file, unit, root)
-        _reroot_refs(function.calls, unit, root)
-        _reroot_refs(function.entity_refs, unit, root)
-    return functions
-
-
-def _reroot_refs(refs, unit: Unit, root: Path) -> None:
-    for ref in refs:
-        if ref.resolved_module:
-            ref.resolved_module = _full_path(ref.resolved_module, unit, root)
 
 
 def _prefix_errors(failed: list[FailedFile], unit: Unit, root: Path) -> list[ParseError]:
@@ -168,22 +158,3 @@ def _prefix_errors(failed: list[FailedFile], unit: Unit, root: Path) -> list[Par
         ParseError(file=_full_path(f.rel_path, unit, root), error_message=f.error_message)
         for f in failed
     ]
-
-
-def _collect_unresolved(functions, unit: Unit, root: Path) -> list[UnresolvedReference]:
-    """Ghi lại lời gọi không nối được, bỏ qua lời gọi ra thư viện ngoài.
-
-    Gọi thư viện ngoài là phân loại đúng, không phải chỗ thiếu sót.
-    """
-    found: list[UnresolvedReference] = []
-    for function in functions:
-        for ref in function.calls:
-            if ref.resolved or is_external(ref):
-                continue
-            found.append(
-                UnresolvedReference(
-                    description=f"{function.qualified_name} gọi '{ref.name}': {ref.reason}",
-                    location=function.location,
-                )
-            )
-    return found

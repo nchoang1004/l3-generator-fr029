@@ -9,7 +9,17 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_EXCLUDES = ("__pycache__", ".venv", "venv", "tests")
+DEFAULT_EXCLUDES = (
+    ".git",
+    ".venv",
+    "venv",
+    "env",
+    "__pycache__",
+    "node_modules",
+    "build",
+    "dist",
+    "tests",
+)
 
 
 @dataclass
@@ -59,6 +69,9 @@ def parse_all(paths: list[Path], root: Path) -> tuple[list[ParsedFile], list[Fai
             tree = ast.parse(source, filename=rel_path)
         except SyntaxError as exc:
             failed.append(FailedFile(rel_path, f"lỗi cú pháp dòng {exc.lineno}: {exc.msg}"))
+            continue
+        except (RecursionError, ValueError) as exc:
+            failed.append(FailedFile(rel_path, f"parser không đọc được cấu trúc: {exc}"))
             continue
 
         parsed.append(ParsedFile(rel_path, tree, source.count("\n") + 1))

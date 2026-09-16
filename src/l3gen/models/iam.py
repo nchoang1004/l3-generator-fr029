@@ -11,11 +11,16 @@ Hai trường nhãn tách biệt, không được trộn (SPEC mục 5.1):
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from l3gen.models.inventory import FileInventory
+from l3gen.models.framework import FrameworkAnalysis
+from l3gen.models.resolution import ResolutionResult
+from l3gen.models.resolution import EvidenceStep, ResolutionStatus
+from l3gen.models.semantic import SemanticProgram
 from l3gen.models.stack import Completeness, Confidence, DetectedStack
 
-HttpMethod = Literal["GET", "POST", "PUT", "DELETE", "PATCH"]
+HttpMethod = Literal["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "TRACE", "CONNECT"]
 
 
 class SourceLocation(BaseModel):
@@ -44,6 +49,12 @@ class Reference(BaseModel):
     confidence: Confidence | None
     completeness: Completeness
     reason: str | None
+    status: ResolutionStatus | None = None
+    candidate_symbols: list[str] = Field(default_factory=list)
+    evidence: list[EvidenceStep] = Field(default_factory=list)
+    call_fact_id: str | None = None
+    location: SourceLocation | None = None
+    relation: Literal["calls", "constructs", "reads", "writes", "reads_writes"] = "calls"
 
 
 class APIRoute(BaseModel):
@@ -51,6 +62,7 @@ class APIRoute(BaseModel):
     method: HttpMethod
     path: str
     handler_function: str
+    handler_symbol: str | None = None
     calls: list[Reference]
     confidence: Confidence
     completeness: Completeness
@@ -108,7 +120,7 @@ class FunctionNode(BaseModel):
     class_name: str | None
     module: str
     calls: list[Reference]
-    entity_refs: list[Reference] = []
+    entity_refs: list[Reference] = Field(default_factory=list)
     """Các class bảng dữ liệu mà hàm này nhắc tới, ví dụ `db.query(Order)`.
 
     Bổ sung ngoài SPEC mục 5. Lý do: SPEC mục 5.2 định nghĩa cạnh `reads_writes`
@@ -144,9 +156,15 @@ class RunMetrics(BaseModel):
     duration_seconds: float
     ai_enabled: bool
     tool_version: str
+    stage_seconds: dict[str, float] = Field(default_factory=dict)
+    peak_memory_bytes: int = 0
 
 
 class IntermediateArchitectureModel(BaseModel):
+    file_inventory: FileInventory
+    semantic_program: SemanticProgram
+    resolution: ResolutionResult
+    framework_analysis: FrameworkAnalysis
     detected_stack: DetectedStack
     routes: list[APIRoute]
     entities: list[DBEntity]

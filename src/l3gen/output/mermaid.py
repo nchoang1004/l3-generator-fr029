@@ -6,6 +6,7 @@ liệu đầy đủ nằm trong graph.json (SPEC mục 7).
 """
 
 import re
+import hashlib
 from pathlib import Path
 
 from l3gen.models.iam import IntermediateArchitectureModel
@@ -16,13 +17,18 @@ MAX_LABEL = 38
 
 def write_mermaid(iam: IntermediateArchitectureModel, output_dir: Path) -> Path:
     path = output_dir / "diagram.mmd"
-    path.write_text("\n".join(_render(iam)) + "\n", encoding="utf-8")
+    path.write_text("\n".join(_render(iam)) + "\n", encoding="utf-8", errors="backslashreplace")
     return path
 
 
 def _safe_id(prefix: str, text: str) -> str:
     cleaned = re.sub(r"[^0-9a-zA-Z]+", "_", text).strip("_")
-    return f"{prefix}_{cleaned}"[:80]
+    digest = hashlib.sha256(text.encode("utf-8", errors="surrogatepass")).hexdigest()[:12]
+    return f"{prefix}_{cleaned[:55]}_{digest}"
+
+
+def _route_key(route) -> str:
+    return f"{route.service}:{route.location.file}:{route.method}:{route.path}:{route.handler_symbol or route.handler_function}"
 
 
 def _label(text: str) -> str:
@@ -47,7 +53,7 @@ def _render(iam: IntermediateArchitectureModel) -> list[str]:
         lines.append("  subgraph API")
         for route in routes:
             lines.append(
-                f'    {_safe_id("r", route.method + route.path)}["{_label(route.method + " " + route.path)}"]'
+                f'    {_safe_id("r", _route_key(route))}["{_label(route.method + " " + route.path)}"]'
             )
         lines.append("  end")
 
@@ -92,7 +98,7 @@ def _edges(iam, routes, entities, hosts) -> list[str]:
 
     edges: set[tuple[str, str]] = set()
     for route in routes:
-        route_id = _safe_id("r", route.method + route.path)
+        route_id = _safe_id("r", _route_key(route))
         for symbol in _reachable(route, by_symbol):
             function = by_symbol.get(symbol)
             if function is None:
@@ -109,6 +115,8 @@ def _edges(iam, routes, entities, hosts) -> list[str]:
 def _reachable(route, by_symbol) -> set[str]:
     """Mọi hàm mà route này chạm tới, trong giới hạn MAX_HOPS chặng."""
     frontier = {r.resolved_symbol for r in route.calls if r.resolved and r.resolved_symbol}
+    if route.handler_symbol:
+        frontier.add(route.handler_symbol)
     seen = set(frontier)
     for _ in range(MAX_HOPS):
         nxt: set[str] = set()

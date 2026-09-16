@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "l3gen"
 version = "0.1.0"
-description = "Sinh tài liệu kiến trúc L3 từ source code Python/FastAPI bằng phân tích cú pháp tĩnh"
+description = "Sinh tài liệu kiến trúc L3 bằng kiểm kê đa ngôn ngữ và phân tích tĩnh Python"
 requires-python = ">=3.10"
 # Chốt cận trên để bản chính mới của thư viện không làm vỡ tool bất ngờ
 # (SPEC mục 12.1). Nới lên khi đã chạy test với bản mới.

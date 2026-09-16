@@ -21,7 +21,10 @@ API_KEY_VARS = ("L3GEN_API_KEY", "ANTHROPIC_API_KEY")
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="l3gen",
-        description="Sinh tài liệu kiến trúc L3 từ source code Python/FastAPI.",
+        description=(
+            "Sinh tài liệu kiến trúc L3 bằng kiểm kê đa ngôn ngữ; "
+            "frontend phân tích hiện hỗ trợ Python."
+        ),
     )
     parser.add_argument("source", type=Path, help="thư mục chứa source code cần phân tích")
     parser.add_argument(
@@ -72,6 +75,7 @@ def report(result: Result, written: list[Path], verbose: bool) -> None:
     iam = result.iam
     metrics = iam.metrics
     stack = iam.detected_stack
+    inventory_counts = iam.file_inventory.status_counts
 
     for service in stack.services:
         name = service.name or "(thư mục gốc)"
@@ -85,14 +89,28 @@ def report(result: Result, written: list[Path], verbose: bool) -> None:
             print(f"  [bỏ qua]    {name} — {service.skip_reason}")
 
     print(
-        f"\nĐã đọc {metrics.files_analyzed}/{metrics.files_found} file Python "
+        f"\nĐã parse {metrics.files_analyzed}/{metrics.files_found} source file "
         f"({metrics.lines_of_code:,} dòng) trong {metrics.duration_seconds:.2f} giây."
+    )
+    print(
+        "Inventory: "
+        + ", ".join(f"{count} {status}" for status, count in inventory_counts.items())
     )
     print(
         f"Phát hiện: {len(iam.routes)} route, {len(iam.entities)} bảng dữ liệu, "
         f"{len(iam.external_calls)} lời gọi ra ngoài, {len(iam.functions)} hàm."
     )
     print(f"Graph: {len(result.graph.nodes)} node, {len(result.graph.edges)} cạnh.")
+    resolution = iam.resolution.metrics
+    print(f"Resolver: {resolution.resolved_calls} resolved, {resolution.candidate_calls} candidates, "
+          f"{resolution.unresolved_calls} unresolved, {resolution.runtime_calls} runtime; "
+          f"{resolution.truncated_calls} call bị giới hạn.")
+    if iam.resolution.partial:
+        print("Phân tích chưa đầy đủ: " + "; ".join(iam.resolution.partial_reasons[:3]))
+    if verbose:
+        for stage, duration in metrics.stage_seconds.items():
+            print(f"  {stage}: {duration:.3f} giây")
+        print(f"  Peak memory của process: {metrics.peak_memory_bytes / 1024**2:.1f} MiB")
 
     if iam.parse_errors:
         print(f"\n{len(iam.parse_errors)} file bỏ qua vì lỗi cú pháp:")

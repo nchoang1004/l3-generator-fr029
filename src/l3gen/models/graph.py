@@ -6,15 +6,32 @@ dạng node và cạnh. Không được thêm bất cứ thứ gì không có ng
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from l3gen.models.iam import SourceLocation
 
 NodeType = Literal[
-    "Module", "Class", "Function", "Route", "Entity", "ExternalHost", "Unresolved"
+    "Module",
+    "Application",
+    "Class",
+    "Function",
+    "Route",
+    "Entity",
+    "ExternalHost",
+    "Unresolved",
 ]
 EdgeType = Literal[
-    "calls", "imports", "inherits", "exposes", "reads_writes", "calls_external"
+    "calls",
+    "imports",
+    "inherits",
+    "constructs",
+    "exposes",
+    "registers",
+    "mounts",
+    "reads",
+    "writes",
+    "reads_writes",
+    "calls_external",
 ]
 
 
@@ -30,8 +47,20 @@ class GraphEdge(BaseModel):
     target_id: str
     type: EdgeType
     resolved: bool
+    fact_ids: list[str] = Field(default_factory=list)
+    locations: list[SourceLocation] = Field(default_factory=list)
+
+
+class ApplicationBoundary(BaseModel):
+    id: str
+    status: Literal["candidate", "unknown"]
+    application_node_id: str | None = None
+    entrypoint_file: str | None = None
+    evidence: list[str] = Field(default_factory=list)
+    reason: str
 
 
 class RepositoryGraph(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
+    application_boundaries: list[ApplicationBoundary] = Field(default_factory=list)

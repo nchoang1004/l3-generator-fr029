@@ -62,32 +62,105 @@ def test_thu_muc_khong_co_source_bao_loi_ro_rang(tmp_path):
         run(tmp_path)
 
 
-# --- chia service --------------------------------------------------------
+# --- kiểm kê theo ngôn ngữ, không chia source theo folder ----------------
 
-def test_repo_nhieu_service_van_phan_tich_phan_lam_duoc():
-    """Java + FastAPI trong cùng repo: bỏ qua riêng Java, không bỏ cả repo."""
-    stack = run(MULTI_SERVICE).iam.detected_stack
-    by_name = {s.name: s for s in stack.services}
+def test_repo_nhieu_ngon_ngu_khong_lam_mat_file():
+    """Java + Python ở folder khác nhau đều phải có mặt trong inventory."""
+    iam = run(MULTI_SERVICE).iam
+    by_language = {s.language: s for s in iam.detected_stack.services}
+    inventory = {f.path: f for f in iam.file_inventory.files}
 
-    assert by_name["ai-service"].analyzed is True
-    assert by_name["ai-service"].frameworks == ["fastapi"]
-    assert by_name["mobile-app"].analyzed is False
-    assert "java" in by_name["mobile-app"].skip_reason
+    assert by_language["python"].analyzed is True
+    assert by_language["python"].frameworks == ["fastapi"]
+    assert by_language["java"].analyzed is False
+    assert inventory["ai-service/app/main.py"].status == "parsed"
+    assert inventory["mobile-app/src/main/java/App.java"].status == "unsupported_language"
+
+
+def test_repo_phang_tron_ngon_ngu_van_phan_loai_tung_file(tmp_path):
+    (tmp_path / "api.py").write_text("def health():\n    return 'ok'\n", encoding="utf-8")
+    (tmp_path / "UserController.java").write_text("class UserController {}", encoding="utf-8")
+    (tmp_path / "app.ts").write_text("export const app = {};", encoding="utf-8")
+
+    iam = run(tmp_path).iam
+    inventory = {f.path: f for f in iam.file_inventory.files}
+
+    assert inventory["api.py"].status == "parsed"
+    assert inventory["UserController.java"].language == "java"
+    assert inventory["UserController.java"].status == "unsupported_language"
+    assert inventory["app.ts"].language == "javascript"
+    assert inventory["app.ts"].status == "unsupported_language"
+    assert iam.metrics.files_found == 3
+
+
+def test_python_khong_co_framework_van_duoc_parse(tmp_path):
+    (tmp_path / "worker.py").write_text("def run():\n    return 1\n", encoding="utf-8")
+
+    iam = run(tmp_path).iam
+
+    assert iam.file_inventory.files[0].status == "parsed"
+    assert iam.detected_stack.services[0].frameworks == []
+    assert iam.detected_stack.services[0].analyzed is True
+    assert [f.name for f in iam.functions] == ["run"]
+
+
+def test_file_trong_thu_muc_exclude_van_co_record(tmp_path):
+    (tmp_path / "app.py").write_text("x = 1", encoding="utf-8")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "helper.py").write_text("x = 2", encoding="utf-8")
+
+    iam = run(tmp_path).iam
+    inventory = {f.path: f for f in iam.file_inventory.files}
+
+    assert inventory["app.py"].status == "parsed"
+    assert inventory["tests/helper.py"].status == "excluded"
+    assert "tests" in inventory["tests/helper.py"].reason
+    assert iam.metrics.files_found == 2
+    assert iam.metrics.files_analyzed == 1
+    assert iam.metrics.files_skipped == 1
+
+
+def test_repo_chi_co_ngon_ngu_chua_ho_tro_van_tra_inventory(tmp_path):
+    (tmp_path / "Main.java").write_text("class Main {}", encoding="utf-8")
+
+    iam = run(tmp_path).iam
+
+    assert iam.metrics.files_found == 1
+    assert iam.metrics.files_analyzed == 0
+    assert iam.metrics.files_skipped == 1
+    assert iam.file_inventory.files[0].status == "unsupported_language"
+    assert iam.detected_stack.services[0].analyzed is False
+
+
+def test_inventory_khong_con_trang_thai_discovered_sau_pipeline():
+    iam = run(SAMPLE_APP).iam
+
+    assert "discovered" not in {item.status for item in iam.file_inventory.files}
+    assert sum(iam.file_inventory.status_counts.values()) == iam.metrics.files_found
+
+
+def test_python_frontend_dua_semantic_ir_vao_iam():
+    iam = run(SAMPLE_APP).iam
+
+    assert iam.semantic_program.frontend_version == "python-ast-v2"
+    assert {module.file for module in iam.semantic_program.modules} == {
+        item.path for item in iam.file_inventory.files if item.status == "parsed"
+    }
 
 
 def test_don_vi_bi_bo_qua_van_xuat_hien_trong_tai_lieu(tmp_path):
-    """Im lặng bỏ qua một service là kiểu thất bại tệ nhất."""
+    """Ngôn ngữ chưa hỗ trợ phải xuất hiện trong tài liệu kèm lý do."""
     result = run(MULTI_SERVICE)
     write_outputs(result, tmp_path)
 
     document = (tmp_path / "L3.md").read_text(encoding="utf-8")
-    assert "mobile-app" in document
+    assert "java" in document
     assert "Bỏ qua" in document
 
 
 def test_moi_thuc_the_deu_biet_minh_thuoc_service_nao():
     iam = run(MULTI_SERVICE).iam
-    assert {r.service for r in iam.routes} == {"ai-service"}
+    assert {r.service for r in iam.routes} == {"python"}
 
 
 # --- graph ---------------------------------------------------------------
@@ -145,6 +218,7 @@ def test_lenh_chay_xong_tra_ve_0(tmp_path, capsys):
 
     assert code == 0
     assert (tmp_path / "L3.md").exists()
+    assert (tmp_path / "file-inventory.json").exists()
 
 
 def test_thu_muc_khong_ton_tai_tra_ve_1_khong_co_traceback(tmp_path, capsys):
