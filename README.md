@@ -1,6 +1,10 @@
 # l3gen
 
-`l3gen` đọc source code bằng static analysis và sinh tài liệu kiến trúc L3.
+`l3gen` là phần mềm đọc source code bằng static analysis và sinh tài liệu kiến trúc L3.
+
+Người dùng làm việc qua giao diện: cung cấp mã nguồn, xem kết quả phân tích, kiểm tra
+bằng chứng và xuất tài liệu. Dòng lệnh là đường tự động hóa cho script và CI. Hai đường
+dùng chung một engine phân tích.
 
 Mục tiêu của V2 là trả lời:
 
@@ -19,6 +23,12 @@ không liệt kê mọi function, class hoặc biến.
 > về route/entity/external và graph mức function/class. Component synthesis và
 > architecture projection theo SPEC V2 chưa hoàn chỉnh. Không dùng README này để hiểu
 > rằng V2 đã đạt Definition of Done.
+>
+> **Giao diện hiện tại khác giao diện mục tiêu.** Hôm nay: chạy phân tích bằng dòng
+> lệnh với một thư mục cục bộ, rồi mở giao diện để xem output đã sinh. Mục tiêu theo
+> [SPEC mục 4](SPEC_Code_to_L3_Generator.md): giao diện tự nhận thư mục, file ZIP hoặc
+> URL GitHub public, chạy phân tích và lưu lịch sử. Phần đầu vào ZIP/GitHub và lịch sử
+> **chưa được viết code**.
 
 ## 1. Chạy thử
 
@@ -48,7 +58,8 @@ Xem bằng giao diện:
 l3gen ui out
 ```
 
-UI chỉ đọc output đã sinh; nó không phân tích source lại.
+Giao diện hiện chỉ đọc output đã sinh; nó không phân tích source lại. Theo SPEC mục 4,
+giao diện mục tiêu sẽ tự nhận mã nguồn và chạy phân tích, nhưng phần đó chưa có code.
 
 ## 2. Output mục tiêu của V2
 
@@ -124,6 +135,9 @@ Frontend phân tích đang tập trung Python. Các adapter hiện có trong sou
 
 File ngôn ngữ khác vẫn được inventory ghi nhận nhưng chưa có frontend tương ứng.
 
+Đầu vào hiện chỉ là thư mục cục bộ qua dòng lệnh. Java, file ZIP và URL GitHub thuộc
+phạm vi mục tiêu nhưng chưa có code.
+
 Những phần của đề bài gốc chưa hoàn chỉnh trong V2:
 
 - component synthesis cho service/business/repository layer;
@@ -131,9 +145,12 @@ Những phần của đề bài gốc chưa hoàn chỉnh trong V2:
 - configuration relationship ở mức kiến trúc;
 - component-level Mermaid/graph contract;
 - phân biệt đầy đủ declared registration với potentially reachable;
-- framework version range trong registry.
+- framework version range trong registry;
+- giao diện tự nhận mã nguồn, chạy phân tích và lưu lịch sử.
 
-## 5. CLI
+## 5. Dòng lệnh
+
+Dùng cho script và CI, hoặc để sinh output rồi mở bằng giao diện.
 
 ```bash
 l3gen <source-dir> [options]

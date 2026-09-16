@@ -3,14 +3,23 @@
 > Trạng thái: đặc tả mục tiêu sau khi thu hẹp lại theo đề bài gốc, ngày 16/09/2026.
 > Code hiện tại mới phù hợp một phần; xem mục 13. EVALUATION và examples tạm hoãn
 > cho tới khi requirement, use case và architecture ổn định.
+>
+> Mục 4 mô tả sản phẩm có giao diện với ba hình thức đầu vào và lịch sử phân tích. Đây
+> là **phạm vi mục tiêu**, không phải mô tả code hiện tại: code hôm nay nhận thư mục
+> cục bộ qua dòng lệnh, và giao diện chỉ đọc output đã sinh.
 
 ## 0. Tổng quan
 
 ### 0.1 Một câu về sản phẩm
 
-Một CLI tool đọc source repository bằng static analysis, tổng hợp application/component
-và các quan hệ API, DB, external system, event thành tài liệu L3 và dependency diagram;
-mỗi kết luận đều có evidence truy về source.
+Một phần mềm có giao diện đọc source repository bằng static analysis, tổng hợp
+application/component và các quan hệ API, DB, external system, event thành tài liệu L3
+và dependency diagram; mỗi kết luận đều có evidence truy về source.
+
+Người dùng làm việc qua giao diện: cung cấp mã nguồn, theo dõi quá trình phân tích,
+khám phá kết quả, kiểm tra bằng chứng, mở lại lần phân tích đã lưu và xuất tài liệu.
+Dòng lệnh là đường tự động hóa phụ cho script và CI, không phải hình thức duy nhất của
+sản phẩm. Hai đường dùng chung một engine và phải cho cùng kết quả phân tích.
 
 ### 0.2 Ranh giới quan trọng nhất
 
@@ -68,7 +77,9 @@ câu hỏi trên hoặc giúp tránh một kết luận sai tương ứng.
 
 ### 2.1 Trong phạm vi
 
-- Input là thư mục source local.
+- Giao diện là đường dùng chính; dòng lệnh là đường tự động hóa phụ.
+- Input gồm thư mục cục bộ, file ZIP tải lên và URL GitHub public.
+- Lưu và mở lại lần phân tích đã chạy, trong giới hạn lưu trữ đã chốt.
 - Kiểm kê file theo từng file và ngôn ngữ, không theo giả định folder = service.
 - Frontend phân tích hiện tại: Python.
 - Framework/application: FastAPI/Starlette ở phạm vi rule đã kiểm thử.
@@ -85,7 +96,10 @@ câu hỏi trên hoặc giúp tránh một kết luận sai tương ứng.
 - Quan hệ component-level.
 - Evidence về module/function/call khi cần giải thích kết luận.
 - AI tùy chọn chỉ cho description và diễn đạt finding.
-- Markdown, Mermaid, JSON và UI chỉ đọc output.
+- Output Markdown, Mermaid và JSON.
+- Giao diện cung cấp mã nguồn, chạy phân tích, khám phá kết quả, mở lịch sử và xuất
+  tài liệu. Giao diện trình bày analysis result; nó không tự suy luận thêm quan hệ
+  kiến trúc ngoài những gì engine đã kết luận.
 
 ### 2.2 Ngoài phạm vi MVP
 
@@ -184,15 +198,37 @@ Registration dùng các trạng thái:
 
 Output không được gọi `declared` là active route nếu thiếu bằng chứng cần thiết.
 
-## 4. Input và CLI contract
+## 4. Input và interface contract
 
-### 4.1 Input
+### 4.1 Hai đường dùng, một engine
 
-```bash
-l3gen <source-dir> [options]
-```
+| Đường dùng | Vai trò | Người dùng |
+|---|---|---|
+| Giao diện | Đường chính để tương tác | Developer, Architect/Reviewer |
+| Dòng lệnh | Đường tự động hóa | Script, CI |
 
-Input có thể là repo, monorepo hoặc một thư mục con. File được nhận diện độc lập.
+Ràng buộc bắt buộc: cùng một source và cùng cấu hình phải cho cùng analysis result dù
+chạy qua đường nào. Giao diện không được có thêm hoặc bớt component, quan hệ, evidence
+và limitation so với dòng lệnh.
+
+Giao diện không được import parser/AST trực tiếp; nó gọi cùng engine phân tích như
+dòng lệnh (xem mục 12).
+
+### 4.2 Nguồn mã nguồn
+
+Ba hình thức đầu vào, cùng dẫn vào một quá trình phân tích:
+
+| Hình thức | Ghi chú |
+|---|---|
+| Thư mục cục bộ | Có thể là repo, monorepo hoặc một thư mục con |
+| File ZIP tải lên | Giải nén trong vùng xử lý riêng trước khi phân tích |
+| URL GitHub public | Chỉ repository public; không nhận hoặc lưu credential |
+
+File được nhận diện độc lập theo từng file, không theo giả định folder = service.
+
+Sau khi source được chấp nhận, kết quả phân tích không phụ thuộc vào cách nguồn được
+cung cấp. Analysis result phải ghi lại nguồn và phiên bản source đã dùng để evidence
+không trỏ nhầm khi source thay đổi về sau.
 
 Analysis Context cố thu:
 
@@ -203,7 +239,36 @@ Analysis Context cố thu:
 
 Thiếu context không làm crash. Kết quả liên quan phải partial/unresolved.
 
-### 4.2 Tùy chọn đang công khai
+### 4.3 Giao diện
+
+Giao diện phải phục vụ các nhóm màn hình sau. Bố cục cụ thể thuộc bước thiết kế UI,
+không chốt ở đây:
+
+| Nhóm màn hình | Nội dung tối thiểu |
+|---|---|
+| Cung cấp mã nguồn | Ba hình thức đầu vào, vùng báo lỗi và phạm vi source dự kiến |
+| Trạng thái phân tích | Giai đoạn đang chạy và trạng thái hoàn thành/partial/thất bại |
+| Lịch sử phân tích | Danh sách theo repository/thời gian/trạng thái, mở lại kết quả |
+| Tổng quan kiến trúc | Application/component, entry point, dependency, coverage và limitation |
+| Kết quả chi tiết | Các góc nhìn component, API/flow, data/integration, dependency |
+| Bằng chứng | Vị trí `file:line` và đường evidence của một kết luận được chọn |
+| Xuất tài liệu | Chọn artifact, trạng thái tạo file và lỗi riêng từng artifact |
+
+Nguyên tắc tổ chức: nhìn tổng quan trước, đi sâu theo thành phần, truy vết về source
+evidence, và luôn thấy giới hạn phân tích.
+
+### 4.4 Lưu trữ lần phân tích
+
+- Mỗi repository giữ tối đa 10 lần phân tích gần nhất; vượt quá thì loại lần cũ nhất.
+- Mỗi kết quả hết hạn sau 14 ngày và không còn mở lại được.
+- Mở lại một lần phân tích phải cho đúng nội dung tại thời điểm chạy, không trộn với
+  source hiện tại.
+
+### 4.5 Dòng lệnh
+
+```bash
+l3gen <source-dir> [options]
+```
 
 | Tùy chọn | Ý nghĩa |
 |---|---|
@@ -214,20 +279,39 @@ Thiếu context không làm crash. Kết quả liên quan phải partial/unresol
 | `-v, --verbose` | hiển thị chi tiết |
 | `--version` | phiên bản tool |
 
-UI:
+Mở giao diện trên output đã sinh:
 
 ```bash
 l3gen ui <output-dir> [-p PORT] [--no-browser]
 ```
 
-### 4.3 Lỗi dự kiến
+Dòng lệnh hiện nhận thư mục cục bộ. ZIP và URL GitHub là đầu vào của giao diện; nếu
+sau này được đưa vào dòng lệnh thì phải giữ nguyên contract kết quả ở mục 4.1.
 
-- Source không tồn tại/không có source phù hợp: exit 1, không traceback.
-- File parse lỗi: ghi lỗi, tiếp tục.
-- Một ngôn ngữ chưa hỗ trợ: ghi inventory/coverage, tiếp tục phần khác.
-- Mọi phần đều chưa hỗ trợ: sinh thông báo rõ; không giả vờ repo rỗng.
-- AI thiếu key/lỗi: tiếp tục static pipeline.
-- Lỗi bất ngờ: exit 2 với thông báo gọn.
+### 4.6 Lỗi dự kiến
+
+Áp dụng cho cả hai đường dùng; khác nhau ở cách báo, không khác ở kết luận.
+
+| Tình huống | Hành vi |
+|---|---|
+| Thư mục không tồn tại hoặc không đọc được | Dừng trước khi phân tích; nói rõ đường dẫn/quyền cần sửa |
+| ZIP hỏng, sai định dạng hoặc chứa đường dẫn thoát khỏi vùng giải nén | Từ chối an toàn; không ghi file ra ngoài vùng xử lý |
+| URL GitHub sai hoặc repository không tồn tại | Báo lỗi nhập/truy cập; không hiển thị như repository rỗng |
+| Repository GitHub yêu cầu quyền | Nói rõ chưa có quyền; không yêu cầu người dùng cung cấp credential |
+| Mất kết nối khi lấy source GitHub | Cho phép thử lại; không tạo kết quả phân tích giả |
+| File parse lỗi | Ghi lỗi của file đó, tiếp tục phần còn lại |
+| Một ngôn ngữ chưa hỗ trợ | Ghi inventory/coverage, tiếp tục phần khác |
+| Mọi phần đều chưa hỗ trợ | Thông báo rõ; không giả vờ repo rỗng |
+| AI thiếu key hoặc lỗi | Tiếp tục static pipeline |
+| Xuất một artifact thất bại | Giữ analysis result; báo artifact nào thất bại và cho phép thử lại |
+
+Mã thoát của dòng lệnh:
+
+| Mã | Nghĩa |
+|---|---|
+| 0 | Thành công |
+| 1 | Lỗi input hoặc điều kiện `--fail-on-empty` |
+| 2 | Lỗi không lường trước, thông báo gọn, không traceback |
 
 ## 5. Dữ liệu trung gian
 
@@ -539,6 +623,19 @@ test và commit. Agent không tự kích hoạt rule trong lần phân tích.
 
 ## 10. Acceptance Criteria
 
+### 10.0 Input và interface
+
+- Ba hình thức đầu vào cùng dẫn tới một analysis result cho cùng source.
+- ZIP chứa đường dẫn thoát khỏi vùng giải nén bị từ chối; không file nào được ghi ra
+  ngoài vùng xử lý.
+- URL GitHub sai, repository không tồn tại hoặc yêu cầu quyền cho ra lỗi truy cập, không
+  cho ra kết quả rỗng.
+- Giao diện và dòng lệnh trên cùng source cho cùng component, quan hệ, evidence và
+  limitation.
+- Mở lại lần phân tích đã lưu cho đúng kết quả và phiên bản source của lần chạy đó.
+- Vượt 10 lần phân tích mỗi repository thì loại lần cũ nhất; kết quả quá 14 ngày không
+  còn mở lại được.
+
 ### 10.1 Inventory/context
 
 - Repo phẳng/trộn ngôn ngữ không mất file hỗ trợ.
@@ -705,6 +802,11 @@ tổng quát nếu chưa có acceptance criterion L3 yêu cầu.
 MVP/V2 hoàn tất khi:
 
 - trả lời được chín câu hỏi ở mục 1 trong phạm vi stack đã công bố;
+- người dùng hoàn thành được luồng chính trên giao diện: cung cấp mã nguồn, xem kết
+  quả và xuất tài liệu;
+- ba hình thức đầu vào và các lỗi tương ứng được xử lý đúng như mục 4.6;
+- mở lại lần phân tích đã lưu cho đúng kết quả và phiên bản source của lần chạy đó;
+- giao diện và dòng lệnh cho cùng analysis result trên cùng source;
 - diagram là component/dependency diagram, không phải function graph;
 - API/DB/external/event relations có evidence;
 - unresolved/runtime/budget được trình bày trung thực;
