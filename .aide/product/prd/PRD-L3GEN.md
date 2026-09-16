@@ -6,7 +6,7 @@ group: normative
 scope: system
 system: SYS-L3GEN
 status: draft
-revision: 4
+revision: 5
 ownership:
   accountable_team: TEAM-L3GEN
   accountable_role: product-owner
@@ -44,6 +44,7 @@ ai_assisted: true
 | 0.2 | 16/09/2026 | Product Owner + AI hỗ trợ | Chốt GitHub public-only, thêm Java và lịch sử phân tích vào MVP |
 | 0.3 | 16/09/2026 | Khiêm + AI hỗ trợ | Ghi nhận nhóm hai người, mentor review và chia MVP thành FastAPI rồi Java |
 | 0.4 | 16/09/2026 | Khiêm + AI hỗ trợ | Chốt mốc FastAPI/Java, Hoàng phụ trách Test và quy tắc một mentor duyệt |
+| 0.5 | 16/09/2026 | Khiêm + AI hỗ trợ | Chốt giới hạn lưu lịch sử phân tích và làm rõ vai trò Kafka |
 
 # II. TỔNG QUAN (EXECUTIVE SUMMARY)
 
@@ -165,7 +166,8 @@ Không công bố KPI phần trăm chất lượng khi chưa có tối thiểu 2
   và dependency.
 - Xem kết quả chi tiết, coverage, limitation, trạng thái partial/runtime-dependent và
   evidence về source.
-- Lưu danh sách các lần phân tích và mở lại kết quả lịch sử thuộc phạm vi lưu giữ.
+- Lưu tối đa 10 lần phân tích gần nhất cho mỗi repository; mỗi kết quả hết hạn sau 14
+  ngày. Khi vượt 10 lần, hệ thống loại kết quả cũ nhất.
 - Xuất L3 Markdown, component/dependency diagram, Diagram-as-Code và architecture
   model có cấu trúc trong phạm vi contract được duyệt.
 - Giữ kết quả nhất quán giữa giao diện và artifact xuất ra.
@@ -278,6 +280,8 @@ sequenceDiagram
 | ZIP hỏng, sai định dạng hoặc có nội dung không an toàn | Từ chối an toàn, không giải nén ngoài vùng xử lý và giải thích nguyên nhân |
 | URL GitHub sai hoặc repository không tồn tại | Báo lỗi nhập/truy cập; không hiển thị như repository rỗng |
 | Repository GitHub yêu cầu quyền | Nói rõ chưa có quyền; không yêu cầu người dùng dán token vào nội dung không an toàn |
+| Repository có hơn 10 lần phân tích | Loại kết quả cũ nhất và giữ tối đa 10 kết quả gần nhất |
+| Kết quả lịch sử đã quá 14 ngày | Không còn cho mở lại; việc xóa vật lý sẽ được chốt trong NFR lưu trữ |
 | Mất kết nối khi lấy source GitHub | Cho phép thử lại mà không tạo kết quả phân tích giả |
 | Repository không có file thuộc stack hỗ trợ | Trả inventory/coverage và limitation; không khẳng định hệ thống không có kiến trúc |
 | Một số file lỗi cú pháp | Tiếp tục phần an toàn, đánh dấu file lỗi và kết quả partial |
@@ -355,9 +359,9 @@ nhất cho quyết định kiến trúc quan trọng.
 | OQ-L3GEN-003 | Ngưỡng KPI pilot và bộ repository đánh giá nào được chấp thuận? | Product Owner + QA Lead | 23/09/2026 *(đề xuất)* | GOAL-L3GEN-001, GOAL-L3GEN-002 |
 | OQ-L3GEN-004 | Giới hạn ZIP/repository và thời gian phân tích là bao nhiêu? Đề xuất pilot để benchmark: ZIP nén 100 MB, sau giải nén 500 MB, tối đa 50.000 file và 10 phút mỗi lần phân tích. | Tech Lead + Security | 23/09/2026 *(đề xuất)* | NFR-L3GEN-PERF-001, NFR-L3GEN-SEC-001 |
 | OQ-L3GEN-005 | ~~MVP có cần lưu và mở lại lịch sử analysis result không?~~ ✅ Có, lịch sử thuộc MVP. | Product Owner | 16/09/2026 | — |
-| OQ-L3GEN-006 | Event/queue/configuration nào bắt buộc trong MVP? Khuyến nghị: đọc cấu hình ứng dụng/environment và chỉ hỗ trợ Kafka cho producer, consumer, topic; các broker khác để sau MVP. | Product Owner + Tech Lead | 23/09/2026 *(đề xuất)* | FR-L3GEN-002, FR-L3GEN-003 |
-| OQ-L3GEN-007 | Phạm vi Java có chốt Spring Boot không? Khuyến nghị Spring Boot vì có quy ước rõ cho API, dependency injection, cấu hình và Kafka. | Product Owner + Tech Lead | 23/09/2026 *(đề xuất)* | FR-L3GEN-002 |
-| OQ-L3GEN-008 | Lịch sử được giữ bao lâu, giới hạn dung lượng thế nào và người dùng có được xóa thủ công không? | Product Owner + Tech Lead + Security | 23/09/2026 *(đề xuất)* | FR-L3GEN-003, NFR-L3GEN-SEC-001 |
+| OQ-L3GEN-006 | Event/queue/configuration nào bắt buộc trong MVP? Kafka ở đây chỉ là công nghệ có thể xuất hiện trong repository đầu vào để tool nhận diện producer/consumer/topic; nó không phải hạ tầng chạy L3 Generator. Khuyến nghị chuyển Kafka sang Phase 3 để giảm scope. | Product Owner + Tech Lead | 23/09/2026 *(đề xuất)* | FR-L3GEN-002, FR-L3GEN-003 |
+| OQ-L3GEN-007 | Phạm vi Java có chốt Spring Boot không? Khuyến nghị Spring Boot vì có quy ước rõ cho API, dependency injection và configuration. | Product Owner + Tech Lead | 23/09/2026 *(đề xuất)* | FR-L3GEN-002 |
+| OQ-L3GEN-008 | ✅ Đã chốt lưu tối đa 10 lần mỗi repository và hết hạn sau 14 ngày. Còn cần quyết định người dùng có được xóa thủ công trước hạn hay không. | Product Owner + Tech Lead + Security | 23/09/2026 *(đề xuất)* | FR-L3GEN-003, NFR-L3GEN-SEC-001 |
 | OQ-L3GEN-009 | ~~Scope Gate cần cả hai mentor đồng ý hay chỉ cần một mentor?~~ ✅ Chỉ cần ít nhất một trong hai mentor duyệt. | Khiêm + Mentors | 16/09/2026 | — |
 ---
 

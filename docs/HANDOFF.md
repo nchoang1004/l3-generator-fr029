@@ -215,3 +215,11 @@ Quy tắc này là yêu cầu thường xuyên của người dùng, không cầ
 - Commit use case/PRD: `977c749` — `docs: define UI-first use cases and product requirements`.
 - Commit cuối chỉ chứa `.gitignore` và HANDOFF để tách repository hygiene khỏi nội dung sản phẩm.
 - Không push. Commit dùng danh tính Git đã cấu hình sẵn; không thêm `Author`, `Co-authored-by` hoặc trailer AI vào message.
+
+### 16/09/2026 — Chốt retention lịch sử và chuẩn bị publish branch
+
+- Quyết định: mỗi repository lưu tối đa 10 lần phân tích; mỗi kết quả hết hạn sau 14 ngày.
+- Làm rõ: Kafka chỉ là công nghệ trong repository đầu vào mà analyzer có thể nhận diện để vẽ event relationship; Kafka không phải hạ tầng vận hành L3 Generator. Đề xuất chuyển Kafka sang Phase 3 vẫn chờ người dùng duyệt.
+- File sửa: `.aide/product/prd/PRD-L3GEN.md`, `docs/HANDOFF.md`.
+- Thay đổi: bump PRD draft lên revision 5, bổ sung retention và edge cases; OQ-008 còn mở phần xóa thủ công.
+- Git: người dùng yêu cầu publish branch `feat/language-first-semantic-v2`; sẽ push lên `origin` sau commit tài liệu này.
