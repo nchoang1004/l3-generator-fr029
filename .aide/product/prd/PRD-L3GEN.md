@@ -6,7 +6,7 @@ group: normative
 scope: system
 system: SYS-L3GEN
 status: draft
-revision: 5
+revision: 6
 ownership:
   accountable_team: TEAM-L3GEN
   accountable_role: product-owner
@@ -45,6 +45,7 @@ ai_assisted: true
 | 0.3 | 16/09/2026 | Khiêm + AI hỗ trợ | Ghi nhận nhóm hai người, mentor review và chia MVP thành FastAPI rồi Java |
 | 0.4 | 16/09/2026 | Khiêm + AI hỗ trợ | Chốt mốc FastAPI/Java, Hoàng phụ trách Test và quy tắc một mentor duyệt |
 | 0.5 | 16/09/2026 | Khiêm + AI hỗ trợ | Chốt giới hạn lưu lịch sử phân tích và làm rõ vai trò Kafka |
+| 0.6 | 16/09/2026 | Khiêm + AI hỗ trợ | Đóng OQ giới hạn tài nguyên, Kafka, Spring Boot và xóa lịch sử; mở đường viết FR/NFR |
 
 # II. TỔNG QUAN (EXECUTIVE SUMMARY)
 
@@ -160,7 +161,9 @@ Không công bố KPI phần trăm chất lượng khi chưa có tối thiểu 2
 - Phát hiện trong phạm vi stack được hỗ trợ: module/package, entry point,
   application/component, API/route, service/business, repository/data access,
   entity/table, external API và dependency quan trọng.
-- Công bố event/queue/configuration khi adapter tương ứng đã được hỗ trợ; nếu chưa có
+- Phát hiện quan hệ event trong repository đầu vào ở phạm vi Kafka: producer, consumer
+  và topic. Broker khác Kafka nằm ngoài MVP và phải thể hiện limitation.
+- Công bố configuration quan trọng khi adapter tương ứng đã được hỗ trợ; nếu chưa có
   phải thể hiện limitation.
 - Xem tổng quan kiến trúc, application/component, API/luồng yêu cầu, dữ liệu/tích hợp
   và dependency.
@@ -168,6 +171,7 @@ Không công bố KPI phần trăm chất lượng khi chưa có tối thiểu 2
   evidence về source.
 - Lưu tối đa 10 lần phân tích gần nhất cho mỗi repository; mỗi kết quả hết hạn sau 14
   ngày. Khi vượt 10 lần, hệ thống loại kết quả cũ nhất.
+- Người dùng xóa thủ công một lần phân tích trước khi nó hết hạn.
 - Xuất L3 Markdown, component/dependency diagram, Diagram-as-Code và architecture
   model có cấu trúc trong phạm vi contract được duyệt.
 - Giữ kết quả nhất quán giữa giao diện và artifact xuất ra.
@@ -183,29 +187,30 @@ Không công bố KPI phần trăm chất lượng khi chưa có tối thiểu 2
 - AI tự tạo relation, edge, framework rule hoặc thay đổi dữ kiện phân tích.
 - Quản trị tài khoản/phân quyền tổ chức hoàn chỉnh.
 - GitHub private repository và mọi cơ chế nhận/lưu credential truy cập repository.
+- Message broker khác Kafka trong repository đầu vào, ví dụ RabbitMQ, Celery hoặc SQS.
+- Framework Java ngoài Spring Boot.
 
 ## 3. Danh sách tính năng (Feature List)
 
-Các FR dưới đây là chỉ mục dự kiến cho bước viết FR/AC tiếp theo; file FR chưa được
-tạo trong lượt PRD này.
+Đây là chỉ mục. Nội dung và AC đầy đủ nằm ở `requirements/fr/FR-L3GEN-*.md`, mỗi FR
+một file.
 
 | Biz Process | FR key | Tên tính năng | Mô tả ngắn | Priority (MoSCoW) | Milestone | Link ticket |
 |---|---|---|---|---|---|---|
 | Cung cấp mã nguồn | FR-L3GEN-001 | Cung cấp repository đầu vào | Chọn thư mục, tải ZIP hoặc nhập URL GitHub và nhận phản hồi kiểm tra đầu vào | Must Have | M1 | |
 | Phân tích kho mã | FR-L3GEN-002 | Tạo mô hình kiến trúc từ source | Phân tích read-only và trả kết quả đầy đủ hoặc partial có giải thích | Must Have | M1 | |
-| Khám phá kiến trúc | FR-L3GEN-003 | Xem, lưu và truy vết kiến trúc | Lưu/mở lịch sử; xem tổng quan, component, API, data, integration và dependency ở mức L3 | Must Have | M1 | |
+| Khám phá kiến trúc | FR-L3GEN-003 | Xem, lưu và truy vết kiến trúc | Lưu/mở/xóa lịch sử; xem tổng quan, component, API, data, integration và dependency ở mức L3 | Must Have | M1 | |
 | Tin cậy kết quả | FR-L3GEN-004 | Kiểm tra evidence và giới hạn | Xem source evidence, coverage, lỗi, unsupported và runtime-dependent | Must Have | M1 | |
 | Sử dụng kết quả | FR-L3GEN-005 | Xuất tài liệu kiến trúc | Xuất các artifact L3 và Diagram-as-Code nhất quán | Must Have | M1 | |
 
 ## 4. Yêu cầu phi chức năng (Non-functional Requirements)
 
-Các key dưới đây là danh sách artifact cần tạo ở bước NFR. PRD chỉ nêu hướng áp dụng,
-không chép ngưỡng số vào đây.
+Đây là chỉ mục. Ngưỡng số sống ở `requirements/nfr/NFR-L3GEN-*.md`, không chép vào PRD.
 
 | NFR key | Loại | Mô tả ngắn | Áp lên | Ghi chú |
 |---|---|---|---|---|
-| NFR-L3GEN-PERF-001 | Performance | Phân tích và hiển thị phản hồi trong thời gian phù hợp với quy mô repository được công bố | FR-L3GEN-001, FR-L3GEN-002, FR-L3GEN-003 | Cần benchmark và chốt ngưỡng riêng |
-| NFR-L3GEN-SEC-001 | Security | Ngăn thực thi source, truy cập ngoài phạm vi và xử lý archive/repository không an toàn | FR-L3GEN-001, FR-L3GEN-002 | Security review sở hữu |
+| NFR-L3GEN-PERF-001 | Performance | Phân tích và hiển thị phản hồi trong thời gian phù hợp với quy mô repository được công bố | FR-L3GEN-001, FR-L3GEN-002, FR-L3GEN-003 | Ngưỡng pilot đã chốt; chưa benchmark |
+| NFR-L3GEN-SEC-001 | Security | Ngăn thực thi source, truy cập ngoài phạm vi, xử lý archive không an toàn và giữ vòng đời dữ liệu lịch sử | FR-L3GEN-001, FR-L3GEN-002, FR-L3GEN-003 | Security review sở hữu |
 | NFR-L3GEN-REL-001 | Reliability | Lỗi một phần không làm mất toàn bộ kết quả có thể sử dụng | FR-L3GEN-002, FR-L3GEN-004, FR-L3GEN-005 | Cần định nghĩa recovery/error contract |
 | NFR-L3GEN-USA-001 | Usability | Người dùng hoàn thành luồng chính và hiểu trạng thái partial/unsupported mà không cần hướng dẫn riêng | FR-L3GEN-001, FR-L3GEN-003, FR-L3GEN-004 | Đo qua pilot usability |
 | NFR-L3GEN-COMP-001 | Compatibility | Artifact xuất ra có cấu trúc và encoding nhất quán trên môi trường được hỗ trợ | FR-L3GEN-005 | Chốt format/version ở contract |
@@ -281,7 +286,9 @@ sequenceDiagram
 | URL GitHub sai hoặc repository không tồn tại | Báo lỗi nhập/truy cập; không hiển thị như repository rỗng |
 | Repository GitHub yêu cầu quyền | Nói rõ chưa có quyền; không yêu cầu người dùng dán token vào nội dung không an toàn |
 | Repository có hơn 10 lần phân tích | Loại kết quả cũ nhất và giữ tối đa 10 kết quả gần nhất |
-| Kết quả lịch sử đã quá 14 ngày | Không còn cho mở lại; việc xóa vật lý sẽ được chốt trong NFR lưu trữ |
+| Kết quả lịch sử đã quá 14 ngày | Không còn cho mở lại; hệ thống tự xóa theo NFR-L3GEN-SEC-001 |
+| Người dùng xóa thủ công một lần phân tích | Xác nhận trước khi xóa; xóa xong không mở lại được và không ảnh hưởng các lần phân tích khác |
+| Repository đầu vào dùng broker khác Kafka | Ghi rõ chưa hỗ trợ trong limitation; không mô tả như repository không có event |
 | Mất kết nối khi lấy source GitHub | Cho phép thử lại mà không tạo kết quả phân tích giả |
 | Repository không có file thuộc stack hỗ trợ | Trả inventory/coverage và limitation; không khẳng định hệ thống không có kiến trúc |
 | Một số file lỗi cú pháp | Tiếp tục phần an toàn, đánh dấu file lỗi và kết quả partial |
@@ -325,9 +332,12 @@ sequenceDiagram
 | Phase | Nội dung | Target Release | Must Have features (FR keys) |
 |---|---|---|---|
 | Phase 0 — Requirement baseline | Chốt PRD, FR/AC, NFR và user flow | 16/09/2026 | FR-L3GEN-001 đến FR-L3GEN-005 |
-| Phase 1 — MVP FastAPI | Hoàn thiện ba hình thức input public-only, phân tích FastAPI, lịch sử, xem chi tiết/evidence và export | 26/09/2026 | FR-L3GEN-001 đến FR-L3GEN-005 trong phạm vi FastAPI |
-| Phase 2 — MVP Java | Mở rộng cùng contract phân tích sang Java; framework Java cụ thể chờ OQ-L3GEN-007 | 30/09/2026 | FR-L3GEN-002 đến FR-L3GEN-005 trong phạm vi Java |
+| Phase 1 — MVP FastAPI | Hoàn thiện ba hình thức input public-only, phân tích FastAPI và Kafka phía Python, lịch sử, xem chi tiết/evidence và export | 26/09/2026 | FR-L3GEN-001 đến FR-L3GEN-005 trong phạm vi FastAPI |
+| Phase 2 — MVP Java | Mở rộng cùng contract phân tích sang Java/Spring Boot, gồm Kafka phía Java | 30/09/2026 | FR-L3GEN-002 đến FR-L3GEN-005 trong phạm vi Java |
 | Phase 3 — Sau pilot | Framework/ngôn ngữ bổ sung, broker khác Kafka và incremental analysis nếu có business case | Sau 30/09/2026; chưa chốt | Sẽ tạo FR mới hoặc bump PRD khi scope đổi |
+
+Kafka thuộc Phase 1 và Phase 2 vì mỗi ngôn ngữ cần adapter riêng: thư viện Kafka của
+Python và Java khác nhau, không dùng chung rule.
 
 **Rollout Strategy:** chạy pilot nội bộ trên tập repository đã được cấp quyền và có
 reviewer đánh giá ground truth. Chỉ mở rộng sau khi KPI pilot, lỗi bảo mật input và
@@ -357,11 +367,11 @@ nhất cho quyết định kiến trúc quan trọng.
 | OQ-L3GEN-001 | ~~MVP có hỗ trợ GitHub private không?~~ ✅ Không. MVP chỉ nhận GitHub public và không nhận/lưu credential repository. | Product Owner + Security | 16/09/2026 | — |
 | OQ-L3GEN-002 | ~~MVP chỉ có Python hay thêm ngôn ngữ khác?~~ ✅ MVP gồm Python và Java; framework Java cụ thể chuyển sang OQ-L3GEN-007. | Product Owner + Tech Lead | 16/09/2026 | — |
 | OQ-L3GEN-003 | Ngưỡng KPI pilot và bộ repository đánh giá nào được chấp thuận? | Product Owner + QA Lead | 23/09/2026 *(đề xuất)* | GOAL-L3GEN-001, GOAL-L3GEN-002 |
-| OQ-L3GEN-004 | Giới hạn ZIP/repository và thời gian phân tích là bao nhiêu? Đề xuất pilot để benchmark: ZIP nén 100 MB, sau giải nén 500 MB, tối đa 50.000 file và 10 phút mỗi lần phân tích. | Tech Lead + Security | 23/09/2026 *(đề xuất)* | NFR-L3GEN-PERF-001, NFR-L3GEN-SEC-001 |
+| OQ-L3GEN-004 | ~~Giới hạn ZIP/repository và thời gian phân tích là bao nhiêu?~~ ✅ Chốt ngưỡng pilot: ZIP nén 100 MB, sau giải nén 500 MB, tối đa 50.000 file và 10 phút mỗi lần phân tích. Đây là mốc để đo trong pilot, chưa phải cam kết đã benchmark. | Tech Lead + Security | 16/09/2026 | — |
 | OQ-L3GEN-005 | ~~MVP có cần lưu và mở lại lịch sử analysis result không?~~ ✅ Có, lịch sử thuộc MVP. | Product Owner | 16/09/2026 | — |
-| OQ-L3GEN-006 | Event/queue/configuration nào bắt buộc trong MVP? Kafka ở đây chỉ là công nghệ có thể xuất hiện trong repository đầu vào để tool nhận diện producer/consumer/topic; nó không phải hạ tầng chạy L3 Generator. Khuyến nghị chuyển Kafka sang Phase 3 để giảm scope. | Product Owner + Tech Lead | 23/09/2026 *(đề xuất)* | FR-L3GEN-002, FR-L3GEN-003 |
-| OQ-L3GEN-007 | Phạm vi Java có chốt Spring Boot không? Khuyến nghị Spring Boot vì có quy ước rõ cho API, dependency injection và configuration. | Product Owner + Tech Lead | 23/09/2026 *(đề xuất)* | FR-L3GEN-002 |
-| OQ-L3GEN-008 | ✅ Đã chốt lưu tối đa 10 lần mỗi repository và hết hạn sau 14 ngày. Còn cần quyết định người dùng có được xóa thủ công trước hạn hay không. | Product Owner + Tech Lead + Security | 23/09/2026 *(đề xuất)* | FR-L3GEN-003, NFR-L3GEN-SEC-001 |
+| OQ-L3GEN-006 | ~~Event/queue/configuration nào bắt buộc trong MVP?~~ ✅ Kafka thuộc MVP: nhận diện producer, consumer và topic trong repository đầu vào. Kafka là công nghệ xuất hiện trong repository được phân tích, không phải hạ tầng chạy L3 Generator. Broker khác Kafka chuyển Phase 3. | Product Owner + Tech Lead | 16/09/2026 | — |
+| OQ-L3GEN-007 | ~~Phạm vi Java có chốt Spring Boot không?~~ ✅ Có. Java trong MVP giới hạn ở Spring Boot. | Product Owner + Tech Lead | 16/09/2026 | — |
+| OQ-L3GEN-008 | ~~Người dùng có được xóa lịch sử thủ công trước hạn không?~~ ✅ Có cả hai: người dùng xóa thủ công trước hạn, và hệ thống tự xóa khi quá 14 ngày hoặc vượt 10 lần mỗi repository. | Product Owner + Tech Lead + Security | 16/09/2026 | — |
 | OQ-L3GEN-009 | ~~Scope Gate cần cả hai mentor đồng ý hay chỉ cần một mentor?~~ ✅ Chỉ cần ít nhất một trong hai mentor duyệt. | Khiêm + Mentors | 16/09/2026 | — |
 ---
 
