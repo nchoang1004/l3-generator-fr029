@@ -1,71 +1,50 @@
 ---
-uid: 01M2MV1DYC0N3QADT4E9DAQ4VA
-key: NFR-L3GEN-COMP-001
-type: non-functional-requirement
-group: normative
-scope: system
-system: SYS-L3GEN
-status: draft
-revision: 1
-category: compatibility
-ownership:
-  accountable_team: TEAM-L3GEN
-  accountable_role: tech-lead
-relations:
-  constrains: [FR-L3GEN-005]
-verified_at: 2026-09-16
+uid: "01M2J06Z54XVJ0QPKEB14CW1C7"
+key: "NFR-L3GEN-COMP-001"
+type: "non-functional-requirement"
+group: "normative"
+scope: "system"
+system: "SYS-L3GEN"
+status: "draft"
+revision: 4
+ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
+relations: {"constrains":["FR-L3GEN-001","FR-L3GEN-002","FR-L3GEN-003","FR-L3GEN-004","FR-L3GEN-005","FR-L3GEN-008","FR-L3GEN-013","FR-L3GEN-014","FR-L3GEN-015"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-003","OQ-L3GEN-004"]}
+verified_at: null
 verified_against: []
-classification: internal
+classification: "internal"
 ai_assisted: true
 ---
 
-# NFR-L3GEN-COMP-001 — Artifact dùng được ở nơi khác
+# NFR-L3GEN-COMP-001 — Stack và môi trường được hỗ trợ
 
-## Mục đích
+- **Nhóm:** Compatibility.
+- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Áp dụng:** [FR-L3GEN-001](../fr/FR-L3GEN-001.md), [FR-L3GEN-002](../fr/FR-L3GEN-002.md), [FR-L3GEN-003](../fr/FR-L3GEN-003.md), [FR-L3GEN-004](../fr/FR-L3GEN-004.md), [FR-L3GEN-005](../fr/FR-L3GEN-005.md), [FR-L3GEN-008](../fr/FR-L3GEN-008.md), [FR-L3GEN-013](../fr/FR-L3GEN-013.md), [FR-L3GEN-014](../fr/FR-L3GEN-014.md), [FR-L3GEN-015](../fr/FR-L3GEN-015.md).
 
-Tài liệu và mô hình xuất ra sẽ được đọc bằng công cụ khác, đưa vào kho tài liệu, hoặc
-so sánh giữa hai lần chạy. Yêu cầu này giữ cho artifact có định dạng ổn định và không
-phụ thuộc máy đã tạo ra nó.
+## Yêu cầu có thể kiểm chứng
 
-## Yêu cầu
+Đề bài cho phép ưu tiên 1–2 stack. Product chốt hai stack: Python/FastAPI và Java/Spring Boot. Ma trận phiên bản và thư viện dưới đây còn là đề xuất; Tech Lead/QA đối chiếu repo mẫu tại OQ-L3GEN-003/004 trước khi chốt, không dùng khả năng của code hiện có làm căn cứ duy nhất.
 
-### 1. Định dạng và mã hóa
+Stack thứ nhất — Python: cú pháp Python 3.10–3.12; FastAPI methods GET/POST/PUT/DELETE/PATCH; SQLAlchemy declarative Column; requests/httpx; Pydantic settings; confluent_kafka. SQLModel, mapped_column, method khác và SDK khác phải có capability riêng trước khi được gọi là hỗ trợ.
 
-| Hạng mục | Quy định |
-|---|---|
-| Mã hóa ký tự | UTF-8 cho mọi artifact văn bản |
-| Ký tự xuống dòng | Thống nhất một kiểu, không lẫn trong cùng file |
-| Tài liệu L3 | Markdown đọc được bằng trình xem Markdown thông thường |
-| Sơ đồ | Diagram-as-Code dạng văn bản, không phải ảnh nhị phân |
-| Mô hình kiến trúc | JSON có schema và có phiên bản |
+Stack thứ hai — Java: Spring Boot. Framework Java ngoài Spring Boot nằm ngoài phạm vi và phải hiện ra ở phần giới hạn. Ma trận annotation, ORM và thư viện Kafka phía Java được chốt ở thiết kế trước khi gọi là hỗ trợ.
 
-### 2. Đường dẫn độc lập với máy chạy
+Hai stack dùng chung contract kết quả nhưng không dùng chung rule: adapter Kafka của Python và của Java là hai bộ riêng. Event chỉ hỗ trợ Kafka; broker khác nằm ngoài phạm vi.
 
-Mọi đường dẫn trong artifact là đường dẫn tương đối tính từ gốc source đã phân tích.
-Không ghi đường dẫn tuyệt đối, tên người dùng hệ điều hành hoặc tên máy.
+Phiên bản runtime của chính công cụ được chọn và pin ở thiết kế.
 
-### 3. Kết quả ổn định
+Môi trường sử dụng đề xuất: CLI trên Windows 11 và Ubuntu 24.04, hỗ trợ tên file/path Unicode và có dấu cách; web trên Chrome và Edge. Phiên bản browser ổn định dùng để kiểm được ghi cụ thể tại thời điểm kiểm; Mermaid renderer/version pin ở contract.
 
-Cùng một kết quả phân tích xuất ra hai lần phải cho nội dung giống nhau, trừ các trường
-ghi thời điểm chạy. Thứ tự các mục trong artifact phải ổn định, không phụ thuộc thứ tự
-duyệt thư mục của hệ điều hành.
+## Điều kiện và cách kiểm
 
-### 4. Phiên bản schema
+Chạy cùng bộ supported fixtures trên cả hai OS; ghi interpreter, package/rule/renderer/browser versions. Lỗi cú pháp do version ngoài phạm vi phải được báo rõ. Có ma trận supported/partial/unsupported thay cho một checkbox hỗ trợ cả ngôn ngữ.
 
-Mô hình kiến trúc xuất ra mang số phiên bản schema. Đổi cấu trúc theo hướng không tương
-thích thì phải tăng phiên bản, để công cụ đọc biết mình đang xử lý bản nào.
+## Người chốt và ngoại lệ
 
-### 5. Môi trường hỗ trợ
+Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/PRIV. Danh tính theo OQ-L3GEN-001. Không có waiver nào được cấp. Nếu chưa đạt: ghi kết quả failed/not_run, thu hẹp phạm vi qua review hoặc sửa sản phẩm; không tự hạ ngưỡng sau benchmark.
 
-Artifact tạo trên Windows, macOS hoặc Linux phải có cùng nội dung cho cùng đầu vào.
+## Liên kết
 
-## Điều kiện chấp nhận
+- [Phương pháp đo](../../observability/OBS-L3GEN-001.md).
+- [PRD](../../product/prd/PRD-L3GEN-2609-001.md).
 
-- Có test so sánh hai lần xuất từ cùng một kết quả phân tích.
-- Có test xác nhận artifact không chứa đường dẫn tuyệt đối.
-- Mô hình kiến trúc xuất ra có trường phiên bản schema.
-
-## Việc còn lại
-
-Schema của mô hình kiến trúc chưa được chốt. Phải hoàn thành cùng với Architecture IAM
-trước khi đánh số phiên bản đầu tiên.

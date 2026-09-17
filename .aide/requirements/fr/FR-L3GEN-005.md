@@ -1,93 +1,85 @@
 ---
-uid: 01M2MV1DYC7RDWCG6K52QZE964
-key: FR-L3GEN-005
-type: functional-requirement
-group: normative
-scope: system
-system: SYS-L3GEN
-status: draft
-revision: 1
-ownership:
-  accountable_team: TEAM-L3GEN
-  accountable_role: product-owner
-relations:
-  satisfies: [GOAL-L3GEN-003]
-  constrained_by: [NFR-L3GEN-COMP-001, NFR-L3GEN-REL-001]
-  measured_by: [OBS-L3GEN-001]
-verified_at: 2026-09-16
+uid: "01M2J06Z49Y374WH78RBY19X1Z"
+key: "FR-L3GEN-005"
+type: "functional-requirement"
+group: "normative"
+scope: "system"
+system: "SYS-L3GEN"
+status: "draft"
+revision: 3
+ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
+relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-002"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-COMP-001","NFR-L3GEN-PRIV-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-001"]}
+verified_at: null
 verified_against: []
-classification: internal
+classification: "internal"
 ai_assisted: true
 ---
 
-# FR-L3GEN-005 — Xuất tài liệu kiến trúc
+# FR-L3GEN-005 — Liệt kê lời gọi HTTP và đích bên ngoài
 
 ## Mô tả
 
-Người dùng xuất kết quả phân tích thành tài liệu dùng được bên ngoài hệ thống: tài liệu
-L3 dạng Markdown, sơ đồ dạng Diagram-as-Code, và mô hình kiến trúc có cấu trúc để hệ
-thống khác đọc.
+Người dùng xác định nơi gọi HTTP qua thư viện thuộc phạm vi đã công bố và mức độ biết đích đến; không đồng nhất mọi HTTP call với một hệ thống bên ngoài đã xác nhận. Bản đầu phủ requests/httpx của Python; client HTTP của Java/Spring Boot theo mốc M3.
 
-Tất cả artifact của cùng một lần phân tích phải được tạo từ cùng một kết quả, để nội
-dung trên giao diện và nội dung trong file xuất ra không mâu thuẫn nhau.
-
-Use case liên quan: UC3.2 trong [USE_CASES](../../../docs/USE_CASES.md).
+| Thuộc tính | Giá trị |
+|---|---|
+| Nhóm luồng | Trích xuất dữ kiện |
+| Ưu tiên đề xuất | Must Have |
+| Mốc đề xuất | M1: requests/httpx; M3: client HTTP phía Java |
+| Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 ## Acceptance Criteria
 
-### AC-L3GEN-005-01 — Xuất bộ artifact
+### AC-L3GEN-005-01
 
-- **given** một kết quả phân tích đã hoàn thành
-- **when** người dùng yêu cầu xuất tài liệu
-- **then** hệ thống tạo tài liệu L3 dạng Markdown, sơ đồ dạng Diagram-as-Code và mô
-  hình kiến trúc có cấu trúc
-- `validated_by:` TEST-L3GEN-005-01
+- **Given:** Code dùng requests/httpx trực tiếp hoặc client/session được xác định bằng gán và with/async with.
+- **When:** người dùng phân tích.
+- **Then:** công cụ xuất method, caller, URL biết được và vị trí lời gọi, kể cả async.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-PRIV-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Kiểm alias import, Client, AsyncClient, Session.
 
-### AC-L3GEN-005-02 — Nội dung L3 đầy đủ mục
+### AC-L3GEN-005-02
 
-- **given** một kết quả phân tích có component, API, data và external system
-- **when** người dùng mở tài liệu L3 đã xuất
-- **then** tài liệu gồm phạm vi phân tích, application và component, API, data entity,
-  external system, event, quan hệ phụ thuộc, bằng chứng và giới hạn đã biết
-- `validated_by:` TEST-L3GEN-005-02
+- **Given:** URL ghép từ biến hoặc client dùng base_url chưa giải được.
+- **When:** người dùng phân tích.
+- **Then:** công cụ giữ biểu thức và phần URL biết được, gán partial; không gọi một path tương đối là host đầy đủ.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-PRIV-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Kiểm /health và settings.BASE_URL.
 
-### AC-L3GEN-005-03 — Artifact nhất quán với giao diện
+### AC-L3GEN-005-03
 
-- **given** cùng một lần phân tích
-- **when** so sánh nội dung trên giao diện với các artifact đã xuất
-- **then** component, quan hệ, evidence và limitation giống nhau ở cả hai nơi
-- `validated_by:` TEST-L3GEN-005-03
+- **Given:** Biến local tên requests hoặc httpx che tên thư viện.
+- **When:** người dùng phân tích.
+- **Then:** công cụ không phân loại lời gọi của biến local thành HTTP của thư viện chỉ vì trùng tên.
+- `constrained_by:` [NFR-L3GEN-ACC-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Fixture shadowing và method get của object nội bộ.
 
-### AC-L3GEN-005-04 — Sơ đồ xuất ra ở mức component
+### AC-L3GEN-005-04
 
-- **given** một kết quả phân tích
-- **when** người dùng mở sơ đồ đã xuất
-- **then** sơ đồ trình bày application, component và quan hệ giữa chúng, không liệt kê
-  mọi function, class hoặc biến
-- `validated_by:` TEST-L3GEN-005-04
+- **Given:** Test client gọi chính ứng dụng hoặc đích chưa xác định.
+- **When:** người dùng xem dependency.
+- **Then:** công cụ phân biệt HTTP nội bộ/đích chưa biết với external host đã xác nhận; không tuyên bố thêm external system không có bằng chứng.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Test thư mục integration-tests được loại và test client không bị gộp external host.
 
-### AC-L3GEN-005-05 — Một artifact thất bại không mất kết quả
+## Trạng thái liên kết triển khai
 
-- **given** việc tạo một artifact thất bại
-- **when** hệ thống xử lý lỗi đó
-- **then** kết quả phân tích được giữ nguyên, hệ thống báo rõ artifact nào thất bại và
-  cho phép thử lại
-- `constrained_by:` NFR-L3GEN-REL-001
-- `validated_by:` TEST-L3GEN-005-05
+`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
 
-### AC-L3GEN-005-06 — Artifact không chứa đường dẫn máy người dùng
+## Tài liệu liên quan
 
-- **given** một lần phân tích chạy từ một thư mục bất kỳ trên máy người dùng
-- **when** hệ thống tạo artifact
-- **then** artifact dùng đường dẫn tương đối theo gốc source, không chứa đường dẫn
-  tuyệt đối của máy chạy
-- `constrained_by:` NFR-L3GEN-SEC-001, NFR-L3GEN-COMP-001
-- `validated_by:` TEST-L3GEN-005-06
+- [NFR-L3GEN-ACC-001](../nfr/NFR-L3GEN-ACC-001.md)
+- [NFR-L3GEN-TRACE-001](../nfr/NFR-L3GEN-TRACE-001.md)
+- [NFR-L3GEN-COMP-001](../nfr/NFR-L3GEN-COMP-001.md)
+- [NFR-L3GEN-PRIV-001](../nfr/NFR-L3GEN-PRIV-001.md)
+- [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
+- [Thuật ngữ](../../domain/glossary-core.md)
 
-### AC-L3GEN-005-07 — Artifact ổn định giữa hai lần xuất
-
-- **given** cùng một kết quả phân tích
-- **when** người dùng xuất tài liệu hai lần
-- **then** nội dung artifact giống nhau giữa hai lần, trừ các trường ghi thời điểm chạy
-- `constrained_by:` NFR-L3GEN-COMP-001
-- `validated_by:` TEST-L3GEN-005-07

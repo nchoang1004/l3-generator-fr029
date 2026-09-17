@@ -1,0 +1,32 @@
+[
+  {
+    "attachment_id": "1e387cb7-63c6-48b6-b622-ac209985c5cc",
+    "file": "01-guide-A-B0.md",
+    "sha256": "cbef6fd62286d64a9d7417c6357a8b2d1624a9b1964b4328d1cb8f5de9af5f19",
+    "bytes": 21662
+  },
+  {
+    "attachment_id": "7544d34a-ec0a-438f-86f7-f5b66d3a0ee8",
+    "file": "02-steps-B-short.md",
+    "sha256": "759eafd68410299d73189b036500de806e89be3bd68223203ed5debc7d7ae3f7",
+    "bytes": 33276
+  },
+  {
+    "attachment_id": "d8369350-fb0e-4541-acd7-569f0e768d5b",
+    "file": "03-steps-B-full.md",
+    "sha256": "baaa70d0afbe075855d9e9f66cdfa90666543c95ccbc4d1bedcc5fbd819e5dda",
+    "bytes": 34136
+  },
+  {
+    "attachment_id": "e5bfd7d3-21e9-437e-a658-37c7e760fd79",
+    "file": "04-guide-C-F.md",
+    "sha256": "e3b4c4d7791797d45a836c9bace18fd705810178eed5a5705ed53fc89acc40c2",
+    "bytes": 18382
+  },
+  {
+    "attachment_id": "8c083ba2-e7cd-4c14-b9c9-deb0803c8bff",
+    "file": "05-prd-template.md",
+    "sha256": "3c56f52ed498e174dcd3a7716bf6c7da39b13a9c0dcc202525c693e0f852393b",
+    "bytes": 11025
+  }
+]

@@ -1,0 +1,24 @@
+key: CHG-L3GEN-2026-001
+type: change-set
+group: normative
+scope: lifecycle
+status: draft
+label: "Full product — Code → Architecture / L3 Generator"
+objective:
+  satisfies: [GOAL-L3GEN-001, GOAL-L3GEN-002, GOAL-L3GEN-003]
+affected_systems: [SYS-L3GEN]
+affected_teams: [TEAM-L3GEN]
+flow: new-system
+tier: null
+proposed_tier: T1
+tier_reason: "Đề xuất thận trọng cho hệ thống mới có remote ingestion; mentor xác nhận tại intake."
+coordination:
+  mode: independent
+  integration_gate_required: false
+derived_from: []
+change_request: CR-L3GEN-2026-001
+intake_status: not_run
+impact_status: not_run
+scope_gate_status: not_run
+baseline_candidate: baseline/BL-r8.yaml
+note: "Shell phục vụ review full product; M1–M3 là mốc kiểm tra nội bộ, chưa xác định các đợt release. Nếu giao riêng từng mốc, tách Change Set/baseline tương ứng trước khi chốt. Intake/impact/tier và Scope Gate chưa hoàn tất; xem docs/PRD-REVIEW-README.md."

@@ -1,5 +1,19 @@
 # Ý tưởng kiến trúc 2.0 — Language-first, Architecture-focused Analysis
 
+> **Trạng thái trong gói hồ sơ này: ghi chép thiết kế, không phải artifact chuẩn tắc.**
+>
+> Tài liệu này đến từ một hướng làm song song và được đưa vào để người review thấy cơ chế
+> phân tích đã được nghĩ tới đâu. Nó **chưa phải L2**: theo quy trình, L2 là một file CMP
+> cho một component, phải có đủ bảy mục gồm transaction boundary, idempotency và
+> concurrency, và phải kèm 2–3 phương án có tradeoff. Tài liệu này là một phương án đã
+> chọn, mô tả cả pipeline trong một file.
+>
+> L2 được lập ở bước 7, sau Scope Gate. Khi đó pipeline dưới đây tách thành các CMP riêng.
+> Đừng đọc file này như thiết kế đã duyệt, và đừng coi nó là bằng chứng đã có L2.
+>
+> Phần quyết định kiến trúc duy nhất đã được viết đúng dạng chuẩn tắc là
+> [ADR-2026-001](../.aide/architecture/adr/ADR-2026-001.md) — mức trừu tượng của kết quả.
+
 > **Lưu ý — cách hiện tại vẫn là “duyệt trâu”.** Công cụ đi qua toàn bộ file code để
 > không bỏ sót vì cách sắp xếp thư mục. Đây là nền móng ưu tiên độ phủ, chưa phải cách
 > tối ưu cuối cùng. Về sau có thể lưu kết quả file không đổi và chỉ phân tích phần bị

@@ -1,0 +1,7 @@
+# Preserve exact bytes captured in document candidate hashes.
+.aide/** -text
+README.md text eol=lf
+docs/PRD-REVIEW-README.md text eol=lf
+docs/agentic-sdlc-execution-guide.md text eol=lf
+# Mentor attachment copies are byte-preserved for provenance hashes.
+docs/sdlc-sources/** -text

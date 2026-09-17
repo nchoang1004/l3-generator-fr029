@@ -1,74 +1,42 @@
 ---
-uid: 01M2MV1DYDCSSF782T0E3SWF27
-key: NFR-L3GEN-PERF-001
-type: non-functional-requirement
-group: normative
-scope: system
-system: SYS-L3GEN
-status: draft
-revision: 1
-category: performance
-ownership:
-  accountable_team: TEAM-L3GEN
-  accountable_role: tech-lead
-relations:
-  constrains: [FR-L3GEN-001, FR-L3GEN-002, FR-L3GEN-003]
-verified_at: 2026-09-16
+uid: "01M2J06Z58YD9FQJ9HHAQ77BX9"
+key: "NFR-L3GEN-PERF-001"
+type: "non-functional-requirement"
+group: "normative"
+scope: "system"
+system: "SYS-L3GEN"
+status: "draft"
+revision: 2
+ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
+relations: {"constrains":["FR-L3GEN-001","FR-L3GEN-008","FR-L3GEN-013","FR-L3GEN-016","FR-L3GEN-017"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-004"]}
+verified_at: null
 verified_against: []
-classification: internal
+classification: "internal"
 ai_assisted: true
 ---
 
-# NFR-L3GEN-PERF-001 — Hiệu năng và giới hạn xử lý
+# NFR-L3GEN-PERF-001 — Thời gian xử lý và giới hạn tài nguyên
 
-## Mục đích
+- **Nhóm:** Performance.
+- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Áp dụng:** [FR-L3GEN-001](../fr/FR-L3GEN-001.md), [FR-L3GEN-008](../fr/FR-L3GEN-008.md), [FR-L3GEN-013](../fr/FR-L3GEN-013.md), [FR-L3GEN-016](../fr/FR-L3GEN-016.md), [FR-L3GEN-017](../fr/FR-L3GEN-017.md).
 
-Đặt giới hạn quy mô đầu vào và thời gian xử lý, để người dùng biết trước hệ thống phục
-vụ được repository cỡ nào, và để hệ thống có mốc dừng rõ ràng thay vì chạy vô hạn.
+## Yêu cầu có thể kiểm chứng
 
-## Trạng thái các ngưỡng
+Môi trường benchmark đề xuất: 4 CPU logical, RAM 8 GiB, SSD, Python 3.12, no-AI, dependencies đã cài. Thời gian analyzer+ghi output (không gồm clone/AI/cài đặt) tối đa 60 giây cho 5.000 dòng Python, và 300 giây cho 50.000 dòng trong tập fixture/repo đã pin. Trần thời gian cho một lần phân tích là 10 phút; quá hạn thì dừng và báo lý do, không trả kết quả như đã hoàn tất.
 
-**Đây là ngưỡng pilot, chưa phải kết quả benchmark.** Nhóm chưa đo hiệu năng trên
-contract hiện tại. Các số dưới đây được chốt để có mốc triển khai và đo; sau pilot phải
-xem lại bằng số đo thật.
+Giới hạn tiếp nhận: ZIP nén 100 MB, giải nén 500 MB và 50.000 file; vượt ngưỡng phải từ chối hoặc dừng có lý do. Worker tối đa 2 GiB RAM/phiên, 2 phiên chạy cùng lúc; phiên sau xếp hàng. Git fetch timeout 120 giây; mọi giới hạn có trong thông báo/help.
 
-Không trích các số này như năng lực đã được chứng minh.
+## Điều kiện và cách kiểm
 
-## Ngưỡng
+Đo 5 lần cho mỗi repo trên máy công bố, ghi từng lần và worst-case, peak RSS. Không ngoại suy từ máy khác hoặc repo nhỏ. Kiểm input sát/vượt giới hạn, ZIP bomb và job bị timeout; không báo hoàn tất khi bị dừng. OBS-L3GEN-001 mô tả cách thu số, không lặp ngưỡng.
 
-### Giới hạn đầu vào
+## Người chốt và ngoại lệ
 
-| Hạng mục | Ngưỡng | Áp dụng khi |
-|---|---|---|
-| Kích thước file ZIP nén | 100 MB | Người dùng tải lên ZIP |
-| Kích thước sau giải nén | 500 MB | Người dùng tải lên ZIP |
-| Số file trong một lần phân tích | 50.000 | Mọi hình thức đầu vào |
-| Thời gian một lần phân tích | 10 phút | Mọi hình thức đầu vào |
+Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/PRIV. Danh tính theo OQ-L3GEN-001. Không có waiver nào được cấp. Nếu chưa đạt: ghi kết quả failed/not_run, thu hẹp phạm vi qua review hoặc sửa sản phẩm; không tự hạ ngưỡng sau benchmark.
 
-Vượt ngưỡng đầu vào thì từ chối trước khi phân tích, theo AC-L3GEN-001-08. Chạm ngưỡng
-trong lúc phân tích thì trả kết quả partial kèm giới hạn đã chạm, theo AC-L3GEN-002-12.
+## Liên kết
 
-### Giới hạn xử lý nội bộ
+- [Phương pháp đo](../../observability/OBS-L3GEN-001.md).
+- [PRD](../../product/prd/PRD-L3GEN-2609-001.md).
 
-Hệ thống phải có giới hạn cấu hình được hoặc hằng số rõ cho số ứng viên mỗi lời gọi, số
-giá trị mỗi ô lưu, số lượt truyền giá trị và độ dài đường bằng chứng. Chạm giới hạn nào
-cũng phải được ghi vào kết quả, không được cắt trong im lặng.
-
-## Cách đo
-
-- Đo theo từng giai đoạn: kiểm kê, phân tích cú pháp, resolver, adapter, tổng hợp
-  component và sinh output.
-- Ghi số file, số byte, thời gian và bộ nhớ đỉnh cho mỗi lần chạy.
-- Không cam kết độ phức tạp tuyến tính cho toàn pipeline; chi phí resolver phụ thuộc số
-  quan hệ truyền giá trị chứ không chỉ số file.
-
-## Điều kiện chấp nhận
-
-- Repository trong giới hạn công bố phân tích xong trong 10 phút.
-- Vượt giới hạn thì được từ chối hoặc trả partial có lý do, không treo và không sập.
-- Mỗi lần chạy ghi lại số đo theo giai đoạn để so sánh giữa các phiên bản.
-
-## Việc còn lại
-
-Chạy benchmark trên tập repository pilot rồi thay ngưỡng đề xuất bằng ngưỡng có số đo.
-Trước khi có kết quả đó, không ghi ngưỡng nào vào README như năng lực đã đo.

@@ -1,68 +1,40 @@
 ---
-uid: 01M2MV1DYD64EZ4X9GBDTHKWYN
-key: NFR-L3GEN-REL-001
-type: non-functional-requirement
-group: normative
-scope: system
-system: SYS-L3GEN
-status: draft
+uid: "01M2J06Z5BFR4D9T1GN1BJ2EW0"
+key: "NFR-L3GEN-REL-001"
+type: "non-functional-requirement"
+group: "normative"
+scope: "system"
+system: "SYS-L3GEN"
+status: "draft"
 revision: 1
-category: reliability
-ownership:
-  accountable_team: TEAM-L3GEN
-  accountable_role: tech-lead
-relations:
-  constrains: [FR-L3GEN-002, FR-L3GEN-004, FR-L3GEN-005]
-verified_at: 2026-09-16
+ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
+relations: {"constrains":["FR-L3GEN-001","FR-L3GEN-002","FR-L3GEN-008","FR-L3GEN-009","FR-L3GEN-016","FR-L3GEN-017"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-004"]}
+verified_at: null
 verified_against: []
-classification: internal
+classification: "internal"
 ai_assisted: true
 ---
 
-# NFR-L3GEN-REL-001 — Suy giảm dần thay vì hỏng toàn bộ
+# NFR-L3GEN-REL-001 — Hoàn tất, lỗi một phần và cách ly phiên
 
-## Mục đích
+- **Nhóm:** Reliability.
+- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Áp dụng:** [FR-L3GEN-001](../fr/FR-L3GEN-001.md), [FR-L3GEN-002](../fr/FR-L3GEN-002.md), [FR-L3GEN-008](../fr/FR-L3GEN-008.md), [FR-L3GEN-009](../fr/FR-L3GEN-009.md), [FR-L3GEN-016](../fr/FR-L3GEN-016.md), [FR-L3GEN-017](../fr/FR-L3GEN-017.md).
 
-Repository thật luôn có phần hệ thống chưa đọc được: file lỗi cú pháp, ngôn ngữ chưa hỗ
-trợ, cấu trúc phụ thuộc runtime. Yêu cầu này bảo đảm một phần hỏng không làm mất toàn
-bộ kết quả, và người dùng luôn biết mình đang cầm kết quả đầy đủ hay một phần.
+## Yêu cầu có thể kiểm chứng
 
-## Yêu cầu
+Parse lỗi một file không phá phần hợp lệ. Trạng thái partial dựa trên phạm vi mất hoặc thuộc tính/quan hệ chưa giải được, không chỉ files_skipped. Một bộ output chỉ được đánh dấu hoàn tất khi mọi artifact bắt buộc cho phase đã ghi và kiểm cấu trúc thành công. Source gốc và output lần trước không bị sửa. Job song song có workspace riêng; hủy/lỗi không để job running vĩnh viễn.
 
-### 1. Lỗi cục bộ không lan ra toàn lần chạy
+## Điều kiện và cách kiểm
 
-| Tình huống | Hành vi bắt buộc |
-|---|---|
-| Một file lỗi cú pháp | Ghi lỗi của file đó, tiếp tục các file còn lại |
-| Một ngôn ngữ chưa có bộ phân tích | Vẫn kiểm kê file, đánh dấu chưa hỗ trợ, tiếp tục ngôn ngữ khác |
-| Một adapter framework không khớp | Bỏ qua phần đó, giữ các quan hệ đã xác định được |
-| Chạm giới hạn xử lý | Trả kết quả partial kèm giới hạn đã chạm |
-| Một artifact xuất ra thất bại | Giữ kết quả phân tích, báo artifact thất bại, cho thử lại |
+Fault injection tại scan, parse, clone, ghi output, worker crash, cancel; xác nhận trạng thái cuối, file nguồn không đổi và phiên khác không lẫn dữ liệu. Các số đếm phải có định nghĩa tập file rõ.
 
-### 2. Trạng thái kết quả rõ ràng
+## Người chốt và ngoại lệ
 
-Mỗi lần phân tích kết thúc ở một trong các trạng thái: hoàn thành, hoàn thành một phần,
-hoặc thất bại. Trạng thái một phần phải kèm lý do cụ thể, không được trình bày như
-hoàn thành.
+Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/PRIV. Danh tính theo OQ-L3GEN-001. Không có waiver nào được cấp. Nếu chưa đạt: ghi kết quả failed/not_run, thu hẹp phạm vi qua review hoặc sửa sản phẩm; không tự hạ ngưỡng sau benchmark.
 
-### 3. Thất bại phải nói được nguyên nhân
+## Liên kết
 
-Khi không thể tiếp tục, hệ thống đưa ra thông báo ngắn gọn cho biết hỏng ở đâu và cần
-làm gì, không đổ toàn bộ dấu vết lỗi kỹ thuật cho người dùng cuối.
+- [Phương pháp đo](../../observability/OBS-L3GEN-001.md).
+- [PRD](../../product/prd/PRD-L3GEN-2609-001.md).
 
-### 4. Không tạo dữ liệu giả để lấp chỗ trống
-
-Phần thiếu phải được ghi là thiếu. Cấm suy đoán một quan hệ, một tên bảng hoặc một đích
-gọi chỉ để kết quả trông liền mạch.
-
-## Điều kiện chấp nhận
-
-- Có fixture chứa file lỗi cú pháp; lần chạy vẫn hoàn thành và trả kết quả partial.
-- Có fixture trộn ngôn ngữ chưa hỗ trợ; phần được hỗ trợ vẫn cho kết quả.
-- Có test cho trường hợp chạm giới hạn xử lý, kết quả là partial có lý do.
-- Có test cho trường hợp một artifact xuất ra thất bại, kết quả phân tích không mất.
-
-## Việc còn lại
-
-Contract lỗi và trạng thái kết quả mới ở mức mô tả. Cần chốt danh sách mã lỗi và cách
-hiển thị khi thiết kế L2.

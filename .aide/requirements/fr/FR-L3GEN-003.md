@@ -1,131 +1,104 @@
 ---
-uid: 01M2MV1DYCHYZ7KM0F80MDPDKZ
-key: FR-L3GEN-003
-type: functional-requirement
-group: normative
-scope: system
-system: SYS-L3GEN
-status: draft
-revision: 1
-ownership:
-  accountable_team: TEAM-L3GEN
-  accountable_role: product-owner
-relations:
-  satisfies: [GOAL-L3GEN-001]
-  constrained_by: [NFR-L3GEN-USA-001, NFR-L3GEN-PERF-001, NFR-L3GEN-SEC-001]
-  measured_by: [OBS-L3GEN-001, OBS-L3GEN-002]
-verified_at: 2026-09-16
+uid: "01M2J06Z46Y30FK51W5B9CZZ2V"
+key: "FR-L3GEN-003"
+type: "functional-requirement"
+group: "normative"
+scope: "system"
+system: "SYS-L3GEN"
+status: "draft"
+revision: 5
+ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
+relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-002"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-COMP-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-001","OQ-L3GEN-003"]}
+verified_at: null
 verified_against: []
-classification: internal
+classification: "internal"
 ai_assisted: true
 ---
 
-# FR-L3GEN-003 — Xem, lưu và truy vết kiến trúc
+# FR-L3GEN-003 — Liệt kê API routes và handler
 
 ## Mô tả
 
-Người dùng khám phá kết quả phân tích theo mục tiêu đang cần: nhìn tổng quan, xem
-application và component, xem API và luồng yêu cầu, xem dữ liệu và tích hợp, hoặc truy
-vết từ một thành phần sang các thành phần liên quan.
+Người dùng xem method, path, handler, điều kiện đăng ký và nguồn khai báo của route trong phạm vi stack đã công bố. Bản đầu phủ FastAPI; Java/Spring Boot theo mốc M3.
 
-Kết quả phân tích được lưu lại để mở lại về sau. Hệ thống giới hạn số lần phân tích giữ
-cho mỗi repository và thời hạn lưu mỗi kết quả; người dùng cũng xóa thủ công được trước
-khi hết hạn. Ngưỡng cụ thể nằm ở
-[NFR-L3GEN-SEC-001](../nfr/NFR-L3GEN-SEC-001.md).
-
-Diagram mặc định trình bày ở mức application/component. Nó không liệt kê mọi function,
-class hay biến; chi tiết đó chỉ xuất hiện khi người dùng mở evidence theo FR-L3GEN-004.
-
-Use case liên quan: UC2 và UC3.1 trong [USE_CASES](../../../docs/USE_CASES.md).
+| Thuộc tính | Giá trị |
+|---|---|
+| Nhóm luồng | Trích xuất dữ kiện |
+| Ưu tiên đề xuất | Must Have |
+| Mốc đề xuất | M1: route FastAPI; M3: route Spring Boot |
+| Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 ## Acceptance Criteria
 
-### AC-L3GEN-003-01 — Xem tổng quan sau khi phân tích xong
+### AC-L3GEN-003-01
 
-- **given** một lần phân tích vừa hoàn thành
-- **when** người dùng được đưa tới kết quả
-- **then** hệ thống hiển thị tổng quan gồm application, entry point, component chính,
-  phạm vi đã phân tích và các giới hạn nổi bật
-- `constrained_by:` NFR-L3GEN-USA-001
-- `validated_by:` TEST-L3GEN-003-01
+- **Given:** FastAPI/APIRouter được khai báo trực tiếp cùng decorator GET, POST, PUT, DELETE hoặc PATCH.
+- **When:** người dùng phân tích.
+- **Then:** mỗi route xuất hiện đúng method, path, handler và nguồn; HTTP method ngoài phạm vi được báo là chưa hỗ trợ khi phát hiện.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Có fixture dùng alias import và hai router cùng tên ở hai module.
 
-### AC-L3GEN-003-02 — Các góc nhìn kiến trúc
+### AC-L3GEN-003-02
 
-- **given** một kết quả phân tích có component, API, data entity và external system
-- **when** người dùng chuyển giữa các góc nhìn
-- **then** người dùng xem được ứng dụng và thành phần, API và luồng yêu cầu, kho dữ
-  liệu và tích hợp, mỗi góc nhìn dựa trên cùng một kết quả phân tích
-- `validated_by:` TEST-L3GEN-003-02
+- **Given:** Router được include nhiều tầng hoặc app con được mount với prefix chuỗi hằng.
+- **When:** người dùng phân tích.
+- **Then:** path gồm đủ prefix của chuỗi đăng ký; router được đăng ký tại nhiều path có các route tương ứng.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Đối chiếu cả include_router và app.mount.
 
-### AC-L3GEN-003-03 — Truy vết phụ thuộc
+### AC-L3GEN-003-03
 
-- **given** người dùng đang xem một API hoặc component
-- **when** người dùng truy vết phụ thuộc của nó
-- **then** hệ thống hiển thị các component, data entity hoặc external system liên quan
-  theo quan hệ đã xác định trong mô hình
-- `validated_by:` TEST-L3GEN-003-03
+- **Given:** Prefix là giá trị động, đăng ký nằm trong if hoặc router chưa nối được tới app gốc.
+- **When:** người dùng phân tích.
+- **Then:** công cụ giữ phần chưa biết/điều kiện, hạ completeness thành partial và ghi lý do; không tuyên bố URL chạy thật đã đầy đủ.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Fixture kiểm route không được mount và prefix thiếu.
 
-### AC-L3GEN-003-04 — Diagram trình bày ở mức component
+### AC-L3GEN-003-04
 
-- **given** một repository có nhiều function nhưng ít component
-- **when** hệ thống hiển thị diagram mặc định
-- **then** diagram trình bày application, component và quan hệ giữa chúng, và không tạo
-  một node cho mỗi function, class hoặc biến
-- `validated_by:` TEST-L3GEN-003-04
+- **Given:** create_app() tạo FastAPI và truyền app qua tham số được khai kiểu tới hàm đăng ký route chứa decorator lồng.
+- **When:** người dùng phân tích.
+- **Then:** công cụ tìm được các route của mẫu này; phần binding không xác định được phải hiện cảnh báo thay vì kết luận không có route.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Fixture độc lập có hàm tạo app và hàm đăng ký route nhận tham số kiểu FastAPI; không cam kết mọi factory động.
 
-### AC-L3GEN-003-05 — Lưu lần phân tích
+### AC-L3GEN-003-05
 
-- **given** một lần phân tích hoàn thành
-- **when** hệ thống ghi nhận kết quả
-- **then** lần phân tích đó xuất hiện trong danh sách lịch sử, kèm repository, thời
-  điểm chạy và trạng thái kết quả
-- `validated_by:` TEST-L3GEN-003-05
+- **Given:** Repo đăng ký route bằng vòng lặp hoặc add_api_route chưa được hỗ trợ.
+- **When:** người dùng phân tích.
+- **Then:** công cụ ghi nguồn pattern chưa hỗ trợ trong giới hạn; không tự tạo danh sách route suy đoán.
+- `constrained_by:` [NFR-L3GEN-COMP-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Phân biệt không tìm thấy route với không hỗ trợ cách đăng ký.
 
-### AC-L3GEN-003-06 — Mở lại một lần phân tích đã lưu
+### AC-L3GEN-003-06
 
-- **given** một lần phân tích đã lưu và chưa hết hạn
-- **when** người dùng chọn mở lại
-- **then** hệ thống hiển thị đúng mô hình, evidence và limitation của lần chạy đó, kèm
-  phiên bản source đã dùng
-- `validated_by:` TEST-L3GEN-003-06
+- **Given:** Repository Java dùng Spring Boot với controller khai báo route bằng annotation trong phạm vi đã công bố.
+- **When:** người dùng phân tích.
+- **Then:** route Java hiện ra với cùng cấu trúc dữ liệu và cùng nhãn chất lượng như route Python; không có trường riêng chỉ dành cho một ngôn ngữ.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Ma trận annotation cụ thể của Spring Boot chốt tại OQ-L3GEN-003 trước thiết kế. Annotation ngoài ma trận phải hiện ở phần giới hạn, không im lặng bỏ qua.
 
-### AC-L3GEN-003-07 — Kết quả cũ không trộn với source hiện tại
+## Trạng thái liên kết triển khai
 
-- **given** source đã thay đổi sau khi một lần phân tích được lưu
-- **when** người dùng mở lại lần phân tích đó
-- **then** kết quả vẫn là snapshot của lần chạy cũ, và evidence chỉ về phiên bản source
-  của lần chạy đó
-- `validated_by:` TEST-L3GEN-003-07
+`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
 
-### AC-L3GEN-003-08 — Giới hạn 10 lần mỗi repository
+## Tài liệu liên quan
 
-- **given** một repository đã có 10 lần phân tích được lưu
-- **when** người dùng chạy phân tích lần tiếp theo cho repository đó
-- **then** hệ thống giữ 10 kết quả gần nhất và loại kết quả cũ nhất
-- `constrained_by:` NFR-L3GEN-SEC-001
-- `validated_by:` TEST-L3GEN-003-08
+- [NFR-L3GEN-ACC-001](../nfr/NFR-L3GEN-ACC-001.md)
+- [NFR-L3GEN-TRACE-001](../nfr/NFR-L3GEN-TRACE-001.md)
+- [NFR-L3GEN-COMP-001](../nfr/NFR-L3GEN-COMP-001.md)
+- [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
+- [Thuật ngữ](../../domain/glossary-core.md)
 
-### AC-L3GEN-003-09 — Kết quả hết hạn
-
-- **given** một lần phân tích đã quá thời hạn lưu trữ đã công bố
-- **when** người dùng tìm kết quả đó
-- **then** kết quả không còn mở lại được, và hệ thống nói rõ lý do hết hạn
-- `constrained_by:` NFR-L3GEN-SEC-001
-- `validated_by:` TEST-L3GEN-003-09
-
-### AC-L3GEN-003-10 — Xóa thủ công một lần phân tích
-
-- **given** một lần phân tích đã lưu và chưa hết hạn
-- **when** người dùng chọn xóa và xác nhận
-- **then** kết quả đó bị xóa, không mở lại được, và các lần phân tích khác không bị ảnh
-  hưởng
-- `constrained_by:` NFR-L3GEN-SEC-001
-- `validated_by:` TEST-L3GEN-003-10
-
-### AC-L3GEN-003-11 — Xác nhận trước khi xóa
-
-- **given** người dùng chọn xóa một lần phân tích
-- **when** hệ thống nhận yêu cầu
-- **then** hệ thống hỏi xác nhận trước khi xóa, để tránh mất kết quả do thao tác nhầm
-- `constrained_by:` NFR-L3GEN-USA-001
-- `validated_by:` TEST-L3GEN-003-11

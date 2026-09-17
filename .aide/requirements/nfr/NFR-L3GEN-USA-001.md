@@ -1,78 +1,42 @@
 ---
-uid: 01M2MV1DYE1VPQFY5XRHSFBH9G
-key: NFR-L3GEN-USA-001
-type: non-functional-requirement
-group: normative
-scope: system
-system: SYS-L3GEN
-status: draft
-revision: 1
-category: usability
-ownership:
-  accountable_team: TEAM-L3GEN
-  accountable_role: product-owner
-relations:
-  constrains: [FR-L3GEN-001, FR-L3GEN-003, FR-L3GEN-004]
-verified_at: 2026-09-16
+uid: "01M2J06Z5GY61E2YBB7T18XEN6"
+key: "NFR-L3GEN-USA-001"
+type: "non-functional-requirement"
+group: "normative"
+scope: "system"
+system: "SYS-L3GEN"
+status: "draft"
+revision: 2
+ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
+relations: {"constrains":["FR-L3GEN-001","FR-L3GEN-008","FR-L3GEN-009","FR-L3GEN-013","FR-L3GEN-017"],"measured_by":["OBS-L3GEN-002"],"blocked_by":["OQ-L3GEN-004"]}
+verified_at: null
 verified_against: []
-classification: internal
+classification: "internal"
 ai_assisted: true
 ---
 
-# NFR-L3GEN-USA-001 — Dùng được mà không cần người hướng dẫn
+# NFR-L3GEN-USA-001 — Khả năng sử dụng và tiếp cận
 
-## Mục đích
+- **Nhóm:** Usability.
+- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Áp dụng:** [FR-L3GEN-001](../fr/FR-L3GEN-001.md), [FR-L3GEN-008](../fr/FR-L3GEN-008.md), [FR-L3GEN-009](../fr/FR-L3GEN-009.md), [FR-L3GEN-013](../fr/FR-L3GEN-013.md), [FR-L3GEN-017](../fr/FR-L3GEN-017.md).
 
-Giá trị của sản phẩm nằm ở chỗ người dùng tự hiểu được kiến trúc. Nếu phải có người
-trong nhóm phát triển ngồi cạnh giải thích thì công cụ chưa đạt mục tiêu.
+## Yêu cầu có thể kiểm chứng
 
-## Yêu cầu
+Người mới theo README cài và chạy ví dụ CLI no-AI trong tối đa 10 phút trên môi trường đã có Python và mạng cài package. Web có trạng thái rỗng/tải/lỗi/một phần, thông báo hành động khắc phục. Luồng chính dùng được bằng bàn phím; mọi input có label, focus nhìn thấy; thông tin tin cậy không dựa chỉ vào màu. Review UI kiểm viewport 1366×768 và 390×844; accessibility tự động và kiểm tay, ngưỡng tương phản normal text ≥4.5:1 theo chuẩn nội bộ đề xuất.
 
-### 1. Hoàn thành luồng chính không cần hướng dẫn
+## Điều kiện và cách kiểm
 
-Một kỹ sư chưa từng dùng công cụ phải tự đi được từ cung cấp mã nguồn tới xem kết quả
-và xuất tài liệu, không cần tài liệu hướng dẫn riêng và không cần hỏi người phát triển.
+Web cung cấp cả chế độ sáng và tối; người dùng chọn được chế độ. Kiểm bàn phím, focus và tương phản ở cả hai chế độ, kể cả trạng thái rỗng/tải/lỗi/một phần. Đây là phạm vi áp dụng theo checklist UI/UX Gate của mentor, không có ngoại lệ một theme.
 
-### 2. Tổ chức theo mục tiêu người dùng
+OBS-L3GEN-002 mô tả thử với người chưa dùng tool; không thay thử người bằng việc tác giả tự demo. Có lỗi input, output trống và graph dài trong buổi thử. Kiểm trên thiết bị chính thật và với chuỗi dài nhất của các ngôn ngữ được hỗ trợ; ghi thiết bị, browser, theme và kết quả. Mock dùng design token thật; thiết kế phải thể hiện một hành động chính rõ cho mỗi màn hình theo checklist gate.
 
-Giao diện tổ chức theo điều người dùng muốn biết, không theo các bước bên trong của
-engine:
+## Người chốt và ngoại lệ
 
-- nhìn tổng quan trước;
-- đi sâu theo thành phần;
-- truy vết về bằng chứng trong source;
-- luôn thấy giới hạn của lần phân tích.
+Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/PRIV. Danh tính theo OQ-L3GEN-001. Không có waiver nào được cấp. Nếu chưa đạt: ghi kết quả failed/not_run, thu hẹp phạm vi qua review hoặc sửa sản phẩm; không tự hạ ngưỡng sau benchmark.
 
-Mỗi màn hình có một hành động chính rõ ràng.
+## Liên kết
 
-### 3. Trạng thái kết quả đọc được bằng lời thường
+- [Phương pháp đo](../../observability/OBS-L3GEN-002.md).
+- [PRD](../../product/prd/PRD-L3GEN-2609-001.md).
 
-Người dùng phải hiểu được kết quả là đầy đủ hay một phần, và phần nào chưa đọc được, mà
-không cần biết từ chuyên môn của bộ phân tích. Thuật ngữ bắt buộc phải dùng thì giải
-thích ngay tại chỗ.
-
-### 4. Trạng thái rỗng, đang tải và lỗi đều có nội dung
-
-Không để màn hình trống không giải thích. Ba trạng thái này phải nói được chuyện gì
-đang xảy ra và người dùng làm gì tiếp.
-
-### 5. Thông báo lỗi nói được cách sửa
-
-Lỗi đầu vào phải chỉ ra sai ở đâu và sửa thế nào, thay vì chỉ báo thao tác thất bại.
-
-## Cách đo
-
-Đo bằng pilot: người tham gia chưa từng dùng công cụ, tự thực hiện luồng chính, người
-quan sát không được gợi ý. Ghi lại tỷ lệ hoàn thành và những chỗ người dùng mắc kẹt.
-
-Ngưỡng mục tiêu của KPI-L3GEN-001 nằm trong PRD và còn chờ chốt theo OQ-L3GEN-003.
-
-## Điều kiện chấp nhận
-
-- Người dùng pilot hoàn thành luồng chính mà không cần nhóm phát triển hướng dẫn.
-- Mọi màn hình kết quả đều hiển thị được phần giới hạn của lần phân tích.
-- Mọi thông báo lỗi đầu vào đều nêu được hành động sửa.
-
-## Việc còn lại
-
-Chưa chạy pilot usability. Ngưỡng định lượng chờ OQ-L3GEN-003.

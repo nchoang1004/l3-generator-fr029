@@ -1,33 +1,39 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1040" viewBox="0 0 1500 1040" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="1120" viewBox="0 0 1560 1120" role="img" aria-labelledby="title description">
   <title id="title">L3 Architecture Generator - Use Case Overview</title>
-  <desc id="description">Sơ đồ use case tổng quan cho giao diện phân tích kho mã, nhận thư mục cục bộ, file ZIP hoặc liên kết GitHub, khám phá kiến trúc, kiểm tra bằng chứng, mở lại lần phân tích đã lưu và xuất kết quả.</desc>
+  <desc id="description">Sơ đồ use case tổng quan. Hai kênh sử dụng: dòng lệnh nhận thư mục cục bộ rồi phân tích và xuất file; giao diện web nhận file ZIP hoặc liên kết GitHub, cho phép khám phá kiến trúc, kiểm tra bằng chứng, mở lại lần phân tích đã lưu và xuất kết quả.</desc>
 
   <defs>
     <style>
       .page { fill: #f8fafc; }
       .boundary { fill: #ffffff; stroke: #334155; stroke-width: 2; }
       .section { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.5; stroke-dasharray: 7 5; }
+      .section-web { fill: #f8fafc; stroke: #2563eb; stroke-width: 1.5; stroke-dasharray: 7 5; }
       .section-title { font: 600 15px Inter, Segoe UI, Arial, sans-serif; fill: #475569; letter-spacing: .4px; }
+      .section-note { font: italic 12px Inter, Segoe UI, Arial, sans-serif; fill: #64748b; }
       .title { font: 700 28px Inter, Segoe UI, Arial, sans-serif; fill: #0f172a; }
       .subtitle { font: 14px Inter, Segoe UI, Arial, sans-serif; fill: #64748b; }
       .boundary-title { font: 700 17px Inter, Segoe UI, Arial, sans-serif; fill: #0f172a; }
       .uc { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.8; }
       .uc-abstract { fill: #f1f5f9; stroke: #475569; stroke-width: 1.8; stroke-dasharray: 6 4; }
       .uc-input { fill: #ecfeff; stroke: #0891b2; stroke-width: 1.7; }
+      .uc-shared { fill: #fefce8; stroke: #ca8a04; stroke-width: 1.8; }
       .uc-quality { fill: #f0fdf4; stroke: #16a34a; stroke-width: 1.7; }
-      .uc-optional { fill: #faf5ff; stroke: #9333ea; stroke-width: 1.7; }
       .uc-text { font: 600 14px Inter, Segoe UI, Arial, sans-serif; fill: #0f172a; text-anchor: middle; }
       .uc-small { font: 600 12px Inter, Segoe UI, Arial, sans-serif; fill: #0f172a; text-anchor: middle; }
       .stereotype { font: italic 11px Inter, Segoe UI, Arial, sans-serif; fill: #64748b; text-anchor: middle; }
       .actor-line { stroke: #334155; stroke-width: 2; fill: none; }
       .actor-label { font: 600 13px Inter, Segoe UI, Arial, sans-serif; fill: #0f172a; text-anchor: middle; }
+      .actor-sub { font: italic 11px Inter, Segoe UI, Arial, sans-serif; fill: #64748b; text-anchor: middle; }
       .association { stroke: #64748b; stroke-width: 1.5; fill: none; }
+      .assoc-cli { stroke: #b45309; stroke-width: 1.8; fill: none; }
+      .assoc-web { stroke: #2563eb; stroke-width: 1.8; fill: none; }
       .relation { stroke: #475569; stroke-width: 1.4; fill: none; stroke-dasharray: 6 5; }
       .generalization { stroke: #475569; stroke-width: 1.4; fill: none; }
       .relation-label { font: italic 11px Inter, Segoe UI, Arial, sans-serif; fill: #475569; text-anchor: middle; paint-order: stroke; stroke: #fff; stroke-width: 4px; stroke-linejoin: round; }
       .note { fill: #fffbeb; stroke: #d97706; stroke-width: 1.2; }
       .note-text { font: 12px Inter, Segoe UI, Arial, sans-serif; fill: #78350f; }
       .legend { font: 12px Inter, Segoe UI, Arial, sans-serif; fill: #475569; }
+      .legend-title { font: 600 12px Inter, Segoe UI, Arial, sans-serif; fill: #334155; }
     </style>
 
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -38,156 +44,214 @@
     </marker>
   </defs>
 
-  <rect class="page" width="1500" height="1040"/>
+  <rect class="page" width="1560" height="1120"/>
 
-  <text class="title" x="750" y="38" text-anchor="middle">L3 Architecture Generator — Use Case Overview</text>
-  <text class="subtitle" x="750" y="62" text-anchor="middle">Nhập kho mã → phân tích → khám phá kiến trúc → kiểm tra độ tin cậy → xuất và sử dụng kết quả</text>
+  <text class="title" x="780" y="38" text-anchor="middle">L3 Architecture Generator — Use Case Overview</text>
+  <text class="subtitle" x="780" y="62" text-anchor="middle">Hai kênh sử dụng: dòng lệnh phân tích thư mục cục bộ và xuất file · giao diện web nhận ZIP/GitHub và khám phá kiến trúc</text>
 
-  <rect class="boundary" x="260" y="80" width="980" height="880" rx="12"/>
-  <rect x="285" y="70" width="290" height="24" rx="5" fill="#ffffff"/>
-  <text class="boundary-title" x="300" y="88">L3 Architecture Generator</text>
+  <rect class="boundary" x="300" y="82" width="1000" height="948" rx="12"/>
+  <rect x="325" y="72" width="300" height="24" rx="5" fill="#ffffff"/>
+  <text class="boundary-title" x="340" y="90">L3 Architecture Generator</text>
 
-  <rect class="section" x="285" y="110" width="930" height="265" rx="10"/>
-  <text class="section-title" x="305" y="135">1. ANALYZE REPOSITORY</text>
+  <rect class="section" x="325" y="112" width="950" height="268" rx="10"/>
+  <text class="section-title" x="345" y="137">1. PHÂN TÍCH KHO MÃ</text>
+  <text class="section-note" x="345" y="156">Cả hai kênh dùng chung một engine phân tích; khác nhau ở hình thức đầu vào</text>
 
-  <rect class="section" x="285" y="395" width="930" height="330" rx="10"/>
-  <text class="section-title" x="305" y="420">2. EXPLORE ARCHITECTURE</text>
+  <ellipse class="uc-shared" cx="560" cy="212" rx="152" ry="33"/>
+  <text class="uc-text" x="560" y="217">UC1 Phân tích kho mã</text>
 
-  <rect class="section" x="285" y="745" width="930" height="190" rx="10"/>
-  <text class="section-title" x="305" y="770">3. REVIEW &amp; USE RESULTS</text>
+  <ellipse class="uc-abstract" cx="560" cy="318" rx="140" ry="30"/>
+  <text class="uc-text" x="560" y="316">Cung cấp mã nguồn</text>
+  <text class="stereotype" x="560" y="332">«abstract»</text>
 
-  <!-- Analyze repository use cases -->
-  <ellipse class="uc" cx="500" cy="205" rx="145" ry="32"/>
-  <text class="uc-text" x="500" y="210">UC1 Phân tích kho mã</text>
+  <line class="relation" x1="560" y1="288" x2="560" y2="245" marker-end="url(#arrow)"/>
+  <text class="relation-label" x="617" y="270">«include»</text>
 
-  <ellipse class="uc-abstract" cx="930" cy="160" rx="120" ry="32"/>
-  <text class="stereotype" x="930" y="153">«abstract»</text>
-  <text class="uc-text" x="930" y="172">Cung cấp mã nguồn</text>
+  <ellipse class="uc-input" cx="900" cy="222" rx="132" ry="29"/>
+  <text class="uc-small" x="900" y="219">Chọn thư mục cục bộ</text>
+  <text class="stereotype" x="900" y="234">chỉ dòng lệnh</text>
 
-  <ellipse class="uc-input" cx="800" cy="265" rx="62" ry="29"/>
-  <text class="uc-small" x="800" y="262">Chọn thư mục</text>
-  <text class="uc-small" x="800" y="277">cục bộ</text>
+  <ellipse class="uc-input" cx="900" cy="300" rx="132" ry="29"/>
+  <text class="uc-small" x="900" y="297">Tải lên file ZIP</text>
+  <text class="stereotype" x="900" y="312">chỉ web</text>
 
-  <ellipse class="uc-input" cx="935" cy="265" rx="58" ry="29"/>
-  <text class="uc-small" x="935" y="262">Tải lên</text>
-  <text class="uc-small" x="935" y="277">file ZIP</text>
+  <ellipse class="uc-input" cx="900" cy="356" rx="132" ry="26"/>
+  <text class="uc-small" x="900" y="354">Nhập URL GitHub public</text>
+  <text class="stereotype" x="900" y="368">chỉ web</text>
 
-  <ellipse class="uc-input" cx="1065" cy="265" rx="55" ry="29"/>
-  <text class="uc-small" x="1065" y="262">Nhập URL</text>
-  <text class="uc-small" x="1065" y="277">GitHub</text>
+  <path class="generalization" d="M 768 228 L 700 306" marker-end="url(#triangle)"/>
+  <path class="generalization" d="M 768 302 L 700 316" marker-end="url(#triangle)"/>
+  <path class="generalization" d="M 768 350 L 700 330" marker-end="url(#triangle)"/>
 
-  <!-- Analyze relationships -->
-  <path class="relation" d="M 645 195 C 700 180, 750 168, 808 163" marker-end="url(#arrow)"/>
-  <text class="relation-label" x="730" y="166">«include»</text>
-  <path class="generalization" d="M 825 238 C 846 210, 867 190, 887 180" marker-end="url(#triangle)"/>
-  <path class="generalization" d="M 934 236 C 934 215, 933 199, 932 193" marker-end="url(#triangle)"/>
-  <path class="generalization" d="M 1039 239 C 1015 210, 990 190, 973 181" marker-end="url(#triangle)"/>
+  <ellipse class="uc-quality" cx="1150" cy="180" rx="96" ry="27"/>
+  <text class="uc-small" x="1150" y="185">Báo giới hạn phân tích</text>
+  <path class="relation" d="M 1122 207 L 1000 208" marker-end="url(#arrow)"/>
+  <text class="relation-label" x="1070" y="199">«extend»</text>
 
-  <!-- Explore architecture use cases -->
-  <ellipse class="uc-abstract" cx="665" cy="455" rx="155" ry="32"/>
-  <text class="stereotype" x="665" y="448">«abstract»</text>
-  <text class="uc-text" x="665" y="467">UC2 Khám phá kiến trúc</text>
+  <rect class="section-web" x="325" y="400" width="950" height="368" rx="10"/>
+  <text class="section-title" x="345" y="425">2. KHÁM PHÁ KIẾN TRÚC</text>
+  <text class="section-note" x="345" y="444">Chỉ có trên giao diện web</text>
 
-  <ellipse class="uc" cx="405" cy="540" rx="105" ry="31"/>
-  <text class="uc-text" x="405" y="545">Xem tổng quan</text>
+  <ellipse class="uc-abstract" cx="560" cy="580" rx="140" ry="32"/>
+  <text class="uc-text" x="560" y="578">UC2 Khám phá kiến trúc</text>
+  <text class="stereotype" x="560" y="594">«abstract»</text>
 
-  <ellipse class="uc" cx="665" cy="540" rx="130" ry="31"/>
-  <text class="uc-small" x="665" y="537">Xem ứng dụng</text>
-  <text class="uc-small" x="665" y="552">&amp; thành phần</text>
+  <ellipse class="uc" cx="915" cy="480" rx="128" ry="26"/>
+  <text class="uc-small" x="915" y="485">Xem tổng quan</text>
 
-  <ellipse class="uc" cx="945" cy="540" rx="120" ry="31"/>
-  <text class="uc-small" x="945" y="537">Xem API</text>
-  <text class="uc-small" x="945" y="552">&amp; luồng yêu cầu</text>
+  <ellipse class="uc" cx="915" cy="536" rx="128" ry="26"/>
+  <text class="uc-small" x="915" y="541">Xem ứng dụng và thành phần</text>
 
-  <ellipse class="uc" cx="445" cy="650" rx="135" ry="31"/>
-  <text class="uc-small" x="445" y="647">Xem kho dữ liệu</text>
-  <text class="uc-small" x="445" y="662">&amp; tích hợp</text>
+  <ellipse class="uc" cx="915" cy="592" rx="128" ry="26"/>
+  <text class="uc-small" x="915" y="597">Xem API và luồng yêu cầu</text>
 
-  <ellipse class="uc" cx="735" cy="650" rx="125" ry="31"/>
-  <text class="uc-text" x="735" y="655">Truy vết phụ thuộc</text>
+  <ellipse class="uc" cx="915" cy="648" rx="128" ry="26"/>
+  <text class="uc-small" x="915" y="653">Xem kho dữ liệu và tích hợp</text>
 
-  <ellipse class="uc-quality" cx="1030" cy="650" rx="125" ry="31"/>
-  <text class="uc-text" x="1030" y="655">Kiểm tra bằng chứng nguồn</text>
+  <ellipse class="uc" cx="915" cy="704" rx="128" ry="26"/>
+  <text class="uc-small" x="915" y="709">Truy vết phụ thuộc</text>
 
-  <!-- Explore relationships -->
-  <path class="generalization" d="M 449 513 C 497 490, 540 475, 567 468" marker-end="url(#triangle)"/>
-  <path class="generalization" d="M 665 509 L 665 490" marker-end="url(#triangle)"/>
-  <path class="generalization" d="M 898 512 C 846 489, 800 475, 765 467" marker-end="url(#triangle)"/>
-  <path class="generalization" d="M 480 621 C 520 570, 565 515, 609 482" marker-end="url(#triangle)"/>
-  <path class="generalization" d="M 712 620 C 700 575, 690 526, 678 488" marker-end="url(#triangle)"/>
-  <path class="relation" d="M 905 650 L 862 650" marker-end="url(#arrow)"/>
-  <text class="relation-label" x="883" y="642">«extend»</text>
+  <path class="generalization" d="M 787 486 L 700 566" marker-end="url(#triangle)"/>
+  <path class="generalization" d="M 787 540 L 700 573" marker-end="url(#triangle)"/>
+  <path class="generalization" d="M 787 592 L 700 581" marker-end="url(#triangle)"/>
+  <path class="generalization" d="M 787 644 L 700 590" marker-end="url(#triangle)"/>
+  <path class="generalization" d="M 787 698 L 700 598" marker-end="url(#triangle)"/>
 
-  <!-- Review and use results -->
-  <ellipse class="uc-abstract" cx="650" cy="790" rx="155" ry="29"/>
-  <text class="stereotype" x="650" y="784">«abstract»</text>
-  <text class="uc-text" x="650" y="800">UC3 Xem xét &amp; sử dụng kết quả</text>
+  <ellipse class="uc-quality" cx="1162" cy="704" rx="98" ry="30"/>
+  <text class="uc-small" x="1162" y="702">Kiểm tra bằng</text>
+  <text class="uc-small" x="1162" y="717">chứng nguồn</text>
+  <path class="relation" d="M 1064 704 L 1045 704" marker-end="url(#arrow)"/>
+  <text class="relation-label" x="1110" y="690">«extend»</text>
 
-  <ellipse class="uc-quality" cx="505" cy="875" rx="125" ry="30"/>
-  <text class="uc-small" x="505" y="880">UC3.1 Xem kết quả chi tiết</text>
+  <rect class="section" x="325" y="788" width="950" height="222" rx="10"/>
+  <text class="section-title" x="345" y="813">3. XEM XÉT VÀ SỬ DỤNG KẾT QUẢ</text>
 
-  <ellipse class="uc-quality" cx="795" cy="875" rx="120" ry="30"/>
-  <text class="uc-small" x="795" y="872">UC3.2 Xuất</text>
-  <text class="uc-small" x="795" y="887">tài liệu kiến trúc</text>
+  <ellipse class="uc-abstract" cx="560" cy="900" rx="140" ry="32"/>
+  <text class="uc-text" x="560" y="896">UC3 Xem xét và</text>
+  <text class="uc-text" x="560" y="912">sử dụng kết quả</text>
 
-  <ellipse class="uc-input" cx="1080" cy="875" rx="118" ry="30"/>
-  <text class="uc-small" x="1080" y="872">Mở lần phân tích</text>
-  <text class="uc-small" x="1080" y="887">đã lưu</text>
+  <ellipse class="uc" cx="915" cy="855" rx="128" ry="27"/>
+  <text class="uc-small" x="915" y="853">UC3.1 Xem kết quả chi tiết</text>
+  <text class="stereotype" x="915" y="868">chỉ web</text>
 
-  <path class="generalization" d="M 540 847 C 565 828, 590 814, 610 807" marker-end="url(#triangle)"/>
-  <path class="generalization" d="M 760 847 C 735 828, 710 814, 690 807" marker-end="url(#triangle)"/>
-  <path class="relation" d="M 607 899 C 670 924, 890 924, 1006 897" marker-end="url(#arrow)"/>
-  <text class="relation-label" x="800" y="922">«include»</text>
+  <ellipse class="uc-shared" cx="915" cy="945" rx="128" ry="27"/>
+  <text class="uc-small" x="915" y="943">UC3.2 Xuất tài liệu</text>
+  <text class="stereotype" x="915" y="958">cả hai kênh</text>
 
-  <!-- Left-side actors -->
-  <g aria-label="Developer actor">
-    <circle class="actor-line" cx="90" cy="150" r="17"/>
-    <path class="actor-line" d="M 90 167 L 90 215 M 58 185 L 122 185 M 90 215 L 62 249 M 90 215 L 118 249"/>
-    <text class="actor-label" x="90" y="272">Developer</text>
+  <path class="generalization" d="M 787 860 L 700 888" marker-end="url(#triangle)"/>
+  <path class="generalization" d="M 787 940 L 700 912" marker-end="url(#triangle)"/>
+
+  <ellipse class="uc" cx="1162" cy="855" rx="98" ry="30"/>
+  <text class="uc-small" x="1162" y="853">Mở lần phân</text>
+  <text class="uc-small" x="1162" y="868">tích đã lưu</text>
+  <path class="relation" d="M 1064 855 L 1045 855" marker-end="url(#arrow)"/>
+  <text class="relation-label" x="1112" y="841">«include»</text>
+
+  <g transform="translate(120, 560)">
+    <circle class="actor-line" cx="0" cy="-26" r="11"/>
+    <line class="actor-line" x1="0" y1="-15" x2="0" y2="12"/>
+    <line class="actor-line" x1="-15" y1="-6" x2="15" y2="-6"/>
+    <line class="actor-line" x1="0" y1="12" x2="-12" y2="32"/>
+    <line class="actor-line" x1="0" y1="12" x2="12" y2="32"/>
+    <text class="actor-label" x="0" y="50">Engineering User</text>
+    <text class="actor-sub" x="0" y="66">«abstract»</text>
   </g>
 
-  <g aria-label="Engineering User abstract actor">
-    <circle class="actor-line" cx="170" cy="405" r="17"/>
-    <path class="actor-line" d="M 170 422 L 170 470 M 138 440 L 202 440 M 170 470 L 142 504 M 170 470 L 198 504"/>
-    <text class="stereotype" x="170" y="525">«abstract»</text>
-    <text class="actor-label" x="170" y="543">Engineering User</text>
+  <g transform="translate(120, 300)">
+    <circle class="actor-line" cx="0" cy="-26" r="11"/>
+    <line class="actor-line" x1="0" y1="-15" x2="0" y2="12"/>
+    <line class="actor-line" x1="-15" y1="-6" x2="15" y2="-6"/>
+    <line class="actor-line" x1="0" y1="12" x2="-12" y2="32"/>
+    <line class="actor-line" x1="0" y1="12" x2="12" y2="32"/>
+    <text class="actor-label" x="0" y="50">Developer</text>
   </g>
 
-  <g aria-label="Architect or Reviewer actor">
-    <circle class="actor-line" cx="90" cy="650" r="17"/>
-    <path class="actor-line" d="M 90 667 L 90 715 M 58 685 L 122 685 M 90 715 L 62 749 M 90 715 L 118 749"/>
-    <text class="actor-label" x="90" y="772">Architect / Reviewer</text>
+  <g transform="translate(120, 820)">
+    <circle class="actor-line" cx="0" cy="-26" r="11"/>
+    <line class="actor-line" x1="0" y1="-15" x2="0" y2="12"/>
+    <line class="actor-line" x1="-15" y1="-6" x2="15" y2="-6"/>
+    <line class="actor-line" x1="0" y1="12" x2="-12" y2="32"/>
+    <line class="actor-line" x1="0" y1="12" x2="12" y2="32"/>
+    <text class="actor-label" x="0" y="50">Architect / Reviewer</text>
   </g>
 
-  <!-- Actor generalization and associations -->
-  <path class="generalization" d="M 112 232 C 125 290, 145 340, 163 385" marker-end="url(#triangle)"/>
-  <path class="generalization" d="M 112 667 C 130 605, 148 550, 163 506" marker-end="url(#triangle)"/>
-  <path class="association" d="M 122 185 C 230 190, 300 198, 355 202"/>
-  <path class="association" d="M 202 440 C 310 438, 415 445, 510 452"/>
-  <path class="association" d="M 198 470 C 330 610, 465 720, 555 776"/>
+  <path class="generalization" d="M 120 350 L 120 512" marker-end="url(#triangle)"/>
+  <path class="generalization" d="M 120 790 L 120 648" marker-end="url(#triangle)"/>
 
-  <!-- Right-side actors -->
-  <g aria-label="GitHub actor">
-    <circle class="actor-line" cx="1380" cy="155" r="17"/>
-    <path class="actor-line" d="M 1380 172 L 1380 220 M 1348 190 L 1412 190 M 1380 220 L 1352 254 M 1380 220 L 1408 254"/>
-    <text class="actor-label" x="1380" y="277">GitHub</text>
-    <text class="stereotype" x="1380" y="294">external system</text>
+  <rect x="30" y="112" width="216" height="128" rx="8" fill="#fffbeb" stroke="#b45309" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <text class="section-title" x="138" y="136" text-anchor="middle" style="fill:#92400e">KÊNH SỬ DỤNG</text>
+
+  <g transform="translate(88, 190)">
+    <rect x="-36" y="-30" width="72" height="46" rx="5" fill="#ffffff" stroke="#b45309" stroke-width="1.8"/>
+    <text x="0" y="-2" text-anchor="middle" style="font:700 16px monospace; fill:#92400e">&gt;_</text>
+    <text class="actor-label" x="0" y="36" style="fill:#92400e">CLI</text>
   </g>
 
-  <path class="association" d="M 1348 190 C 1250 205, 1165 235, 1120 254"/>
+  <g transform="translate(188, 190)">
+    <rect x="-36" y="-30" width="72" height="46" rx="5" fill="#ffffff" stroke="#2563eb" stroke-width="1.8"/>
+    <line x1="-36" y1="-18" x2="36" y2="-18" stroke="#2563eb" stroke-width="1.4"/>
+    <circle cx="-27" cy="-24" r="2.6" fill="#2563eb"/>
+    <circle cx="-18" cy="-24" r="2.6" fill="#2563eb"/>
+    <text class="actor-label" x="0" y="36" style="fill:#1d4ed8">Web UI</text>
+  </g>
 
-  <!-- UI principles learned from RepoDNA, adapted to this product -->
-  <path class="note" d="M 1265 575 h 195 v 112 h -195 z M 1442 575 l 18 18 h -18 z"/>
-  <text class="note-text" x="1280" y="600">UI tổ chức theo mục tiêu:</text>
-  <text class="note-text" x="1280" y="620">• nhìn tổng quan</text>
-  <text class="note-text" x="1280" y="640">• đi sâu theo thành phần</text>
-  <text class="note-text" x="1280" y="660">• truy vết về source evidence</text>
-  <text class="note-text" x="1280" y="680">• luôn thấy giới hạn phân tích</text>
+  <path class="assoc-cli" d="M 88 160 L 88 100 L 270 100 L 270 204 L 408 210"/>
+  <text class="relation-label" x="300" y="94" style="fill:#92400e">CLI</text>
+  <path class="assoc-cli" d="M 60 190 L 40 190 L 40 945 L 787 945"/>
+  <text class="relation-label" x="180" y="937" style="fill:#92400e">CLI: ghi ra file</text>
 
-  <line x1="300" y1="990" x2="340" y2="990" class="association"/>
-  <text class="legend" x="350" y="994">association</text>
-  <line x1="455" y1="990" x2="495" y2="990" class="relation" marker-end="url(#arrow)"/>
-  <text class="legend" x="505" y="994">«include» / «extend»</text>
-  <line x1="670" y1="990" x2="710" y2="990" class="generalization" marker-end="url(#triangle)"/>
-  <text class="legend" x="720" y="994">generalization → phần chung</text>
+  <path class="assoc-web" d="M 224 190 L 262 190 L 262 216 L 408 216"/>
+  <text class="relation-label" x="300" y="234" style="fill:#1d4ed8">Web</text>
+
+  <path class="association" d="M 168 556 L 420 578"/>
+  <path class="association" d="M 168 592 L 420 890"/>
+
+  <g transform="translate(1420, 356)">
+    <rect x="-70" y="-30" width="140" height="52" rx="6" fill="#ffffff" stroke="#334155" stroke-width="1.8"/>
+    <text class="actor-label" x="0" y="-8">GitHub</text>
+    <text class="actor-sub" x="0" y="8">«external system»</text>
+  </g>
+  <line class="association" x1="1350" y1="356" x2="1032" y2="356"/>
+
+  <rect class="note" x="1318" y="112" width="228" height="132" rx="8"/>
+  <text class="note-text" x="1332" y="134" style="font-weight:600">Ranh giới hai kênh</text>
+  <text class="note-text" x="1332" y="154">CLI: thư mục cục bộ → phân</text>
+  <text class="note-text" x="1332" y="171">tích → ghi file, hết. Không</text>
+  <text class="note-text" x="1332" y="188">cần web server, chạy được</text>
+  <text class="note-text" x="1332" y="205">khi không mạng, không AI.</text>
+  <text class="note-text" x="1332" y="228">Web: ZIP/GitHub, đầy đủ.</text>
+
+  <rect class="note" x="1318" y="480" width="228" height="112" rx="8"/>
+  <text class="note-text" x="1332" y="502" style="font-weight:600">Mức trình bày L3</text>
+  <text class="note-text" x="1332" y="522">Sơ đồ mặc định dừng ở mức</text>
+  <text class="note-text" x="1332" y="539">application/component. Chi</text>
+  <text class="note-text" x="1332" y="556">tiết function/class chỉ là bằng</text>
+  <text class="note-text" x="1332" y="573">chứng, không thành node.</text>
+
+  <rect class="note" x="1318" y="788" width="228" height="96" rx="8"/>
+  <text class="note-text" x="1332" y="810" style="font-weight:600">Giới hạn lịch sử</text>
+  <text class="note-text" x="1332" y="830">Mỗi repository giữ tối đa 10</text>
+  <text class="note-text" x="1332" y="847">lần gần nhất, hết hạn sau 14</text>
+  <text class="note-text" x="1332" y="864">ngày. Xóa thủ công được.</text>
+
+  <rect x="30" y="900" width="236" height="188" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.2"/>
+  <text class="legend-title" x="45" y="922">Chú thích</text>
+
+  <ellipse class="uc-shared" cx="62" cy="944" rx="18" ry="9"/>
+  <text class="legend" x="90" y="948">Dùng chung hai kênh</text>
+
+  <ellipse class="uc" cx="62" cy="972" rx="18" ry="9"/>
+  <text class="legend" x="90" y="976">Chỉ giao diện web</text>
+
+  <ellipse class="uc-input" cx="62" cy="1000" rx="18" ry="9"/>
+  <text class="legend" x="90" y="1004">Hình thức đầu vào</text>
+
+  <ellipse class="uc-abstract" cx="62" cy="1028" rx="18" ry="9"/>
+  <text class="legend" x="90" y="1032">Use case trừu tượng</text>
+
+  <line class="generalization" x1="44" y1="1056" x2="80" y2="1056" marker-end="url(#triangle)"/>
+  <text class="legend" x="90" y="1060">generalization</text>
+
+  <line class="relation" x1="44" y1="1078" x2="80" y2="1078" marker-end="url(#arrow)"/>
+  <text class="legend" x="90" y="1082">include / extend</text>
 </svg>

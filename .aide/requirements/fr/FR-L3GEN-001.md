@@ -1,127 +1,108 @@
 ---
-uid: 01M2MV1DYBFBXF15DNW6GZ7NYP
-key: FR-L3GEN-001
-type: functional-requirement
-group: normative
-scope: system
-system: SYS-L3GEN
-status: draft
-revision: 1
-ownership:
-  accountable_team: TEAM-L3GEN
-  accountable_role: product-owner
-relations:
-  satisfies: [GOAL-L3GEN-001]
-  constrained_by: [NFR-L3GEN-SEC-001, NFR-L3GEN-PERF-001, NFR-L3GEN-USA-001]
-  measured_by: [OBS-L3GEN-001]
-verified_at: 2026-09-16
+uid: "01M2J06Z42VS531TS0VGKEFQX3"
+key: "FR-L3GEN-001"
+type: "functional-requirement"
+group: "normative"
+scope: "system"
+system: "SYS-L3GEN"
+status: "draft"
+revision: 5
+ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
+relations: {"satisfies":["GOAL-L3GEN-001"],"constrained_by":["NFR-L3GEN-COMP-001","NFR-L3GEN-DET-001","NFR-L3GEN-PERF-001","NFR-L3GEN-REL-001","NFR-L3GEN-SEC-001","NFR-L3GEN-TRACE-001","NFR-L3GEN-USA-001"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-001"]}
+verified_at: null
 verified_against: []
-classification: internal
+classification: "internal"
 ai_assisted: true
 ---
 
-# FR-L3GEN-001 — Cung cấp repository đầu vào
+# FR-L3GEN-001 — Nhận thư mục source và bắt đầu phân tích
 
 ## Mô tả
 
-Người dùng cung cấp mã nguồn cần phân tích bằng một trong ba cách: chọn thư mục cục
-bộ, tải lên file ZIP, hoặc nhập URL của một repository GitHub public. Trước khi phân
-tích bắt đầu, người dùng biết được nguồn nào đã được nhận và phạm vi source sẽ đọc.
+Người dùng chỉ định thư mục source local và nơi lưu kết quả để bắt đầu một lần phân tích.
 
-Khi đầu vào không dùng được, hệ thống nói rõ nguyên nhân và cách sửa, thay vì bắt đầu
-một lần phân tích cho ra kết quả rỗng khó hiểu.
-
-Use case liên quan: UC1 và ba biến thể của `Cung cấp mã nguồn` trong
-[USE_CASES](../../../docs/USE_CASES.md).
+| Thuộc tính | Giá trị |
+|---|---|
+| Nhóm luồng | Phân tích repository |
+| Ưu tiên đề xuất | Must Have |
+| Mốc đề xuất | M1 |
+| Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 ## Acceptance Criteria
 
-### AC-L3GEN-001-01 — Chọn thư mục cục bộ
+### AC-L3GEN-001-01
 
-- **given** người dùng đang ở màn hình cung cấp mã nguồn
-- **when** người dùng chọn một thư mục cục bộ đọc được
-- **then** hệ thống nhận thư mục đó và hiển thị phạm vi source sẽ đọc trước khi phân
-  tích bắt đầu
-- `implementation_target:` giao diện cung cấp mã nguồn, engine inventory
-- `validated_by:` TEST-L3GEN-001-01
+- **Given:** Thư mục tồn tại, đọc được và chứa source thuộc stack hỗ trợ.
+- **When:** người dùng chạy l3gen với đường dẫn source và output.
+- **Then:** công cụ phân tích đúng thư mục đã chọn và báo đường dẫn bộ kết quả.
+- `constrained_by:` [NFR-L3GEN-COMP-001, NFR-L3GEN-PERF-001, NFR-L3GEN-REL-001, NFR-L3GEN-SEC-001, NFR-L3GEN-USA-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Kiểm tra source có dấu cách trong đường dẫn và output ở ngoài source.
 
-### AC-L3GEN-001-02 — Tải lên file ZIP hợp lệ
+### AC-L3GEN-001-02
 
-- **given** người dùng có một file ZIP chứa source trong giới hạn kích thước đã công bố
-- **when** người dùng tải file ZIP lên
-- **then** hệ thống giải nén trong vùng xử lý riêng và hiển thị phạm vi source sẽ đọc
-- `constrained_by:` NFR-L3GEN-SEC-001, NFR-L3GEN-PERF-001
-- `validated_by:` TEST-L3GEN-001-02
+- **Given:** Đường dẫn không tồn tại, là file hoặc không có quyền đọc.
+- **When:** người dùng yêu cầu phân tích.
+- **Then:** công cụ trả lỗi đầu vào, chỉ rõ nguyên nhân và cách sửa; không báo thành công hoặc tạo bộ kết quả hoàn chỉnh.
+- `constrained_by:` [NFR-L3GEN-REL-001, NFR-L3GEN-USA-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Kiểm exit code và thông báo cho từng trường hợp.
 
-### AC-L3GEN-001-03 — Nhập URL GitHub public
+### AC-L3GEN-001-03
 
-- **given** người dùng có URL của một repository GitHub public
-- **when** người dùng nhập URL và yêu cầu lấy source
-- **then** hệ thống lấy source từ GitHub và hiển thị phạm vi cùng phiên bản source đã
-  lấy
-- `validated_by:` TEST-L3GEN-001-03
+- **Given:** Thư mục đầu ra không ghi được hoặc đã có bộ kết quả.
+- **When:** người dùng bắt đầu một lần phân tích mới.
+- **Then:** công cụ báo lỗi nếu không ghi được; nếu trùng kết quả thì hoặc từ chối, hoặc yêu cầu người dùng xác nhận trước khi ghi đè. Không bao giờ ghi đè im lặng.
+- `constrained_by:` [NFR-L3GEN-REL-001, NFR-L3GEN-USA-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Dùng output có sentinel; xác nhận sentinel nguyên vẹn khi chưa xác nhận, và chỉ bị thay sau khi người dùng xác nhận rõ ràng.
 
-### AC-L3GEN-001-04 — Ba hình thức đầu vào cho cùng kết quả
+### AC-L3GEN-001-04
 
-- **given** cùng một repository được cung cấp qua thư mục cục bộ, qua file ZIP và qua
-  URL GitHub
-- **when** người dùng chạy phân tích trên từng nguồn
-- **then** ba lần phân tích cho cùng component, quan hệ, evidence và limitation
-- `validated_by:` TEST-L3GEN-001-04
+- **Given:** Repository có thư mục loại trừ do người dùng chỉ định.
+- **When:** người dùng chạy phân tích.
+- **Then:** các thư mục bị loại không đi vào dữ liệu kiến trúc; cấu hình loại trừ được ghi trong thông tin lần chạy.
+- `constrained_by:` [NFR-L3GEN-SEC-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Dùng mã sentinel trong tests, integration-tests, venv và một thư mục tùy chọn.
 
-### AC-L3GEN-001-05 — Thư mục không đọc được
+### AC-L3GEN-001-05
 
-- **given** người dùng chọn một đường dẫn không tồn tại hoặc không có quyền đọc
-- **when** hệ thống kiểm tra đầu vào
-- **then** hệ thống không bắt đầu phân tích, và nói rõ đường dẫn hoặc quyền truy cập
-  nào cần sửa
-- `validated_by:` TEST-L3GEN-001-05
+- **Given:** Một repository đã pin ở một commit, có bản trên đĩa và bản ZIP của cùng commit đó.
+- **When:** người dùng chạy phân tích bằng dòng lệnh trên thư mục local, và chạy lại trên giao diện web bằng bản ZIP, cùng tắt AI.
+- **Then:** hai lần cho cùng tập application, component, route, entity, external system, cạnh dependency, nhãn confidence/completeness và cùng danh sách limitation. Khác biệt chỉ được phép ở đường dẫn gốc trong evidence, dấu thời gian, định danh phiên và cách trình bày; vị trí tương đối của evidence trong repository phải giống nhau. Ranh giới đầy đủ ở NFR-L3GEN-DET-001.
+- `constrained_by:` [NFR-L3GEN-DET-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** So sánh JSON chuẩn hóa của hai lần chạy sau khi chuẩn hóa đường dẫn gốc. Khác biệt ở bất kỳ dữ kiện, quan hệ, nhãn hoặc limitation nào là lỗi chặn phát hành, không phải khác biệt trình bày.
 
-### AC-L3GEN-001-06 — ZIP hỏng hoặc sai định dạng
+### AC-L3GEN-001-06
 
-- **given** người dùng tải lên một file không phải ZIP hợp lệ
-- **when** hệ thống kiểm tra đầu vào
-- **then** hệ thống từ chối file, không bắt đầu phân tích, và giải thích nguyên nhân
-- `validated_by:` TEST-L3GEN-001-06
+- **Given:** Thư mục output nằm bên trong thư mục source, hoặc source nằm bên trong output.
+- **When:** người dùng bắt đầu phân tích.
+- **Then:** công cụ từ chối và giải thích lý do; không đọc lại artifact của chính nó như source đầu vào, và không ghi vào cây source đang phân tích.
+- `constrained_by:` [NFR-L3GEN-REL-001, NFR-L3GEN-SEC-001, NFR-L3GEN-USA-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Kiểm cả hai chiều lồng nhau và trường hợp hai đường dẫn trỏ cùng một chỗ qua symlink hoặc đường dẫn tương đối.
 
-### AC-L3GEN-001-07 — ZIP chứa đường dẫn thoát khỏi vùng giải nén
+## Trạng thái liên kết triển khai
 
-- **given** người dùng tải lên một file ZIP có entry trỏ ra ngoài thư mục giải nén
-- **when** hệ thống giải nén
-- **then** hệ thống từ chối file và không ghi bất kỳ file nào ra ngoài vùng xử lý
-- `constrained_by:` NFR-L3GEN-SEC-001
-- `validated_by:` TEST-L3GEN-001-07
+`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
 
-### AC-L3GEN-001-08 — ZIP vượt giới hạn kích thước
+## Tài liệu liên quan
 
-- **given** người dùng tải lên file ZIP vượt giới hạn đã công bố, tính cả kích thước
-  nén và kích thước sau giải nén
-- **when** hệ thống kiểm tra đầu vào
-- **then** hệ thống từ chối trước khi giải nén hết, và nói rõ giới hạn đã chạm
-- `constrained_by:` NFR-L3GEN-SEC-001, NFR-L3GEN-PERF-001
-- `validated_by:` TEST-L3GEN-001-08
+- [NFR-L3GEN-TRACE-001](../nfr/NFR-L3GEN-TRACE-001.md)
+- [NFR-L3GEN-DET-001](../nfr/NFR-L3GEN-DET-001.md)
+- [NFR-L3GEN-SEC-001](../nfr/NFR-L3GEN-SEC-001.md)
+- [NFR-L3GEN-REL-001](../nfr/NFR-L3GEN-REL-001.md)
+- [NFR-L3GEN-USA-001](../nfr/NFR-L3GEN-USA-001.md)
+- [NFR-L3GEN-COMP-001](../nfr/NFR-L3GEN-COMP-001.md)
+- [NFR-L3GEN-PERF-001](../nfr/NFR-L3GEN-PERF-001.md)
+- [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
+- [Thuật ngữ](../../domain/glossary-core.md)
 
-### AC-L3GEN-001-09 — URL GitHub sai hoặc repository không tồn tại
-
-- **given** người dùng nhập một URL sai định dạng hoặc trỏ tới repository không tồn tại
-- **when** hệ thống cố lấy source
-- **then** hệ thống báo lỗi nhập hoặc lỗi truy cập, và không hiển thị kết quả như một
-  repository rỗng
-- `validated_by:` TEST-L3GEN-001-09
-
-### AC-L3GEN-001-10 — Repository GitHub yêu cầu quyền
-
-- **given** người dùng nhập URL của một repository private hoặc cần quyền truy cập
-- **when** hệ thống cố lấy source
-- **then** hệ thống nói rõ chưa có quyền truy cập, và không yêu cầu người dùng cung cấp
-  credential
-- `constrained_by:` NFR-L3GEN-SEC-001
-- `validated_by:` TEST-L3GEN-001-10
-
-### AC-L3GEN-001-11 — Mất kết nối khi lấy source GitHub
-
-- **given** hệ thống đang lấy source từ GitHub
-- **when** kết nối bị gián đoạn trước khi lấy xong
-- **then** hệ thống cho phép thử lại và không tạo ra một lần phân tích với source không
-  đầy đủ
-- `validated_by:` TEST-L3GEN-001-11

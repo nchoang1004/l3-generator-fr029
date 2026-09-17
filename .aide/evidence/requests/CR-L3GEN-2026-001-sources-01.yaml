@@ -1,0 +1,17 @@
+key: CR-L3GEN-2026-001-sources-01
+group: evidence
+scope: lifecycle
+supplement_to: CR-L3GEN-2026-001
+captured_at_date: "2026-09-15"
+purpose: "Bổ sung truy nguồn cho yêu cầu đã ghi; không sửa CR gốc hoặc tạo yêu cầu sản phẩm mới."
+schema_status: local-pilot-pending-registry
+original_request: CR-L3GEN-2026-001.yaml
+sources:
+  - role: project-brief
+    original_path: "../../../Đề bài.md"
+    snapshot_path: "../../../docs/sdlc-sources/06-project-brief.md"
+    sha256: b5492de857e5ac21016e8b709d30311a1c05ef7551ab0d90e8f6e13e058ce58f
+    used_sections: "Mục 3.6 và yêu cầu chung của chương trình; phạm vi cụ thể được đề xuất trong PRD."
+  - role: mentor-process-and-template
+    manifest_path: "../../../docs/sdlc-sources/manifest.json"
+note: "Snapshot đề bài giữ nguyên byte tại lúc bổ sung. SPEC_Code_to_L3_Generator.md và code/base hiện tại không quyết định scope của PRD full product. Bản ghi này không chứng minh mentor đã duyệt diễn giải của PRD."

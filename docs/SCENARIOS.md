@@ -6,10 +6,11 @@ vào mức L3; chi tiết function/call chỉ xuất hiện khi cần làm evide
 Use case liên quan: [USE_CASES.md](USE_CASES.md). Mỗi scenario ghi use case mà nó kiểm
 chứng; bảng đối chiếu đầy đủ ở cuối tài liệu.
 
-Giao diện là đường dùng chính. Scenario dùng dòng lệnh được ghi rõ là biến thể tự động
-hóa, không phải luồng chính của sản phẩm.
+Sản phẩm có hai kênh với phạm vi khác nhau: dòng lệnh nhận thư mục cục bộ rồi phân
+tích và ghi file; giao diện web nhận ZIP hoặc URL GitHub và cho khám phá kiến trúc.
+Mỗi scenario ghi rõ nó thuộc kênh nào.
 
-## Scenario 1a — Hiểu một service chưa quen, qua giao diện
+## Scenario 1a — Hiểu một service chưa quen, qua giao diện web
 
 *UC1 Phân tích kho mã · UC2 Khám phá kiến trúc*
 
@@ -18,7 +19,7 @@ SQLAlchemy entity và một external HTTP call.
 
 **Luồng:**
 
-1. Developer mở màn hình phân tích kho mã và chọn thư mục cục bộ.
+1. Developer mở màn hình phân tích kho mã và tải lên file ZIP của repository.
 2. Hệ thống kiểm tra đầu vào và cho biết phạm vi source sẽ được đọc.
 3. Developer bắt đầu phân tích; hệ thống hiển thị trạng thái xử lý.
 4. Hệ thống hoàn thành và chuyển Developer tới phần tổng quan kiến trúc.
@@ -42,31 +43,39 @@ function. Mỗi quan hệ có thể drill-down về source.
 
 ## Scenario 1b — Cùng repository, chạy bằng dòng lệnh
 
-*UC1 Phân tích kho mã — biến thể tự động hóa*
+*UC1 Phân tích kho mã · UC3.2 Xuất tài liệu — kênh CLI*
+
+**Tiền điều kiện:** repository nằm trong một thư mục cục bộ. Không có mạng, không có
+API key.
 
 **Luồng:**
 
 1. Developer chạy `l3gen <repo> --no-ai -o out`.
 2. Tool kiểm kê source và báo phần được/không được hỗ trợ.
-3. Tool sinh L3, diagram và architecture model.
+3. Tool sinh L3, diagram và architecture model vào thư mục `out` rồi kết thúc.
+4. Developer mở file kết quả bằng công cụ của mình.
 
 **Kết quả mong đợi:** cùng một repository cho cùng kết quả phân tích dù chạy qua giao
 diện hay dòng lệnh. Dòng lệnh không có thêm hoặc bớt component, quan hệ và limitation
 so với Scenario 1a.
+
+CLI dừng ở đây. Nó không có màn hình khám phá, không có drill-down theo từng quan hệ
+và không lưu lịch sử phân tích. Người dùng cần các thứ đó thì dùng web.
 
 ## Scenario 1c — Ba hình thức cung cấp mã nguồn
 
 *UC1 Phân tích kho mã · biến thể Chọn thư mục / Tải ZIP / Nhập URL GitHub*
 
 Ba hình thức đầu vào bắt đầu cùng một quá trình phân tích. Sau khi source được chấp
-nhận, kết quả không phụ thuộc vào cách nguồn được cung cấp.
+nhận, kết quả không phụ thuộc vào cách nguồn được cung cấp hay kênh nào đã nhận nó.
 
-**Luồng thư mục cục bộ:** Developer chọn thư mục; hệ thống báo phạm vi source sẽ đọc.
+**Luồng thư mục cục bộ — CLI:** Developer truyền đường dẫn thư mục; tool báo phạm vi
+source sẽ đọc.
 
-**Luồng ZIP:** Developer tải lên file ZIP; hệ thống giải nén trong vùng xử lý riêng
-rồi báo phạm vi source.
+**Luồng ZIP — web:** Developer tải lên file ZIP; hệ thống giải nén trong vùng xử lý
+riêng rồi báo phạm vi source.
 
-**Luồng GitHub:** Developer nhập URL GitHub public; hệ thống liên hệ GitHub, lấy
+**Luồng GitHub — web:** Developer nhập URL GitHub public; hệ thống liên hệ GitHub, lấy
 source và báo phạm vi cùng phiên bản source đã dùng.
 
 **Luồng thay thế và lỗi:**
@@ -82,6 +91,26 @@ source và báo phạm vi cùng phiên bản source đã dùng.
 
 **Kết quả mong đợi:** lỗi đầu vào được phân biệt rõ với kết quả phân tích rỗng. Không
 trường hợp nào tạo ra một lần phân tích trống mà không giải thích nguyên nhân.
+
+## Scenario 1d — Lỗi riêng của dòng lệnh
+
+*UC1 Phân tích kho mã — kênh CLI*
+
+Các tình huống này chỉ xảy ra ở CLI, vì CLI nhận đường dẫn trên máy người dùng và tự
+ghi file ra đĩa.
+
+| Tình huống | Hành vi mong đợi |
+|---|---|
+| Đường dẫn source không tồn tại | Dừng ngay, in đường dẫn đã nhận; không tạo thư mục output |
+| Không có quyền đọc source | Dừng và nói rõ là vấn đề quyền, không phải repository rỗng |
+| Đường dẫn source là file, không phải thư mục | Báo sai kiểu đầu vào; không cố phân tích một file đơn lẻ như cả repository |
+| Thư mục output đã tồn tại và có kết quả cũ | Không ghi đè im lặng; hoặc từ chối, hoặc yêu cầu người dùng xác nhận |
+| Không có quyền ghi vào thư mục output | Dừng **trước khi** phân tích, không để chạy xong rồi mới hỏng ở bước ghi |
+| Source nằm trong chính thư mục output | Từ chối; không để công cụ đọc lại kết quả của chính nó |
+| Tiến trình bị ngắt giữa chừng | Không để lại thư mục output có vẻ hoàn chỉnh nhưng thiếu artifact |
+
+**Kết quả mong đợi:** mọi lỗi được phát hiện sớm nhất có thể. Công cụ không phá source
+đầu vào và không phá kết quả của lần chạy trước.
 
 ## Scenario 2 — Theo route tới database
 
@@ -260,11 +289,25 @@ handler()
 
 ## Scenario 10 — Chạy không có AI
 
+*UC1 Phân tích kho mã · UC3.2 Xuất tài liệu — cả hai kênh*
+
+**Trên CLI:**
+
 1. Developer không đặt API key hoặc dùng `--no-ai`.
-2. Static analysis vẫn chạy.
-3. L3, diagram, IAM/evidence và architecture graph vẫn được sinh.
-4. Output chỉ thiếu description/rephrased findings do AI.
-5. Số route/component/entity/dependency không thay đổi vì tắt AI.
+2. Phân tích tĩnh vẫn chạy, không có kết nối ra ngoài.
+3. L3, diagram, evidence và architecture graph vẫn được sinh.
+
+**Trên web:**
+
+1. Người dùng để AI ở trạng thái tắt, là mặc định.
+2. Giao diện cho biết AI đang tắt và dữ liệu nào không được gửi đi đâu.
+3. Phân tích và khám phá kiến trúc vẫn dùng được đầy đủ.
+
+**Kết quả mong đợi chung:**
+
+- Output chỉ thiếu phần mô tả do AI viết.
+- Số route, component, entity và dependency không thay đổi vì tắt AI.
+- Không kênh nào coi việc không có AI là lỗi hoặc là kết quả một phần.
 
 ## Scenario 11 — Graph kỹ thuật không tràn vào diagram L3
 
@@ -286,10 +329,13 @@ Giả sử repository có 500 function nhưng chỉ có:
 
 ## Scenario 12 — Mở lại một lần phân tích đã lưu
 
-*UC3.1 Xem kết quả chi tiết · `include` Mở lần phân tích đã lưu*
+*UC3.1 Xem kết quả chi tiết · `include` Mở lần phân tích đã lưu — chỉ web*
 
 Hệ thống giữ tối đa 10 lần phân tích cho mỗi repository; mỗi kết quả hết hạn sau 14
-ngày.
+ngày. Người dùng xóa thủ công được một kết quả trước hạn.
+
+Lịch sử là tính năng của giao diện web. CLI ghi kết quả ra thư mục output và người
+dùng tự quản lý các thư mục đó.
 
 **Luồng:**
 
@@ -305,17 +351,19 @@ ngày.
 | Repository đã có 10 lần phân tích, người dùng chạy lần thứ 11 | Giữ 10 kết quả gần nhất, loại kết quả cũ nhất |
 | Kết quả đã quá 14 ngày | Không còn mở lại được; nói rõ lý do hết hạn |
 | Source đã thay đổi sau lần phân tích | Kết quả vẫn là snapshot của lần chạy cũ, không tự cập nhật theo source mới |
+| Người dùng xóa thủ công một kết quả | Hỏi xác nhận trước khi xóa; xóa xong không mở lại được và không ảnh hưởng các lần khác |
 
 **Kết quả mong đợi:** mở lại kết quả cũ cho đúng nội dung tại thời điểm chạy. Hệ thống
 không trộn kết quả cũ với source hiện tại.
 
 ## Scenario 13 — Xuất tài liệu kiến trúc
 
-*UC3.2 Xuất tài liệu kiến trúc*
+*UC3.2 Xuất tài liệu kiến trúc — cả hai kênh*
 
 **Luồng:**
 
-1. Người dùng chọn xuất kết quả của một lần phân tích.
+1. Người dùng yêu cầu xuất kết quả của một lần phân tích: trên web là một thao tác,
+   trên CLI là kết quả mặc định của lần chạy.
 2. Hệ thống tạo L3 Markdown, Diagram-as-Code và architecture model có cấu trúc.
 3. Các artifact được tạo từ cùng một analysis result.
 
@@ -326,29 +374,74 @@ trong hai nơi.
 **Luồng thay thế:** nếu một artifact tạo thất bại, analysis result được giữ nguyên, hệ
 thống báo rõ artifact nào thất bại và cho phép thử lại.
 
+## Scenario 14 — Hai kênh cho cùng một kết quả
+
+*UC1 Phân tích kho mã · UC3.2 Xuất tài liệu — cả hai kênh*
+
+Đây là scenario chứng minh hai kênh dùng chung một engine. Scenario 1b chỉ phát biểu
+điều đó; scenario này kiểm chứng nó.
+
+**Tiền điều kiện:** một repository đã pin ở một commit cụ thể, dùng được cho cả hai
+kênh: có bản trên đĩa để chạy CLI và bản ZIP để tải lên web.
+
+**Luồng:**
+
+1. Chạy CLI trên thư mục cục bộ, tắt AI, ghi kết quả ra `out-cli`.
+2. Tải cùng repository đó lên web dưới dạng ZIP, tắt AI, chờ phân tích xong.
+3. Xuất kết quả từ web ra `out-web`.
+4. So sánh hai bộ kết quả.
+
+**Kết quả mong đợi — phải giống nhau:**
+
+| Thành phần | Yêu cầu |
+|---|---|
+| Application và component | Cùng tập, cùng định danh |
+| Route | Cùng số lượng, cùng method và path |
+| Entity/table và external system | Cùng tập |
+| Dependency giữa component | Cùng tập cạnh |
+| Nhãn confidence và completeness | Giống nhau cho từng kết luận |
+| Limitation | Cùng danh sách phần chưa hỗ trợ và lý do |
+| Evidence `file:line` | Trỏ về cùng vị trí trong source |
+
+**Được phép khác:**
+
+- Đường dẫn gốc trong evidence, vì CLI đọc thư mục còn web giải nén ZIP vào vùng xử lý
+  riêng. Vị trí tương đối trong repository phải giống nhau.
+- Dấu thời gian chạy và định danh phiên.
+- Cách trình bày: web có trang tương tác, CLI chỉ có file.
+
+**Không được khác:** bất kỳ fact, quan hệ, nhãn chất lượng hoặc limitation nào. Nếu hai
+kênh cho hai kết luận khác nhau về cùng một source thì ít nhất một bên sai, và đó là
+lỗi chặn phát hành.
+
 ## Bảng liên kết
 
-| Scenario | Use case kiểm chứng |
-|---|---|
-| 1a | UC1, UC2 |
-| 1b | UC1 *(biến thể dòng lệnh)* |
-| 1c | UC1 — Cung cấp mã nguồn và ba biến thể đầu vào |
-| 2 | UC2 Truy vết phụ thuộc |
-| 3 | UC2 Truy vết phụ thuộc, `extend` Kiểm tra bằng chứng nguồn |
-| 4, 5 | UC1, UC3.1 |
-| 6 | UC2, UC3.1 |
-| 7, 8 | UC1, UC2, UC3.1 |
-| 9 | UC3.1 |
-| 10 | UC1, UC3.2 |
-| 11 | UC2 Xem ứng dụng và thành phần |
-| 12 | UC3.1 *(mở lại lịch sử)* |
-| 13 | UC3.2 |
+| Scenario | Use case kiểm chứng | Kênh |
+|---|---|---|
+| 1a | UC1, UC2 | Web |
+| 1b | UC1, UC3.2 | CLI |
+| 1c | UC1 — Cung cấp mã nguồn và ba biến thể đầu vào | Cả hai |
+| 1d | UC1 — lỗi đầu vào và lỗi ghi output | CLI |
+| 2 | UC2 Truy vết phụ thuộc | Web |
+| 3 | UC2 Truy vết phụ thuộc, `extend` Kiểm tra bằng chứng nguồn | Web |
+| 4, 5 | UC1, UC3.1 | Cả hai |
+| 6 | UC2, UC3.1 | Web |
+| 7, 8 | UC1, UC2, UC3.1 | Cả hai |
+| 9 | UC3.1 | Cả hai |
+| 10 | UC1, UC3.2 | Cả hai |
+| 11 | UC2 Xem ứng dụng và thành phần | Web |
+| 12 | UC3.1 *(mở lại lịch sử)* | Web |
+| 13 | UC3.2 | Cả hai |
+| 14 | UC1, UC3.2 — hai kênh cho cùng kết quả | Cả hai |
+
+Scenario ghi "Cả hai" nghĩa là hành vi phải giống nhau ở hai kênh; khác nhau chỉ ở
+cách hiển thị.
 
 Độ phủ theo chiều ngược lại:
 
 | Use case | Scenario |
 |---|---|
-| UC1 Phân tích kho mã | 1a, 1b, 1c, 4, 5, 7, 8, 10 |
+| UC1 Phân tích kho mã | 1a, 1b, 1c, 1d, 4, 5, 7, 8, 10, 14 |
 | UC2 Xem tổng quan | 1a |
 | UC2 Xem ứng dụng và thành phần | 1a, 11 |
 | UC2 Xem API và luồng yêu cầu | 2, 7, 8 |
@@ -357,4 +450,4 @@ thống báo rõ artifact nào thất bại và cho phép thử lại.
 | `extend` Kiểm tra bằng chứng nguồn | 3 |
 | UC3.1 Xem kết quả chi tiết | 4, 5, 6, 9, 12 |
 | `include` Mở lần phân tích đã lưu | 12 |
-| UC3.2 Xuất tài liệu kiến trúc | 10, 13 |
+| UC3.2 Xuất tài liệu kiến trúc | 1b, 10, 13, 14 |

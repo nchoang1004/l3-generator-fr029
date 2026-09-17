@@ -1,103 +1,104 @@
 ---
-uid: 01M2MV1DYC98JQ48XYGWEN90DA
-key: FR-L3GEN-004
-type: functional-requirement
-group: normative
-scope: system
-system: SYS-L3GEN
-status: draft
-revision: 1
-ownership:
-  accountable_team: TEAM-L3GEN
-  accountable_role: product-owner
-relations:
-  satisfies: [GOAL-L3GEN-002, GOAL-L3GEN-003]
-  constrained_by: [NFR-L3GEN-USA-001, NFR-L3GEN-REL-001]
-  measured_by: [OBS-L3GEN-003, OBS-L3GEN-004]
-verified_at: 2026-09-16
+uid: "01M2J06Z48P8QPD1NGCBV6SNC6"
+key: "FR-L3GEN-004"
+type: "functional-requirement"
+group: "normative"
+scope: "system"
+system: "SYS-L3GEN"
+status: "draft"
+revision: 4
+ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
+relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-002"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-COMP-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-001","OQ-L3GEN-003"]}
+verified_at: null
 verified_against: []
-classification: internal
+classification: "internal"
 ai_assisted: true
 ---
 
-# FR-L3GEN-004 — Kiểm tra evidence và giới hạn
+# FR-L3GEN-004 — Liệt kê mô hình dữ liệu
 
 ## Mô tả
 
-Người dùng kiểm chứng được từng kết luận trong mô hình kiến trúc thay vì phải tin vào
-mô tả. Với một quan hệ hoặc thành phần bất kỳ, người dùng mở được vị trí source và
-đường bằng chứng dẫn tới kết luận đó.
+Người dùng xem lớp dữ liệu, tên bảng nếu xác định được, cột và khóa ngoại; nhận diện entity không đồng nghĩa biết tên bảng. Bản đầu phủ SQLAlchemy; ORM của Java/Spring Boot theo mốc M3.
 
-Kết quả phải phân biệt rõ hai điều khác nhau: source thực sự không có một thành phần,
-và hệ thống chưa đủ khả năng hoặc chưa đủ bằng chứng để tìm ra nó. Nhầm hai điều này
-khiến người đọc hiểu sai hệ thống được phân tích.
-
-Use case liên quan: `Kiểm tra bằng chứng nguồn` và UC3.1 trong
-[USE_CASES](../../../docs/USE_CASES.md).
+| Thuộc tính | Giá trị |
+|---|---|
+| Nhóm luồng | Trích xuất dữ kiện |
+| Ưu tiên đề xuất | Must Have |
+| Mốc đề xuất | M1: entity SQLAlchemy; M3: entity Java |
+| Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 ## Acceptance Criteria
 
-### AC-L3GEN-004-01 — Mở evidence của một quan hệ
+### AC-L3GEN-004-01
 
-- **given** người dùng đang xem một quan hệ trong mô hình, ví dụ một component gọi một
-  external system
-- **when** người dùng yêu cầu xem bằng chứng của quan hệ đó
-- **then** hệ thống hiển thị vị trí `file:line` và đường bằng chứng dẫn tới kết luận
-- `validated_by:` TEST-L3GEN-004-01
+- **Given:** Lớp SQLAlchemy có __tablename__ hằng, Column và ForeignKey.
+- **When:** người dùng phân tích.
+- **Then:** công cụ xuất lớp, bảng, cột, kiểu, khóa chính và khóa ngoại được khai báo cùng nguồn.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Phạm vi Must: declarative_base/Base, Column; SQLModel/mapped_column theo OQ phạm vi.
 
-### AC-L3GEN-004-02 — Mọi quan hệ công khai đều có evidence
+### AC-L3GEN-004-02
 
-- **given** một kết quả phân tích bất kỳ
-- **when** kiểm tra các quan hệ trong mô hình kiến trúc
-- **then** mỗi quan hệ có ít nhất một evidence, hoặc được đánh dấu rõ là partial/unknown
-  kèm lý do
-- `validated_by:` TEST-L3GEN-004-02
+- **Given:** Entity kế thừa qua lớp trung gian trong repository.
+- **When:** người dùng phân tích.
+- **Then:** công cụ nối được chuỗi kế thừa trong khả năng hỗ trợ và không coi lớp __abstract__ là bảng triển khai.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Có fixture lớp cha khác file.
 
-### AC-L3GEN-004-03 — Xem coverage của lần phân tích
+### AC-L3GEN-004-03
 
-- **given** một lần phân tích đã hoàn thành
-- **when** người dùng xem phần chất lượng kết quả
-- **then** hệ thống hiển thị phạm vi đã đọc, file bị bỏ qua, ngôn ngữ hoặc framework
-  chưa hỗ trợ và lỗi phân tích đã gặp
-- `validated_by:` TEST-L3GEN-004-03
+- **Given:** Tên bảng do lớp cơ sở sinh lúc chạy hoặc __tablename__ là biểu thức chưa giải được.
+- **When:** người dùng phân tích.
+- **Then:** công cụ giữ entity nhưng biểu diễn tên bảng chưa xác định, ghi partial và lý do; không tự lower-case tên class để đoán.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Fixture có tên bảng được sinh lúc chạy; kiểm kết quả giữ entity và báo tên bảng chưa xác định thay vì đoán từ tên lớp.
 
-### AC-L3GEN-004-04 — Phân biệt không có với chưa đọc được
+### AC-L3GEN-004-04
 
-- **given** hệ thống không tìm thấy một loại thành phần trong repository
-- **when** người dùng xem kết quả
-- **then** kết quả nói rõ đây là trường hợp source không có, hay trường hợp hệ thống
-  chưa hỗ trợ hoặc chưa đủ bằng chứng
-- `validated_by:` TEST-L3GEN-004-04
+- **Given:** Khóa ngoại trỏ tới bảng ngoài phần quét.
+- **When:** người dùng phân tích.
+- **Then:** công cụ giữ nguyên khai báo và nguồn, đánh dấu đích chưa resolve; không tự tạo bảng thật để nối đủ graph.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Đối chiếu cả quan hệ liên bảng đã và chưa giải được.
 
-### AC-L3GEN-004-05 — Trường hợp phụ thuộc runtime
+### AC-L3GEN-004-05
 
-- **given** một kết luận phụ thuộc dữ liệu chỉ có khi chương trình chạy
-- **when** người dùng xem kết quả
-- **then** phần đó được đánh dấu runtime-dependent kèm lý do và evidence, và hệ thống
-  không chọn một khả năng cụ thể để trình bày như kết luận chắc chắn
-- `validated_by:` TEST-L3GEN-004-05
+- **Given:** Repository có thao tác SQLAlchemy đọc bằng query(Model).all()/first()/one() hoặc Session.get(Model, id), và thao tác add/delete với entity xác định được.
+- **When:** người dùng xem quan hệ component hoặc hàm tới dữ liệu.
+- **Then:** công cụ nối quan hệ đọc hoặc ý định ghi/xóa tới entity cùng bằng chứng callsite; không kết luận giao dịch đã commit hoặc dữ liệu đã thay đổi ở runtime chỉ từ add/delete.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Phân biệt tên entity xuất hiện, query chưa thực thi, thao tác truy vấn và thao tác ghi chờ transaction; SDK/SQL động ngoài pattern phải ghi unknown.
 
-### AC-L3GEN-004-06 — Lời gọi chưa xác định không thành quan hệ kiến trúc
+### AC-L3GEN-004-06
 
-- **given** một lời gọi trong source mà hệ thống chưa xác định được đích
-- **when** hệ thống dựng mô hình kiến trúc
-- **then** lời gọi đó xuất hiện trong phần giới hạn hoặc bằng chứng, và không trở thành
-  một quan hệ trong mô hình kiến trúc
-- `validated_by:` TEST-L3GEN-004-06
+- **Given:** Repository Java dùng ORM thuộc phạm vi đã công bố của Spring Boot.
+- **When:** người dùng phân tích.
+- **Then:** entity Java hiện ra với cùng cấu trúc dữ liệu và cùng nhãn chất lượng như entity Python; tên bảng chưa xác định được vẫn giữ unknown kèm lý do, không suy từ tên lớp.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** ORM và annotation cụ thể chốt tại OQ-L3GEN-003 trước thiết kế. ORM ngoài phạm vi phải hiện ở phần giới hạn.
 
-### AC-L3GEN-004-07 — Giới hạn luôn được công bố
+## Trạng thái liên kết triển khai
 
-- **given** một lần phân tích bất kỳ, kể cả khi chạy trọn vẹn
-- **when** người dùng xem kết quả
-- **then** phần giới hạn luôn có mặt, gồm cả trường hợp không có giới hạn nào, thay vì
-  bị ẩn đi
-- `constrained_by:` NFR-L3GEN-USA-001
-- `validated_by:` TEST-L3GEN-004-07
+`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
 
-### AC-L3GEN-004-08 — Mô tả do AI không dùng làm bằng chứng
+## Tài liệu liên quan
 
-- **given** một kết luận có kèm mô tả do AI sinh
-- **when** người dùng mở phần bằng chứng của kết luận đó
-- **then** bằng chứng là vị trí source và rule đã áp dụng, không phải đoạn mô tả do AI
-  viết
-- `validated_by:` TEST-L3GEN-004-08
+- [NFR-L3GEN-ACC-001](../nfr/NFR-L3GEN-ACC-001.md)
+- [NFR-L3GEN-TRACE-001](../nfr/NFR-L3GEN-TRACE-001.md)
+- [NFR-L3GEN-COMP-001](../nfr/NFR-L3GEN-COMP-001.md)
+- [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
+- [Thuật ngữ](../../domain/glossary-core.md)
+

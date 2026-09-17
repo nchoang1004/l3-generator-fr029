@@ -1,0 +1,13 @@
+key: CR-L3GEN-2026-001
+type: change-request
+group: evidence
+scope: lifecycle
+captured_at_date: "2026-09-15"
+source: "Các tin nhắn người dùng trong phiên hiện tại; giữ nguyên chữ."
+requests_verbatim:
+  - "hoàn thành cả 8 phần sao cho thật chuẩn xác đi "
+  - "viết của cả full chứ code hiện tại không liên quan"
+mentor_request_verbatim: "mọi ng follow quy trình này để phát triển nhé, trong 1-2 hôm tới hoàn thành PRD (có FR, AC và NFR) để a Hà vs a review nhé"
+source_attachments_manifest: "../../../docs/sdlc-sources/manifest.json"
+note: "Nguồn mentor là nội dung người dùng cung cấp; không phải approval của mentor. Attachment gốc lưu theo hash; không suy ra chữ ký từ yêu cầu viết tài liệu."
+
