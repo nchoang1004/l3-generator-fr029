@@ -482,18 +482,58 @@ Nếu chỉ sửa tay mà không chạy kiểm thì lỗi này lọt — đúng 
 
 ### 10.6 Việc còn lại
 
-1. **`tier` vẫn `null`** trong `change-set.yaml`. Người dùng đã đồng ý T1 về nội dung, nhưng
-   chốt chính thức thuộc bước intake và cần người giữ vai `product-owner`. Người dùng đang
-   cân nhắc tự nhận vai này; chưa xác nhận nên chưa ghi vào file.
-2. **`intake_status` và `impact_status` vẫn `not_run`.** `impact.yaml` chưa tồn tại. Quy trình
-   yêu cầu file này sinh từ metadata graph tập trung; repo không có graph đó, nên giữ trạng thái
-   chưa chạy thay vì tạo dữ liệu giả.
-3. **Sáu OQ vẫn `open`**, hạn 19/09/2026. `OQ-L3GEN-001` vẫn là nút thắt.
-4. **Chưa push** bất kỳ commit nào trong lượt này. Ba nhánh đều có commit local chưa đẩy.
-5. **Nhánh v2 chưa nhận `021ac21` và `89427d1`** — hồ sơ ở đây vẫn là 17 FR/BL-r8 và chưa có
-   `scripts/`. Cần quyết có đồng bộ sang không.
+1. ~~`tier` vẫn `null`~~ — đã chốt **T1**. Xem 10.7.
+2. ~~`intake_status` và `impact_status` vẫn `not_run`~~ — đã chạy cả hai. Xem 10.7.
+3. **Năm OQ còn `open`**, hạn 19/09/2026. `OQ-L3GEN-005` đã `answered`. `OQ-L3GEN-001` mới trả
+   lời được một trong bốn câu và vẫn là nút thắt.
+4. ~~Chưa push~~ — `main` và `develop` đã push, cùng ở `10a0c24`.
+5. **Nhánh v2 vẫn chưa nhận hồ sơ mới** — ở đây vẫn là 17 FR/BL-r8 và chưa có `scripts/`.
+   Cần quyết có đồng bộ sang không.
 
-### 10.7 Kinh nghiệm
+### 10.7 Lượt thứ hai — OQ-005, intake, impact
+
+Làm sau khi viết mục 10.1–10.7, cùng ngày. Bốn commit, đều trên `develop` rồi merge sang `main`.
+
+**`cf04b05` — trả lời bốn mục còn lại của OQ-L3GEN-005.** Web chạy máy cá nhân; chỉ nhận
+`https://github.com/...` và chặn IP thô, tên máy nội bộ, địa chỉ metadata kể cả qua chuyển hướng;
+ZIP từ chối `..`, bỏ qua liên kết tượng trưng, có trần dung lượng và số file; provider AI là tham
+số cấu hình, người dùng tự đưa khóa; máy cá nhân đáp ứng hạn giữ dữ liệu. BL-r10.
+
+Người dùng ban đầu muốn nhận cả GitLab, nhưng đó là **mở rộng phạm vi** chứ không phải trả lời câu
+hỏi kỹ thuật — PRD đã chốt "chỉ GitHub public" ở năm chỗ. Đã nêu, người dùng đổi lại chỉ GitHub.
+
+**`2a0f905` — chốt owner và rà AC/NFR.** Khiêm nhận owner OQ-005, chuyển `answered`. Rà từng
+artifact bị ảnh hưởng: bốn quyết định **phần lớn đã được phủ sẵn** ở NFR-SEC-001, NFR-PERF-001,
+NFR-PRIV-001 và AC-L3GEN-016-03. Đúng một chỗ hở: không NFR nào ràng buộc **khóa API của chính
+công cụ** — NFR-PRIV-001 chỉ nói về credential nằm trong repository được phân tích. NFR-AI-001
+lên revision 2. BL-r11.
+
+**`a23475d` — intake và tier.** Khiêm nhận vai `product-owner`; `tier: T1`; `intake_status:
+done_pending_mentor_confirmation` kèm khối `intake` ghi `role_confirmed: false`. T1 là **nâng**
+tier nên không cần waiver. OQ-001 nhận owner và trả lời được câu 1; ba câu còn lại — nghiệm thu
+độc lập, số mentor duyệt, registry — vẫn cần mentor nên OQ giữ `open`. BL-r12.
+
+Nhận vai Product **không** đóng được OQ-001: chính OQ đó cảnh báo nhóm 2 người mà bảng phê duyệt
+cần 3 vai ký cộng một người nghiệm thu độc lập. Khiêm giữ Product thì không được tự nghiệm thu.
+
+**`10a0c24` — `impact.yaml`.** `scripts/impact.py` dựng graph cục bộ từ `relations` trong
+frontmatter: 40 `touches`, `stale_artifacts` rỗng (flow new-system nên chưa có artifact cũ trỏ
+vào), **33 artifact đang bị OQ chặn**, `confidence: low`. Bốn giới hạn khai vào
+`skipped_with_reason`, trong đó quan trọng nhất: script chỉ thấy artifact đang tồn tại, nên yêu
+cầu bị bỏ sót hoàn toàn thì không có node để phát hiện.
+
+**Kiểm chứng lượt này:** BL-r12 40/40 hash và revision khớp; quan hệ hai chiều đầy đủ; 83/83 AC đủ
+given/when/then; 0 link hỏng trong view. `impact.yaml` parse được và đủ bốn trường bắt buộc theo
+§B.3. Hai cơ chế chặn của `impact.py` đã thử tay: thiếu CR thì từ chối chạy; YAML hỏng thì dừng.
+**Chưa chạy pytest** vì không sửa code sản phẩm.
+
+**Lỗi bắt được:** bản `impact.yaml` đầu thiếu một dấu nháy đóng, làm cả file không parse được.
+Đọc mắt không thấy. Đã đưa bước tự kiểm YAML vào chính script.
+
+**Trạng thái bước 2 sau lượt này:** intake xong ở mức nhóm, impact xong với graph cục bộ, tier T1.
+Bước 2 đã làm hết mức có thể mà không cần mentor.
+
+### 10.8 Kinh nghiệm
 
 - **`SCENARIOS.md` và `USE_CASES.md` không dùng để kiểm FR đủ hay thiếu được.** Chúng do cùng
   một người viết, trong cùng một đợt, theo cùng một cách hiểu — cùng sót một yêu cầu thì đối
