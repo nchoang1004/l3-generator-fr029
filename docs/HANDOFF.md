@@ -1,7 +1,11 @@
 # Bàn giao — Code → L3 Generator
 
-Cập nhật: 16/09/2026. Đây là bản tiếp tục công việc, không phải chứng nhận V2 đã hoàn tất.
+Cập nhật: 17/09/2026. Đây là bản tiếp tục công việc, không phải chứng nhận V2 đã hoàn tất.
 Đọc file này đầu phiên; đối chiếu code trước khi khẳng định năng lực hiện tại.
+
+> **Hồ sơ yêu cầu đã chuyển sang bản chuẩn của `develop`.** Từ 17/09/2026, PRD/FR/NFR
+> chuẩn là bộ 17 FR và 11 NFR trong `.aide/`. Bộ 5 FR và 5 NFR cũ của nhánh này đã bị
+> thay. Xem mục 9 ở cuối file.
 
 ## 1. Việc đang làm và thứ tự đã chốt
 
@@ -12,19 +16,23 @@ Người dùng đã chốt hướng kéo sản phẩm về đúng Code → L3:
 3. Repository Knowledge Graph đầy đủ không phải sản phẩm chính của dự án này.
 4. Resolver được giữ làm công cụ nội bộ nhưng không tiếp tục mở rộng nếu không phục vụ câu hỏi L3.
 5. Unresolved raw call không được biến thành semantic edge nét đứt.
-6. Giao diện web là đường dùng chính cho người dùng tương tác; CLI/script/CI là đường tự động hóa phụ, không phải hình thức duy nhất của sản phẩm.
-7. Thiết kế đầu vào của giao diện gồm thư mục cục bộ, file ZIP và URL GitHub; mở lại kết quả phân tích đã có là một use case riêng. Đây là phạm vi yêu cầu/thiết kế, chưa phải tuyên bố code hiện tại đã hỗ trợ.
+6. **Đã thay bằng mô hình hai kênh (17/09/2026).** Dòng lệnh và web có phạm vi khác nhau, không phải chính và phụ: dòng lệnh nhận thư mục cục bộ rồi phân tích và ghi file; web nhận ZIP hoặc URL GitHub public và thêm khám phá, evidence, lịch sử, job/API, xuất. Khám phá tương tác và lịch sử chỉ có trên web. Hai kênh dùng chung một engine nên cùng source phải cho cùng kết luận.
+7. Ba hình thức đầu vào nay gắn với kênh cụ thể, không phải kênh nào cũng nhận cả ba. Đây là phạm vi yêu cầu, chưa phải tuyên bố code hiện tại đã hỗ trợ.
 8. Kết quả được khám phá theo mục tiêu: tổng quan, application/component, API/luồng gọi, dữ liệu/tích hợp, phụ thuộc, bằng chứng nguồn, chất lượng/giới hạn và xuất artifact.
 
 Đã đồng bộ [ARCHITECTURE_V2_IDEA.md](ARCHITECTURE_V2_IDEA.md),
 [USE_CASES.md](USE_CASES.md), [SCENARIOS.md](SCENARIOS.md),
 [SPEC](../SPEC_Code_to_L3_Generator.md) và [README](../README.md).
 
-Đã tạo PRD gốc dạng draft tại
-[`PRD-L3GEN.md`](../.aide/product/prd/PRD-L3GEN.md) theo đủ khung I–IX của mentor.
-PRD ở revision 6. Đã tạo 5 FR với 52 AC tại `.aide/requirements/fr/` và 5 NFR tại
-`.aide/requirements/nfr/`. PRD chưa qua Scope Gate; OBS chưa được tạo nên coverage
-KPI→OBS còn thiếu.
+**Hồ sơ yêu cầu chuẩn, cập nhật 17/09/2026:**
+[`PRD-L3GEN-2609-001.md`](../.aide/product/prd/PRD-L3GEN-2609-001.md) revision 14,
+17 FR với 78 AC, 11 NFR, 2 OBS, 1 ADR và 6 Open Question, tất cả trong `.aide/`.
+Baseline candidate là `BL-r8.yaml`. Chưa qua Scope Gate, chưa được duyệt.
+
+File [`PRD-L3GEN.md`](../.aide/product/prd/PRD-L3GEN.md) revision 6 là bản cũ của
+nhánh này, được giữ lại nhưng mang **cùng key** `PRD-L3GEN-2609-001` với file trên.
+Cần chọn giữ file nào trước khi baseline được duyệt. Bộ 5 FR/52 AC và 5 NFR cũ đã
+bị bộ 17 FR thay thế.
 Sơ đồ use case, `USE_CASES.md`, `SCENARIOS.md`, SPEC và README đã cùng mô tả sản phẩm
 có giao diện với ba hình thức đầu vào và lịch sử phân tích. Đây là phạm vi mục tiêu:
 code hiện chỉ nhận thư mục cục bộ qua dòng lệnh, giao diện chỉ đọc output đã sinh, và
@@ -277,3 +285,116 @@ Quy tắc này là yêu cầu thường xuyên của người dùng, không cầ
 - Kiểm chứng: cả 11 UID dài đúng 26 ký tự, chỉ dùng bảng chữ Crockford, không trùng nhau, giải mã timestamp ra đúng 16/09/2026.
 - Commit: 5 commit tách theo phạm vi — use case và scenario; SPEC và README; PRD revision 6; FR/NFR; bàn giao. Không push. Không thêm `Author`, `Co-authored-by` hoặc trailer AI vào message.
 - Trạng thái ba phần mentor yêu cầu hôm nay: PRD, FR và NFR đã đủ. Chưa qua Scope Gate vì còn thiếu OBS và OQ-L3GEN-003.
+
+## 9. Nhật ký 17/09/2026 — Đồng bộ hồ sơ từ `develop` và sửa năm lỗi review
+
+### 9.1 Ba nhánh và vai trò
+
+| Nhánh | Là gì |
+|---|---|
+| `origin/main` | Hồ sơ phía Hoàng: 17 FR, 11 NFR, 6 OQ. Không có code |
+| `develop` | **Bản chuẩn.** Kết tinh từ `main` và nhánh này. Không có code |
+| `feat/language-first-semantic-v2` | Nhánh này. Giữ code và 112 test; nay mang hồ sơ của `develop` |
+
+Hai lịch sử git không có tổ tiên chung, không merge được bằng cách thường. Đồng bộ
+bằng cách lấy toàn bộ file của `develop` ghi đè lên nhánh này, giữ nguyên file chỉ
+nhánh này có.
+
+### 9.2 So sánh file `.md` giữa các nhánh
+
+Sau khi đồng bộ, **mọi file `.md` mà `develop` có thì nhánh này cũng có và giống hệt**.
+Không file hồ sơ nào lệch nội dung. `develop` cũng đã có đủ mọi `.md` của `origin/main`.
+
+12 file `.md` chỉ có ở nhánh này, được giữ nguyên:
+
+| File | Là gì |
+|---|---|
+| `.aide/product/prd/PRD-L3GEN.md` | PRD cũ revision 6. **Trùng key** với PRD chuẩn, cần quyết giữ file nào |
+| `SPEC_Code_to_L3_Generator.md` | Spec kỹ thuật |
+| `EVALUATION.md` | Ghi chép đánh giá V1 |
+| `docs/HANDOFF.md` | File này |
+| `docs/AGENTIC_SDLC_LOG.md` | Nhật ký áp dụng quy trình |
+| `docs/COMPETITOR_RESEARCH.md` | Khảo sát công cụ tương tự |
+| `Quy_tac/process-working.md`, `Quy_tac/execution-guide-working.md` | Bản làm việc của tài liệu quy trình |
+| `examples/README.md`, `examples/*/L3.md` (2 file) | Output mẫu đã sinh |
+| `tests/fixtures/.../docs/readme.md` | Fixture test |
+
+### 9.3 Đã đồng bộ gì sang nhánh này
+
+Commit `f352606`: thêm 46 file, sửa 17 file, **không xóa file nào**.
+
+- Thêm: 12 FR mới, 6 NFR mới, 2 OBS, ADR-2026-001, 6 OQ, change-set, BL-r7 và BL-r8,
+  tài liệu quy trình của mentor trong `docs/sdlc-sources/`, execution guide,
+  `PRD-REVIEW-README.md`, `.gitattributes`.
+- Sửa: PRD chuẩn lên revision 14; 5 FR và 5 NFR cũ thay bằng bản `develop`;
+  `USE_CASES.md`, `SCENARIOS.md`, sơ đồ use case theo mô hình hai kênh; `.gitignore`, `README.md`.
+- Không đụng tới: `src/`, `tests/`, `pyproject.toml`, `evaluation/`, `examples/`.
+  124 file code và test còn nguyên.
+
+**Hai chỗ cùng tên khác nội dung, đã ghi đè theo `develop`:**
+
+- `FR-L3GEN-001` ở nhánh này vốn là "Cung cấp repository đầu vào" gộp cả ba hình thức;
+  bản chuẩn là "Nhận thư mục source" chỉ cho dòng lệnh. Ba hình thức nay tách theo kênh
+  sang `FR-L3GEN-001` và `FR-L3GEN-016`. Code nào tham chiếu FR-001 theo nghĩa cũ thì nay lệch.
+- `PRD-L3GEN.md` giữ lại nhưng trùng key, xem mục 9.2.
+
+### 9.4 Năm lỗi đã sửa trong hồ sơ (commit `a12e3ec` trên `develop`)
+
+Tìm được khi rà soát, sửa trước khi đồng bộ:
+
+1. **PRD mục II.4 tự đặt cỡ mẫu** "20 repository và 100 quan hệ", mâu thuẫn
+   `OBS-L3GEN-001` (chia theo từng nhóm dữ kiện, tối thiểu 3 repo) và trả lời hộ câu hỏi
+   `OQ-L3GEN-004` còn mở. Nay trỏ sang OBS.
+2. **Ngưỡng 500 function bị chép lại** ở PRD mục V.2 và phần Given của `AC-L3GEN-011-05`.
+   Nay trỏ `NFR-L3GEN-ABST-001`.
+3. **`AC-L3GEN-011-05` thiếu trần số node** — phần định lượng duy nhất của
+   `NFR-L3GEN-ABST-001`, trước đây không AC nào phủ. Đã bổ sung.
+4. **`AC-L3GEN-001-05` thiếu hai vế** mà `NFR-L3GEN-DET-001` và SCENARIOS đã có:
+   "cách trình bày" được phép khác, và vị trí tương đối của evidence phải giống nhau.
+   Thiếu vế sau thì ranh giới "đường dẫn gốc được phép khác" không kiểm được.
+5. **`AC-L3GEN-013-03` có cách kiểm lạc đề**, nói về IAM và tải file nguồn thay vì hành vi
+   của chính AC. Thay bằng kiểm ba trường hợp output rỗng, hỏng và schema không hỗ trợ.
+
+Kèm theo: `AC-L3GEN-001-03` trước cấm mọi ghi đè, trong khi SCENARIOS 1d cho phép ghi đè
+sau xác nhận. Đã nới AC theo scenario — **đây là thay đổi hành vi sản phẩm**, cần nêu rõ
+khi trình mentor duyệt.
+
+### 9.5 Kiểm chứng
+
+Script kiểm 10 hạng mục, chạy trên cả hai nhánh sau khi sửa:
+
+- Link tương đối, quan hệ `constrains`/`constrained_by` hai chiều, AC viện dẫn NFR,
+  mã trong PRD có tồn tại, KPI↔OBS hai chiều, NFR mồ côi, AC đủ Given/When/Then:
+  **tất cả 0 lỗi**.
+- **BL-r8: 39/39 sha256 và revision khớp file thật** trên cả hai nhánh.
+- Tổng 78 AC, 17 FR, 11 NFR, 5 KPI — khớp con số hồ sơ công bố.
+- Số có đơn vị trong FR/PRD: còn 12 dòng, đều là dữ liệu hợp lệ (mốc thời gian dự án,
+  target KPI), không còn ngưỡng nào chép từ NFR.
+
+**Chưa chạy pytest** trong lượt này vì không sửa code Python. Số 112 test đạt là kết quả
+cũ, không dùng như kết quả mới.
+
+### 9.6 Bài học kỹ thuật
+
+- **`.aide/` phải có `.gitattributes` tắt chuẩn hóa line ending.** Nhánh này trước đó
+  không có, nên lần `git checkout develop -- .` đầu tiên Git tự đổi line ending và
+  **làm sai hash PRD trong BL-r8**. Phát hiện nhờ chạy lại script kiểm; đã ghi lại đúng
+  byte cho toàn bộ 46 file `.aide/` và commit kèm `.gitattributes`. Nếu không chạy lại
+  script sau khi checkout thì lỗi này đã lọt.
+- Sửa file trong `.aide/` phải ở chế độ nhị phân, giữ line ending của dòng neo. Line
+  ending vốn hỗn hợp trong cùng một file.
+- Trên Git Bash Windows, `git show origin/main:path` bị chuyển dấu hai chấm thành dấu
+  chấm phẩy; cần `export MSYS_NO_PATHCONV=1`. In tiếng Việt ra console cần
+  `export PYTHONIOENCODING=utf-8`.
+
+### 9.7 Việc còn lại
+
+1. **Quyết số phận `PRD-L3GEN.md`** — trùng key với PRD chuẩn, phải xử lý trước Scope Gate.
+2. **Rà code tham chiếu `FR-L3GEN-001`** theo nghĩa cũ, nay đã đổi.
+3. **Sáu OQ vẫn `open`**, hạn 19/09/2026. `OQ-L3GEN-001` là nút thắt: năm OQ còn lại đều
+   cần người giữ vai mà chính OQ-001 quyết định.
+4. **`scripts/prd_package.py` không có trong repo** dù `PRD-REVIEW-README.md` nhắc tới,
+   nên hai file trong `.aide/generated/` là bản render theo baseline cũ, đang mang cảnh
+   báo lỗi thời. Đã ghi thành mục 6 của `OQ-L3GEN-006`.
+5. **Chưa mở merge request.** Hai nhánh đã push nhưng chưa tạo MR.
+
