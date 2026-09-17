@@ -24,15 +24,18 @@ Người dùng đã chốt hướng kéo sản phẩm về đúng Code → L3:
 [USE_CASES.md](USE_CASES.md), [SCENARIOS.md](SCENARIOS.md),
 [SPEC](../SPEC_Code_to_L3_Generator.md) và [README](../README.md).
 
-**Hồ sơ yêu cầu chuẩn, cập nhật 17/09/2026:**
-[`PRD-L3GEN-2609-001.md`](../.aide/product/prd/PRD-L3GEN-2609-001.md) revision 14,
-17 FR với 78 AC, 11 NFR, 2 OBS, 1 ADR và 6 Open Question, tất cả trong `.aide/`.
-Baseline candidate là `BL-r8.yaml`. Chưa qua Scope Gate, chưa được duyệt.
+**Hồ sơ yêu cầu chuẩn, cập nhật 17/09/2026 (lượt chiều):**
+[`PRD-L3GEN-2609-001.md`](../.aide/product/prd/PRD-L3GEN-2609-001.md) revision 15,
+**18 FR với 83 AC**, 11 NFR, 2 OBS, 1 ADR và 6 Open Question, tất cả trong `.aide/`.
+Baseline candidate là `BL-r9.yaml` với 40 artifact. Chưa qua Scope Gate, chưa được duyệt.
 
-File [`PRD-L3GEN.md`](../.aide/product/prd/PRD-L3GEN.md) revision 6 là bản cũ của
-nhánh này, được giữ lại nhưng mang **cùng key** `PRD-L3GEN-2609-001` với file trên.
-Cần chọn giữ file nào trước khi baseline được duyệt. Bộ 5 FR/52 AC và 5 NFR cũ đã
-bị bộ 17 FR thay thế.
+Con số trên thuộc nhánh `main` và `develop`. **Nhánh v2 này chưa nhận các commit đó** —
+xem mục 10.
+
+File [`PRD-L3GEN.md`](../.aide/product/prd/PRD-L3GEN.md) revision 6 vẫn còn ở nhánh này và
+mang **cùng key** `PRD-L3GEN-2609-001` với file trên. Trên `main` và `develop` file cũ này
+không tồn tại, nên việc trùng key chỉ còn tồn đọng ở nhánh v2. Bộ 5 FR/52 AC và 5 NFR cũ
+đã bị bộ FR chuẩn thay thế.
 Sơ đồ use case, `USE_CASES.md`, `SCENARIOS.md`, SPEC và README đã cùng mô tả sản phẩm
 có giao diện với ba hình thức đầu vào và lịch sử phân tích. Đây là phạm vi mục tiêu:
 code hiện chỉ nhận thư mục cục bộ qua dòng lệnh, giao diện chỉ đọc output đã sinh, và
@@ -389,12 +392,115 @@ cũ, không dùng như kết quả mới.
 
 ### 9.7 Việc còn lại
 
-1. **Quyết số phận `PRD-L3GEN.md`** — trùng key với PRD chuẩn, phải xử lý trước Scope Gate.
-2. **Rà code tham chiếu `FR-L3GEN-001`** theo nghĩa cũ, nay đã đổi.
+1. ~~**Quyết số phận `PRD-L3GEN.md`**~~ — không áp dụng cho `main`/`develop`: file cũ không
+   tồn tại ở hai nhánh đó. Chỉ còn tồn đọng trên chính nhánh v2 này.
+2. ~~**Rà code tham chiếu `FR-L3GEN-001`**~~ — đã rà: `grep` toàn bộ `src/` và `tests/` cho ra
+   **0 kết quả** với mọi mã FR/AC/NFR/OBS. Code chưa từng gắn traceability vào hồ sơ yêu cầu,
+   nên việc FR-001 đổi nghĩa không làm lệch chỗ nào trong code.
 3. **Sáu OQ vẫn `open`**, hạn 19/09/2026. `OQ-L3GEN-001` là nút thắt: năm OQ còn lại đều
    cần người giữ vai mà chính OQ-001 quyết định.
-4. **`scripts/prd_package.py` không có trong repo** dù `PRD-REVIEW-README.md` nhắc tới,
-   nên hai file trong `.aide/generated/` là bản render theo baseline cũ, đang mang cảnh
-   báo lỗi thời. Đã ghi thành mục 6 của `OQ-L3GEN-006`.
+4. ~~**`scripts/prd_package.py` không có trong repo**~~ — đã viết lại và render theo BL-r9
+   trên `main`/`develop`; xem mục 10. Nhánh v2 chưa có script và vẫn giữ view render theo BL-r7.
 5. **Chưa mở merge request.** Hai nhánh đã push nhưng chưa tạo MR.
+
+
+## 10. Nhật ký 17/09/2026 (chiều) — Bổ sung hai phạm vi thiếu và viết lại script render
+
+**Công việc làm trên `develop` rồi merge fast-forward sang `main`. Nhánh v2 này chỉ nhận
+cập nhật HANDOFF, không nhận hai commit hồ sơ và tooling.**
+
+### 10.1 Đối chiếu hồ sơ với đề bài
+
+- Yêu cầu: giải thích quy trình và gate; sau đó kiểm 17 FR đã đủ so với đề bài chưa.
+- Cách làm: đọc `Đề bài.md` mục 3.6, liệt 10 mục công cụ phải phát hiện, soi từng mục
+  xem FR nào phủ. Không dùng `SCENARIOS.md`/`USE_CASES.md` làm chuẩn kiểm.
+- Kết quả: **8/10 đủ, 2 mục hở**.
+  - `entry point` — không FR/AC nào nhắc tới. `grep` chữ "entry" trong `.aide/` chỉ ra PRD,
+    CSV và một NFR bảo mật, không có ở requirements.
+  - `important dependency` — chỉ có nghĩa quan hệ giữa component (FR-L3GEN-011), chưa có
+    nghĩa thư viện bên ngoài đọc từ `requirements.txt`/`pom.xml`.
+- Phần Output của đề bài phủ đủ 7/7 qua FR-L3GEN-008 và FR-L3GEN-011.
+
+### 10.2 Quyết định người dùng
+
+| Câu hỏi | Quyết |
+|---|---|
+| Flow | `new-system` |
+| Tier | T1 hợp lý — **chưa ghi vào `change-set.yaml`**, xem 10.6 |
+| entry point | Cần ghi vào FR |
+| `important dependency` | Hiểu là **thư viện bên ngoài** |
+| Ưu tiên và mốc | Must Have, M1 cho cả hai |
+
+### 10.3 Hồ sơ đã sửa — commit `021ac21`
+
+- `FR-L3GEN-002.md` — thêm `AC-L3GEN-002-05` cho điểm khởi động ứng dụng; bổ sung mô tả;
+  revision 2 → 3.
+- `FR-L3GEN-018.md` — **file mới**, 4 AC cho thư viện bên ngoài. ULID sinh bằng Python
+  standard library, giải mã đúng ngày 17/09/2026.
+- 5 NFR (`ACC`, `COMP`, `REL`, `SEC`, `TRACE`) — thêm `FR-L3GEN-018` vào `constrains`, bump revision.
+- `PRD-L3GEN-2609-001.md` — thêm dòng FR-018 vào chỉ mục UC1; 17 FR → 18 FR; cập nhật 5 dòng
+  bảng NFR mục IV.4; revision 14 → 15.
+- `BL-r9.yaml` — baseline candidate mới, 40 artifact, `supersedes` BL-r8.
+- `change-set.yaml` — `baseline_candidate` trỏ BL-r9.
+
+Vì sao tách FR riêng thay vì nhét cả hai vào FR-002: hồ sơ theo quy ước mỗi loại thông tin
+phát hiện được có một FR (route 003, dữ liệu 004, HTTP 005, cấu hình 014, sự kiện 015).
+Thư viện là loại thứ sáu. Entry point thì ngược lại — nó phục vụ việc xác định ranh giới
+đơn vị phân tích, đúng phạm vi sẵn có của FR-002.
+
+### 10.4 Script render — commit `89427d1`
+
+`scripts/prd_package.py` không tồn tại ở bất kỳ nhánh nào, kể cả trong toàn bộ lịch sử Git
+và trên đĩa ngoài Git. Đã viết lại trong repo, 442 dòng, không cần thư viện ngoài.
+
+- `check` — đối chiếu baseline với file nguồn, không ghi gì.
+- `render` — sinh view bảy mục theo EXEC §D.1b từ chính các file trong baseline.
+
+Hai cơ chế an toàn, **đã thử bằng tay và đều chặn đúng**:
+
+| Thử | Kết quả |
+|---|---|
+| Sửa một file cho lệch hash rồi `render` | Từ chối, exit 1, chỉ đúng file lệch |
+| Đặt file vào `evidence/reviews/` rồi `render` | Từ chối, báo đang trong vòng review |
+
+Vế thứ hai theo review freeze §B.17 — script không tự xoá evidence để vượt kiểm.
+
+Kết quả render theo BL-r9: 7 mục, 18 FR, 83 AC, 11 NFR, 6 OQ còn mở, **0 link hỏng**,
+không còn cảnh báo lỗi thời.
+
+### 10.5 Kiểm chứng
+
+- Script kiểm 5 hạng mục, **0 lỗi**: 40/40 hash và revision BL-r9 khớp file thật; quan hệ
+  `constrained_by`/`constrains` hai chiều đầy đủ; 83/83 AC đủ given/when/then; link tương đối
+  trong file mới không hỏng; mọi mã FR trong PRD đều có file.
+- Sau khi merge sang `main`, chạy lại `check`: vẫn 40/40 khớp. `.gitattributes` giữ đúng byte.
+- **Chưa chạy pytest** trong lượt này vì không sửa code Python. Số 112 test đạt là kết quả cũ.
+
+**Lỗi bắt được nhờ chạy kiểm:** bản đầu thêm `NFR-ACC-001` vào phía NFR nhưng FR-018 không
+khai ngược lại trong `constrained_by`. Script phát hiện quan hệ một chiều; đã sửa rồi băm lại.
+Nếu chỉ sửa tay mà không chạy kiểm thì lỗi này lọt — đúng loại lỗi mục 9.6 đã cảnh báo.
+
+### 10.6 Việc còn lại
+
+1. **`tier` vẫn `null`** trong `change-set.yaml`. Người dùng đã đồng ý T1 về nội dung, nhưng
+   chốt chính thức thuộc bước intake và cần người giữ vai `product-owner`. Người dùng đang
+   cân nhắc tự nhận vai này; chưa xác nhận nên chưa ghi vào file.
+2. **`intake_status` và `impact_status` vẫn `not_run`.** `impact.yaml` chưa tồn tại. Quy trình
+   yêu cầu file này sinh từ metadata graph tập trung; repo không có graph đó, nên giữ trạng thái
+   chưa chạy thay vì tạo dữ liệu giả.
+3. **Sáu OQ vẫn `open`**, hạn 19/09/2026. `OQ-L3GEN-001` vẫn là nút thắt.
+4. **Chưa push** bất kỳ commit nào trong lượt này. Ba nhánh đều có commit local chưa đẩy.
+5. **Nhánh v2 chưa nhận `021ac21` và `89427d1`** — hồ sơ ở đây vẫn là 17 FR/BL-r8 và chưa có
+   `scripts/`. Cần quyết có đồng bộ sang không.
+
+### 10.7 Kinh nghiệm
+
+- **`SCENARIOS.md` và `USE_CASES.md` không dùng để kiểm FR đủ hay thiếu được.** Chúng do cùng
+  một người viết, trong cùng một đợt, theo cùng một cách hiểu — cùng sót một yêu cầu thì đối
+  chiếu với nhau vẫn ra khớp hoàn toàn. Chỉ đề bài mới phán được tính đủ. Thực tế cả ba tài liệu
+  đều sót entry point.
+- Quan hệ hai chiều phải sửa cả hai phía trong cùng một lượt. Sửa một phía rồi tin là xong là
+  cách tạo ra lệch âm thầm mà đọc mắt không thấy.
+- Link tương đối trong thân artifact không nhúng nguyên văn sang view được: chúng viết theo thư
+  mục file gốc. Bản render đầu tiên có 71 link hỏng; phải tính lại gốc theo vị trí view.
 
