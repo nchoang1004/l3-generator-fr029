@@ -3,7 +3,7 @@
 L3 Generator phân tích source repository để tạo mô hình và tài liệu kiến trúc L3 ban đầu.
 Người đọc có thể truy các kết luận về bằng chứng trong source.
 
-**Bản nháp full product · Candidate BL-r7 · Chưa qua Scope Gate.**
+**Bản nháp full product · Candidate BL-r12 · Chưa qua Scope Gate.**
 Gói này chỉ chứa tài liệu; chưa có code sản phẩm hoặc kết quả nghiệm thu.
 
 ## Bắt đầu tại đây
@@ -28,6 +28,6 @@ Hiện chưa hoàn tất intake/impact và chưa có quyết định phê duyệ
 
 - [Kết quả kiểm cấu trúc và giới hạn](.aide/generated/traceability/PRD-PACKAGE-CHECK.md).
 - [Quy trình mentor](docs/agentic-sdlc-execution-guide.md) và [tài liệu nguồn](docs/sdlc-sources/).
-- [Candidate hiện tại](.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/baseline/BL-r7.yaml) chứa revision/hash của bộ hồ sơ.
+- [Candidate hiện tại](.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/baseline/BL-r12.yaml) chứa revision/hash của bộ hồ sơ.
 
 Bản gộp thứ hai và baseline cũ không nằm trong gói review này; lịch sử cũ vẫn được giữ để tra cứu.

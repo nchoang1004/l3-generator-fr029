@@ -1,8 +1,8 @@
 # Hướng dẫn review PRD L3 Generator
 
-**Trạng thái: bản nháp full product, candidate BL-r8; chưa qua Scope Gate.**
+**Trạng thái: bản nháp full product, candidate BL-r12; chưa qua Scope Gate.**
 
-> **Cần chạy lại trước khi gửi review.** BL-r8 thêm NFR-L3GEN-ABST-001 và ADR-2026-001, và bump các key bị sửa. Change Set View và báo cáo kiểm gói trong thư mục `generated/` vẫn là bản render theo BL-r7, nên đang lệch. Script `scripts/prd_package.py` không có trong nhánh này; người giữ script cần render và check lại theo BL-r8.
+> **Change Set View đã render lại theo BL-r12.** `scripts/prd_package.py` nay có trong repo; chạy `render` rồi `check` sau mỗi lần đổi nguồn. Báo cáo kiểm gói trong `generated/traceability/` vẫn là bản cũ, chưa render lại.
 Code hiện có không quyết định phạm vi hoặc chứng minh yêu cầu đã đạt.
 
 ## Mentor đọc gì?
@@ -10,7 +10,7 @@ Code hiện có không quyết định phạm vi hoặc chứng minh yêu cầu 
 | Thứ tự | Tài liệu | Nội dung cần xem |
 |---|---|---|
 | 1 | [PRD](../.aide/product/prd/PRD-L3GEN-2609-001.md) | I: nguồn yêu cầu và đề xuất; II–IV: mục tiêu/phạm vi; V: luồng; VIII–IX: lịch và quyết định |
-| 2 | [Change Set View](../.aide/generated/change-set-views/CSV-CHG-L3GEN-2026-001.md) | Mục 3: toàn bộ 17 FR/69 AC; mục 6: 10 NFR; mục 7: 6 câu hỏi mở |
+| 2 | [Change Set View](../.aide/generated/change-set-views/CSV-CHG-L3GEN-2026-001.md) | Mục 3: toàn bộ 18 FR/83 AC; mục 6: 11 NFR; mục 7: 5 câu hỏi còn mở |
 | Khi cần | [Kiểm tra cấu trúc](../.aide/generated/traceability/PRD-PACKAGE-CHECK.md) | Phần đã kiểm và giới hạn; không phải bằng chứng sản phẩm đạt |
 
 Không cần mở từng FR/NFR để đọc lại. Change Set View được sinh từ nguồn;
@@ -29,7 +29,7 @@ khi có bất đồng, PRD/FR/NFR nguồn thắng. Góp ý nên ghi key FR/AC/NF
 
 ## Phân biệt bản nháp và hồ sơ được duyệt
 
-- Intake/impact chưa chạy; tier T1 mới là đề xuất. FR đã được soạn trước intake, cần rà lại sau impact.
+- Intake và impact đã chạy ở mức nhóm, tier chốt T1. Người thực hiện là Khiêm, tự nhận vai product-owner; `role_confirmed: false` cho tới khi mentor xác nhận phân vai tại OQ-L3GEN-001. `impact.yaml` dựng từ graph cục bộ bằng frontmatter, `confidence: low` — không thay việc mentor rà soát phạm vi.
 - Owner theo vai và hạn trả lời OQ là đề xuất; chưa có xác nhận của cá nhân.
 - Chưa có review receipt, approval hoặc kết quả nghiệm thu sản phẩm. Không approve FR còn bị OQ mở chặn.
 - PRD VI và IX ghi điều kiện hoàn thành và cách ký đúng revision; không coi việc upload Git là qua Scope Gate.
@@ -38,7 +38,7 @@ khi có bất đồng, PRD/FR/NFR nguồn thắng. Góp ý nên ghi key FR/AC/NF
 
 - [Quy trình mentor đã ghép](agentic-sdlc-execution-guide.md), [mẫu PRD](sdlc-sources/05-prd-template.md), [đề bài mục 3.6](sdlc-sources/06-project-brief.md).
 - [Nguồn yêu cầu](../.aide/evidence/requests/CR-L3GEN-2026-001.yaml), [bổ sung truy nguồn](../.aide/evidence/requests/CR-L3GEN-2026-001-sources-01.yaml), [manifest nguồn mentor](sdlc-sources/manifest.json).
-- [BL-r8](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/baseline/BL-r8.yaml) xác định tập revision đang review. Baseline cũ và bản gộp thứ hai giữ tại môi trường soạn/lịch sử Git, không đưa vào gói review mới.
+- [BL-r12](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/baseline/BL-r12.yaml) xác định tập revision đang review. Baseline cũ giữ lại để tra cứu, không đưa vào gói review mới.
 
 Các file nguồn mentor giữ nguyên để đối chiếu, không phải nội dung phải đọc lại trong lần review này.
 
@@ -52,8 +52,10 @@ Giữ glossary và OBS vì AC/KPI tham chiếu tới chúng.
 Trước Scope Gate: CR → intake/impact/tier → rà FR/NFR → candidate mới → kiểm hồ sơ →
 commit → review đúng revision. `impact.yaml` sinh từ graph, không viết tay. Theo B.3,
 cần CR, touches, stale_artifacts, affected_teams, external_consumers, risk_signals,
-path_signals, tier, flow, confidence và `skipped_with_reason` không rỗng. Thiếu graph/tooling
-thì giữ trạng thái chưa chạy và xử lý tại OQ-006, không tạo dữ liệu giả.
+path_signals, tier, flow, confidence và `skipped_with_reason` không rỗng. Bản hiện tại do
+`scripts/impact.py` sinh từ graph cục bộ dựng bằng frontmatter trong `.aide/`, không phải
+metadata graph tập trung; bốn giới hạn đã khai ở `skipped_with_reason` và `confidence` ghi
+`local-frontmatter-only`. Cách áp dụng khi thiếu tooling chính thức vẫn xử lý tại OQ-006.
 
 PROC/registry chính thức chưa đầy đủ. Mẫu DoD yêu cầu mapping triển khai trong khi thiết kế/planning
 nằm sau Scope Gate; cách áp dụng đang ở OQ-006. Mảng mapping rỗng không phải được miễn.
@@ -63,11 +65,9 @@ Các script chỉ có trong môi trường soạn, không nằm trong gói tài 
 Cần Python 3.12 và PyYAML:
 
 ```powershell
-py -3.12 scripts/prepare_prd_sources.py
-py -3.12 scripts/prd_package.py snapshot --baseline BL-r8.yaml
-py -3.12 scripts/prd_package.py render --baseline BL-r8.yaml
-py -3.12 scripts/prd_package.py check --baseline BL-r8.yaml
-py -3.12 scripts/test_prd_package.py
+py -3.12 scripts/prd_package.py check  --baseline BL-r12.yaml
+py -3.12 scripts/prd_package.py render --baseline BL-r12.yaml
+py -3.12 scripts/impact.py --baseline BL-r12.yaml
 ```
 
 Sửa nguồn thì tăng revision artifact đổi nội dung và chọn candidate mới (r8 trở đi).

@@ -6,7 +6,7 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 1
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"constrains":["FR-L3GEN-010","FR-L3GEN-012"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-004","OQ-L3GEN-005"]}
 verified_at: null
@@ -23,11 +23,11 @@ ai_assisted: true
 
 ## Yêu cầu có thể kiểm chứng
 
-AI không được sửa IAM/architecture model, tạo entity/edge hoặc category finding mới. Chỉ nhận output đúng schema và ID đã có. Mỗi request timeout tối đa 30 giây, retry tối đa 2 lần; mỗi phiên tối đa 20 request. Chi phí/token cap phải cấu hình trước khi bật với provider được chọn; chưa có cấu hình cap thì không gọi AI. Rate limit, thiếu key/SDK hoặc cap đạt thì tiếp tục trả dữ kiện tĩnh và cảnh báo.
+AI không được sửa IAM/architecture model, tạo entity/edge hoặc category finding mới. Chỉ nhận output đúng schema và ID đã có. Mỗi request timeout tối đa 30 giây, retry tối đa 2 lần; mỗi phiên tối đa 20 request. Chi phí/token cap phải cấu hình trước khi bật với provider được chọn; chưa có cấu hình cap thì không gọi AI. Rate limit, thiếu key/SDK hoặc cap đạt thì tiếp tục trả dữ kiện tĩnh và cảnh báo. Provider là tham số cấu hình, không khóa cứng vào một hãng; khóa API do người dùng cung cấp tại thời điểm chạy và không được ghi vào output, log, evidence hay bộ kết quả lưu lại. Công cụ không phát biểu thay người dùng về mức an toàn dữ liệu của provider họ chọn; điều khoản của provider thuộc trách nhiệm người dùng.
 
 ## Điều kiện và cách kiểm
 
-Mock provider trả JSON hỏng, ID lạ, chèn route, timeout, 429 và trả mô tả khác; so sánh model trước/sau. Kiểm request count và logging. Ngân sách thật/provider chờ OQ, không dùng giá hay model giả.
+Mock provider trả JSON hỏng, ID lạ, chèn route, timeout, 429 và trả mô tả khác; so sánh model trước/sau. Kiểm request count và logging. Đặt khóa API dạng canary rồi kiểm toàn bộ output, log và evidence không chứa giá trị đó; kiểm đổi provider bằng cấu hình mà không sửa code. Ngân sách thật/provider chờ OQ, không dùng giá hay model giả.
 
 ## Người chốt và ngoại lệ
 

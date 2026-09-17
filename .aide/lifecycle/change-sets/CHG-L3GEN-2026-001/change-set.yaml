@@ -9,16 +9,23 @@ objective:
 affected_systems: [SYS-L3GEN]
 affected_teams: [TEAM-L3GEN]
 flow: new-system
-tier: null
+tier: T1
 proposed_tier: T1
-tier_reason: "Đề xuất thận trọng cho hệ thống mới có remote ingestion; mentor xác nhận tại intake."
+tier_reason: "Hệ thống mới có tiếp nhận nguồn từ xa. T1 là mức nghiêm ngặt nhất nên đây là nâng, không phải hạ tier; không cần waiver. Khiêm chốt tại intake 17/09/2026; mentor xác nhận lại tại Scope Gate."
 coordination:
   mode: independent
   integration_gate_required: false
 derived_from: []
 change_request: CR-L3GEN-2026-001
-intake_status: not_run
-impact_status: not_run
+intake_status: done_pending_mentor_confirmation
+impact_status: done_local_graph
 scope_gate_status: not_run
-baseline_candidate: baseline/BL-r8.yaml
-note: "Shell phục vụ review full product; M1–M3 là mốc kiểm tra nội bộ, chưa xác định các đợt release. Nếu giao riêng từng mốc, tách Change Set/baseline tương ứng trước khi chốt. Intake/impact/tier và Scope Gate chưa hoàn tất; xem docs/PRD-REVIEW-README.md."
+intake:
+  performed_by: "Khiêm"
+  role_claimed: product-owner
+  role_confirmed: false
+  date: "2026-09-17"
+  decisions: "flow new-system; tier T1; CR-L3GEN-2026-001 là yêu cầu gốc đã ghi nguyên văn"
+  note: "Khiêm tự nhận vai product-owner để gỡ thế chờ. Vai chính thức do OQ-L3GEN-001 quyết định và OQ đó còn mở; đây không phải phê duyệt của mentor."
+baseline_candidate: baseline/BL-r12.yaml
+note: "Shell phục vụ review full product; M1–M3 là mốc kiểm tra nội bộ, chưa xác định các đợt release. Nếu giao riêng từng mốc, tách Change Set/baseline tương ứng trước khi chốt. Intake và tier đã chốt ở mức nhóm, chờ mentor xác nhận vai. Impact đã chạy từ graph cục bộ dựng bằng frontmatter, không phải metadata graph tập trung; xem confidence và skipped_with_reason trong impact.yaml. Scope Gate chưa hoàn tất. Xem docs/PRD-REVIEW-README.md."

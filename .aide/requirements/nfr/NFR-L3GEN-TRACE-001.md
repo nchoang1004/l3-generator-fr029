@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 1
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"constrains":["FR-L3GEN-001","FR-L3GEN-002","FR-L3GEN-003","FR-L3GEN-004","FR-L3GEN-005","FR-L3GEN-006","FR-L3GEN-007","FR-L3GEN-008","FR-L3GEN-011","FR-L3GEN-013","FR-L3GEN-014","FR-L3GEN-015"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-004"]}
+relations: {"constrains":["FR-L3GEN-001","FR-L3GEN-002","FR-L3GEN-003","FR-L3GEN-004","FR-L3GEN-005","FR-L3GEN-006","FR-L3GEN-007","FR-L3GEN-008","FR-L3GEN-011","FR-L3GEN-013","FR-L3GEN-014","FR-L3GEN-015","FR-L3GEN-018"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-004"]}
 verified_at: null
 verified_against: []
 classification: "internal"

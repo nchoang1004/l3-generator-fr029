@@ -3,9 +3,10 @@
 Cập nhật: 17/09/2026. Đây là bản tiếp tục công việc, không phải chứng nhận V2 đã hoàn tất.
 Đọc file này đầu phiên; đối chiếu code trước khi khẳng định năng lực hiện tại.
 
-> **Hồ sơ yêu cầu đã chuyển sang bản chuẩn của `develop`.** Từ 17/09/2026, PRD/FR/NFR
-> chuẩn là bộ 17 FR và 11 NFR trong `.aide/`. Bộ 5 FR và 5 NFR cũ của nhánh này đã bị
-> thay. Xem mục 9 ở cuối file.
+> **Hồ sơ yêu cầu đã đồng bộ với `main`.** Từ 17/09/2026, PRD/FR/NFR chuẩn là bộ
+> **18 FR và 11 NFR** trong `.aide/`, baseline candidate **BL-r12**. Nhánh này nay mang
+> đúng hồ sơ của `main` cùng `scripts/`, và giữ riêng code, test và tài liệu kỹ thuật.
+> Xem mục 9, 10 và 11.
 
 ## 1. Việc đang làm và thứ tự đã chốt
 
@@ -29,8 +30,7 @@ Người dùng đã chốt hướng kéo sản phẩm về đúng Code → L3:
 **18 FR với 83 AC**, 11 NFR, 2 OBS, 1 ADR và 6 Open Question, tất cả trong `.aide/`.
 Baseline candidate là `BL-r9.yaml` với 40 artifact. Chưa qua Scope Gate, chưa được duyệt.
 
-Con số trên thuộc nhánh `main` và `develop`. **Nhánh v2 này chưa nhận các commit đó** —
-xem mục 10.
+Nhánh này đã nhận đủ các commit đó, xem mục 11.
 
 File [`PRD-L3GEN.md`](../.aide/product/prd/PRD-L3GEN.md) revision 6 vẫn còn ở nhánh này và
 mang **cùng key** `PRD-L3GEN-2609-001` với file trên. Trên `main` và `develop` file cũ này
@@ -487,8 +487,7 @@ Nếu chỉ sửa tay mà không chạy kiểm thì lỗi này lọt — đúng 
 3. **Năm OQ còn `open`**, hạn 19/09/2026. `OQ-L3GEN-005` đã `answered`. `OQ-L3GEN-001` mới trả
    lời được một trong bốn câu và vẫn là nút thắt.
 4. ~~Chưa push~~ — `main` và `develop` đã push, cùng ở `10a0c24`.
-5. **Nhánh v2 vẫn chưa nhận hồ sơ mới** — ở đây vẫn là 17 FR/BL-r8 và chưa có `scripts/`.
-   Cần quyết có đồng bộ sang không.
+5. ~~Nhánh v2 vẫn chưa nhận hồ sơ mới~~ — đã đồng bộ, xem mục 11.
 
 ### 10.7 Lượt thứ hai — OQ-005, intake, impact
 
@@ -543,4 +542,64 @@ Bước 2 đã làm hết mức có thể mà không cần mentor.
   cách tạo ra lệch âm thầm mà đọc mắt không thấy.
 - Link tương đối trong thân artifact không nhúng nguyên văn sang view được: chúng viết theo thư
   mục file gốc. Bản render đầu tiên có 71 link hỏng; phải tính lại gốc theo vị trí view.
+
+
+## 11. Nhật ký 17/09/2026 — Đồng bộ hồ sơ về nhánh v2 và dọn tài liệu lỗi thời
+
+- Yêu cầu: đưa hồ sơ mới từ `main` về nhánh v2, cập nhật HANDOFF và các file `.md` cần thiết
+  để chuẩn bị làm slide báo cáo tuần. Nội dung slide xử lý ở lượt sau.
+
+### 11.1 Cách đồng bộ
+
+Hai nhánh **không có tổ tiên chung** (`git merge-base` trả rỗng) nên không merge bằng cách thường.
+Đồng bộ bằng `git checkout main -- .aide/ scripts/`: lấy đúng hai thư mục đó, giữ nguyên `src/`,
+`tests/` và các file riêng của nhánh này.
+
+**Quyết định của người dùng:** giữ lại `PRD-L3GEN.md` cũ. Nhánh này vì thế vẫn có hai file cùng
+key `PRD-L3GEN-2609-001`. Đây là lựa chọn có ý thức, không phải sót — nhưng trùng key sẽ bị CI
+reject nếu sau này chạy `check-sdlc`, và người đọc không biết file nào là nguồn. Cần xử lý trước
+Scope Gate.
+
+**Kiểm ngay sau checkout:** 40/40 hash BL-r12 khớp. `.gitattributes` đã có trên nhánh này nên
+lỗi line ending ở mục 9.6 không lặp lại.
+
+### 11.2 Hai file tài liệu lỗi thời đã sửa
+
+Hai file này lệch trên **mọi nhánh**, không riêng v2:
+
+| File | Trước | Sau |
+|---|---|---|
+| `README.md` | Candidate BL-r7 | BL-r12 |
+| `docs/PRD-REVIEW-README.md` | BL-r8; "17 FR/69 AC, 10 NFR"; "script không có trong nhánh này" | BL-r12; 18 FR/83 AC, 11 NFR; script đã có, kèm ba lệnh chạy thật |
+
+`PRD-REVIEW-README.md` còn ghi "Intake/impact chưa chạy; tier T1 mới là đề xuất" — nay sửa thành
+đã chạy ở mức nhóm, kèm `role_confirmed: false` và ghi rõ `impact.yaml` dựng từ graph cục bộ với
+`confidence: low`, không thay việc mentor rà soát.
+
+Ba lệnh trong file đó trước đây trỏ tới `prepare_prd_sources.py`, `snapshot` và
+`test_prd_package.py` — đều không tồn tại. Đã thay bằng ba lệnh chạy được thật.
+
+### 11.3 Kiểm chứng
+
+- BL-r12: **40/40 hash và revision khớp** sau khi checkout sang nhánh này.
+- `README.md` và `docs/PRD-REVIEW-README.md`: **0 link hỏng**.
+- **Chưa chạy pytest.** Lượt này không sửa code sản phẩm; `src/` và `tests/` giữ nguyên.
+  Số 112 test đạt vẫn là kết quả ngày 16/09, không dùng như kết quả mới.
+
+### 11.4 Việc còn lại
+
+1. **Năm OQ chờ mentor**, hạn 19/09/2026. `OQ-L3GEN-005` đã `answered`; `OQ-L3GEN-001` mới trả
+   lời được một trong bốn câu.
+2. **Hai file cùng key PRD** trên nhánh này, theo quyết định giữ lại. Phải xử lý trước Scope Gate.
+3. **Báo cáo kiểm gói** ở `.aide/generated/traceability/PRD-PACKAGE-CHECK.md` vẫn là bản render
+   theo baseline cũ. `scripts/prd_package.py` hiện chỉ sinh Change Set View, chưa sinh file này.
+4. **`pyproject.toml` chưa khai PyYAML.** `scripts/impact.py` dùng nó để tự kiểm cú pháp; thiếu
+   thì script vẫn chạy nhưng bỏ qua bước kiểm và báo rõ.
+5. **Slide báo cáo tuần** — chưa bắt đầu. Đối tượng và nội dung chưa chốt.
+
+### 11.5 Kinh nghiệm
+
+- Tài liệu hướng dẫn người khác chạy lệnh là chỗ dễ lỗi thời nhất mà không ai phát hiện:
+  `PRD-REVIEW-README.md` liệt năm lệnh, ba trong số đó trỏ tới file chưa từng tồn tại trong repo.
+  Không ai chạy thử nên không ai biết. Nên kiểm bằng cách chạy thật, không đọc lướt.
 

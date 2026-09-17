@@ -6,7 +6,7 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 2
+revision: 3
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"satisfies":["GOAL-L3GEN-001"],"constrained_by":["NFR-L3GEN-COMP-001","NFR-L3GEN-REL-001","NFR-L3GEN-SEC-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-001"]}
 verified_at: null
@@ -19,7 +19,7 @@ ai_assisted: true
 
 ## Mô tả
 
-Người dùng xem được những phần repository được phân tích, bị bỏ qua hoặc chưa xác định được stack.
+Người dùng xem được những phần repository được phân tích, bị bỏ qua hoặc chưa xác định được stack, cùng các điểm khởi động ứng dụng dùng để xác định ranh giới đơn vị.
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -69,6 +69,16 @@ Người dùng xem được những phần repository được phân tích, bị
 - `implementation_target:` []
 - `validated_by:` []
 - **Cách kiểm dự kiến:** Không hứa chạy extractor chưa tồn tại.
+
+### AC-L3GEN-002-05
+
+- **Given:** Repository có nhiều thư mục chứa mã thuộc stack hỗ trợ, trong đó một số thư mục có điểm khởi động ứng dụng và một số chỉ chứa mã dùng chung.
+- **When:** người dùng phân tích repository.
+- **Then:** công cụ liệt kê các điểm khởi động phát hiện được kèm file, vị trí và luật nhận diện đã dùng; mỗi đơn vị phân tích nêu rõ có hay không có điểm khởi động; thư mục chỉ chứa mã dùng chung không bị công bố là ứng dụng riêng.
+- `constrained_by:` [NFR-L3GEN-COMP-001, NFR-L3GEN-REL-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Đối chiếu danh sách điểm khởi động với kiểm tay trên repo mẫu có nhiều ứng dụng. Không suy ra điểm khởi động chỉ từ tên file hoặc tên thư mục; không có điểm khởi động nào phát hiện được thì ghi phần chưa xác định kèm lý do, không chọn bừa một file làm điểm khởi động.
 
 ## Trạng thái liên kết triển khai
 
