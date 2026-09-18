@@ -21,7 +21,7 @@ Người dùng đã chốt hướng kéo sản phẩm về đúng Code → L3:
 3. Repository Knowledge Graph đầy đủ không phải sản phẩm chính của dự án này.
 4. Resolver được giữ làm công cụ nội bộ nhưng không tiếp tục mở rộng nếu không phục vụ câu hỏi L3.
 5. Unresolved raw call không được biến thành semantic edge nét đứt.
-6. **Đã thay bằng mô hình hai kênh (17/09/2026).** Dòng lệnh và web có phạm vi khác nhau, không phải chính và phụ: dòng lệnh nhận thư mục cục bộ rồi phân tích và ghi file; web nhận ZIP hoặc URL GitHub public và thêm khám phá, evidence, lịch sử, job/API, xuất. Khám phá tương tác và lịch sử chỉ có trên web. Hai kênh dùng chung một engine nên cùng source phải cho cùng kết luận.
+6. **Đã thay bằng mô hình hai kênh (17–18/09/2026).** Dòng lệnh nhận thư mục cục bộ rồi phân tích và ghi file; web nhận ZIP hoặc URL GitHub public, theo dõi lần chạy hiện tại, khám phá, xem evidence và xuất. Public job API, lịch sử nhiều phiên, mở lại kết quả cũ và retention thuộc FR-L3GEN-017 ở phase sau. Hai kênh dùng chung một engine nên cùng source phải cho cùng kết luận cốt lõi.
 7. Ba hình thức đầu vào nay gắn với kênh cụ thể, không phải kênh nào cũng nhận cả ba. Đây là phạm vi yêu cầu, chưa phải tuyên bố code hiện tại đã hỗ trợ.
 8. Kết quả được khám phá theo mục tiêu: tổng quan, application/component, API/luồng gọi, dữ liệu/tích hợp, phụ thuộc, bằng chứng nguồn, chất lượng/giới hạn và xuất artifact.
 
@@ -47,10 +47,11 @@ từ `main`. File cũ **không** nằm trong BL-r14, nên không ảnh hưởng 
 trùng key vẫn là rủi ro: CI `check-sdlc` nếu chạy sẽ reject, và người đọc không biết file
 nào là nguồn. Scope Gate đã duyệt mà việc này chưa xử lý, nên nó chuyển thành nợ kỹ thuật
 của riêng nhánh v2, xem mục 12.5.
-Sơ đồ use case, `USE_CASES.md`, `SCENARIOS.md`, SPEC và README đã cùng mô tả sản phẩm
-có giao diện với ba hình thức đầu vào và lịch sử phân tích. Đây là phạm vi mục tiêu:
-code hiện chỉ nhận thư mục cục bộ qua dòng lệnh, giao diện chỉ đọc output đã sinh, và
-phần ZIP/GitHub/lịch sử chưa được viết code.
+Sơ đồ use case, `USE_CASES.md`, `SCENARIOS.md`, SPEC và README là tài liệu tham khảo lịch
+sử, nhưng có chỗ chưa theo kịp BL-r14, đặc biệt phần lịch sử phân tích và ma trận pattern.
+Nguồn chuẩn hiện tại là PRD/FR/NFR trong BL-r14: phase đầu có CLI local và web ZIP/GitHub
+cho lần chạy hiện tại; FR-L3GEN-017 về lịch sử/public job API thuộc phase sau. Code lịch sử
+trên nhánh `feat/language-first-semantic-v2` chưa phải bằng chứng các phạm vi này đã đạt.
 
 Tạm bỏ qua EVALUATION và examples; không dùng số đo V1 để chứng minh V2. Chưa sửa code
 sản phẩm và chưa thực hiện thao tác Git trong lượt đồng bộ tài liệu này.
@@ -118,7 +119,7 @@ Comment đầu builder còn nói application boundary là việc tương lai, tr
 - Parse được file không đồng nghĩa hiểu hết ngữ nghĩa trong file. Phải giữ ghi chú phần chưa hỗ trợ.
 - Chưa xác nhận chất lượng V2 bằng đánh giá đầy đủ. Không ghi “hoàn tất V2” chỉ vì các tầng đã có code.
 
-## 5. Pipeline và contract đã chốt ở mức tài liệu
+## 5. Pipeline lịch sử để tham khảo — chưa qua Architecture Gate
 
 ```text
 File Inventory + Analysis Context
@@ -132,7 +133,12 @@ File Inventory + Analysis Context
 → L3 Projection + Validation + Outputs
 ```
 
-Khoảng cách chính giữa code và contract mới:
+Pipeline trên đến từ SPEC/Architecture V2 cũ. Nó chứa các ý hữu ích nhưng **không phải
+luồng chạy hoặc cách chia component đã chốt**. Sau Scope Gate, quy trình yêu cầu Domain,
+L1 và các phương án L2; Architecture Gate mới quyết định cấu trúc. Không ép thiết kế mới
+phải giữ số bước, ranh giới hoặc thứ tự của pipeline này.
+
+Khoảng cách lịch sử từng được ghi nhận:
 
 - chưa có Component Synthesis hoàn chỉnh;
 - IAM còn trộn dữ liệu kỹ thuật và kiến trúc;
@@ -142,9 +148,9 @@ Khoảng cách chính giữa code và contract mới:
 - event/config relationship chưa hoàn chỉnh;
 - registry chưa thể hiện dải phiên bản framework.
 
-Thứ tự code tiếp theo: acceptance test → Architecture IAM/projection → component
-synthesis → output/UI → đo resolver → sau đó mới EVALUATION/examples. Không xóa resolver
-ồ ạt và không mở rộng resolver tổng quát trước khi có acceptance criterion L3.
+Chuỗi “acceptance test → Architecture IAM/projection → component synthesis → output/UI”
+chỉ là đề xuất migration của spec cũ, chưa phải kế hoạch code được duyệt. Trước khi lập
+task phải hoàn thành L1, so sánh phương án L2, threat model và Architecture Gate.
 
 ## 6. Quy tắc tự cập nhật bàn giao
 
@@ -786,3 +792,23 @@ nhánh tài liệu không tự kiểm được baseline.
   sửa tài liệu, không sửa song song ở cả hai.
 - `docs/HANDOFF.md` nay khác nhau giữa hai nhánh: bản trên `docs/gate-2` có mục 13 và ghi chú
   ở mục 3. Nếu muốn hai bên giống nhau thì phải cherry-pick hoặc chép tay.
+
+## 14. Nhật ký 18/09/2026 — Bắt đầu Domain design sau Scope Gate
+
+- Yêu cầu: bắt đầu bước đầu sau Gate 1, dùng SPEC cũ để tham khảo nhưng không chốt một
+  “luồng chạy” đơn giản hoặc coi thiết kế cũ là đúng sẵn.
+- Đã đọc đối chiếu `SPEC_Code_to_L3_Generator.md`, `docs/ARCHITECTURE_V2_IDEA.md`,
+  `docs/AGENTIC_SDLC_LOG.md`, PRD/FR/NFR của BL-r14 và thứ tự B.5–B.8 trong quy trình.
+- Kết luận: bước đầu là Domain design — thống nhất thuật ngữ và invariant. Pipeline và
+  component split thuộc L2, chỉ được quyết sau khi có L1, 2–3 phương án và Architecture
+  Gate. Không chọn luồng triển khai trong lượt này.
+- Đã bump `.aide/domain/glossary-core.md` revision 1 → 2; tách rõ source/run, fact/claim,
+  architecture/evidence model, nhãn chất lượng và thêm 10 bất biến không phụ thuộc phương
+  án kiến trúc. Đồng thời ghi rõ phần nào của spec cũ còn dùng được và phần nào lệch BL-r14.
+- Đã sửa mục 1 và mục 5 của HANDOFF: FR-L3GEN-017 thuộc phase sau; pipeline cũ chỉ là tham
+  khảo, không còn được gọi là contract đã chốt.
+- Kiểm chứng: `git diff --check` đạt. Không chạy pytest vì nhánh này không có code/test.
+  `BL-r14` vẫn là Scope Gate đã duyệt tại commit được pin; working tree nay có draft Domain
+  revision 2 nên không được báo là còn khớp hash BL-r14 trên cây hiện tại.
+- Việc tiếp theo: review/chốt glossary và invariant; sau đó lập L1 capability map. Chưa tạo
+  CMP, chưa điền `implementation_target`, chưa chọn architecture pipeline.
