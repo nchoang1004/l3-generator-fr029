@@ -1,12 +1,16 @@
 # Bàn giao — Code → L3 Generator
 
-Cập nhật: 17/09/2026. Đây là bản tiếp tục công việc, không phải chứng nhận V2 đã hoàn tất.
+Cập nhật: 18/09/2026. Đây là bản tiếp tục công việc, không phải chứng nhận V2 đã hoàn tất.
 Đọc file này đầu phiên; đối chiếu code trước khi khẳng định năng lực hiện tại.
 
-> **Hồ sơ yêu cầu đã đồng bộ với `main`.** Từ 17/09/2026, PRD/FR/NFR chuẩn là bộ
-> **18 FR và 11 NFR** trong `.aide/`, baseline candidate **BL-r12**. Nhánh này nay mang
-> đúng hồ sơ của `main` cùng `scripts/`, và giữ riêng code, test và tài liệu kỹ thuật.
-> Xem mục 9, 10 và 11.
+> **Scope Gate đã duyệt trên baseline BL-r14, ngày 18/09/2026.** Hồ sơ chuẩn là
+> **18 FR, 84 AC và 11 NFR** trong `.aide/`; **cả 6 Open Question đã `closed`**.
+> Nhánh này mang đúng `.aide/` và `scripts/` của `main`, và giữ riêng code, test
+> cùng tài liệu kỹ thuật. Xem mục 12.
+>
+> **Approval chỉ chốt phạm vi và yêu cầu.** Không có kết quả nghiệm thu sản phẩm,
+> benchmark hay UAT nào được ghi nhận. Code trên nhánh này không phải bằng chứng
+> yêu cầu đã đạt. Xem mục 3, 4 và 12.4.
 
 ## 1. Việc đang làm và thứ tự đã chốt
 
@@ -25,17 +29,24 @@ Người dùng đã chốt hướng kéo sản phẩm về đúng Code → L3:
 [USE_CASES.md](USE_CASES.md), [SCENARIOS.md](SCENARIOS.md),
 [SPEC](../SPEC_Code_to_L3_Generator.md) và [README](../README.md).
 
-**Hồ sơ yêu cầu chuẩn, cập nhật 17/09/2026 (lượt chiều):**
-[`PRD-L3GEN-2609-001.md`](../.aide/product/prd/PRD-L3GEN-2609-001.md) revision 15,
-**18 FR với 83 AC**, 11 NFR, 2 OBS, 1 ADR và 6 Open Question, tất cả trong `.aide/`.
-Baseline candidate là `BL-r9.yaml` với 40 artifact. Chưa qua Scope Gate, chưa được duyệt.
+**Hồ sơ yêu cầu chuẩn, cập nhật 18/09/2026:**
+[`PRD-L3GEN-2609-001.md`](../.aide/product/prd/PRD-L3GEN-2609-001.md) revision 23,
+**18 FR với 84 AC**, 11 NFR, 2 OBS, 1 ADR và 6 Open Question **đã closed**, tất cả trong `.aide/`.
+Baseline Gate 1 đã duyệt là [`BL-r14.yaml`](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/baseline/BL-r14.yaml)
+với 40 artifact, khóa tại commit `1c283509c3ec1eec5e65de1005f00a8d4e3cbc91` của `main`.
 
-Nhánh này đã nhận đủ các commit đó, xem mục 11.
+Nhánh này đã nhận đủ các commit đó, xem mục 12.
 
 File [`PRD-L3GEN.md`](../.aide/product/prd/PRD-L3GEN.md) revision 6 vẫn còn ở nhánh này và
 mang **cùng key** `PRD-L3GEN-2609-001` với file trên. Trên `main` và `develop` file cũ này
 không tồn tại, nên việc trùng key chỉ còn tồn đọng ở nhánh v2. Bộ 5 FR/52 AC và 5 NFR cũ
 đã bị bộ FR chuẩn thay thế.
+
+**Ngày 18/09/2026 người dùng chọn tiếp tục giữ file cũ** khi đồng bộ `.aide/` nguyên khối
+từ `main`. File cũ **không** nằm trong BL-r14, nên không ảnh hưởng hash baseline. Nhưng
+trùng key vẫn là rủi ro: CI `check-sdlc` nếu chạy sẽ reject, và người đọc không biết file
+nào là nguồn. Scope Gate đã duyệt mà việc này chưa xử lý, nên nó chuyển thành nợ kỹ thuật
+của riêng nhánh v2, xem mục 12.5.
 Sơ đồ use case, `USE_CASES.md`, `SCENARIOS.md`, SPEC và README đã cùng mô tả sản phẩm
 có giao diện với ba hình thức đầu vào và lịch sử phân tích. Đây là phạm vi mục tiêu:
 code hiện chỉ nhận thư mục cục bộ qua dòng lệnh, giao diện chỉ đọc output đã sinh, và
@@ -588,13 +599,14 @@ Ba lệnh trong file đó trước đây trỏ tới `prepare_prd_sources.py`, `
 
 ### 11.4 Việc còn lại
 
-1. **Năm OQ chờ mentor**, hạn 19/09/2026. `OQ-L3GEN-005` đã `answered`; `OQ-L3GEN-001` mới trả
-   lời được một trong bốn câu.
-2. **Hai file cùng key PRD** trên nhánh này, theo quyết định giữ lại. Phải xử lý trước Scope Gate.
-3. **Báo cáo kiểm gói** ở `.aide/generated/traceability/PRD-PACKAGE-CHECK.md` vẫn là bản render
-   theo baseline cũ. `scripts/prd_package.py` hiện chỉ sinh Change Set View, chưa sinh file này.
+1. ~~**Năm OQ chờ mentor**~~ — cả 6 OQ đã `closed` ngày 18/09/2026, xem mục 12.2.
+2. **Hai file cùng key PRD** trên nhánh này, theo quyết định giữ lại. Vẫn còn; Scope Gate đã
+   duyệt mà chưa xử lý, xem mục 12.5.
+3. ~~**Báo cáo kiểm gói** theo baseline cũ~~ — `PRD-PACKAGE-CHECK.md` đã được cập nhật theo
+   BL-r14 trên `main` và đồng bộ sang nhánh này.
 4. **`pyproject.toml` chưa khai PyYAML.** `scripts/impact.py` dùng nó để tự kiểm cú pháp; thiếu
-   thì script vẫn chạy nhưng bỏ qua bước kiểm và báo rõ.
+   thì script vẫn chạy nhưng bỏ qua bước kiểm và báo rõ. Đã kiểm lại ngày 18/09: `dependencies`
+   vẫn chỉ có `pydantic`. `main` không có `pyproject.toml` nên việc này chỉ thuộc nhánh v2.
 5. **Slide báo cáo tuần** — chưa bắt đầu. Đối tượng và nội dung chưa chốt.
 
 ### 11.5 Kinh nghiệm
@@ -603,3 +615,113 @@ Ba lệnh trong file đó trước đây trỏ tới `prepare_prd_sources.py`, `
   `PRD-REVIEW-README.md` liệt năm lệnh, ba trong số đó trỏ tới file chưa từng tồn tại trong repo.
   Không ai chạy thử nên không ai biết. Nên kiểm bằng cách chạy thật, không đọc lướt.
 
+
+## 12. Nhật ký 18/09/2026 — Gate 1 đã duyệt trên BL-r14 và đồng bộ về nhánh v2
+
+- Yêu cầu: đọc commit gần đây để biết đã làm gì, rồi cập nhật HANDOFF ở nhánh v2.
+- Việc hồ sơ dưới đây **làm trên `develop`/`main`**, không phải trên nhánh này. Nhánh v2 lượt
+  này chỉ nhận đồng bộ và cập nhật bàn giao; `src/` và `tests/` không đổi.
+
+### 12.1 Bốn commit mới trên `main`
+
+| Commit | Ai | Nội dung |
+|---|---|---|
+| `1819b21` | Hoàng | Chuẩn bị hồ sơ và phương án OQ để review. Baseline candidate BL-r13 |
+| `004b0c0` | Hoàng | Merge BL-r13 vào `main` |
+| `1c28350` | Khiêm | Chốt quyết định 6 OQ, PRD lên revision 23, baseline candidate BL-r14 |
+| `2e47561` | Khiêm | Ghi review record và approval record; BL-r14 chuyển `approved` |
+
+`1a04dc8` là merge `develop` vào `main`. Hai nhánh nay cùng nội dung `.aide/`.
+
+BL-r13 là **bản chuẩn bị**: `status: draft`, `candidate_only: true`, `approval: null`. Hoàng
+soạn phương án cho từng OQ nhưng không tự ghi quyết định thay người dùng. BL-r14 mới là bản
+có quyết định và approval.
+
+### 12.2 Sáu Open Question đều đã `closed`
+
+Trước lượt này năm OQ còn `open` và `OQ-L3GEN-001` là nút thắt. Nay cả sáu đã đóng, vì
+**mentor trao quyền quyết định cho Khiêm và Hoàng** — đó là dữ kiện gỡ được thế chờ.
+
+| OQ | Quyết định chốt |
+|---|---|
+| 001 Vai và mã tổ chức | Khiêm là `product-owner` và người ký Scope Gate; Hoàng là reviewer nội bộ và người UAT mặc định; hai mentor là reviewer/cố vấn, **không** phải người ký bắt buộc. Không có registry chính thức nên giữ `SYS-L3GEN`, `TEAM-L3GEN` và các UID hiện có |
+| 002 Phạm vi và lịch giao | Phase đầu 11/09–09/10/2026 là **một vertical slice Python/FastAPI** qua cả CLI và web. Giữ FR-013/016. **FR-017 đầy đủ và toàn bộ Java/Spring Boot chuyển phase sau.** FR-012 (AI) là Should/Stretch |
+| 003 Ma trận pattern | Nguồn chuẩn là NFR-L3GEN-COMP-001 revision 8. Python 3.10–3.12, FastAPI decorator trực tiếp, SQLAlchemy declarative `Column`, `requests`/`httpx`, `os.getenv`/`BaseSettings`, `confluent_kafka`. SQLModel, `mapped_column`, `add_api_route` và resolution động **ngoài** phase đầu |
+| 004 Ngưỡng chất lượng | Precision exact **≥90%** cho route/entity/HTTP/config/event/internal call edge; recall giữ nguyên. Dataset ≥3 repo Python public pin commit. Khiêm và Hoàng lập ground truth **độc lập trước khi xem output**. Thiếu người ngoài nhóm thì KPI-001/002 ghi `not_evaluated` |
+| 005 Web, dữ liệu và AI | Web chạy local, không công khai Internet, không multi-tenant. Chỉ GitHub public qua HTTPS và ZIP. AI **mặc định tắt**, trần chi phí trả phí **0 đồng**, chỉ dùng quota miễn phí |
+| 006 Quy trình khi thiếu tooling | Chấp nhận schema/UID hiện tại và `scripts/prd_package.py`, `scripts/impact.py` làm **tooling cục bộ cho Gate 1**, có công bố giới hạn. `implementation_target` và `validated_by` được để trống ở Scope Gate, phải xong trước Definition of Ready cho code |
+
+Điểm cần giữ khi đọc lại: **đóng OQ không đồng nghĩa đã đo được.** OQ-004 chốt ngưỡng nhưng
+mọi phép đo vẫn `not_run`. OQ-003 chốt ma trận nhưng ma trận là hợp đồng phạm vi, không phải
+bằng chứng code đã làm xong.
+
+### 12.3 Scope Gate — hai evidence record mới
+
+Hai file mới ở `.aide/evidence/`, không nằm trong thư mục change-set:
+
+- `reviews/REVIEW-SCOPE-L3GEN-2026-001.yaml` — reviewer Hoàng, `decision: approved`,
+  `findings: []`, `evidence_mode: user_attestation`.
+- `approvals/APPROVAL-SCOPE-L3GEN-2026-001.yaml` — `approved_by: Khiêm`, ngày 18/09/2026,
+  khóa `baseline_commit: 1c283509c3ec1eec5e65de1005f00a8d4e3cbc91`.
+
+`change-set.yaml` đổi theo: `status` `draft`→`active`, `scope_gate_status` `not_run`→`approved`,
+`intake_status` `done_pending_mentor_confirmation`→`done`, `role_confirmed` `false`→`true`.
+
+Ba điều kiện kèm trong approval, cần nhớ vì chúng ràng buộc các lượt sau:
+
+1. Mọi thay đổi PRD/FR/AC sau approval **phải đi qua change request và baseline mới**.
+2. `implementation_target` và `validated_by` phải xong trước Definition of Ready cho code.
+3. Benchmark, threat-model test, product test, accessibility và UAT vẫn phải ghi
+   pass/failed/not_run ở các gate tương ứng.
+
+### 12.4 Đồng bộ về nhánh v2 và kiểm chứng
+
+Quyết định của người dùng: **thay `.aide/` nguyên khối từ `main`**, nhưng **giữ lại**
+`PRD-L3GEN.md` cũ. Đã làm bằng `git rm -r --cached .aide/` rồi `git checkout main -- .aide/ scripts/`,
+sau đó restore riêng file PRD cũ.
+
+`README.md` và `docs/PRD-REVIEW-README.md` trên nhánh này còn ghi "candidate BL-r12, chưa qua
+Scope Gate" — đã thay bằng bản của `main`. Hai file này không nằm trong baseline nên không
+ảnh hưởng hash.
+
+**Kiểm chứng thực tế lượt này:**
+
+- `python scripts/prd_package.py check --baseline BL-r14.yaml` trên nhánh v2 sau khi đồng bộ:
+  **40/40 artifact khớp hash, revision, key và UID**, exit 0. Lỗi line ending ở mục 9.6 không
+  lặp lại vì `.gitattributes` đã có sẵn.
+- Đếm độc lập bằng `grep`/`ls`: **18 file FR, 11 file NFR, 84 mã AC không trùng, 0 OQ `open`,
+  6 OQ `closed`**. Khớp con số trong approval record.
+- `git diff --name-status main -- .aide/ scripts/ README.md docs/PRD-REVIEW-README.md`: chỉ còn
+  một dòng `A .aide/product/prd/PRD-L3GEN.md`. Đúng như chủ ý.
+- Đọc lại toàn bộ AC của FR-L3GEN-015 để xác nhận AC thứ 84 (`AC-L3GEN-015-05`, Java
+  `KafkaTemplate`/`@KafkaListener`) có đủ Given/When/Then, không phải AC rỗng.
+- **Chưa chạy pytest.** Lượt này không sửa code sản phẩm. Số 112 test đạt vẫn là kết quả ngày
+  16/09/2026, không dùng như kết quả mới.
+
+### 12.5 Việc còn lại
+
+1. **Hai file cùng key PRD trên nhánh v2.** Người dùng đã chọn giữ lại hai lần. File cũ không
+   nằm trong BL-r14 nên không làm sai hash, nhưng CI `check-sdlc` nếu chạy sẽ reject. Cần quyết
+   dứt điểm trước khi mở merge request.
+2. **`pyproject.toml` chưa khai PyYAML** — vẫn chỉ có `pydantic`. Xem mục 11.4 ý 4.
+3. **Chưa mở merge request.** Nhánh v2 và `main` vẫn là hai lịch sử không có tổ tiên chung.
+4. **Bước sau Gate 1 chưa bắt đầu:** `implementation_target` và `validated_by` đang trống ở mọi
+   AC, phải xong trước Definition of Ready cho code. Đây là việc chặn code tiếp theo.
+5. **Khoảng cách hồ sơ so với code chưa thu hẹp.** OQ-002 chốt phase đầu là vertical slice
+   Python/FastAPI qua **cả CLI và web**, nhận cả **ZIP và GitHub public**. Code hiện chỉ nhận
+   thư mục cục bộ qua dòng lệnh; ZIP, GitHub và web job chưa có. Mốc nghiệm thu là 09/10/2026.
+6. **Slide báo cáo tuần** — chưa bắt đầu.
+
+### 12.6 Kinh nghiệm
+
+- **Đóng câu hỏi và đạt yêu cầu là hai việc khác nhau.** Sau lượt này hồ sơ không còn OQ nào
+  mở và Gate 1 đã ký, nhưng chưa có một phép đo chất lượng nào được chạy. Rất dễ đọc
+  "6/6 closed, Gate 1 approved" thành "sản phẩm đã ổn". Approval record tự nó ghi rõ điều
+  ngược lại; nên dẫn lại câu đó mỗi lần báo cáo trạng thái.
+- **Một dữ kiện tổ chức gỡ được năm câu hỏi kỹ thuật.** Năm OQ bị chặn suốt hai ngày chỉ vì
+  chưa biết ai có quyền quyết. Khi biết mentor đã trao quyền cho nhóm, cả năm đóng trong một
+  lượt. Lần sau nên tách câu hỏi về thẩm quyền ra hỏi trước, đừng để nó nằm chung hàng đợi
+  với câu hỏi kỹ thuật.
+- **Người review nên chuẩn bị phương án, không ghi quyết định.** BL-r13 của Hoàng giữ đúng
+  ranh giới đó: `candidate_only: true`, `approval: null`, soạn sẵn phương án cho từng OQ để
+  người có quyền chọn. Nhờ vậy BL-r14 chỉ việc ghi quyết định, không phải sửa lại hồ sơ.
