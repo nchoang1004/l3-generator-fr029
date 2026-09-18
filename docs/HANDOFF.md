@@ -75,6 +75,11 @@ sản phẩm và chưa thực hiện thao tác Git trong lượt đồng bộ t�
 
 Luồng chính đã dùng các thành phần V2 dưới đây. “Có code” không có nghĩa mọi tình huống đã được kiểm chứng.
 
+> **Trên nhánh `docs/gate-2` các liên kết trong bảng này không mở được.** Nhánh đó chỉ
+> mang tài liệu; `src/`, `tests/`, `evaluation/`, `examples/` và `pyproject.toml` đã được
+> xóa khỏi nhánh. Bảng vẫn giữ để biết code nằm ở đâu; mở trên nhánh
+> `feat/language-first-semantic-v2` mới thấy file.
+
 | Phần | Bằng chứng trong source | Hiện trạng |
 |---|---|---|
 | Điều phối | [pipeline.py](../src/l3gen/pipeline.py), [builder.py](../src/l3gen/core/builder.py) | Builder gọi frontend, resolver và adapter V2 |
@@ -725,3 +730,59 @@ Scope Gate" — đã thay bằng bản của `main`. Hai file này không nằm 
 - **Người review nên chuẩn bị phương án, không ghi quyết định.** BL-r13 của Hoàng giữ đúng
   ranh giới đó: `candidate_only: true`, `approval: null`, soạn sẵn phương án cho từng OQ để
   người có quyền chọn. Nhờ vậy BL-r14 chỉ việc ghi quyết định, không phải sửa lại hồ sơ.
+
+## 13. Nhật ký 18/09/2026 — Tạo nhánh `docs/gate-2` chỉ mang tài liệu
+
+- Yêu cầu: tạo một nhánh mang toàn bộ tài liệu từ nhánh v2, trừ các thư mục code.
+- Nhánh tạo từ `feat/language-first-semantic-v2` nên **giữ nguyên lịch sử**, không phải
+  nhánh trắng. Một commit xóa phần code.
+
+### 13.1 Đã xóa khỏi nhánh
+
+| Đường dẫn | Là gì |
+|---|---|
+| `src/` | 57 file code sản phẩm |
+| `tests/` | 67 file test |
+| `evaluation/` | Script và dữ liệu đối chiếu để đo độ chính xác |
+| `examples/` | Output mẫu đã sinh cho hai repo |
+| `pyproject.toml` | Khai báo package Python |
+| `EVALUATION.md` | Báo cáo đo V1 ngày 15/09/2026 |
+
+`EVALUATION.md` là tài liệu, không phải code, nhưng người dùng chọn bỏ vì số đo V1 dễ bị
+đọc thành năng lực hiện tại của V2 — đúng rủi ro mục 4 đã cảnh báo.
+
+**Giữ lại `scripts/`** gồm `prd_package.py` và `impact.py`. Hai file này là tooling cho hồ sơ
+chứ không phải code sản phẩm; `docs/PRD-REVIEW-README.md` hướng dẫn chạy chúng, bỏ đi thì
+nhánh tài liệu không tự kiểm được baseline.
+
+### 13.2 Hai thư mục người dùng hỏi
+
+- **`build/`** — thư mục sinh ra khi đóng gói Python (`bdist.win-amd64`, `lib`). Đã có trong
+  `.gitignore`, không tracked, nên không nằm trên nhánh nào. Xóa được tùy ý, chạy build lại
+  là có.
+- **`cleantest/`** — một **virtual environment Python**, không phải test. Có `pyvenv.cfg`,
+  `Lib/site-packages` chứa pip, pydantic, PyYAML và `__editable__.l3gen-0.1.0.pth`. Ai đó đã
+  tạo nó để thử cài package trong môi trường sạch. **Không tracked và cũng không khớp luật nào
+  trong `.gitignore`**, nên nó hiện ra là file lạ mỗi lần `git status`. Nên thêm vào
+  `.gitignore` hoặc xóa.
+
+### 13.3 Kiểm chứng
+
+- `git ls-files` sau khi xóa: **71 file**, gồm 57 file `.aide/`, 16 file `docs/`, 2 file
+  `scripts/`, 2 file `Quy_tac/` và các file gốc `README.md`, `SPEC_Code_to_L3_Generator.md`,
+  `Đề bài.md`, `.gitattributes`, `.gitignore`. Không còn file `.py` nào ngoài `scripts/`.
+- **Kiểm link tương đối trong toàn bộ file `.md` tracked:** chỉ `docs/HANDOFF.md` mục 3 trỏ
+  vào `src/`, đúng 14 liên kết. Không file hồ sơ nào trong `.aide/` bị hỏng link. Đã thêm ghi
+  chú ở đầu mục 3 thay vì xóa bảng, vì bảng vẫn đúng trên nhánh code.
+- `python scripts/prd_package.py check --baseline BL-r14.yaml` trên nhánh này: **40/40 artifact
+  khớp**, exit 0. Xóa code không ảnh hưởng baseline vì BL-r14 chỉ khóa file trong `.aide/`.
+- **Không chạy pytest** — nhánh này đã xóa `tests/`. Muốn chạy test phải quay về nhánh
+  `feat/language-first-semantic-v2`.
+
+### 13.4 Lưu ý khi dùng nhánh này
+
+- Nhánh này **không build và không chạy được sản phẩm**. Nó để đọc và review hồ sơ.
+- Hai nhánh cùng sửa một file tài liệu thì sẽ xung đột khi merge. Nên chọn một nhánh làm nơi
+  sửa tài liệu, không sửa song song ở cả hai.
+- `docs/HANDOFF.md` nay khác nhau giữa hai nhánh: bản trên `docs/gate-2` có mục 13 và ghi chú
+  ở mục 3. Nếu muốn hai bên giống nhau thì phải cherry-pick hoặc chép tay.

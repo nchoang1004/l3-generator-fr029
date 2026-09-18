@@ -1,5 +1,0 @@
-from b import B
-
-
-class A(B):
-    pass
