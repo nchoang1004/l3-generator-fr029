@@ -148,8 +148,8 @@ def main(argv: list[str]) -> int:
         "remote_fetch": any(k == "FR-L3GEN-016" for k in bl),
         "third_party_ai": any(k.startswith("NFR-L3GEN-AI") for k in bl),
         "user_data_retention": any(k.startswith("NFR-L3GEN-PRIV") for k in bl),
-        "pii": False,
-        "financial": False,
+        "pii": None,
+        "financial": None,
     }
 
     blocked = sorted(
@@ -182,7 +182,7 @@ def main(argv: list[str]) -> int:
         "external_consumers: []",
         "",
         "risk_signals:",
-        *[f"  {k}: {str(v).lower()}" for k, v in risk.items()],
+        *[f"  {k}: {('null' if v is None else str(v).lower())}" for k, v in risk.items()],
         "",
         "path_signals:",
         '  - ".aide/requirements/**"',
@@ -198,13 +198,13 @@ def main(argv: list[str]) -> int:
         "",
         "skipped_with_reason:",
         '  - { area: "external_consumers", reason: "Không có metadata graph tập trung nên'
-        " không thấy hệ thống ngoài repo. Một repo một System, chưa công bố contract cho bên"
-        ' ngoài, nên danh sách rỗng là kết quả đúng ở phạm vi này chứ không phải chưa tính." }',
+        " không thấy hệ thống ngoài repo. Chưa kiểm chứng consumer bên"
+        ' ngoài; danh sách rỗng không chứng minh không có consumer." }',
         '  - { area: "architecture-and-contracts", reason: "Chưa có artifact L1/L2/L3 nào'
-        " (architecture/, tech-specs/ trống). Thiết kế nằm sau Scope Gate nên không có gì"
-        ' để tính stale." }',
-        '  - { area: "code-traceability", reason: "grep src/ và tests/ cho 0 kết quả với mọi'
-        " mã FR/AC/NFR. Code chưa gắn traceability nên không suy được thay đổi yêu cầu chạm"
+        " hoàn chỉnh được xác nhận; đã có ADR draft. Chưa đủ graph để kết luận toàn bộ"
+        ' tác động tới thiết kế." }',
+        '  - { area: "code-traceability", reason: "Chưa thực hiện quét source/test trong script này cho'
+        " mã FR/AC/NFR; không suy được thay đổi yêu cầu chạm"
         ' file code nào." }',
         '  - { area: "missing-requirements", reason: "Script chỉ thấy artifact đang tồn tại;'
         " yêu cầu bị bỏ sót hoàn toàn thì không có node để phát hiện. Hai chỗ hở đã tìm được"

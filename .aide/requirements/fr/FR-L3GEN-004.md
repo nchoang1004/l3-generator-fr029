@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 4
+revision: 7
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-002"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-COMP-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-001","OQ-L3GEN-003"]}
+relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-002"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-COMP-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
@@ -19,13 +19,13 @@ ai_assisted: true
 
 ## Mô tả
 
-Người dùng xem lớp dữ liệu, tên bảng nếu xác định được, cột và khóa ngoại; nhận diện entity không đồng nghĩa biết tên bảng. Bản đầu phủ SQLAlchemy; ORM của Java/Spring Boot theo mốc M3.
+Người dùng xem lớp dữ liệu, tên bảng nếu xác định được, cột và khóa ngoại; nhận diện entity không đồng nghĩa biết tên bảng. Phase đầu phủ SQLAlchemy; ORM của Java/Spring Boot thuộc phase sau.
 
 | Thuộc tính | Giá trị |
 |---|---|
 | Nhóm luồng | Trích xuất dữ kiện |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M1: entity SQLAlchemy; M3: entity Java |
+| Mốc đề xuất | M1: entity SQLAlchemy; phase sau: entity Java |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 ## Acceptance Criteria
@@ -38,7 +38,7 @@ Người dùng xem lớp dữ liệu, tên bảng nếu xác định được, c
 - `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-TRACE-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** Phạm vi Must: declarative_base/Base, Column; SQLModel/mapped_column theo OQ phạm vi.
+- **Cách kiểm dự kiến:** Phạm vi phase đầu: `declarative_base`/`Base`, `Column`, `ForeignKey` và `relationship` trực tiếp; SQLModel/`mapped_column` nằm ngoài phase đầu theo NFR-L3GEN-COMP-001.
 
 ### AC-L3GEN-004-02
 
@@ -88,11 +88,11 @@ Người dùng xem lớp dữ liệu, tên bảng nếu xác định được, c
 - `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-TRACE-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** ORM và annotation cụ thể chốt tại OQ-L3GEN-003 trước thiết kế. ORM ngoài phạm vi phải hiện ở phần giới hạn.
+- **Cách kiểm dự kiến:** Dùng Jakarta Persistence trực tiếp theo ma trận Java roadmap ở NFR-L3GEN-COMP-001; ORM ngoài phạm vi phải hiện ở phần giới hạn. AC này thuộc phase sau.
 
 ## Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ## Tài liệu liên quan
 

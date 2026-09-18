@@ -169,6 +169,8 @@ def demote(text: str, levels: int = 2) -> str:
 def verify(baseline: dict) -> list[str]:
     """Đối chiếu baseline với file nguồn. Trả về danh sách lệch."""
     issues: list[str] = []
+    seen_uids = set()
+    seen_keys = set()
     for art in baseline["artifacts"]:
         path = REPO / art["path"]
         if not path.exists():
@@ -178,6 +180,15 @@ def verify(baseline: dict) -> list[str]:
         if sha256(raw) != art["sha256"]:
             issues.append(f"{art['key']}: sha256 lệch so với file thật")
         fm = frontmatter(raw)
+        uid = fm.get("uid", "")
+        if not re.fullmatch(r"[0-7][0-9A-HJKMNP-TV-Z]{25}", uid):
+            issues.append(f"{art['key']}: UID thiếu hoặc sai ULID")
+        if uid in seen_uids:
+            issues.append(f"{art['key']}: UID trùng")
+        seen_uids.add(uid)
+        if art['key'] in seen_keys or fm.get('key') != art['key']:
+            issues.append(f"{art['key']}: key trùng hoặc không khớp")
+        seen_keys.add(art['key'])
         actual = fm.get("revision")
         if actual is not None and actual != str(art["revision"]):
             issues.append(
@@ -250,18 +261,18 @@ def render_open_questions(chg_dir: Path) -> str:
     rows = []
     for path in sorted((chg_dir / "open-questions").glob("OQ-*.md")):
         fm = frontmatter(read_bytes(path))
-        if fm.get("status", "").strip('"') != "open":
+        if fm.get("status", "").strip('"') in {"closed", "cancelled"}:
             continue
         text = body_after_frontmatter(read_bytes(path))
         m = re.search(r"^#\s+(.+)$", text, re.M)
         title = m.group(1).split("—", 1)[-1].strip() if m else path.stem
         link = f"../../lifecycle/change-sets/{chg_dir.name}/open-questions/{path.name}"
         rows.append(
-            f"| [{path.stem}]({link}) | {title} | {fm.get('owner', '')} | {fm.get('due', '')} |"
+            f"| [{path.stem}]({link}) | {title} | {fm.get('owner', '')} | {fm.get('due', '')} | {fm.get('status', '')} |"
         )
     if not rows:
         return "Không còn câu hỏi mở.\n"
-    head = "| OQ | Câu hỏi | Owner | Due |\n|---|---|---|---|\n"
+    head = "| OQ | Câu hỏi | Owner | Due | Status |\n|---|---|---|---|---|\n"
     return head + "\n".join(rows) + "\n"
 
 
@@ -427,7 +438,7 @@ def main(argv: list[str]) -> int:
                 for i in issues:
                     print(f"  - {i}")
                 return 1
-            print("Hash và revision: khớp toàn bộ.")
+            print("Hash, revision, key và UID: khớp toàn bộ.")
             return 0
 
         target = render(args.baseline)

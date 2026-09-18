@@ -2,7 +2,7 @@ key: CHG-L3GEN-2026-001
 type: change-set
 group: normative
 scope: lifecycle
-status: draft
+status: active
 label: "Full product — Code → Architecture / L3 Generator"
 objective:
   satisfies: [GOAL-L3GEN-001, GOAL-L3GEN-002, GOAL-L3GEN-003]
@@ -11,21 +11,29 @@ affected_teams: [TEAM-L3GEN]
 flow: new-system
 tier: T1
 proposed_tier: T1
-tier_reason: "Hệ thống mới có tiếp nhận nguồn từ xa. T1 là mức nghiêm ngặt nhất nên đây là nâng, không phải hạ tier; không cần waiver. Khiêm chốt tại intake 17/09/2026; mentor xác nhận lại tại Scope Gate."
+tier_reason: "Hệ thống mới có tiếp nhận nguồn từ xa. T1 là mức nghiêm ngặt nhất nên đây là nâng, không phải hạ tier; không cần waiver. Khiêm và Hoàng xác nhận theo OQ-L3GEN-006."
 coordination:
   mode: independent
   integration_gate_required: false
 derived_from: []
 change_request: CR-L3GEN-2026-001
-intake_status: done_pending_mentor_confirmation
+intake_status: done
 impact_status: done_local_graph
-scope_gate_status: not_run
+scope_gate_status: approved
+scope_gate:
+  baseline: BL-CHG-L3GEN-2026-001-r14
+  baseline_commit: 1c283509c3ec1eec5e65de1005f00a8d4e3cbc91
+  review: REVIEW-SCOPE-L3GEN-2026-001
+  approval: APPROVAL-SCOPE-L3GEN-2026-001
+  reviewed_by: "Hoàng"
+  approved_by: "Khiêm"
+  date: "2026-09-18"
 intake:
   performed_by: "Khiêm"
   role_claimed: product-owner
-  role_confirmed: false
+  role_confirmed: true
   date: "2026-09-17"
   decisions: "flow new-system; tier T1; CR-L3GEN-2026-001 là yêu cầu gốc đã ghi nguyên văn"
-  note: "Khiêm tự nhận vai product-owner để gỡ thế chờ. Vai chính thức do OQ-L3GEN-001 quyết định và OQ đó còn mở; đây không phải phê duyệt của mentor."
-baseline_candidate: baseline/BL-r12.yaml
-note: "Shell phục vụ review full product; M1–M3 là mốc kiểm tra nội bộ, chưa xác định các đợt release. Nếu giao riêng từng mốc, tách Change Set/baseline tương ứng trước khi chốt. Intake và tier đã chốt ở mức nhóm, chờ mentor xác nhận vai. Impact đã chạy từ graph cục bộ dựng bằng frontmatter, không phải metadata graph tập trung; xem confidence và skipped_with_reason trong impact.yaml. Scope Gate chưa hoàn tất. Xem docs/PRD-REVIEW-README.md."
+  note: "Ngày 18/09/2026, Khiêm xác nhận mentor đã trao quyền quyết định cho cả Khiêm và Hoàng. Khiêm là đầu mối product-owner và người ký Scope Gate; Hoàng là reviewer nội bộ/UAT mặc định. Hai mentor là reviewer/cố vấn. Xem OQ-L3GEN-001 revision 7."
+baseline_candidate: baseline/BL-r14.yaml
+note: "Scope Gate đã được duyệt trên BL-r14/commit 1c283509c3ec1eec5e65de1005f00a8d4e3cbc91. M1–M3 là mốc kiểm tra nội bộ, chưa xác định các đợt release; nếu giao riêng từng mốc, tách Change Set/baseline tương ứng. Impact dùng graph cục bộ từ frontmatter, không phải metadata graph tập trung; xem confidence và skipped_with_reason trong impact.yaml."

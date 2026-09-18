@@ -5,8 +5,8 @@ type: "open-question"
 group: "normative"
 scope: "lifecycle"
 system: "SYS-L3GEN"
-status: "open"
-revision: 5
+status: "closed"
+revision: 7
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {}
 verified_at: null
@@ -20,7 +20,19 @@ change_set: "CHG-L3GEN-2026-001"
 
 # OQ-L3GEN-001 — Xác nhận mã tổ chức và người chịu trách nhiệm
 
-## Câu hỏi cần người quyết định
+## Quyết định cuối cùng ngày 18/09/2026
+
+**Người quyết định:** Khiêm, theo quyền quyết định mà mentor đã trao cho cả Khiêm và Hoàng.
+
+- Khiêm và Hoàng được quyền tự quyết trong phạm vi dự án; hai mentor Nguyễn Chí Thức và Đinh Thái Hà là reviewer/cố vấn, không phải người ký bắt buộc của Scope Gate.
+- Khiêm là đầu mối `product-owner`, chịu trách nhiệm cuối cho PRD/FR/AC và là người ký Scope Gate. Hoàng là reviewer nội bộ và người UAT mặc định.
+- Nhóm chỉ có hai người nên mỗi thành viên được kiêm vai kỹ thuật khi cần. Việc kiêm nhiệm phải được ghi theo từng quyết định/gate; không tạo thêm chữ ký hình thức.
+- UAT không thuộc Scope Gate. Khi UAT, người nghiệm thu một FR/AC phải khác người chịu trách nhiệm cho FR/AC đó. Mặc định Hoàng nghiệm thu phần Khiêm sở hữu; nếu Hoàng sở hữu một phần thì Khiêm nghiệm thu phần đó.
+- Không có registry chính thức được cung cấp. Tiếp tục dùng ổn định `SYS-L3GEN`, `TEAM-L3GEN`, `PRD-L3GEN-2609-001` và các UID hiện có; chỉ migration nếu sau này có chính sách chính thức yêu cầu.
+
+**Kết quả:** câu hỏi được giải quyết và không còn chặn metadata hoặc Scope Gate. Các quyết định về phạm vi, kỹ thuật, chất lượng và tooling tiếp tục được xử lý ở OQ-002 đến OQ-006.
+
+## Câu hỏi gốc — đã giải quyết
 
 Mã SYS-L3GEN, TEAM-L3GEN và key PRD-L3GEN-2609-001 đang dùng làm mã dự thảo, chưa đối chiếu với registry chính thức.
 
@@ -60,9 +72,9 @@ công cụ chính thức. Cần mentor cho biết có registry để đối chi�
 này phải rà lại — gồm tier T1, intake, và câu trả lời OQ-L3GEN-005. Nội dung quyết định không đổi
 theo người ký, nhưng thẩm quyền thì có.
 
-**Vẫn `open`.** Ba trong bốn câu chưa có câu trả lời và đều cần mentor.
+**Trạng thái lịch sử ngày 17/09/2026:** khi đó ba trong bốn câu chưa có câu trả lời. Trạng thái này đã được thay thế bởi quyết định ngày 18/09/2026 ở trên.
 
-## Vì sao chưa tự trả lời được
+## Bối cảnh trước quyết định
 
 Nhóm có hai developer, trong khi bảng phê duyệt ở PRD mục IX cần ba vai ký cộng một người nghiệm thu độc lập. Con số không khớp, nên phải có người quyết: một người kiêm được những vai nào, và vai nào bắt buộc do người ngoài nhóm đảm nhiệm.
 
@@ -70,3 +82,9 @@ Việc một người viết tài liệu không phải căn cứ để gán ngư
 
 Khi có câu trả lời, giữ câu hỏi và lịch sử, ghi người trả lời/ngày/ảnh hưởng FR-NFR. Không tự coi im lặng là đồng ý.
 
+
+## Phương án chuẩn bị review ngày 17/09/2026 — lịch sử
+
+Đề xuất Khiêm phụ trách Product và điều phối kỹ thuật; Hoàng phụ trách kế hoạch đánh giá, fixture và tổng hợp review. Đây là phương án phân công, không phải cam kết của Hoàng hay bổ nhiệm Tech Lead/QA. Hai thành viên xác nhận năng lực và thời gian trước khi ghi vai chính thức. Mentor quyết định khả năng kiêm vai, tính độc lập của người nghiệm thu và cần một hay hai chữ ký. Registry/UID và công cụ tạm xem OQ-006 để không hỏi lặp.
+
+Phương án này đã được thay thế bởi quyết định cuối cùng ngày 18/09/2026. Mentor giữ vai trò reviewer/cố vấn; Khiêm và Hoàng tự phân công trong nhóm hai người theo nguyên tắc tách người sở hữu FR/AC khỏi người nghiệm thu UAT phần đó.

@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 2
+revision: 3
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"constrains":["FR-L3GEN-001","FR-L3GEN-006","FR-L3GEN-007","FR-L3GEN-008","FR-L3GEN-010","FR-L3GEN-011","FR-L3GEN-012","FR-L3GEN-013","FR-L3GEN-016"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-004"]}
+relations: {"constrains":["FR-L3GEN-001","FR-L3GEN-006","FR-L3GEN-007","FR-L3GEN-008","FR-L3GEN-010","FR-L3GEN-011","FR-L3GEN-012","FR-L3GEN-013","FR-L3GEN-016"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
@@ -18,7 +18,7 @@ ai_assisted: true
 # NFR-L3GEN-DET-001 — Tái lập dữ kiện và định danh
 
 - **Nhóm:** Determinism.
-- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Trạng thái:** ngưỡng và phương pháp đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
 - **Áp dụng:** [FR-L3GEN-001](../fr/FR-L3GEN-001.md), [FR-L3GEN-006](../fr/FR-L3GEN-006.md), [FR-L3GEN-007](../fr/FR-L3GEN-007.md), [FR-L3GEN-008](../fr/FR-L3GEN-008.md), [FR-L3GEN-010](../fr/FR-L3GEN-010.md), [FR-L3GEN-011](../fr/FR-L3GEN-011.md), [FR-L3GEN-012](../fr/FR-L3GEN-012.md), [FR-L3GEN-013](../fr/FR-L3GEN-013.md), [FR-L3GEN-016](../fr/FR-L3GEN-016.md).
 
 ## Yêu cầu có thể kiểm chứng

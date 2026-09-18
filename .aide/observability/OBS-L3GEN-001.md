@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 2
+revision: 4
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"measures":["KPI-L3GEN-003","KPI-L3GEN-004","KPI-L3GEN-005"],"blocked_by":["OQ-L3GEN-004"]}
+relations: {"measures":["KPI-L3GEN-003","KPI-L3GEN-004","KPI-L3GEN-005"]}
 verified_at: null
 verified_against: []
 classification: "internal"
@@ -23,7 +23,7 @@ ai_assisted: true
 
 ## Dataset và người làm đáp án
 
-- Chốt trước ít nhất 3 repo public độc lập có cấu trúc khác nhau (simple app, app factory/layered, monorepo) và pin commit; lựa chọn cuối cùng ở OQ-L3GEN-004.
+- Trước lần đo đầu tiên, chọn ít nhất 3 repo Python public độc lập có cấu trúc khác nhau (simple app, app factory/layered, monorepo), ghi quyền sử dụng và pin commit/source digest. Chưa có danh sách thật thì trạng thái là `not_run`, không tạo tên hoặc SHA giả.
 - Hai người đọc độc lập, chưa nhìn output công cụ, lập route/path/điều kiện, entity/table/column, HTTP, config, event và mẫu cạnh nội bộ; giữ hai bản, ghi disagreement và bản adjudicated (đáp án đã đối chiếu).
 - Không chỉ lấy file tool đã phát hiện để làm đáp án. Ghi đầy đủ phạm vi file trước khi chạy; mọi loại loại trừ có lý do.
 - Tổng cỡ mẫu đề xuất để báo tỷ lệ tổng hợp: route ≥100, entity ≥20, HTTP ≥30, config ≥30, event ≥20, internal call edge ≥100; component membership ≥30 và component dependency ≥20. Chưa đủ mẫu: báo TP/FP/FN, chưa kết luận đạt tỷ lệ.
@@ -50,3 +50,9 @@ KPI-L3GEN-003 đạt khi các nhóm chất lượng thuộc Must đạt ngưỡn
 
 Mỗi lần đo lưu trong .aide/evidence/tests/<host>-<clone>/<run-id>/, append-only; có input hashes, kết quả passed/failed/not_run và raw counts. Không log secrets. Việc sửa đáp án sau đo có revision và lý do, không xóa kết quả cũ.
 
+
+## Bổ sung đánh giá theo phase và dependency
+
+Phase đầu chỉ đánh giá Python/FastAPI. Java/Spring Boot phải có dataset và báo cáo riêng khi vào phase Java; không lấy tỷ lệ Python thay bằng chứng Java. Khiêm và Hoàng lập hai đáp án độc lập trước khi xem output, giữ disagreement và bản adjudicated. Hoàng điều phối dataset/báo cáo, Khiêm chuẩn bị fixture. Danh sách repo/commit chưa có thì ghi `not_run`; không coi ví dụ hoặc fixture chưa tồn tại là dữ liệu đã chuẩn bị.
+
+FR-018: kiểm manifest hỗ trợ, thiếu/hỏng/ngoài phạm vi, phiên bản literal/range và URL chứa secret; chấm tên/ràng buộc phiên bản, vị trí evidence và nhãn declared/usage độc lập. Import-package mapping không chắc chắn là unknown. Trước khi duyệt ngưỡng thống kê riêng, nghiệm thu FR-018 bằng toàn bộ AC trên fixture có đáp án, báo raw counts, không áp ngưỡng route cho thư viện. NFR-ACC dẫn tới phương pháp này.

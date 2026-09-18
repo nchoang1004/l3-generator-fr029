@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 3
+revision: 6
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-002"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-COMP-001","NFR-L3GEN-PRIV-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-001","OQ-L3GEN-002","OQ-L3GEN-003"]}
+relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-002"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-COMP-001","NFR-L3GEN-PRIV-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
@@ -25,7 +25,7 @@ Người dùng xem các khóa cấu hình và nơi sử dụng mà không lộ g
 |---|---|
 | Nhóm luồng | Trích xuất dữ kiện |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M3 |
+| Mốc đề xuất | M3: Python; phase sau: Java |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 ## Acceptance Criteria
@@ -48,7 +48,7 @@ Người dùng xem các khóa cấu hình và nơi sử dụng mà không lộ g
 - `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-PRIV-001, NFR-L3GEN-TRACE-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** YAML tùy ý chưa có schema chỉ được coi là dữ liệu chưa hiểu.
+- **Cách kiểm dự kiến:** Chỉ diễn giải file được chỉ định là application config và mapping tĩnh; chuẩn hóa key lồng nhau bằng dấu chấm. YAML tùy ý, anchor/merge, custom tag hoặc template không resolve được phải ghi partial/unsupported theo NFR-L3GEN-COMP-001.
 
 ### AC-L3GEN-014-03
 
@@ -78,11 +78,11 @@ Người dùng xem các khóa cấu hình và nơi sử dụng mà không lộ g
 - `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-PRIV-001, NFR-L3GEN-TRACE-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** Cơ chế cấu hình và schema YAML được phép diễn giải chốt tại OQ-L3GEN-003. Cơ chế ngoài phạm vi phải hiện ở phần giới hạn.
+- **Cách kiểm dự kiến:** Dùng `@Value` và application properties/YAML dạng key tĩnh theo ma trận Java roadmap ở NFR-L3GEN-COMP-001; cơ chế ngoài phạm vi phải hiện ở phần giới hạn. AC này thuộc phase sau.
 
 ## Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ## Tài liệu liên quan
 

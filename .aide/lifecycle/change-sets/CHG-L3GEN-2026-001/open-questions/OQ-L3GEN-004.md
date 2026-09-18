@@ -5,22 +5,39 @@ type: "open-question"
 group: "normative"
 scope: "lifecycle"
 system: "SYS-L3GEN"
-status: "open"
-revision: 3
+status: "closed"
+revision: 5
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {}
 verified_at: null
 verified_against: []
 classification: "internal"
 ai_assisted: true
-owner: "Product và QA được mentor chỉ định"
+owner: "Khiêm và Hoàng"
 due: "2026-09-19"
 change_set: "CHG-L3GEN-2026-001"
 ---
 
 # OQ-L3GEN-004 — Duyệt ngưỡng chất lượng và đáp án nghiệm thu
 
-## Câu hỏi cần người quyết định
+## Quyết định cuối cùng ngày 18/09/2026
+
+**Người quyết định:** Khiêm và Hoàng trong phạm vi quyền mentor đã trao cho nhóm.
+
+1. Precision exact cho route, entity, HTTP, config, event và internal call edge là **≥90%**. Recall giữ nguyên: route ≥85%, entity ≥90%, HTTP/config/event ≥80%, internal call edge ≥70%.
+2. Component membership giữ precision và recall ≥85%; component dependency dùng precision exact **≥90%**.
+3. Phase đầu chỉ đo Python/FastAPI. Java phải có dataset và báo cáo riêng ở phase sau; không lấy điểm Python làm bằng chứng Java.
+4. Dataset kỹ thuật cần ít nhất ba repository Python public có cấu trúc khác nhau và pin commit, cộng micro fixture/negative case theo pattern. Danh sách repo/commit là checklist bắt buộc trước lần đo đầu tiên, không phải dữ kiện phải bịa để qua Scope Gate.
+5. Khiêm và Hoàng lập ground truth độc lập trước khi xem output, giữ hai bản ban đầu, ghi disagreement rồi tạo bản adjudicated. Hoàng điều phối dataset/phiếu chấm/báo cáo; Khiêm chuẩn bị fixture và hỗ trợ kỹ thuật.
+6. Benchmark chấp nhận cấu hình chuẩn 4 CPU logical, RAM 8 GiB, SSD, Python 3.12, no-AI; chạy năm lần mỗi repo, ghi từng lần, worst-case và peak RSS. Máy thực tế khác phải công bố, không ngoại suy.
+7. Pilot so sánh giữ thiết kế hai nhóm độc lập, tối thiểu năm người mỗi nhóm, là phép đo sau phase đầu khi tuyển đủ người. Khiêm và Hoàng không được tính là người dùng mới.
+8. Nếu chưa có người ngoài nhóm: Hoàng vẫn thực hiện UAT chức năng; KPI-L3GEN-001/002 ghi `not_evaluated`; phase đầu có thể bàn giao ở trạng thái **technical pilot ready — chưa xác thực hiệu quả với người dùng bên ngoài**. Không tuyên bố tỷ lệ hoàn thành hoặc giảm thời gian.
+9. Nếu chỉ tuyển được một đến hai người, được làm usability định tính và lưu finding nhưng không tính KPI phần trăm.
+10. Giữ ngưỡng repository ≥500 function thì sơ đồ mặc định ≤50 node. FR-L3GEN-018 nghiệm thu bằng AC và raw counts, không dùng ngưỡng route thay thế.
+
+**Kết quả:** OQ được đóng. Các phép đo vẫn là `not_run` cho đến khi có evidence thật; đóng câu hỏi không đồng nghĩa sản phẩm đã đạt ngưỡng.
+
+## Câu hỏi gốc — đã giải quyết
 
 Product đã chốt các ngưỡng vận hành, đã vào NFR và không còn là câu hỏi mở:
 
@@ -34,7 +51,7 @@ Product đã chốt các ngưỡng vận hành, đã vào NFR và không còn l�
 Phần chưa chốt cần Product và QA quyết:
 
 1. Ngưỡng precision và recall của NFR-L3GEN-ACC-001 có được chấp nhận không.
-2. Cỡ mẫu tại OBS: 20 repository pilot và 100 quan hệ đã được reviewer đánh giá có đủ không.
+2. Cỡ mẫu theo từng nhóm dữ kiện ở OBS-001 và theo người tham gia ở OBS-002 có đủ không.
 3. Máy benchmark công bố trong NFR-L3GEN-PERF-001 có đại diện không.
 4. Cách người đọc phân nhóm component thành ground truth.
 5. Ai là hai người lập đáp án nghiệm thu độc lập, và ai là người thử pilot chưa từng dùng sản phẩm.
@@ -50,3 +67,11 @@ Ngưỡng 500 function và 50 node là con số đề xuất để kiểm chứn
 
 Khi có câu trả lời, giữ câu hỏi và lịch sử, ghi người trả lời/ngày/ảnh hưởng FR-NFR. Không tự coi im lặng là đồng ý.
 
+
+## Phương án chuẩn bị review ngày 17/09/2026 — lịch sử
+
+Nguồn chuẩn của cỡ mẫu là OBS-001/002, không giữ bộ số khác trong OQ. OBS-001 đề xuất ít nhất ba repo độc lập, có cả Python và Java, pin commit; thống kê riêng mỗi stack/pattern. OBS-002 đề xuất hai nhóm độc lập, ít nhất năm người mỗi nhóm; thời gian và completion báo riêng. Mục tiêu giảm 50% là target xin duyệt, chưa có kết quả.
+
+Đề xuất Hoàng điều phối dataset và phiếu chấm, Khiêm hỗ trợ fixture; không coi đề xuất là hai người đã đồng ý làm đáp án độc lập. Mentor xác nhận người chấm/giải quyết bất đồng và tuyển người pilot. Danh sách repo, commit, quyền sử dụng, cấu hình máy và người chấm còn chờ xác nhận; phải điền trước đo. Không tạo tên hoặc SHA giả.
+
+Phương án đã được thay thế bởi quyết định ngày 18/09/2026. Repo/commit và người pilot chưa có vẫn phải ghi `not_run`/`not_evaluated`; đây là dữ kiện thực thi cần có trước phép đo, không còn là blocker của Scope Gate.

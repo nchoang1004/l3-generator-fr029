@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 2
+revision: 4
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"measures":["KPI-L3GEN-001","KPI-L3GEN-002"],"blocked_by":["OQ-L3GEN-004"]}
+relations: {"measures":["KPI-L3GEN-001","KPI-L3GEN-002"]}
 verified_at: null
 verified_against: []
 classification: "internal"
@@ -23,14 +23,14 @@ Người dùng có tự tìm đúng component, API và dependency có evidence b
 
 ## Thử nghiệm đề xuất
 
-- Ít nhất 5 người chưa dùng tool, ghi vai trò và mức quen repo. Cần mentor xác nhận người tham gia, không tạo tên giả.
+- Khi tuyển đủ, dùng ít nhất 5 người mỗi nhóm, chưa dùng tool và không tham gia phát triển; ghi vai trò và mức quen repo. Khiêm và Hoàng không được tính là người dùng mới. Không có người thì giữ `not_evaluated`, không tạo tên giả.
 - Mỗi người làm bộ câu hỏi tương đương: tìm handler của API, bảng liên quan, external dependency, config/event binding và chỉ ra bằng chứng.
-- Đo đọc source thủ công và dùng tool trên hai bộ repo/câu hỏi tương đương; đổi thứ tự giữa người để giảm hiệu ứng học. Người chấm có đáp án độc lập.
+- Đề xuất chia hai nhóm độc lập có mức kinh nghiệm tương đương: một nhóm đọc tay, một nhóm dùng tool; cùng repository/câu hỏi, không chuyển người giữa hai nhóm. Người chấm dùng đáp án độc lập.
 - Thu completion, đúng/sai, thời gian, số lần cần hướng dẫn và vấn đề UI; không loại người thất bại khỏi mẫu.
 - KPI-L3GEN-001 = số người hoàn thành đúng toàn bộ nhiệm vụ chính mà không cần hướng dẫn / tổng người tham gia đủ điều kiện.
 - KPI-L3GEN-002 = trung vị thời gian hoàn thành bài đọc kiến trúc khi có công cụ, so với trung vị của nhóm làm thủ công trên cùng bộ câu hỏi và cùng repository. Đo trên người chưa dùng sản phẩm; không dùng lại người đã làm bài thủ công cho lượt có công cụ.
 - Target của cả hai nằm tại PRD mục II.4; OBS không giữ bản sao của ngưỡng.
-- Median thời gian và thay đổi so với baseline là chỉ số thăm dò tới khi đủ dữ liệu; không đặt phần trăm tiết kiệm tùy ý.
+- Tỷ lệ giảm = 1 - median thời gian nhóm dùng tool / median thời gian nhóm đọc tay. Chỉ tính kết luận khi hai nhóm đủ mẫu, nhiệm vụ và mức đúng tương đương. Ghi mọi ca không hoàn thành; không bỏ ca thất bại để cải thiện số: nếu có ca chưa hoàn thành ở thời hạn bài được chốt trước thì KPI thời gian là not_evaluated, báo completion riêng. Mục tiêu 50% trong PRD là target đã chốt để đo khi đủ mẫu, không phải kết quả đã đạt.
 
 ## Bằng chứng và trạng thái
 
@@ -38,3 +38,6 @@ Consent cho phiên thử; lưu phiếu nhiệm vụ, kết quả ẩn danh và p
 
 NFR-L3GEN-USA-001 quy định ngưỡng setup và accessibility; các threshold đó không được chép thành giá trị khác ở PRD/AC.
 
+## Khi chưa tuyển được người pilot
+
+Pilot so sánh không chặn bàn giao phase đầu. Hoàng vẫn thực hiện UAT chức năng trên build xác định; KPI-L3GEN-001/002 giữ `not_evaluated` và sản phẩm chỉ được mô tả là **technical pilot ready — chưa xác thực hiệu quả với người dùng bên ngoài**. Nếu chỉ có một đến hai người ngoài nhóm, dùng kết quả làm usability định tính và finding, không tính KPI phần trăm hoặc mức giảm thời gian.

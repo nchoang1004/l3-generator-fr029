@@ -1,0 +1,33 @@
+key: APPROVAL-SCOPE-L3GEN-2026-001
+type: approval
+group: evidence
+scope: lifecycle
+status: approved
+gate: GATE-SCOPE
+change_set: CHG-L3GEN-2026-001
+baseline: BL-CHG-L3GEN-2026-001-r14
+baseline_commit: 1c283509c3ec1eec5e65de1005f00a8d4e3cbc91
+review: REVIEW-SCOPE-L3GEN-2026-001
+approved_by: "Khiêm"
+reviewed_by: "Hoàng"
+decision: approved
+approved_at: "2026-09-18"
+human_presence:
+  mode: interactive
+  evidence_id: USER-ATTESTATION-2026-09-18-GATE1
+captured_against:
+  code_tree: 1c283509c3ec1eec5e65de1005f00a8d4e3cbc91
+  artifacts: 40
+checks:
+  baseline_integrity: pass
+  fr_count: 18
+  ac_count: 84
+  nfr_count: 11
+  open_questions: 0
+  markdown_links_missing: 0
+  blocked_fr_by_open_question: 0
+conditions:
+  - "Mọi thay đổi PRD/FR/AC sau approval phải đi qua change request và baseline mới."
+  - "implementation_target và validated_by phải hoàn tất trước Definition of Ready cho code."
+  - "Benchmark, threat-model test, product test, accessibility và UAT vẫn phải ghi pass/failed/not_run ở các gate tương ứng."
+note: "Khiêm ủy quyền cho Agent hoàn tất thao tác Gate 1 sau khi xác nhận Hoàng đã đồng ý. Approval này duyệt phạm vi/yêu cầu, không tuyên bố sản phẩm đã triển khai hoặc nghiệm thu."

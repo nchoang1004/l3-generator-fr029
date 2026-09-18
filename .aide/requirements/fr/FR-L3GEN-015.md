@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 3
+revision: 7
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-002","GOAL-L3GEN-003"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-COMP-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-001","OQ-L3GEN-002","OQ-L3GEN-003"]}
+relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-002","GOAL-L3GEN-003"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-COMP-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
@@ -25,7 +25,7 @@ Người dùng xem producer/consumer và topic của Kafka; biết phần thiế
 |---|---|
 | Nhóm luồng | Trích xuất dữ kiện |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M3 |
+| Mốc đề xuất | M3: Kafka Python; phase sau: Spring Kafka |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 ## Acceptance Criteria
@@ -70,9 +70,19 @@ Người dùng xem producer/consumer và topic của Kafka; biết phần thiế
 - `validated_by:` []
 - **Cách kiểm dự kiến:** Kiểm với RabbitMQ, Celery và SQS: phải báo ngoài phạm vi, không mô tả repository như không có event.
 
+### AC-L3GEN-015-05
+
+- **Given:** Repository Java dùng KafkaTemplate.send hoặc @KafkaListener với topic literal trong ma trận NFR-L3GEN-COMP-001 được duyệt.
+- **When:** người dùng phân tích repository.
+- **Then:** kết quả có producer/consumer, topic, component và bằng chứng file/dòng tương ứng; topic chưa resolve ghi partial/unknown, không suy hai service giao tiếp chỉ vì trùng tên topic.
+- `constrained_by:` [NFR-L3GEN-COMP-001, NFR-L3GEN-ACC-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Fixture Java có `KafkaTemplate.send`, `@KafkaListener`, topic động và topic trùng tên nhưng broker khác; đối chiếu đáp án độc lập theo NFR-L3GEN-COMP-001. AC này thuộc phase sau.
+
 ## Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ## Tài liệu liên quan
 
@@ -81,4 +91,3 @@ Người dùng xem producer/consumer và topic của Kafka; biết phần thiế
 - [NFR-L3GEN-COMP-001](../nfr/NFR-L3GEN-COMP-001.md)
 - [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
 - [Thuật ngữ](../../domain/glossary-core.md)
-

@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 1
+revision: 4
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"satisfies":["GOAL-L3GEN-001"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-COMP-001","NFR-L3GEN-REL-001","NFR-L3GEN-SEC-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-001","OQ-L3GEN-003"]}
+relations: {"satisfies":["GOAL-L3GEN-001"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-COMP-001","NFR-L3GEN-REL-001","NFR-L3GEN-SEC-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
@@ -25,7 +25,7 @@ Người dùng xem các thư viện bên ngoài mà đơn vị phân tích khai 
 |---|---|
 | Nhóm luồng | Phân tích repository |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M1 |
+| Mốc đề xuất | M1: manifest Python; phase sau: Maven/Java |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 ## Acceptance Criteria
@@ -72,11 +72,11 @@ Người dùng xem các thư viện bên ngoài mà đơn vị phân tích khai 
 
 ## Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ## Phạm vi định dạng hỗ trợ
 
-Danh sách định dạng khai báo được hỗ trợ bám theo hai stack đã chốt ở FR-L3GEN-002 và phụ thuộc kết quả OQ-L3GEN-003; không công bố định dạng nào trước khi có quyết định đó.
+Định dạng phase đầu là `requirements.txt` và `[project].dependencies` trong `pyproject.toml`. Maven `pom.xml` dependency trực tiếp thuộc Java roadmap phase sau; Gradle, dependency bắc cầu và resolution động nằm ngoài phạm vi ban đầu theo NFR-L3GEN-COMP-001.
 
 ## Tài liệu liên quan
 

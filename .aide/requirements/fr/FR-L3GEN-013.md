@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 5
+revision: 7
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-003"],"constrained_by":["NFR-L3GEN-DET-001","NFR-L3GEN-ABST-001","NFR-L3GEN-COMP-001","NFR-L3GEN-PERF-001","NFR-L3GEN-TRACE-001","NFR-L3GEN-USA-001"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-001","OQ-L3GEN-002"]}
+relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-003"],"constrained_by":["NFR-L3GEN-DET-001","NFR-L3GEN-ABST-001","NFR-L3GEN-COMP-001","NFR-L3GEN-PERF-001","NFR-L3GEN-TRACE-001","NFR-L3GEN-USA-001"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
@@ -19,13 +19,13 @@ ai_assisted: true
 
 ## Mô tả
 
-Người dùng truy cập giao diện web để gửi repository, theo dõi phân tích, xem tổng quan/component/dependency và truy về nguồn bằng chứng.
+Người dùng truy cập giao diện web để gửi repository, theo dõi lần phân tích hiện tại, xem tổng quan/component/dependency và truy về nguồn bằng chứng.
 
 | Thuộc tính | Giá trị |
 |---|---|
 | Nhóm luồng | Khám phá kiến trúc |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M2 |
+| Mốc đề xuất | M2; phase đầu không có lịch sử hoặc public job API |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 ## Acceptance Criteria
@@ -34,7 +34,7 @@ Người dùng truy cập giao diện web để gửi repository, theo dõi phâ
 
 - **Given:** Người dùng có repository thuộc phạm vi hỗ trợ.
 - **When:** người dùng tạo yêu cầu phân tích trên giao diện.
-- **Then:** chọn được đầu vào hỗ trợ, cấu hình phạm vi và chế độ AI; theo dõi trạng thái; khi xong mở được kết quả đúng lần chạy.
+- **Then:** chọn được đầu vào hỗ trợ, cấu hình phạm vi và chế độ AI; theo dõi trạng thái của lần chạy hiện tại; khi xong mở được kết quả đúng lần chạy.
 - `constrained_by:` [NFR-L3GEN-COMP-001, NFR-L3GEN-PERF-001, NFR-L3GEN-USA-001]
 - `implementation_target:` []
 - `validated_by:` []
@@ -70,9 +70,13 @@ Người dùng truy cập giao diện web để gửi repository, theo dõi phâ
 - `validated_by:` []
 - **Cách kiểm dự kiến:** Mỗi sơ đồ có đường tới evidence của node và cạnh.
 
+## Ranh giới phase đầu
+
+Web phase đầu hiển thị `running`, `completed`, `partial` hoặc `failed` cho lần chạy hiện tại. Danh sách lịch sử, mở lại kết quả cũ, public job API, retention theo repository và xóa từng phiên thuộc FR-L3GEN-017 ở phase sau. Trạng thái tạm phục vụ UI không được dùng để tuyên bố FR-L3GEN-017 đã đạt.
+
 ## Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ## Tài liệu liên quan
 

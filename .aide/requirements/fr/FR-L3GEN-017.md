@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 4
+revision: 8
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-003"],"constrained_by":["NFR-L3GEN-PERF-001","NFR-L3GEN-PRIV-001","NFR-L3GEN-REL-001","NFR-L3GEN-SEC-001","NFR-L3GEN-USA-001"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-001","OQ-L3GEN-002","OQ-L3GEN-005"]}
+relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-003"],"constrained_by":["NFR-L3GEN-PERF-001","NFR-L3GEN-PRIV-001","NFR-L3GEN-REL-001","NFR-L3GEN-SEC-001","NFR-L3GEN-USA-001"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
@@ -24,8 +24,8 @@ Mỗi yêu cầu có định danh, trạng thái và kết quả riêng để gi
 | Thuộc tính | Giá trị |
 |---|---|
 | Nhóm luồng | Tiếp nhận và quản lý phân tích |
-| Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M2 |
+| Ưu tiên đề xuất | Should Have — không chặn nghiệm thu phase đầu |
+| Mốc đề xuất | Phase sau, chưa cam kết ngày |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 ## Acceptance Criteria
@@ -54,7 +54,7 @@ Mỗi yêu cầu có định danh, trạng thái và kết quả riêng để gi
 
 - **Given:** Phiên đã hoàn tất và chưa hết hạn lưu.
 - **When:** người dùng mở danh sách phiên hoặc API kết quả.
-- **Then:** xem được trạng thái, source snapshot, thời điểm và tải JSON/Markdown/Mermaid; kết quả partial luôn có giới hạn.
+- **Then:** xem được trạng thái, định danh source snapshot (digest/commit, không phải bản sao source), thời điểm và tải JSON/Markdown/Mermaid; kết quả partial luôn có giới hạn.
 - `constrained_by:` [NFR-L3GEN-PRIV-001, NFR-L3GEN-REL-001, NFR-L3GEN-USA-001]
 - `implementation_target:` []
 - `validated_by:` []
@@ -74,7 +74,7 @@ Mỗi yêu cầu có định danh, trạng thái và kết quả riêng để gi
 
 - **Given:** Một repository đã được phân tích nhiều lần và vượt số lần được giữ.
 - **When:** người dùng mở danh sách phiên của repository đó.
-- **Then:** hệ thống giữ số lần phân tích gần nhất theo ngưỡng ở NFR-L3GEN-PRIV-001 và loại lần cũ nhất khi vượt; người dùng biết kết quả nào đã bị loại và vì sao, không gặp mục trống hoặc link hỏng.
+- **Then:** hệ thống giữ số lần phân tích gần nhất theo ngưỡng ở NFR-L3GEN-PRIV-001 và loại lần cũ nhất khi vượt; UI thông báo chính sách và sự kiện loại phiên khi xảy ra; mục đã xóa không còn link trong danh sách, URL cũ trả trạng thái không khả dụng; không giữ metadata phiên đã xóa chỉ để thông báo.
 - `constrained_by:` [NFR-L3GEN-PRIV-001, NFR-L3GEN-REL-001, NFR-L3GEN-USA-001]
 - `implementation_target:` []
 - `validated_by:` []
@@ -88,11 +88,15 @@ Mỗi yêu cầu có định danh, trạng thái và kết quả riêng để gi
 - `constrained_by:` [NFR-L3GEN-PRIV-001, NFR-L3GEN-REL-001, NFR-L3GEN-USA-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** Kiểm cả xóa thủ công lẫn hết hạn tự động; xác nhận dữ liệu đã dọn thật, không chỉ ẩn khỏi danh sách.
+- **Cách kiểm dự kiến:** Kiểm cả xóa thủ công lẫn hết hạn tự động. Khi dịch vụ đang chạy, xác nhận dữ liệu đã dọn thật; khi máy tắt qua hạn, xác nhận lần khởi động kế tiếp cleanup trước khi phục vụ bất kỳ dữ liệu nào.
+
+## Ranh giới phase
+
+Toàn bộ FR này thuộc phase sau. Trạng thái tạm của lần chạy web hiện tại ở FR-L3GEN-013/016 chỉ phục vụ UI phase đầu; không bao gồm public job API, lịch sử nhiều lần chạy, mở lại kết quả cũ, retention theo repository hoặc xóa từng phiên, và không được tính là FR này đã đạt.
 
 ## Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ## Tài liệu liên quan
 
@@ -103,4 +107,3 @@ Mỗi yêu cầu có định danh, trạng thái và kết quả riêng để gi
 - [NFR-L3GEN-USA-001](../nfr/NFR-L3GEN-USA-001.md)
 - [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
 - [Thuật ngữ](../../domain/glossary-core.md)
-

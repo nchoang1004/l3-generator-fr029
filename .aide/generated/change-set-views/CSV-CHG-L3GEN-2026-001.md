@@ -2,15 +2,15 @@
 key: CSV-CHG-L3GEN-2026-001
 group: derived
 non_normative: true
-derived_from: [BL-CHG-L3GEN-2026-001-r12]
+derived_from: [BL-CHG-L3GEN-2026-001-r14]
 hand_written: false
 status: candidate
-generated_by: scripts/prd_package.py render --baseline BL-r12.yaml
+generated_by: scripts/prd_package.py render --baseline BL-r14.yaml
 ---
 
 # Full product — Code → Architecture / L3 Generator
 
-Bản ứng viên chưa duyệt, sinh từ `BL-CHG-L3GEN-2026-001-r12`. Khi view và nguồn bất đồng, **FR/NFR/PRD nguồn thắng**; sửa nguồn rồi chạy lại script render. Không dùng view này như approval.
+Bản ứng viên chưa duyệt, sinh từ `BL-CHG-L3GEN-2026-001-r14`. Khi view và nguồn bất đồng, **FR/NFR/PRD nguồn thắng**; sửa nguồn rồi chạy lại script render. Không dùng view này như approval.
 
 Gồm 18 FR, 11 NFR và 2 OBS trong baseline.
 
@@ -32,7 +32,7 @@ Toàn bộ FR trong candidate baseline; Must/Should và mốc nằm tại từng
 
 ---
 
-Nguồn: [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md) · revision 5 · status draft · SHA-256 `c5c5e4ace47aeecbea99a24d5390a6398575ddfbe84615468baf9550da61ee0e`
+Nguồn: [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md) · revision 7 · status draft · SHA-256 `fc1e9d202cef360f3961da7793ade66a0474fd67cb25cca7b767383115ef9bf7`
 
 ### FR-L3GEN-001 — Nhận thư mục source và bắt đầu phân tích
 
@@ -111,11 +111,11 @@ Người dùng chỉ định thư mục source local và nơi lưu kết quả �
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-002](../../requirements/fr/FR-L3GEN-002.md) · revision 3 · status draft · SHA-256 `be40b9d847ffd83c203045cdda3e30ece01b63ce0b2a9178f8db844a739f3e48`
+Nguồn: [FR-L3GEN-002](../../requirements/fr/FR-L3GEN-002.md) · revision 6 · status draft · SHA-256 `44b24603efc0a3afaf93ea0676436702c536ef50f3041bf0ea256f63da33bd26`
 
 ### FR-L3GEN-002 — Nhận diện đơn vị phân tích và phạm vi hỗ trợ
 
@@ -127,16 +127,16 @@ Người dùng xem được những phần repository được phân tích, bị
 |---|---|
 | Nhóm luồng | Phân tích repository |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M1 |
+| Mốc đề xuất | M1: Python/FastAPI; phase sau: Java/Spring Boot |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 #### Acceptance Criteria
 
 ##### AC-L3GEN-002-01
 
-- **Given:** Repository có service Python/FastAPI và service Java với manifest riêng.
+- **Given:** Repository có service Python/FastAPI và service Java/Spring Boot thuộc ma trận hỗ trợ với manifest riêng.
 - **When:** người dùng phân tích repository.
-- **Then:** công cụ phân tích phần Python được hỗ trợ, liệt kê phần Java bị bỏ qua với lý do, không kết luận rằng toàn repository đã được bao phủ.
+- **Then:** công cụ phân tích cả hai đơn vị theo capability đã công bố; pattern ngoài phạm vi được ghi rõ cùng lý do, không kết luận bao phủ mọi hành vi runtime.
 - `constrained_by:` [NFR-L3GEN-COMP-001, NFR-L3GEN-REL-001, NFR-L3GEN-TRACE-001]
 - `implementation_target:` []
 - `validated_by:` []
@@ -160,7 +160,7 @@ Người dùng xem được những phần repository được phân tích, bị
 - `constrained_by:` [NFR-L3GEN-COMP-001, NFR-L3GEN-REL-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** Kiểm Python rỗng, Java-only và Flask-only.
+- **Cách kiểm dự kiến:** Kiểm Python rỗng và Flask-only; Java/Spring Boot-only thuộc ma trận hỗ trợ phải được chấp nhận. Java ngoài ma trận phải báo giới hạn hoặc không hỗ trợ.
 
 ##### AC-L3GEN-002-04
 
@@ -184,23 +184,23 @@ Người dùng xem được những phần repository được phân tích, bị
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-003](../../requirements/fr/FR-L3GEN-003.md) · revision 5 · status draft · SHA-256 `e1484467227aba58ae0205362af61edad9092362aac13e9213e97c7610dbebfa`
+Nguồn: [FR-L3GEN-003](../../requirements/fr/FR-L3GEN-003.md) · revision 8 · status draft · SHA-256 `c7449d774e6aeb2bedfda100b09ea5f716eee9041242571c155e4e8ccaec94e4`
 
 ### FR-L3GEN-003 — Liệt kê API routes và handler
 
 #### Mô tả
 
-Người dùng xem method, path, handler, điều kiện đăng ký và nguồn khai báo của route trong phạm vi stack đã công bố. Bản đầu phủ FastAPI; Java/Spring Boot theo mốc M3.
+Người dùng xem method, path, handler, điều kiện đăng ký và nguồn khai báo của route trong phạm vi stack đã công bố. Phase đầu phủ FastAPI; Java/Spring Boot thuộc phase sau.
 
 | Thuộc tính | Giá trị |
 |---|---|
 | Nhóm luồng | Trích xuất dữ kiện |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M1: route FastAPI; M3: route Spring Boot |
+| Mốc đề xuất | M1: route FastAPI; phase sau: route Spring Boot |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 #### Acceptance Criteria
@@ -263,27 +263,27 @@ Người dùng xem method, path, handler, điều kiện đăng ký và nguồn 
 - `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-TRACE-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** Ma trận annotation cụ thể của Spring Boot chốt tại OQ-L3GEN-003 trước thiết kế. Annotation ngoài ma trận phải hiện ở phần giới hạn, không im lặng bỏ qua.
+- **Cách kiểm dự kiến:** Dùng ma trận Java roadmap đã chốt tại NFR-L3GEN-COMP-001; annotation ngoài ma trận phải hiện ở phần giới hạn, không im lặng bỏ qua. AC này thuộc phase sau.
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-004](../../requirements/fr/FR-L3GEN-004.md) · revision 4 · status draft · SHA-256 `e71f82c2c7277fcef0b7621a7947d8abbee76afb0bd14ac5fb9a893aee460b76`
+Nguồn: [FR-L3GEN-004](../../requirements/fr/FR-L3GEN-004.md) · revision 7 · status draft · SHA-256 `dab6e57d2007370bcce496d2ba6a8ac426a58ffee6e1a9b83c702fc863669c51`
 
 ### FR-L3GEN-004 — Liệt kê mô hình dữ liệu
 
 #### Mô tả
 
-Người dùng xem lớp dữ liệu, tên bảng nếu xác định được, cột và khóa ngoại; nhận diện entity không đồng nghĩa biết tên bảng. Bản đầu phủ SQLAlchemy; ORM của Java/Spring Boot theo mốc M3.
+Người dùng xem lớp dữ liệu, tên bảng nếu xác định được, cột và khóa ngoại; nhận diện entity không đồng nghĩa biết tên bảng. Phase đầu phủ SQLAlchemy; ORM của Java/Spring Boot thuộc phase sau.
 
 | Thuộc tính | Giá trị |
 |---|---|
 | Nhóm luồng | Trích xuất dữ kiện |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M1: entity SQLAlchemy; M3: entity Java |
+| Mốc đề xuất | M1: entity SQLAlchemy; phase sau: entity Java |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 #### Acceptance Criteria
@@ -296,7 +296,7 @@ Người dùng xem lớp dữ liệu, tên bảng nếu xác định được, c
 - `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-TRACE-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** Phạm vi Must: declarative_base/Base, Column; SQLModel/mapped_column theo OQ phạm vi.
+- **Cách kiểm dự kiến:** Phạm vi phase đầu: `declarative_base`/`Base`, `Column`, `ForeignKey` và `relationship` trực tiếp; SQLModel/`mapped_column` nằm ngoài phase đầu theo NFR-L3GEN-COMP-001.
 
 ##### AC-L3GEN-004-02
 
@@ -346,27 +346,27 @@ Người dùng xem lớp dữ liệu, tên bảng nếu xác định được, c
 - `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-TRACE-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** ORM và annotation cụ thể chốt tại OQ-L3GEN-003 trước thiết kế. ORM ngoài phạm vi phải hiện ở phần giới hạn.
+- **Cách kiểm dự kiến:** Dùng Jakarta Persistence trực tiếp theo ma trận Java roadmap ở NFR-L3GEN-COMP-001; ORM ngoài phạm vi phải hiện ở phần giới hạn. AC này thuộc phase sau.
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-005](../../requirements/fr/FR-L3GEN-005.md) · revision 3 · status draft · SHA-256 `055dcdc58b302c9de131ff2002c8457edf68a7f1a8c375e623de32d1306632f3`
+Nguồn: [FR-L3GEN-005](../../requirements/fr/FR-L3GEN-005.md) · revision 5 · status draft · SHA-256 `3611a95ed27624fdea2403a2f87d3b24f8adf96c79705aae1880ea977e8edb6a`
 
 ### FR-L3GEN-005 — Liệt kê lời gọi HTTP và đích bên ngoài
 
 #### Mô tả
 
-Người dùng xác định nơi gọi HTTP qua thư viện thuộc phạm vi đã công bố và mức độ biết đích đến; không đồng nhất mọi HTTP call với một hệ thống bên ngoài đã xác nhận. Bản đầu phủ requests/httpx của Python; client HTTP của Java/Spring Boot theo mốc M3.
+Người dùng xác định nơi gọi HTTP qua thư viện thuộc phạm vi đã công bố và mức độ biết đích đến; không đồng nhất mọi HTTP call với một hệ thống bên ngoài đã xác nhận. Phase đầu phủ requests/httpx của Python; client HTTP của Java/Spring Boot thuộc phase sau.
 
 | Thuộc tính | Giá trị |
 |---|---|
 | Nhóm luồng | Trích xuất dữ kiện |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M1: requests/httpx; M3: client HTTP phía Java |
+| Mốc đề xuất | M1: requests/httpx; phase sau: client HTTP phía Java |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 #### Acceptance Criteria
@@ -413,11 +413,11 @@ Người dùng xác định nơi gọi HTTP qua thư viện thuộc phạm vi đ
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-006](../../requirements/fr/FR-L3GEN-006.md) · revision 3 · status draft · SHA-256 `e94208bbdd098f13bc3d00db48703304a6fb5bb014580427ad219e71e90b7f33`
+Nguồn: [FR-L3GEN-006](../../requirements/fr/FR-L3GEN-006.md) · revision 5 · status draft · SHA-256 `b6b93d9f4d3e08b466d22e0f35c474ff9bda24e8ce6be3268ac689585ba5b43e`
 
 ### FR-L3GEN-006 — Truy vết tham chiếu và lời gọi xuyên file
 
@@ -486,11 +486,11 @@ Người dùng xem quan hệ gọi hàm, import và kế thừa với đích c�
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-007](../../requirements/fr/FR-L3GEN-007.md) · revision 3 · status draft · SHA-256 `d44fcdb3dd4b7968c6fc3cefba481ad9eeff2a9c8a7baa1a783aa4405ef93254`
+Nguồn: [FR-L3GEN-007](../../requirements/fr/FR-L3GEN-007.md) · revision 5 · status draft · SHA-256 `f26c36258ad3ec495d26106227e8a4bd5067b4ea86a3ab37d28fe83f3f3750bd`
 
 ### FR-L3GEN-007 — Kiểm chứng kết luận bằng nguồn và nhãn
 
@@ -549,11 +549,11 @@ Người đọc truy ngược được dữ kiện và quan hệ về đúng sou
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md) · revision 5 · status draft · SHA-256 `501d2ec15fd9424a9c8a2083824847b80dbf5818c57e077c2c61e532859c712e`
+Nguồn: [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md) · revision 7 · status draft · SHA-256 `d0cd7bc40349aef8cbd4da220a7fddd8b81ae098e963c13d0fb876d10f12f16a`
 
 ### FR-L3GEN-008 — Xuất và sử dụng bộ kết quả
 
@@ -613,11 +613,11 @@ Người dùng nhận tài liệu đọc được và JSON có cấu trúc cho c
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-009](../../requirements/fr/FR-L3GEN-009.md) · revision 3 · status draft · SHA-256 `aa3c01fe130012d7e4a823d3892f37ebf6061d5e20a11f693c06d7c448f545bb`
+Nguồn: [FR-L3GEN-009](../../requirements/fr/FR-L3GEN-009.md) · revision 5 · status draft · SHA-256 `217d8bba8b68cf42018379c869ae2a27ee1b17fda444983c2a783807b302b171`
 
 ### FR-L3GEN-009 — Báo lỗi và giới hạn theo từng lần phân tích
 
@@ -686,11 +686,11 @@ Người dùng biết phần đã phân tích, bị bỏ qua và chưa hỗ tr�
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-010](../../requirements/fr/FR-L3GEN-010.md) · revision 3 · status draft · SHA-256 `9f40fff78ecde4f8f0539274185636fededeea8c13b0e36604dafd1e17756f14`
+Nguồn: [FR-L3GEN-010](../../requirements/fr/FR-L3GEN-010.md) · revision 5 · status draft · SHA-256 `b956dfd1ed64a104902edbd467a884a1cefb2d90acefa0ed29c74098e8f7bcc1`
 
 ### FR-L3GEN-010 — Chạy phân tích không phụ thuộc AI
 
@@ -739,11 +739,11 @@ Người dùng phân tích đầy đủ phần cốt lõi khi không có API key
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-011](../../requirements/fr/FR-L3GEN-011.md) · revision 6 · status draft · SHA-256 `eeb10f9a68f3f0d47b486890ba995c205a0ea36f2ee766869749e4f414c35ef5`
+Nguồn: [FR-L3GEN-011](../../requirements/fr/FR-L3GEN-011.md) · revision 8 · status draft · SHA-256 `5e897c25f552ff7c7de60d1a7d743fa436ed07e6d707ace12ffbc278de40cb91`
 
 ### FR-L3GEN-011 — Xem component và tài liệu L3 của service
 
@@ -813,11 +813,11 @@ Người dùng xem các component bên trong service và quan hệ có chứng c
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-012](../../requirements/fr/FR-L3GEN-012.md) · revision 3 · status draft · SHA-256 `baa9d93570df8421dde0866015b291e11a73e9edb2dd5e8b67ccaebe8e83cc95`
+Nguồn: [FR-L3GEN-012](../../requirements/fr/FR-L3GEN-012.md) · revision 6 · status draft · SHA-256 `83e4453835c0252a15fbda906f390e0c13be2774858ee1c8d9ef72b181f61e67`
 
 ### FR-L3GEN-012 — Bổ sung mô tả và diễn giải cảnh báo bằng AI
 
@@ -829,7 +829,7 @@ Sau khi người dùng chủ động cho phép, AI có thể bổ sung mô tả 
 |---|---|
 | Nhóm luồng | Tiện ích mở rộng |
 | Ưu tiên đề xuất | Should Have |
-| Mốc đề xuất | M3 |
+| Mốc đề xuất | Stretch trong M3; không chặn nghiệm thu phase đầu |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 #### Acceptance Criteria
@@ -866,23 +866,23 @@ Sau khi người dùng chủ động cho phép, AI có thể bổ sung mô tả 
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md) · revision 5 · status draft · SHA-256 `b73567265cc5f6d97300c385058e9e1bca606d0502164e6b30338ed11b4d85b3`
+Nguồn: [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md) · revision 7 · status draft · SHA-256 `d3147cece6050dca7d0163a5562be34cbe6422a5c1719a0593225a91de1f22db`
 
 ### FR-L3GEN-013 — Phân tích và khám phá kiến trúc qua giao diện web
 
 #### Mô tả
 
-Người dùng truy cập giao diện web để gửi repository, theo dõi phân tích, xem tổng quan/component/dependency và truy về nguồn bằng chứng.
+Người dùng truy cập giao diện web để gửi repository, theo dõi lần phân tích hiện tại, xem tổng quan/component/dependency và truy về nguồn bằng chứng.
 
 | Thuộc tính | Giá trị |
 |---|---|
 | Nhóm luồng | Khám phá kiến trúc |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M2 |
+| Mốc đề xuất | M2; phase đầu không có lịch sử hoặc public job API |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 #### Acceptance Criteria
@@ -891,7 +891,7 @@ Người dùng truy cập giao diện web để gửi repository, theo dõi phâ
 
 - **Given:** Người dùng có repository thuộc phạm vi hỗ trợ.
 - **When:** người dùng tạo yêu cầu phân tích trên giao diện.
-- **Then:** chọn được đầu vào hỗ trợ, cấu hình phạm vi và chế độ AI; theo dõi trạng thái; khi xong mở được kết quả đúng lần chạy.
+- **Then:** chọn được đầu vào hỗ trợ, cấu hình phạm vi và chế độ AI; theo dõi trạng thái của lần chạy hiện tại; khi xong mở được kết quả đúng lần chạy.
 - `constrained_by:` [NFR-L3GEN-COMP-001, NFR-L3GEN-PERF-001, NFR-L3GEN-USA-001]
 - `implementation_target:` []
 - `validated_by:` []
@@ -927,13 +927,17 @@ Người dùng truy cập giao diện web để gửi repository, theo dõi phâ
 - `validated_by:` []
 - **Cách kiểm dự kiến:** Mỗi sơ đồ có đường tới evidence của node và cạnh.
 
+#### Ranh giới phase đầu
+
+Web phase đầu hiển thị `running`, `completed`, `partial` hoặc `failed` cho lần chạy hiện tại. Danh sách lịch sử, mở lại kết quả cũ, public job API, retention theo repository và xóa từng phiên thuộc FR-L3GEN-017 ở phase sau. Trạng thái tạm phục vụ UI không được dùng để tuyên bố FR-L3GEN-017 đã đạt.
+
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-014](../../requirements/fr/FR-L3GEN-014.md) · revision 3 · status draft · SHA-256 `b4b2734f1d0ade745567de52b3d3b16f422026fa5b295fcc126b4289310ca573`
+Nguồn: [FR-L3GEN-014](../../requirements/fr/FR-L3GEN-014.md) · revision 6 · status draft · SHA-256 `d5f43ea19262a8ef4ca43dbd8bccf74cc4d13a56ed1121d0028ce478cc3583ca`
 
 ### FR-L3GEN-014 — Xem cấu hình mà hệ thống sử dụng
 
@@ -945,7 +949,7 @@ Người dùng xem các khóa cấu hình và nơi sử dụng mà không lộ g
 |---|---|
 | Nhóm luồng | Trích xuất dữ kiện |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M3 |
+| Mốc đề xuất | M3: Python; phase sau: Java |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 #### Acceptance Criteria
@@ -968,7 +972,7 @@ Người dùng xem các khóa cấu hình và nơi sử dụng mà không lộ g
 - `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-PRIV-001, NFR-L3GEN-TRACE-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** YAML tùy ý chưa có schema chỉ được coi là dữ liệu chưa hiểu.
+- **Cách kiểm dự kiến:** Chỉ diễn giải file được chỉ định là application config và mapping tĩnh; chuẩn hóa key lồng nhau bằng dấu chấm. YAML tùy ý, anchor/merge, custom tag hoặc template không resolve được phải ghi partial/unsupported theo NFR-L3GEN-COMP-001.
 
 ##### AC-L3GEN-014-03
 
@@ -998,15 +1002,15 @@ Người dùng xem các khóa cấu hình và nơi sử dụng mà không lộ g
 - `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-PRIV-001, NFR-L3GEN-TRACE-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** Cơ chế cấu hình và schema YAML được phép diễn giải chốt tại OQ-L3GEN-003. Cơ chế ngoài phạm vi phải hiện ở phần giới hạn.
+- **Cách kiểm dự kiến:** Dùng `@Value` và application properties/YAML dạng key tĩnh theo ma trận Java roadmap ở NFR-L3GEN-COMP-001; cơ chế ngoài phạm vi phải hiện ở phần giới hạn. AC này thuộc phase sau.
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-015](../../requirements/fr/FR-L3GEN-015.md) · revision 3 · status draft · SHA-256 `391f9f9ad3071729e33fd72f7b8e7e0d68567b551fddab535de4efe6028ea212`
+Nguồn: [FR-L3GEN-015](../../requirements/fr/FR-L3GEN-015.md) · revision 7 · status draft · SHA-256 `9001d2c7ffa714dc31724aecfbbb6541b1e4267df5729866488b3288d438a78d`
 
 ### FR-L3GEN-015 — Xem quan hệ phát và nhận sự kiện
 
@@ -1018,7 +1022,7 @@ Người dùng xem producer/consumer và topic của Kafka; biết phần thiế
 |---|---|
 | Nhóm luồng | Trích xuất dữ kiện |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M3 |
+| Mốc đề xuất | M3: Kafka Python; phase sau: Spring Kafka |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 #### Acceptance Criteria
@@ -1063,13 +1067,23 @@ Người dùng xem producer/consumer và topic của Kafka; biết phần thiế
 - `validated_by:` []
 - **Cách kiểm dự kiến:** Kiểm với RabbitMQ, Celery và SQS: phải báo ngoài phạm vi, không mô tả repository như không có event.
 
+##### AC-L3GEN-015-05
+
+- **Given:** Repository Java dùng KafkaTemplate.send hoặc @KafkaListener với topic literal trong ma trận NFR-L3GEN-COMP-001 được duyệt.
+- **When:** người dùng phân tích repository.
+- **Then:** kết quả có producer/consumer, topic, component và bằng chứng file/dòng tương ứng; topic chưa resolve ghi partial/unknown, không suy hai service giao tiếp chỉ vì trùng tên topic.
+- `constrained_by:` [NFR-L3GEN-COMP-001, NFR-L3GEN-ACC-001, NFR-L3GEN-TRACE-001]
+- `implementation_target:` []
+- `validated_by:` []
+- **Cách kiểm dự kiến:** Fixture Java có `KafkaTemplate.send`, `@KafkaListener`, topic động và topic trùng tên nhưng broker khác; đối chiếu đáp án độc lập theo NFR-L3GEN-COMP-001. AC này thuộc phase sau.
+
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-016](../../requirements/fr/FR-L3GEN-016.md) · revision 3 · status draft · SHA-256 `f272193022b4f2e18cb38452911d4a73e6bc6948eea34a4279a17cda71127eb9`
+Nguồn: [FR-L3GEN-016](../../requirements/fr/FR-L3GEN-016.md) · revision 6 · status draft · SHA-256 `1e3192d651285df33a163431ae9c9fcbc861d87035d978b677de3f452e48d106`
 
 ### FR-L3GEN-016 — Nhận Git URL và bản nén repository
 
@@ -1126,13 +1140,17 @@ Người dùng gửi Git URL công khai hoặc ZIP source qua web để tạo sn
 - `validated_by:` []
 - **Cách kiểm dự kiến:** Không khẳng định mọi lỗi mạng là lỗi repository.
 
+#### Ranh giới phase đầu
+
+ZIP và GitHub public được xử lý trong lần chạy web hiện tại. Phase đầu không cam kết public job API, danh sách lịch sử hoặc mở lại kết quả cũ; các năng lực đó thuộc FR-L3GEN-017 ở phase sau. Lỗi lấy source vẫn phải hiển thị trong lần chạy hiện tại và không được dùng snapshot cũ thay thế.
+
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-017](../../requirements/fr/FR-L3GEN-017.md) · revision 4 · status draft · SHA-256 `da789e38294e0405eed6df56994eb11acfce9ede53caa5b47474fc79b32a2442`
+Nguồn: [FR-L3GEN-017](../../requirements/fr/FR-L3GEN-017.md) · revision 8 · status draft · SHA-256 `f4d88ac3525f3255aa6741e62c262da95052befc1626b22fb87160f992296003`
 
 ### FR-L3GEN-017 — Theo dõi phiên phân tích và lấy kết quả qua API
 
@@ -1143,8 +1161,8 @@ Mỗi yêu cầu có định danh, trạng thái và kết quả riêng để gi
 | Thuộc tính | Giá trị |
 |---|---|
 | Nhóm luồng | Tiếp nhận và quản lý phân tích |
-| Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M2 |
+| Ưu tiên đề xuất | Should Have — không chặn nghiệm thu phase đầu |
+| Mốc đề xuất | Phase sau, chưa cam kết ngày |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 #### Acceptance Criteria
@@ -1173,7 +1191,7 @@ Mỗi yêu cầu có định danh, trạng thái và kết quả riêng để gi
 
 - **Given:** Phiên đã hoàn tất và chưa hết hạn lưu.
 - **When:** người dùng mở danh sách phiên hoặc API kết quả.
-- **Then:** xem được trạng thái, source snapshot, thời điểm và tải JSON/Markdown/Mermaid; kết quả partial luôn có giới hạn.
+- **Then:** xem được trạng thái, định danh source snapshot (digest/commit, không phải bản sao source), thời điểm và tải JSON/Markdown/Mermaid; kết quả partial luôn có giới hạn.
 - `constrained_by:` [NFR-L3GEN-PRIV-001, NFR-L3GEN-REL-001, NFR-L3GEN-USA-001]
 - `implementation_target:` []
 - `validated_by:` []
@@ -1193,7 +1211,7 @@ Mỗi yêu cầu có định danh, trạng thái và kết quả riêng để gi
 
 - **Given:** Một repository đã được phân tích nhiều lần và vượt số lần được giữ.
 - **When:** người dùng mở danh sách phiên của repository đó.
-- **Then:** hệ thống giữ số lần phân tích gần nhất theo ngưỡng ở NFR-L3GEN-PRIV-001 và loại lần cũ nhất khi vượt; người dùng biết kết quả nào đã bị loại và vì sao, không gặp mục trống hoặc link hỏng.
+- **Then:** hệ thống giữ số lần phân tích gần nhất theo ngưỡng ở NFR-L3GEN-PRIV-001 và loại lần cũ nhất khi vượt; UI thông báo chính sách và sự kiện loại phiên khi xảy ra; mục đã xóa không còn link trong danh sách, URL cũ trả trạng thái không khả dụng; không giữ metadata phiên đã xóa chỉ để thông báo.
 - `constrained_by:` [NFR-L3GEN-PRIV-001, NFR-L3GEN-REL-001, NFR-L3GEN-USA-001]
 - `implementation_target:` []
 - `validated_by:` []
@@ -1207,15 +1225,19 @@ Mỗi yêu cầu có định danh, trạng thái và kết quả riêng để gi
 - `constrained_by:` [NFR-L3GEN-PRIV-001, NFR-L3GEN-REL-001, NFR-L3GEN-USA-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** Kiểm cả xóa thủ công lẫn hết hạn tự động; xác nhận dữ liệu đã dọn thật, không chỉ ẩn khỏi danh sách.
+- **Cách kiểm dự kiến:** Kiểm cả xóa thủ công lẫn hết hạn tự động. Khi dịch vụ đang chạy, xác nhận dữ liệu đã dọn thật; khi máy tắt qua hạn, xác nhận lần khởi động kế tiếp cleanup trước khi phục vụ bất kỳ dữ liệu nào.
+
+#### Ranh giới phase
+
+Toàn bộ FR này thuộc phase sau. Trạng thái tạm của lần chạy web hiện tại ở FR-L3GEN-013/016 chỉ phục vụ UI phase đầu; không bao gồm public job API, lịch sử nhiều lần chạy, mở lại kết quả cũ, retention theo repository hoặc xóa từng phiên, và không được tính là FR này đã đạt.
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-018](../../requirements/fr/FR-L3GEN-018.md) · revision 1 · status draft · SHA-256 `d0db685b15b8edd8dd9c46ecd0b21756aca556077c161651944a244888885d53`
+Nguồn: [FR-L3GEN-018](../../requirements/fr/FR-L3GEN-018.md) · revision 4 · status draft · SHA-256 `01b1799534a85395581cb717571dd22d30ac58f64f6db2201153c4b840e69dda`
 
 ### FR-L3GEN-018 — Xem thư viện bên ngoài mà hệ thống phụ thuộc
 
@@ -1227,7 +1249,7 @@ Người dùng xem các thư viện bên ngoài mà đơn vị phân tích khai 
 |---|---|
 | Nhóm luồng | Phân tích repository |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M1 |
+| Mốc đề xuất | M1: manifest Python; phase sau: Maven/Java |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 #### Acceptance Criteria
@@ -1274,11 +1296,11 @@ Người dùng xem các thư viện bên ngoài mà đơn vị phân tích khai 
 
 #### Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 #### Phạm vi định dạng hỗ trợ
 
-Danh sách định dạng khai báo được hỗ trợ bám theo hai stack đã chốt ở FR-L3GEN-002 và phụ thuộc kết quả OQ-L3GEN-003; không công bố định dạng nào trước khi có quyết định đó.
+Định dạng phase đầu là `requirements.txt` và `[project].dependencies` trong `pyproject.toml`. Maven `pom.xml` dependency trực tiếp thuộc Java roadmap phase sau; Gradle, dependency bắc cầu và resolution động nằm ngoài phạm vi ban đầu theo NFR-L3GEN-COMP-001.
 
 ## 4. Thay đổi hành vi hiện có
 
@@ -1288,6 +1310,8 @@ Không có baseline sản phẩm đã approved để so diff. PRD không lấy h
 
 **Phạm vi phân tích**
 
+- Trong phase đầu: adapter Java/Spring Boot và các AC chỉ dành cho Java. Các AC này vẫn nằm trong roadmap, không được báo pass ở nghiệm thu ngày 09/10.
+- Trong phase đầu: public job API, lịch sử nhiều lần chạy, mở lại kết quả cũ, retention theo repository và xóa từng phiên của FR-L3GEN-017.
 - Hỗ trợ đầy đủ mọi ngôn ngữ, framework, mọi kiểu SQL/ORM hoặc mọi semantics của Python và Java. Trong phạm vi chỉ có Python/FastAPI và Java/Spring Boot.
 - Framework Java ngoài Spring Boot.
 - Message broker khác Kafka trong repository đầu vào, ví dụ RabbitMQ, Celery hoặc SQS. Gặp thì báo ngoài phạm vi, không mô tả repository như không có event.
@@ -1327,12 +1351,12 @@ Không có FR chuẩn tắc nào bị giấu khỏi candidate.
 
 ---
 
-Nguồn: [NFR-L3GEN-ABST-001](../../requirements/nfr/NFR-L3GEN-ABST-001.md) · revision 1 · status draft · SHA-256 `8254e33535e6e225261b7f506cbb3ece027fe67ff69703888ccd919acce42f5d`
+Nguồn: [NFR-L3GEN-ABST-001](../../requirements/nfr/NFR-L3GEN-ABST-001.md) · revision 4 · status draft · SHA-256 `7b5f9bc140d64ea7c9c8ffec9984d0d1143a31d74a6245d23e99472b03b77502`
 
 ### NFR-L3GEN-ABST-001 — Mức trừu tượng của kết quả trình bày
 
 - **Nhóm:** Abstraction level.
-- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Trạng thái:** ngưỡng đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
 - **Áp dụng:** [FR-L3GEN-006](../../requirements/fr/FR-L3GEN-006.md), [FR-L3GEN-007](../../requirements/fr/FR-L3GEN-007.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-011](../../requirements/fr/FR-L3GEN-011.md), [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md).
 - **Quyết định nền:** [ADR-2026-001](../../architecture/adr/ADR-2026-001.md).
 
@@ -1340,14 +1364,14 @@ Nguồn: [NFR-L3GEN-ABST-001](../../requirements/nfr/NFR-L3GEN-ABST-001.md) · r
 
 Phân tích và trình bày là hai mức khác nhau. Engine được đọc sâu tới function, tham số, thuộc tính và phép gán để chứng minh một quan hệ; nhưng kết quả mặc định cho người đọc dừng ở application/component.
 
-Ràng buộc đề xuất:
+Ràng buộc đã chốt:
 
 - Sơ đồ và tài liệu L3 mặc định chỉ có node mức application, component và hệ thống ngoài. Node mức function, class hoặc file không xuất hiện ở lớp mặc định.
 - Số node trong một sơ đồ mặc định không tỷ lệ với số function của repository. Ngưỡng đề xuất: repository có ≥500 function vẫn cho sơ đồ mặc định ≤50 node; vượt ngưỡng phải rút gọn có thông báo theo AC-L3GEN-008-03, không xuất sơ đồ đầy đủ rồi để người đọc tự lọc.
 - Dữ kiện mức function/class vẫn được giữ trong bộ kết quả, nhưng nằm ở lớp evidence hoặc chẩn đoán có nhãn riêng, không trộn vào lớp kiến trúc mặc định.
 - Một quan hệ kiến trúc chỉ tồn tại khi đích đã resolve. Lời gọi chưa resolve được giữ như dữ kiện có nhãn unknown, không được nâng thành cạnh giữa hai component.
 
-Ngưỡng 500/50 là con số đề xuất để có thể kiểm chứng, chưa đo trên tập fixture đã pin; chốt tại OQ-L3GEN-004.
+Ngưỡng 500/50 đã được chốt tại OQ-L3GEN-004 để có thể kiểm chứng; chưa đo trên tập fixture đã pin.
 
 #### Điều kiện và cách kiểm
 
@@ -1355,7 +1379,7 @@ Chạy trên fixture đã pin, đếm node theo lớp trong bộ kết quả má
 
 #### Người chốt và ngoại lệ
 
-Product cùng Tech Lead/QA chốt ở Scope Gate; danh tính theo OQ-L3GEN-001. Không có waiver nào được cấp. Nếu chưa đạt: ghi kết quả failed/not_run, thu hẹp phạm vi qua review hoặc sửa sản phẩm; không tự hạ ngưỡng sau benchmark.
+Khiêm chốt ở Scope Gate; Hoàng review nội bộ/UAT theo quyết định đã đóng tại OQ-L3GEN-001. Không có waiver nào được cấp. Nếu chưa đạt: ghi kết quả failed/not_run, thu hẹp phạm vi qua review hoặc sửa sản phẩm; không tự hạ ngưỡng sau benchmark.
 
 #### Liên kết
 
@@ -1365,21 +1389,21 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; danh tính theo OQ-L3GEN-001. 
 
 ---
 
-Nguồn: [NFR-L3GEN-ACC-001](../../requirements/nfr/NFR-L3GEN-ACC-001.md) · revision 2 · status draft · SHA-256 `d5fe86cad17bdd4197aeb9e566ea3558b353c5091592fc29f7f64b4dc96f3b9a`
+Nguồn: [NFR-L3GEN-ACC-001](../../requirements/nfr/NFR-L3GEN-ACC-001.md) · revision 5 · status draft · SHA-256 `691ff299d6171ad65ab52aa1af7d58b123d26bd673fd85ddd490e0fc709f05c1`
 
 ### NFR-L3GEN-ACC-001 — Độ đúng của dữ kiện và component
 
 - **Nhóm:** Accuracy.
-- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Trạng thái:** ngưỡng đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
 - **Áp dụng:** [FR-L3GEN-003](../../requirements/fr/FR-L3GEN-003.md), [FR-L3GEN-004](../../requirements/fr/FR-L3GEN-004.md), [FR-L3GEN-005](../../requirements/fr/FR-L3GEN-005.md), [FR-L3GEN-006](../../requirements/fr/FR-L3GEN-006.md), [FR-L3GEN-011](../../requirements/fr/FR-L3GEN-011.md), [FR-L3GEN-014](../../requirements/fr/FR-L3GEN-014.md), [FR-L3GEN-015](../../requirements/fr/FR-L3GEN-015.md).
 
 #### Yêu cầu có thể kiểm chứng
 
-Ngưỡng đề xuất trước nghiệm thu: precision nhóm exact ≥95% cho từng loại route, entity, HTTP, config, event và internal call edge; recall lần lượt route ≥85%, entity ≥90%, HTTP ≥80%, config ≥80%, event ≥80%, internal call edge trong pattern công bố ≥70%. Đánh giá đúng thuộc tính riêng: không tính một URL thiếu prefix là URL đầy đủ đúng; không tính tên bảng suy sai là tên bảng đúng. Fixture thuộc pattern cam kết phải thỏa tất cả AC. Component grouping so với mapping người duyệt: precision và recall của membership đều ≥85%; dependency exact ≥95% precision. Không dùng tên role inferred như ground truth nghiệp vụ.
+Ngưỡng trước nghiệm thu: precision nhóm exact ≥90% cho từng loại route, entity, HTTP, config, event và internal call edge; recall lần lượt route ≥85%, entity ≥90%, HTTP ≥80%, config ≥80%, event ≥80%, internal call edge trong pattern công bố ≥70%. Đánh giá đúng thuộc tính riêng: không tính một URL thiếu prefix là URL đầy đủ đúng; không tính tên bảng suy sai là tên bảng đúng. Fixture thuộc pattern cam kết phải thỏa tất cả AC. Component grouping so với mapping người duyệt: precision và recall của membership đều ≥85%; dependency exact ≥90% precision. Không dùng tên role inferred như ground truth nghiệp vụ.
 
 #### Điều kiện và cách kiểm
 
-OBS-L3GEN-001 quy định đáp án độc lập, sampling, matching và cỡ mẫu. Mỗi nhóm không đủ mẫu báo counts và not_evaluated thay vì 100%; ngoài pattern công bố báo độ phủ riêng, không loại ca khó sau khi xem output. Ngưỡng đang đề xuất, chưa có kết quả nghiệm thu.
+OBS-L3GEN-001 quy định đáp án độc lập, sampling, matching và cỡ mẫu. Mỗi nhóm không đủ mẫu báo counts và `not_evaluated` thay vì 100%; ngoài pattern công bố báo độ phủ riêng, không loại ca khó sau khi xem output. Chưa có kết quả nghiệm thu.
 
 #### Người chốt và ngoại lệ
 
@@ -1390,19 +1414,24 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 - [Phương pháp đo](../../observability/OBS-L3GEN-001.md).
 - [PRD](../../product/prd/PRD-L3GEN-2609-001.md).
 
+
+#### Thư viện bên ngoài
+
+Đối với FR-L3GEN-018, tên, ràng buộc phiên bản, nhãn declared/usage và bằng chứng phải đạt AC trên fixture đã chốt theo OBS-L3GEN-001. Báo số đúng/sai theo thuộc tính; chưa có ngưỡng phần trăm thống kê cho thư viện, không dùng ngưỡng route thay thế. Ma trận hỗ trợ đã chốt tại OQ-003; fixture và đáp án đo tiếp tục xử lý ở OQ-004.
+
 ---
 
-Nguồn: [NFR-L3GEN-AI-001](../../requirements/nfr/NFR-L3GEN-AI-001.md) · revision 2 · status draft · SHA-256 `632ca59768328144cba3b841929564d1f3a837a50cb6756d80ba206033c35cdd`
+Nguồn: [NFR-L3GEN-AI-001](../../requirements/nfr/NFR-L3GEN-AI-001.md) · revision 4 · status draft · SHA-256 `f2168caf5e4e26d135bc55a2e7e918894b0917b3cc2d1ace7a530c31a57a1c08`
 
 ### NFR-L3GEN-AI-001 — Giới hạn và ranh giới AI
 
 - **Nhóm:** AI reliability.
-- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Trạng thái:** ngưỡng chất lượng, provider và giới hạn chi phí đã chốt tại OQ-L3GEN-004/005; chưa đo nghiệm thu.
 - **Áp dụng:** [FR-L3GEN-010](../../requirements/fr/FR-L3GEN-010.md), [FR-L3GEN-012](../../requirements/fr/FR-L3GEN-012.md).
 
 #### Yêu cầu có thể kiểm chứng
 
-AI không được sửa IAM/architecture model, tạo entity/edge hoặc category finding mới. Chỉ nhận output đúng schema và ID đã có. Mỗi request timeout tối đa 30 giây, retry tối đa 2 lần; mỗi phiên tối đa 20 request. Chi phí/token cap phải cấu hình trước khi bật với provider được chọn; chưa có cấu hình cap thì không gọi AI. Rate limit, thiếu key/SDK hoặc cap đạt thì tiếp tục trả dữ kiện tĩnh và cảnh báo. Provider là tham số cấu hình, không khóa cứng vào một hãng; khóa API do người dùng cung cấp tại thời điểm chạy và không được ghi vào output, log, evidence hay bộ kết quả lưu lại. Công cụ không phát biểu thay người dùng về mức an toàn dữ liệu của provider họ chọn; điều khoản của provider thuộc trách nhiệm người dùng.
+AI không được sửa IAM/architecture model, tạo entity/edge hoặc category finding mới. Chỉ nhận output đúng schema và ID đã có. Mỗi request timeout tối đa 30 giây, retry tối đa 2 lần; mỗi phiên tối đa 20 request. Phase đầu có trần chi phí trả phí bằng 0 đồng, chỉ dùng quota miễn phí; chưa cấu hình được cap tương ứng thì không gọi AI. Hết quota, rate limit, thiếu key/SDK hoặc đạt cap thì tiếp tục trả dữ kiện tĩnh và cảnh báo. Provider là tham số cấu hình, không khóa cứng vào một hãng, nhưng chỉ adapter được công bố là hỗ trợ mới được sử dụng; khóa API do người dùng cung cấp tại thời điểm chạy và không được ghi vào output, log, evidence hay bộ kết quả lưu lại. Công cụ không phát biểu thay người dùng về mức an toàn dữ liệu của provider họ chọn; điều khoản của provider thuộc trách nhiệm người dùng.
 
 #### Điều kiện và cách kiểm
 
@@ -1419,23 +1448,33 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-COMP-001](../../requirements/nfr/NFR-L3GEN-COMP-001.md) · revision 5 · status draft · SHA-256 `78cafd2939ba82a034a38638c58e128057dc6f46fb6d6176a8a406d013b1203e`
+Nguồn: [NFR-L3GEN-COMP-001](../../requirements/nfr/NFR-L3GEN-COMP-001.md) · revision 9 · status draft · SHA-256 `3b142d6bd1231cf3283df3dc6a3a3291199dd79900b56dfba5ec76c658b60ec5`
 
 ### NFR-L3GEN-COMP-001 — Stack và môi trường được hỗ trợ
 
 - **Nhóm:** Compatibility.
-- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Trạng thái:** phạm vi pattern đã chốt tại OQ-L3GEN-003; chưa có kết quả kiểm capability hoặc nghiệm thu.
 - **Áp dụng:** [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md), [FR-L3GEN-002](../../requirements/fr/FR-L3GEN-002.md), [FR-L3GEN-003](../../requirements/fr/FR-L3GEN-003.md), [FR-L3GEN-004](../../requirements/fr/FR-L3GEN-004.md), [FR-L3GEN-005](../../requirements/fr/FR-L3GEN-005.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md), [FR-L3GEN-014](../../requirements/fr/FR-L3GEN-014.md), [FR-L3GEN-015](../../requirements/fr/FR-L3GEN-015.md).
 
 #### Yêu cầu có thể kiểm chứng
 
-Đề bài cho phép ưu tiên 1–2 stack. Product chốt hai stack: Python/FastAPI và Java/Spring Boot. Ma trận phiên bản và thư viện dưới đây còn là đề xuất; Tech Lead/QA đối chiếu repo mẫu tại OQ-L3GEN-003/004 trước khi chốt, không dùng khả năng của code hiện có làm căn cứ duy nhất.
+Ma trận pattern là hợp đồng phạm vi của analyzer: mỗi hàng nêu cú pháp/API/dạng file được cam kết nhận diện, phần chỉ nhận diện có giới hạn và phần không hỗ trợ. `supported` vẫn phải qua fixture và ngưỡng NFR trước khi được báo đạt; ma trận không phải bằng chứng implementation.
 
-Stack thứ nhất — Python: cú pháp Python 3.10–3.12; FastAPI methods GET/POST/PUT/DELETE/PATCH; SQLAlchemy declarative Column; requests/httpx; Pydantic settings; confluent_kafka. SQLModel, mapped_column, method khác và SDK khác phải có capability riêng trước khi được gọi là hỗ trợ.
+OQ-L3GEN-002 chốt Python/FastAPI là stack nghiệm thu phase đầu. Java/Spring Boot nằm trong roadmap phase sau và không được báo đạt ngày 09/10.
 
-Stack thứ hai — Java: Spring Boot. Framework Java ngoài Spring Boot nằm ngoài phạm vi và phải hiện ra ở phần giới hạn. Ma trận annotation, ORM và thư viện Kafka phía Java được chốt ở thiết kế trước khi gọi là hỗ trợ.
+| Phase / nhóm | Supported | Partial | Unsupported hoặc để phase sau |
+|---|---|---|---|
+| Python runtime | Cú pháp Python 3.10–3.12 | Cấu trúc động giữ source/evidence nếu đọc được | Cú pháp ngoài dải đã công bố |
+| FastAPI route | `@app`/`@router.get/post/put/patch/delete`; `include_router` và `app.mount` khi target/prefix resolve tĩnh | Factory hoặc prefix biểu thức nhưng còn giữ được evidence | `add_api_route`, registration/reflection không resolve tĩnh |
+| Python data | SQLAlchemy declarative `Base`/`declarative_base`, `Column`, `ForeignKey`, `relationship` trực tiếp | Tên bảng/quan hệ biểu thức được giữ unknown kèm evidence | SQLModel, `mapped_column`, XML hoặc ORM khác trong phase đầu |
+| HTTP outbound | `requests` và `httpx` | URL ghép được một phần giữ biểu thức và nhãn partial | SDK/client khác chưa có adapter |
+| Config Python | `os.getenv`, `os.environ[...]`, Pydantic `BaseSettings`; `.env.example` chỉ lấy tên khóa | Key động giữ biểu thức; không đọc giá trị môi trường thật | Đọc `.env` thật hoặc suy giá trị secret |
+| YAML application config | File được người dùng/cấu hình chỉ định là application config; mapping tĩnh; key lồng nhau chuẩn hóa bằng dấu chấm | Sequence hoặc template còn giữ được đường dẫn/evidence | Tự diễn giải YAML tùy ý; anchor/merge, custom tag hoặc template động không resolve |
+| Kafka Python | `confluent_kafka` producer/consumer với topic literal | Topic động giữ biểu thức và nhãn partial | Broker khác Kafka hoặc Kafka SDK khác chưa có adapter |
+| Manifest Python | `requirements.txt`; `[project].dependencies` trong `pyproject.toml`; giữ nguyên constraint khai báo | Import-to-package mapping không chắc chắn ghi unknown | Dependency bắc cầu hoặc resolution động |
+| Java roadmap | Java 17, Spring Boot 3.x; annotation route trực tiếp; Jakarta Persistence; `@Value`; Spring Kafka; Maven `pom.xml` dependency trực tiếp | Giá trị annotation/property biểu thức nhưng còn evidence | Reflection, custom annotation, registration động, Gradle, Maven profile/property động và ORM/broker khác |
 
-Hai stack dùng chung contract kết quả nhưng không dùng chung rule: adapter Kafka của Python và của Java là hai bộ riêng. Event chỉ hỗ trợ Kafka; broker khác nằm ngoài phạm vi.
+Hai stack dùng chung contract kết quả nhưng không dùng chung rule. Pattern ngoài ma trận phải hiện trong phần giới hạn, không được im lặng bỏ qua. Event chỉ hỗ trợ Kafka; broker khác nằm ngoài phạm vi.
 
 Phiên bản runtime của chính công cụ được chọn và pin ở thiết kế.
 
@@ -1456,12 +1495,12 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-DET-001](../../requirements/nfr/NFR-L3GEN-DET-001.md) · revision 2 · status draft · SHA-256 `031959aba7200e5b32f728f1f76312c6638d79f0e4b399e2dbf314136b61efea`
+Nguồn: [NFR-L3GEN-DET-001](../../requirements/nfr/NFR-L3GEN-DET-001.md) · revision 3 · status draft · SHA-256 `43e99d3355f0e541b0938be7b24f00a00d23474ab37bf814c30f705f8b65c824`
 
 ### NFR-L3GEN-DET-001 — Tái lập dữ kiện và định danh
 
 - **Nhóm:** Determinism.
-- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Trạng thái:** ngưỡng và phương pháp đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
 - **Áp dụng:** [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md), [FR-L3GEN-006](../../requirements/fr/FR-L3GEN-006.md), [FR-L3GEN-007](../../requirements/fr/FR-L3GEN-007.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-010](../../requirements/fr/FR-L3GEN-010.md), [FR-L3GEN-011](../../requirements/fr/FR-L3GEN-011.md), [FR-L3GEN-012](../../requirements/fr/FR-L3GEN-012.md), [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md), [FR-L3GEN-016](../../requirements/fr/FR-L3GEN-016.md).
 
 #### Yêu cầu có thể kiểm chứng
@@ -1487,17 +1526,17 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-PERF-001](../../requirements/nfr/NFR-L3GEN-PERF-001.md) · revision 2 · status draft · SHA-256 `0fa48f9b5e0a981664f9ae1f1976e52caa441a9e411c4afaf900c24d9a59eba4`
+Nguồn: [NFR-L3GEN-PERF-001](../../requirements/nfr/NFR-L3GEN-PERF-001.md) · revision 3 · status draft · SHA-256 `d5d5b43cf0b7e519d69778feb1c4bc46a2cf5427899deeabd1dd05a3158e9766`
 
 ### NFR-L3GEN-PERF-001 — Thời gian xử lý và giới hạn tài nguyên
 
 - **Nhóm:** Performance.
-- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Trạng thái:** ngưỡng và cấu hình benchmark đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
 - **Áp dụng:** [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md), [FR-L3GEN-016](../../requirements/fr/FR-L3GEN-016.md), [FR-L3GEN-017](../../requirements/fr/FR-L3GEN-017.md).
 
 #### Yêu cầu có thể kiểm chứng
 
-Môi trường benchmark đề xuất: 4 CPU logical, RAM 8 GiB, SSD, Python 3.12, no-AI, dependencies đã cài. Thời gian analyzer+ghi output (không gồm clone/AI/cài đặt) tối đa 60 giây cho 5.000 dòng Python, và 300 giây cho 50.000 dòng trong tập fixture/repo đã pin. Trần thời gian cho một lần phân tích là 10 phút; quá hạn thì dừng và báo lý do, không trả kết quả như đã hoàn tất.
+Môi trường benchmark chuẩn: 4 CPU logical, RAM 8 GiB, SSD, Python 3.12, no-AI, dependencies đã cài. Nếu máy thực tế khác thì công bố đầy đủ và không ngoại suy. Thời gian analyzer+ghi output (không gồm clone/AI/cài đặt) tối đa 60 giây cho 5.000 dòng Python, và 300 giây cho 50.000 dòng trong tập fixture/repo đã pin. Trần thời gian cho một lần phân tích là 10 phút; quá hạn thì dừng và báo lý do, không trả kết quả như đã hoàn tất.
 
 Giới hạn tiếp nhận: ZIP nén 100 MB, giải nén 500 MB và 50.000 file; vượt ngưỡng phải từ chối hoặc dừng có lý do. Worker tối đa 2 GiB RAM/phiên, 2 phiên chạy cùng lúc; phiên sau xếp hàng. Git fetch timeout 120 giây; mọi giới hạn có trong thông báo/help.
 
@@ -1516,17 +1555,17 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-PRIV-001](../../requirements/nfr/NFR-L3GEN-PRIV-001.md) · revision 3 · status draft · SHA-256 `6b843918be87295a3f6a68830db4c7055da0e5df07ce6ad96b117b58bdaeb523`
+Nguồn: [NFR-L3GEN-PRIV-001](../../requirements/nfr/NFR-L3GEN-PRIV-001.md) · revision 6 · status draft · SHA-256 `c5143681e84da63baeefb7956c22024b5b772a4e37fa77e386083ec71ae0156f`
 
 ### NFR-L3GEN-PRIV-001 — Quyền riêng tư và vòng đời dữ liệu
 
 - **Nhóm:** Privacy.
-- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Trạng thái:** ngưỡng chất lượng và vòng đời dữ liệu đã chốt tại OQ-L3GEN-004/005; chưa đo nghiệm thu.
 - **Áp dụng:** [FR-L3GEN-005](../../requirements/fr/FR-L3GEN-005.md), [FR-L3GEN-007](../../requirements/fr/FR-L3GEN-007.md), [FR-L3GEN-010](../../requirements/fr/FR-L3GEN-010.md), [FR-L3GEN-012](../../requirements/fr/FR-L3GEN-012.md), [FR-L3GEN-014](../../requirements/fr/FR-L3GEN-014.md), [FR-L3GEN-016](../../requirements/fr/FR-L3GEN-016.md), [FR-L3GEN-017](../../requirements/fr/FR-L3GEN-017.md).
 
 #### Yêu cầu có thể kiểm chứng
 
-AI mặc định tắt; phải chủ động bật và biết provider, loại dữ liệu gửi. --no-ai không có outbound ở analyzer; CLI local no-AI không cần mạng; Git URL vẫn cần mạng để lấy repo đã được yêu cầu. Không đọc .env thật, private key hoặc gửi credentials. AI chỉ nhận model tối thiểu đã lọc giá trị nhạy cảm; source snippet cần đồng ý riêng và không thuộc bản đầu. Source tạm của web được xóa trong 24 giờ sau trạng thái cuối; output và metadata giữ tối đa 14 ngày. Mỗi repository giữ tối đa 10 lần phân tích gần nhất, vượt thì loại lần cũ nhất. Người dùng xóa được một kết quả trước hạn. Hành vi cụ thể ở AC-L3GEN-017-05 và AC-L3GEN-017-06. CLI output do người dùng quản lý và ghi rõ khác biệt này.
+AI mặc định tắt; phải chủ động bật và biết provider, loại dữ liệu gửi. --no-ai không có outbound ở analyzer; CLI local no-AI không cần mạng; Git URL vẫn cần mạng để lấy repo đã được yêu cầu. Không đọc .env thật, private key hoặc gửi credentials. AI chỉ nhận model tối thiểu đã lọc giá trị nhạy cảm; source snippet cần đồng ý riêng và không thuộc bản đầu. Source tạm của web hết hạn trong 24 giờ sau trạng thái cuối và không được phục vụ sau hạn; output và metadata giữ tối đa 14 ngày. Khi dịch vụ đang chạy, dữ liệu hết hạn phải được dọn đúng hạn; nếu máy tắt qua hạn, lần khởi động kế tiếp phải cleanup trước khi phục vụ dữ liệu. Mỗi repository giữ tối đa 10 lần phân tích gần nhất, vượt thì loại lần cũ nhất. Người dùng xóa được một kết quả trước hạn. Hành vi cụ thể ở AC-L3GEN-017-05 và AC-L3GEN-017-06. CLI output do người dùng quản lý và ghi rõ khác biệt này.
 
 #### Điều kiện và cách kiểm
 
@@ -1541,14 +1580,23 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 - [Phương pháp đo](../../observability/OBS-L3GEN-001.md).
 - [PRD](../../product/prd/PRD-L3GEN-2609-001.md).
 
+
+#### Chi tiết vòng đời đã chốt tại OQ-005
+
+GitHub repository được nhận diện bằng host/owner/name đã chuẩn hóa, không dùng branch/commit làm identity repository. ZIP dùng digest nội dung các file được tiếp nhận: ZIP khác nội dung là repository khác; không tự gộp ZIP với GitHub. UI nói rõ giới hạn này.
+
+Giới hạn số lần áp dụng cho phiên terminal (completed/partial/failed/cancelled), theo thời điểm kết thúc; phiên đang chạy không bị eviction. Hạn ngày tính từ thời điểm terminal, áp cho cả metadata lỗi. Eviction thực hiện ngay khi phiên chuyển terminal; quá hạn không được trả kết quả. Máy tắt không bảo đảm xóa vật lý đúng giờ: lần khởi động sau phải cleanup trước khi phục vụ dữ liệu, và UI/help công khai giới hạn này. Phase đầu không cam kết SLA xóa vật lý tuyệt đối khi máy tắt; nếu về sau cần SLA đó thì phải chuyển sang dịch vụ luôn chạy và duyệt lại NFR.
+
+Output chỉ giữ source digest, định danh commit nếu có và file/range dòng; không giữ bản sao toàn source hoặc snippet. Sau khi source tạm bị dọn, vẫn xem được vị trí bằng chứng nhưng không hứa mở nội dung source: dùng permalink commit GitHub nếu hợp lệ, hoặc yêu cầu cung cấp lại source đúng digest. Không mở source mới như bằng chứng cũ. Xóa thủ công/eviction dọn output, metadata phiên và source tạm của phiên đó; không giữ tombstone source hay dữ liệu nhạy cảm.
+
 ---
 
-Nguồn: [NFR-L3GEN-REL-001](../../requirements/nfr/NFR-L3GEN-REL-001.md) · revision 2 · status draft · SHA-256 `3f3ff2932d3806bba32c1a2e6589daf90a728bcd607ad7343129b597f9906b95`
+Nguồn: [NFR-L3GEN-REL-001](../../requirements/nfr/NFR-L3GEN-REL-001.md) · revision 3 · status draft · SHA-256 `a6425d4b46ecbbd246aa99a8cbae2670da5cf6d2ae776ddf8c487b814f03017e`
 
 ### NFR-L3GEN-REL-001 — Hoàn tất, lỗi một phần và cách ly phiên
 
 - **Nhóm:** Reliability.
-- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Trạng thái:** ngưỡng và phương pháp đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
 - **Áp dụng:** [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md), [FR-L3GEN-002](../../requirements/fr/FR-L3GEN-002.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-009](../../requirements/fr/FR-L3GEN-009.md), [FR-L3GEN-016](../../requirements/fr/FR-L3GEN-016.md), [FR-L3GEN-017](../../requirements/fr/FR-L3GEN-017.md).
 
 #### Yêu cầu có thể kiểm chứng
@@ -1570,12 +1618,12 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-SEC-001](../../requirements/nfr/NFR-L3GEN-SEC-001.md) · revision 2 · status draft · SHA-256 `f07a9c3d9549d7b617ca4ae8c04b5317bbce25e337e2035a6055785c450cbe65`
+Nguồn: [NFR-L3GEN-SEC-001](../../requirements/nfr/NFR-L3GEN-SEC-001.md) · revision 4 · status draft · SHA-256 `6e7e1c99acf01d692019847fe3cfed4e62394a7865abb75cdc3d19bff8166542`
 
 ### NFR-L3GEN-SEC-001 — An toàn khi tiếp nhận và phân tích source
 
 - **Nhóm:** Security.
-- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Trạng thái:** ngưỡng chất lượng và phạm vi môi trường/an toàn đã chốt tại OQ-L3GEN-004/005; chưa đo nghiệm thu.
 - **Áp dụng:** [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md), [FR-L3GEN-002](../../requirements/fr/FR-L3GEN-002.md), [FR-L3GEN-010](../../requirements/fr/FR-L3GEN-010.md), [FR-L3GEN-016](../../requirements/fr/FR-L3GEN-016.md), [FR-L3GEN-017](../../requirements/fr/FR-L3GEN-017.md).
 
 #### Yêu cầu có thể kiểm chứng
@@ -1597,12 +1645,12 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-TRACE-001](../../requirements/nfr/NFR-L3GEN-TRACE-001.md) · revision 2 · status draft · SHA-256 `37b5501c27aba492b2cfe39fd0415ef521c3a66ccfaa1ec6558b94ab4e17cec8`
+Nguồn: [NFR-L3GEN-TRACE-001](../../requirements/nfr/NFR-L3GEN-TRACE-001.md) · revision 3 · status draft · SHA-256 `f4d0ec841234a6ca1d8d5ad96f15b7788c2cfee8d92dfec8be8ed0dd2eac0033`
 
 ### NFR-L3GEN-TRACE-001 — Nguồn bằng chứng và phiên bản
 
 - **Nhóm:** Traceability.
-- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Trạng thái:** ngưỡng và phương pháp đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
 - **Áp dụng:** [FR-L3GEN-002](../../requirements/fr/FR-L3GEN-002.md), [FR-L3GEN-003](../../requirements/fr/FR-L3GEN-003.md), [FR-L3GEN-004](../../requirements/fr/FR-L3GEN-004.md), [FR-L3GEN-005](../../requirements/fr/FR-L3GEN-005.md), [FR-L3GEN-006](../../requirements/fr/FR-L3GEN-006.md), [FR-L3GEN-007](../../requirements/fr/FR-L3GEN-007.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-011](../../requirements/fr/FR-L3GEN-011.md), [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md), [FR-L3GEN-014](../../requirements/fr/FR-L3GEN-014.md), [FR-L3GEN-015](../../requirements/fr/FR-L3GEN-015.md).
 
 #### Yêu cầu có thể kiểm chứng
@@ -1624,12 +1672,12 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-USA-001](../../requirements/nfr/NFR-L3GEN-USA-001.md) · revision 2 · status draft · SHA-256 `5d01746fffe1881a8ee67c49acf6e97415721a09d3259791448f38e95baf9a45`
+Nguồn: [NFR-L3GEN-USA-001](../../requirements/nfr/NFR-L3GEN-USA-001.md) · revision 3 · status draft · SHA-256 `68b43ecd687ead418e41dd0f2d8105d113c4341c0f6488b9372f83769d24a0ec`
 
 ### NFR-L3GEN-USA-001 — Khả năng sử dụng và tiếp cận
 
 - **Nhóm:** Usability.
-- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Trạng thái:** ngưỡng và phương pháp đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu, pilot ngoài nhóm có thể `not_evaluated` trong phase đầu.
 - **Áp dụng:** [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-009](../../requirements/fr/FR-L3GEN-009.md), [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md), [FR-L3GEN-017](../../requirements/fr/FR-L3GEN-017.md).
 
 #### Yêu cầu có thể kiểm chứng
@@ -1653,10 +1701,4 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ## 7. Câu hỏi mở còn lại
 
-| OQ | Câu hỏi | Owner | Due |
-|---|---|---|---|
-| [OQ-L3GEN-001](../../lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-001.md) | Xác nhận mã tổ chức và người chịu trách nhiệm | Khiêm | 2026-09-19 |
-| [OQ-L3GEN-002](../../lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-002.md) | Chốt phạm vi đầy đủ và lịch giao | Người phụ trách PRD phối hợp mentor | 2026-09-19 |
-| [OQ-L3GEN-003](../../lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-003.md) | Chốt ma trận pattern và adapter hỗ trợ | Tech Lead được mentor chỉ định | 2026-09-19 |
-| [OQ-L3GEN-004](../../lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-004.md) | Duyệt ngưỡng chất lượng và đáp án nghiệm thu | Product và QA được mentor chỉ định | 2026-09-19 |
-| [OQ-L3GEN-006](../../lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-006.md) | Xác nhận quy trình và schema khi thiếu tooling | Người phụ trách PRD phối hợp mentor | 2026-09-19 |
+Không còn câu hỏi mở.

@@ -1,33 +1,11 @@
-# L3 Generator — Hồ sơ PRD để mentor review
+# L3 Generator — hồ sơ sau Gate 1
 
-L3 Generator phân tích source repository để tạo mô hình và tài liệu kiến trúc L3 ban đầu.
-Người đọc có thể truy các kết luận về bằng chứng trong source.
+Scope Gate đã được Khiêm duyệt ngày 18/09/2026 sau khi Hoàng review đồng ý, trên baseline **BL-r14** tại commit `1c283509c3ec1eec5e65de1005f00a8d4e3cbc91`. Approval chỉ chốt phạm vi/yêu cầu; không dùng code hiện có để chứng minh sản phẩm đã đạt.
 
-**Bản nháp full product · Candidate BL-r12 · Chưa qua Scope Gate.**
-Gói này chỉ chứa tài liệu; chưa có code sản phẩm hoặc kết quả nghiệm thu.
+1. [PRD](.aide/product/prd/PRD-L3GEN-2609-001.md): mục tiêu, phạm vi, luồng, lịch và phê duyệt.
+2. [Change Set View](.aide/generated/change-set-views/CSV-CHG-L3GEN-2026-001.md): 18 FR, 84 AC, 11 NFR; không còn OQ mở.
+3. [Hướng dẫn review](docs/PRD-REVIEW-README.md): quyết định cần xác nhận và cách kiểm hồ sơ.
 
-## Bắt đầu tại đây
+Nguồn PRD/FR/NFR thắng bản tổng hợp. [BL-r14](.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/baseline/BL-r14.yaml) là baseline Gate 1 đã duyệt; [approval](.aide/evidence/approvals/APPROVAL-SCOPE-L3GEN-2026-001.yaml) khóa đúng commit và review. Các baseline trước chỉ giữ để tra cứu lịch sử.
 
-| Thứ tự | Mở tài liệu | Cần review |
-|---|---|---|
-| 1 | [PRD — mục tiêu, phạm vi và luồng](.aide/product/prd/PRD-L3GEN-2609-001.md) | Sản phẩm làm gì, cho ai, phần nào thuộc đề bài và phần nào là đề xuất |
-| 2 | [Change Set View — FR/AC, NFR và câu hỏi mở](.aide/generated/change-set-views/CSV-CHG-L3GEN-2026-001.md) | Mục 3: hành vi/tiêu chí chấp nhận; mục 6: chất lượng; mục 7: quyết định còn thiếu |
-
-**Không cần đọc lại từng file nguồn.** Chúng được giữ để góp ý và quản lý từng yêu cầu theo quy trình mentor.
-Khi có bất đồng, PRD/FR/NFR nguồn thắng bản tổng hợp.
-
-## Nhờ mentor chốt
-
-Phạm vi và lịch giao; stack hỗ trợ; ngưỡng chất lượng và dataset; môi trường web/dữ liệu/AI;
-người chịu trách nhiệm và cách áp dụng các gate. [Sáu câu hỏi cụ thể và người xử lý đề xuất](docs/PRD-REVIEW-README.md).
-
-Góp ý nên ghi mã liên quan, ví dụ `AC-L3GEN-008-01` hoặc `OQ-L3GEN-002`, cùng điểm cần sửa.
-Hiện chưa hoàn tất intake/impact và chưa có quyết định phê duyệt; upload tài liệu không đồng nghĩa qua gate.
-
-## Chỉ mở khi cần đối chiếu
-
-- [Kết quả kiểm cấu trúc và giới hạn](.aide/generated/traceability/PRD-PACKAGE-CHECK.md).
-- [Quy trình mentor](docs/agentic-sdlc-execution-guide.md) và [tài liệu nguồn](docs/sdlc-sources/).
-- [Candidate hiện tại](.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/baseline/BL-r12.yaml) chứa revision/hash của bộ hồ sơ.
-
-Bản gộp thứ hai và baseline cũ không nằm trong gói review này; lịch sử cũ vẫn được giữ để tra cứu.
+[Kiểm cấu trúc](.aide/generated/traceability/PRD-PACKAGE-CHECK.md) không thay kiểm thử sản phẩm hoặc approval. Intake, thẩm quyền và tooling cục bộ đã được nhóm chốt tại OQ-001/006; impact từ graph frontmatter có giới hạn và không phải graph tập trung cấp tổ chức.

@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 3
+revision: 6
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"satisfies":["GOAL-L3GEN-001"],"constrained_by":["NFR-L3GEN-COMP-001","NFR-L3GEN-REL-001","NFR-L3GEN-SEC-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-001"]}
+relations: {"satisfies":["GOAL-L3GEN-001"],"constrained_by":["NFR-L3GEN-COMP-001","NFR-L3GEN-REL-001","NFR-L3GEN-SEC-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
@@ -25,16 +25,16 @@ Người dùng xem được những phần repository được phân tích, bị
 |---|---|
 | Nhóm luồng | Phân tích repository |
 | Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M1 |
+| Mốc đề xuất | M1: Python/FastAPI; phase sau: Java/Spring Boot |
 | Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
 
 ## Acceptance Criteria
 
 ### AC-L3GEN-002-01
 
-- **Given:** Repository có service Python/FastAPI và service Java với manifest riêng.
+- **Given:** Repository có service Python/FastAPI và service Java/Spring Boot thuộc ma trận hỗ trợ với manifest riêng.
 - **When:** người dùng phân tích repository.
-- **Then:** công cụ phân tích phần Python được hỗ trợ, liệt kê phần Java bị bỏ qua với lý do, không kết luận rằng toàn repository đã được bao phủ.
+- **Then:** công cụ phân tích cả hai đơn vị theo capability đã công bố; pattern ngoài phạm vi được ghi rõ cùng lý do, không kết luận bao phủ mọi hành vi runtime.
 - `constrained_by:` [NFR-L3GEN-COMP-001, NFR-L3GEN-REL-001, NFR-L3GEN-TRACE-001]
 - `implementation_target:` []
 - `validated_by:` []
@@ -58,7 +58,7 @@ Người dùng xem được những phần repository được phân tích, bị
 - `constrained_by:` [NFR-L3GEN-COMP-001, NFR-L3GEN-REL-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** Kiểm Python rỗng, Java-only và Flask-only.
+- **Cách kiểm dự kiến:** Kiểm Python rỗng và Flask-only; Java/Spring Boot-only thuộc ma trận hỗ trợ phải được chấp nhận. Java ngoài ma trận phải báo giới hạn hoặc không hỗ trợ.
 
 ### AC-L3GEN-002-04
 
@@ -82,7 +82,7 @@ Người dùng xem được những phần repository được phân tích, bị
 
 ## Trạng thái liên kết triển khai
 
-`implementation_target` và `validated_by` chưa chốt: component/contract/test IDs được lập ở bước thiết kế và planning sau Scope Gate. Đây là yêu cầu sản phẩm đang review, chưa phải task đủ điều kiện code; không coi các mảng rỗng là coverage đã đạt. Không tạo ID giả để lấp chỗ trống.
+Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ## Tài liệu liên quan
 
@@ -92,4 +92,3 @@ Người dùng xem được những phần repository được phân tích, bị
 - [NFR-L3GEN-SEC-001](../nfr/NFR-L3GEN-SEC-001.md)
 - [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
 - [Thuật ngữ](../../domain/glossary-core.md)
-

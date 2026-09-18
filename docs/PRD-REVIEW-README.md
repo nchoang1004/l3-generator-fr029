@@ -1,78 +1,42 @@
 # Hướng dẫn review PRD L3 Generator
 
-**Trạng thái: bản nháp full product, candidate BL-r12; chưa qua Scope Gate.**
+**BL-r14 đã qua Scope Gate — chưa có kết quả nghiệm thu sản phẩm.**
 
-> **Change Set View đã render lại theo BL-r12.** `scripts/prd_package.py` nay có trong repo; chạy `render` rồi `check` sau mỗi lần đổi nguồn. Báo cáo kiểm gói trong `generated/traceability/` vẫn là bản cũ, chưa render lại.
-Code hiện có không quyết định phạm vi hoặc chứng minh yêu cầu đã đạt.
+Hoàng đã review đồng ý và Khiêm duyệt Gate 1 ngày 18/09/2026. Xem [review record](../.aide/evidence/reviews/REVIEW-SCOPE-L3GEN-2026-001.yaml) và [approval record](../.aide/evidence/approvals/APPROVAL-SCOPE-L3GEN-2026-001.yaml). Baseline khóa commit `1c283509c3ec1eec5e65de1005f00a8d4e3cbc91`.
 
-## Mentor đọc gì?
+PRD và Change Set View trong snapshot giữ nguyên câu chữ tại thời điểm trước khi ký để không làm đổi hash sau review. Trạng thái Gate sau ký đọc từ BL-r14, `change-set.yaml` và approval record; muốn đổi nội dung normative phải mở change request/baseline mới.
 
-| Thứ tự | Tài liệu | Nội dung cần xem |
+## Thứ tự đọc
+
+1. [PRD](../.aide/product/prd/PRD-L3GEN-2609-001.md).
+2. [Change Set View](../.aide/generated/change-set-views/CSV-CHG-L3GEN-2026-001.md): 18 FR / 84 AC / 11 NFR; OQ open và answered nhưng chưa closed đều hiển thị.
+3. [Báo cáo kiểm cấu trúc](../.aide/generated/traceability/PRD-PACKAGE-CHECK.md).
+
+Góp ý bằng mã FR/AC/NFR/OQ. Nguồn thắng bản tổng hợp; không sửa bản tổng hợp bằng tay.
+
+## Các quyết định xin review
+
+| OQ | Phương án đã chuẩn bị | Người cần xác nhận |
 |---|---|---|
-| 1 | [PRD](../.aide/product/prd/PRD-L3GEN-2609-001.md) | I: nguồn yêu cầu và đề xuất; II–IV: mục tiêu/phạm vi; V: luồng; VIII–IX: lịch và quyết định |
-| 2 | [Change Set View](../.aide/generated/change-set-views/CSV-CHG-L3GEN-2026-001.md) | Mục 3: toàn bộ 18 FR/83 AC; mục 6: 11 NFR; mục 7: 5 câu hỏi còn mở |
-| Khi cần | [Kiểm tra cấu trúc](../.aide/generated/traceability/PRD-PACKAGE-CHECK.md) | Phần đã kiểm và giới hạn; không phải bằng chứng sản phẩm đạt |
+| [001](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-001.md) | Closed: Khiêm ký Scope Gate; Hoàng reviewer/UAT mặc định; hai mentor reviewer/cố vấn | Không còn xác nhận |
+| [002](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-002.md) | Closed: phase bốn tuần dùng Python qua CLI và web; giữ FR-013/016; Java và FR-017 đầy đủ ở phase sau | Không còn xác nhận |
+| [003](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-003.md) | Closed: ma trận Python phase đầu, YAML tĩnh và Java roadmap đã chốt | Không còn xác nhận |
+| [004](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-004.md) | Closed: precision exact 90%; dataset/benchmark/ground truth đã chốt; pilot ngoài nhóm không chặn phase đầu | Repo/commit điền trước benchmark; thiếu pilot thì KPI not_evaluated |
+| [005](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-005.md) | Closed: web local; GitHub public/ZIP an toàn; AI mặc định tắt và chi phí trả phí 0 đồng; expiry/cleanup đã chốt | Không còn xác nhận |
+| [006](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-006.md) | Closed: chấp nhận schema, UID, script và impact cục bộ có công bố giới hạn cho Gate 1; mapping hoàn tất trước Definition of Ready | Không còn xác nhận |
 
-Không cần mở từng FR/NFR để đọc lại. Change Set View được sinh từ nguồn;
-khi có bất đồng, PRD/FR/NFR nguồn thắng. Góp ý nên ghi key FR/AC/NFR hoặc OQ liên quan.
+Hạn 19/09 là đề xuất xin ý kiến của nhóm, không phải mentor đã cam kết. Không có dữ liệu giờ khả dụng, tên người thử hay SHA repo được bịa để đóng câu hỏi. Việc chuẩn bị phương án không đồng nghĩa approved.
 
-## Cần chốt gì?
+## Công cụ kiểm
 
-| Câu hỏi | Người xử lý đề xuất | Nguồn chi tiết |
-|---|---|---|
-| Ai chịu trách nhiệm, review và ký; mã tổ chức nào được dùng? | Người phụ trách PRD + mentor | [OQ-001](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-001.md) |
-| Full scope, mức Must/Should và lịch có phù hợp năng lực nhóm? | Product + mentor | [OQ-002](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-002.md) |
-| Chốt stack và các pattern/adapter hỗ trợ nào? | Tech Lead | [OQ-003](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-003.md) |
-| Ngưỡng chất lượng, dataset và người lập đáp án có phù hợp? | Product + QA | [OQ-004](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-004.md) |
-| Môi trường web, dữ liệu gửi/lưu và AI được phép tới đâu? | Tech Lead/Security + Product | [OQ-005](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-005.md) |
-| Áp dụng tooling, registry và điều kiện từng gate thế nào? | Mentor/người phụ trách quy trình | [OQ-006](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/open-questions/OQ-L3GEN-006.md) |
-
-## Phân biệt bản nháp và hồ sơ được duyệt
-
-- Intake và impact đã chạy ở mức nhóm, tier chốt T1. Người thực hiện là Khiêm, tự nhận vai product-owner; `role_confirmed: false` cho tới khi mentor xác nhận phân vai tại OQ-L3GEN-001. `impact.yaml` dựng từ graph cục bộ bằng frontmatter, `confidence: low` — không thay việc mentor rà soát phạm vi.
-- Owner theo vai và hạn trả lời OQ là đề xuất; chưa có xác nhận của cá nhân.
-- Chưa có review receipt, approval hoặc kết quả nghiệm thu sản phẩm. Không approve FR còn bị OQ mở chặn.
-- PRD VI và IX ghi điều kiện hoàn thành và cách ký đúng revision; không coi việc upload Git là qua Scope Gate.
-
-## Tài liệu tham khảo
-
-- [Quy trình mentor đã ghép](agentic-sdlc-execution-guide.md), [mẫu PRD](sdlc-sources/05-prd-template.md), [đề bài mục 3.6](sdlc-sources/06-project-brief.md).
-- [Nguồn yêu cầu](../.aide/evidence/requests/CR-L3GEN-2026-001.yaml), [bổ sung truy nguồn](../.aide/evidence/requests/CR-L3GEN-2026-001-sources-01.yaml), [manifest nguồn mentor](sdlc-sources/manifest.json).
-- [BL-r12](../.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/baseline/BL-r12.yaml) xác định tập revision đang review. Baseline cũ giữ lại để tra cứu, không đưa vào gói review mới.
-
-Các file nguồn mentor giữ nguyên để đối chiếu, không phải nội dung phải đọc lại trong lần review này.
-
-<details>
-<summary>Dành cho người soạn: quy trình và công cụ kiểm</summary>
-
-Theo A.2, mỗi artifact một file, AC nằm trong FR và evidence append-only. Theo D.1b,
-Change Set View bảy mục là bản dùng để review; không thay bằng một PRD gộp có thể sửa độc lập.
-Giữ glossary và OBS vì AC/KPI tham chiếu tới chúng.
-
-Trước Scope Gate: CR → intake/impact/tier → rà FR/NFR → candidate mới → kiểm hồ sơ →
-commit → review đúng revision. `impact.yaml` sinh từ graph, không viết tay. Theo B.3,
-cần CR, touches, stale_artifacts, affected_teams, external_consumers, risk_signals,
-path_signals, tier, flow, confidence và `skipped_with_reason` không rỗng. Bản hiện tại do
-`scripts/impact.py` sinh từ graph cục bộ dựng bằng frontmatter trong `.aide/`, không phải
-metadata graph tập trung; bốn giới hạn đã khai ở `skipped_with_reason` và `confidence` ghi
-`local-frontmatter-only`. Cách áp dụng khi thiếu tooling chính thức vẫn xử lý tại OQ-006.
-
-PROC/registry chính thức chưa đầy đủ. Mẫu DoD yêu cầu mapping triển khai trong khi thiết kế/planning
-nằm sau Scope Gate; cách áp dụng đang ở OQ-006. Mảng mapping rỗng không phải được miễn.
-Sau Scope Gate mới thực hiện các bước domain, thiết kế, contracts và planning theo dependency.
-
-Các script chỉ có trong môi trường soạn, không nằm trong gói tài liệu gửi mentor.
-Cần Python 3.12 và PyYAML:
+Script hiện có trong repo, không phải công cụ aide chính thức:
 
 ```powershell
-py -3.12 scripts/prd_package.py check  --baseline BL-r12.yaml
-py -3.12 scripts/prd_package.py render --baseline BL-r12.yaml
-py -3.12 scripts/impact.py --baseline BL-r12.yaml
+py -3.12 scripts/prd_package.py check --baseline BL-r14.yaml
+py -3.12 scripts/prd_package.py render --baseline BL-r14.yaml
+py -3.12 scripts/impact.py --baseline BL-r14.yaml
 ```
 
-Sửa nguồn thì tăng revision artifact đổi nội dung và chọn candidate mới (r8 trở đi).
-Không sửa tay view hoặc ghi đè baseline cũ. Snapshot/render từ chối ghi khi có file trong
-`evidence/reviews/` hoặc `evidence/approvals/`; khi đó dùng quy trình re-review chính thức,
-không xóa evidence để vượt kiểm. Helper không cấp approval hoặc tự commit/push.
+Check kiểm hash/revision/key/UID; báo cáo bổ sung kiểm AC và file links có phạm vi riêng. Không có lệnh snapshot trong helper hiện tại. Khi đổi nguồn: tăng revision, tạo candidate mới từ bytes nguồn, kiểm rồi render; không ghi đè baseline cũ. Nếu có review/approval phải follow re-review, không xóa evidence để vượt guard. Impact local không xác nhận consumer ngoài repo hoặc ảnh hưởng code. PII/financial chưa đánh giá, không coi null là false.
 
-</details>
+[Quy trình mentor](agentic-sdlc-execution-guide.md) và [nguồn](sdlc-sources/) giữ nguyên để đối chiếu. Design/test mapping được lập sau Scope Gate và phải hoàn tất trước Definition of Ready cho code theo OQ-006.

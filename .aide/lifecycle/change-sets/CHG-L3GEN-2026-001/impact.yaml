@@ -5,7 +5,7 @@
 change_request: CR-L3GEN-2026-001
 flow: new-system
 tier: T1
-baseline_analyzed: BL-r12.yaml
+baseline_analyzed: BL-r14.yaml
 
 touches:
   - ADR-2026-001
@@ -61,8 +61,8 @@ risk_signals:
   remote_fetch: true
   third_party_ai: true
   user_data_retention: true
-  pii: false
-  financial: false
+  pii: null
+  financial: null
 
 path_signals:
   - ".aide/requirements/**"
@@ -71,44 +71,11 @@ path_signals:
   - "tests/**"
 
 blocked_by_open_questions:
-  - { artifact: ADR-2026-001, blocked_by: ["OQ-L3GEN-002", "OQ-L3GEN-004"] }
-  - { artifact: FR-L3GEN-001, blocked_by: ["OQ-L3GEN-001"] }
-  - { artifact: FR-L3GEN-002, blocked_by: ["OQ-L3GEN-001"] }
-  - { artifact: FR-L3GEN-003, blocked_by: ["OQ-L3GEN-001", "OQ-L3GEN-003"] }
-  - { artifact: FR-L3GEN-004, blocked_by: ["OQ-L3GEN-001", "OQ-L3GEN-003"] }
-  - { artifact: FR-L3GEN-005, blocked_by: ["OQ-L3GEN-001"] }
-  - { artifact: FR-L3GEN-006, blocked_by: ["OQ-L3GEN-001"] }
-  - { artifact: FR-L3GEN-007, blocked_by: ["OQ-L3GEN-001"] }
-  - { artifact: FR-L3GEN-008, blocked_by: ["OQ-L3GEN-001"] }
-  - { artifact: FR-L3GEN-009, blocked_by: ["OQ-L3GEN-001"] }
-  - { artifact: FR-L3GEN-010, blocked_by: ["OQ-L3GEN-001"] }
-  - { artifact: FR-L3GEN-011, blocked_by: ["OQ-L3GEN-001", "OQ-L3GEN-002"] }
-  - { artifact: FR-L3GEN-012, blocked_by: ["OQ-L3GEN-001", "OQ-L3GEN-002", "OQ-L3GEN-005"] }
-  - { artifact: FR-L3GEN-013, blocked_by: ["OQ-L3GEN-001", "OQ-L3GEN-002"] }
-  - { artifact: FR-L3GEN-014, blocked_by: ["OQ-L3GEN-001", "OQ-L3GEN-002", "OQ-L3GEN-003"] }
-  - { artifact: FR-L3GEN-015, blocked_by: ["OQ-L3GEN-001", "OQ-L3GEN-002", "OQ-L3GEN-003"] }
-  - { artifact: FR-L3GEN-016, blocked_by: ["OQ-L3GEN-001", "OQ-L3GEN-002", "OQ-L3GEN-005"] }
-  - { artifact: FR-L3GEN-017, blocked_by: ["OQ-L3GEN-001", "OQ-L3GEN-002", "OQ-L3GEN-005"] }
-  - { artifact: FR-L3GEN-018, blocked_by: ["OQ-L3GEN-001", "OQ-L3GEN-003"] }
-  - { artifact: NFR-L3GEN-ABST-001, blocked_by: ["OQ-L3GEN-001", "OQ-L3GEN-004"] }
-  - { artifact: NFR-L3GEN-ACC-001, blocked_by: ["OQ-L3GEN-004"] }
-  - { artifact: NFR-L3GEN-AI-001, blocked_by: ["OQ-L3GEN-004", "OQ-L3GEN-005"] }
-  - { artifact: NFR-L3GEN-COMP-001, blocked_by: ["OQ-L3GEN-003", "OQ-L3GEN-004"] }
-  - { artifact: NFR-L3GEN-DET-001, blocked_by: ["OQ-L3GEN-004"] }
-  - { artifact: NFR-L3GEN-PERF-001, blocked_by: ["OQ-L3GEN-004"] }
-  - { artifact: NFR-L3GEN-PRIV-001, blocked_by: ["OQ-L3GEN-004", "OQ-L3GEN-005"] }
-  - { artifact: NFR-L3GEN-REL-001, blocked_by: ["OQ-L3GEN-004"] }
-  - { artifact: NFR-L3GEN-SEC-001, blocked_by: ["OQ-L3GEN-004", "OQ-L3GEN-005"] }
-  - { artifact: NFR-L3GEN-TRACE-001, blocked_by: ["OQ-L3GEN-004"] }
-  - { artifact: NFR-L3GEN-USA-001, blocked_by: ["OQ-L3GEN-004"] }
-  - { artifact: OBS-L3GEN-001, blocked_by: ["OQ-L3GEN-004"] }
-  - { artifact: OBS-L3GEN-002, blocked_by: ["OQ-L3GEN-004"] }
-  - { artifact: PRD-L3GEN-2609-001, blocked_by: ["OQ-L3GEN-001", "OQ-L3GEN-002", "OQ-L3GEN-003", "OQ-L3GEN-004", "OQ-L3GEN-005", "OQ-L3GEN-006"] }
 
 skipped_with_reason:
-  - { area: "external_consumers", reason: "Không có metadata graph tập trung nên không thấy hệ thống ngoài repo. Một repo một System, chưa công bố contract cho bên ngoài, nên danh sách rỗng là kết quả đúng ở phạm vi này chứ không phải chưa tính." }
-  - { area: "architecture-and-contracts", reason: "Chưa có artifact L1/L2/L3 nào (architecture/, tech-specs/ trống). Thiết kế nằm sau Scope Gate nên không có gì để tính stale." }
-  - { area: "code-traceability", reason: "grep src/ và tests/ cho 0 kết quả với mọi mã FR/AC/NFR. Code chưa gắn traceability nên không suy được thay đổi yêu cầu chạm file code nào." }
+  - { area: "external_consumers", reason: "Không có metadata graph tập trung nên không thấy hệ thống ngoài repo. Chưa kiểm chứng consumer bên ngoài; danh sách rỗng không chứng minh không có consumer." }
+  - { area: "architecture-and-contracts", reason: "Chưa có artifact L1/L2/L3 nào hoàn chỉnh được xác nhận; đã có ADR draft. Chưa đủ graph để kết luận toàn bộ tác động tới thiết kế." }
+  - { area: "code-traceability", reason: "Chưa thực hiện quét source/test trong script này cho mã FR/AC/NFR; không suy được thay đổi yêu cầu chạm file code nào." }
   - { area: "missing-requirements", reason: "Script chỉ thấy artifact đang tồn tại; yêu cầu bị bỏ sót hoàn toàn thì không có node để phát hiện. Hai chỗ hở đã tìm được (entry point, thư viện bên ngoài) là do đọc đề bài mục 3.6 bằng mắt, không do script. Việc rà đủ vẫn thuộc về người." }
 
 confidence:

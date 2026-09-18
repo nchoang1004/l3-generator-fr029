@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 2
+revision: 3
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"constrains":["FR-L3GEN-001","FR-L3GEN-002","FR-L3GEN-008","FR-L3GEN-009","FR-L3GEN-016","FR-L3GEN-017","FR-L3GEN-018"],"measured_by":["OBS-L3GEN-001"],"blocked_by":["OQ-L3GEN-004"]}
+relations: {"constrains":["FR-L3GEN-001","FR-L3GEN-002","FR-L3GEN-008","FR-L3GEN-009","FR-L3GEN-016","FR-L3GEN-017","FR-L3GEN-018"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
@@ -18,7 +18,7 @@ ai_assisted: true
 # NFR-L3GEN-REL-001 — Hoàn tất, lỗi một phần và cách ly phiên
 
 - **Nhóm:** Reliability.
-- **Trạng thái:** ngưỡng và phạm vi đề xuất, chưa được mentor duyệt, chưa đo nghiệm thu.
+- **Trạng thái:** ngưỡng và phương pháp đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
 - **Áp dụng:** [FR-L3GEN-001](../fr/FR-L3GEN-001.md), [FR-L3GEN-002](../fr/FR-L3GEN-002.md), [FR-L3GEN-008](../fr/FR-L3GEN-008.md), [FR-L3GEN-009](../fr/FR-L3GEN-009.md), [FR-L3GEN-016](../fr/FR-L3GEN-016.md), [FR-L3GEN-017](../fr/FR-L3GEN-017.md).
 
 ## Yêu cầu có thể kiểm chứng
