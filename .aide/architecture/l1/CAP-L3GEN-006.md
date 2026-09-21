@@ -5,12 +5,12 @@ type: "capability"
 group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
-status: "draft"
-revision: 1
+status: "approved"
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
 relations: {"covers":["FR-L3GEN-008","FR-L3GEN-012","FR-L3GEN-013"],"governed_by":["ADR-2026-001"]}
 verified_at: 2026-09-21
-verified_against: [{"key":"FR-L3GEN-008","revision":7},{"key":"FR-L3GEN-012","revision":6},{"key":"FR-L3GEN-013","revision":7},{"key":"ADR-2026-001","revision":3},{"key":"GLOSS-L3GEN-001","revision":3}]
+verified_against: [{"key":"FR-L3GEN-008","revision":7},{"key":"FR-L3GEN-012","revision":6},{"key":"FR-L3GEN-013","revision":7},{"key":"ADR-2026-001","revision":4},{"key":"GLOSS-L3GEN-001","revision":3}]
 classification: "internal"
 ai_assisted: true
 ---

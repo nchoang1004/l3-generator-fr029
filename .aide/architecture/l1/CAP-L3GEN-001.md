@@ -5,8 +5,8 @@ type: "capability"
 group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
-status: "draft"
-revision: 1
+status: "approved"
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
 relations: {"covers":["FR-L3GEN-001","FR-L3GEN-010","FR-L3GEN-016","FR-L3GEN-017"]}
 verified_at: 2026-09-21
