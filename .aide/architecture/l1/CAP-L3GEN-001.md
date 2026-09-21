@@ -1,5 +1,5 @@
 ---
-uid:
+uid: "01M30ZP2F1K22JZWNM1REYGWW8"
 key: "CAP-L3GEN-001"
 type: "capability"
 group: "normative"
@@ -10,7 +10,7 @@ revision: 1
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
 relations: {"covers":["FR-L3GEN-001","FR-L3GEN-010","FR-L3GEN-016","FR-L3GEN-017"]}
 verified_at: 2026-09-21
-verified_against: [{"key":"FR-L3GEN-001","revision":7},{"key":"FR-L3GEN-010","revision":5},{"key":"FR-L3GEN-016","revision":6},{"key":"FR-L3GEN-017","revision":8}]
+verified_against: [{"key":"FR-L3GEN-001","revision":7},{"key":"FR-L3GEN-010","revision":5},{"key":"FR-L3GEN-016","revision":6},{"key":"FR-L3GEN-017","revision":8},{"key":"GLOSS-L3GEN-001","revision":3}]
 classification: "internal"
 ai_assisted: true
 ---
@@ -34,6 +34,9 @@ và trạng thái/định danh phiên để theo dõi lần chạy.
 - **Không** trình bày kết quả — đó là [CAP-L3GEN-006](CAP-L3GEN-006.md).
 - Source đầu vào là read-only (bất biến miền #2). Năng lực này không import, chạy, cài
   dependency hay ghi ngược vào source.
+- Giữ trạng thái `completed` / `partial` / `failed` của run. Hết ngân sách thời gian, bộ
+  nhớ hoặc trần tiếp nhận thì dừng và đánh dấu `partial` (bất biến miền #10); nội dung
+  phạm vi đã mất do [CAP-L3GEN-005](CAP-L3GEN-005.md) mô tả.
 
 ## FR được phủ
 

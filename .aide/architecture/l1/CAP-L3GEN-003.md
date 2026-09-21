@@ -1,5 +1,5 @@
 ---
-uid:
+uid: "01M30ZP2F2XFWV4HH259D97B6J"
 key: "CAP-L3GEN-003"
 type: "capability"
 group: "normative"
@@ -10,7 +10,7 @@ revision: 1
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
 relations: {"covers":["FR-L3GEN-003","FR-L3GEN-004","FR-L3GEN-005","FR-L3GEN-006","FR-L3GEN-014","FR-L3GEN-015"]}
 verified_at: 2026-09-21
-verified_against: [{"key":"FR-L3GEN-003","revision":8},{"key":"FR-L3GEN-004","revision":7},{"key":"FR-L3GEN-005","revision":5},{"key":"FR-L3GEN-006","revision":5},{"key":"FR-L3GEN-014","revision":6},{"key":"FR-L3GEN-015","revision":7}]
+verified_against: [{"key":"FR-L3GEN-003","revision":8},{"key":"FR-L3GEN-004","revision":7},{"key":"FR-L3GEN-005","revision":5},{"key":"FR-L3GEN-006","revision":5},{"key":"FR-L3GEN-014","revision":6},{"key":"FR-L3GEN-015","revision":7},{"key":"GLOSS-L3GEN-001","revision":3}]
 classification: "internal"
 ai_assisted: true
 ---
@@ -32,7 +32,9 @@ bốn trạng thái `resolved` / `ambiguous` / `unresolved` / `runtime-dependent
 - `Code fact` chưa phải `architecture claim`. Việc nâng fact thành claim mức component
   thuộc [CAP-L3GEN-004](CAP-L3GEN-004.md).
 - Quan hệ `unresolved`, `ambiguous` hay `runtime-dependent` **không** được nâng thành
-  cạnh kiến trúc (bất biến miền #3). Nó ở lại lớp dữ kiện kèm lý do.
+  cạnh kiến trúc của lớp mặc định (bất biến miền #3). Nó ở lại lớp dữ kiện kèm nhãn
+  trạng thái và lý do — đủ để [CAP-L3GEN-006](CAP-L3GEN-006.md) dựng lớp phủ quan hệ
+  chưa xác minh, nhưng không vào tập cạnh kiến trúc.
 - Adapter chỉ diễn giải API bằng luật đã công bố. Ngoài ma trận stack đã chốt thì báo
   `limitation`, không đoán.
 - **Không** thực thi source để khám phá runtime (bất biến miền #2).

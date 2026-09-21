@@ -5,11 +5,11 @@ type: "glossary"
 group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
-status: "draft"
-revision: 2
+status: "approved"
+revision: 3
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {}
-verified_at: null
+verified_at: 2026-09-21
 verified_against: []
 classification: "internal"
 ai_assisted: true
@@ -75,15 +75,15 @@ với tài liệu này, nghĩa trong baseline yêu cầu và tài liệu này đ
 | potentially reachable | Có call/config context tĩnh cho thấy registration có thể được thực hiện; vẫn không phải runtime-confirmed |
 | completed / partial / failed | Trạng thái toàn analysis run: đủ artifact bắt buộc / có kết quả dùng được nhưng thiếu phạm vi / không tạo được bộ kết quả hợp lệ |
 
-## 5. Tác nhân và tài liệu quy trình
+## 5. Tác nhân tạo kết quả
 
 | Thuật ngữ | Nghĩa dùng trong hệ thống |
 |---|---|
 | Deterministic core | Phần tạo code fact, architecture claim, evidence, limitation, finding và artifact cấu trúc mà không phụ thuộc AI |
 | AI description | Văn bản tùy chọn, có nhãn, chỉ diễn đạt dữ kiện/finding đã có; không có quyền sửa hoặc bổ sung cấu trúc |
-| FR / AC / NFR | Hành vi sản phẩm / trường hợp nghiệm thu hành vi / ràng buộc chất lượng |
-| OBS | Định nghĩa cách thu và tính số đo, không mặc nhiên yêu cầu dịch vụ telemetry online |
-| Baseline | Tập revision được review/duyệt cùng nhau. BL-r14 là Scope Gate đã duyệt; revision 2 của glossary này là draft sau Scope Gate để chuẩn bị thiết kế |
+
+`FR`, `AC`, `NFR`, `OBS` và `Baseline` là thuật ngữ quy trình, không phải thuật ngữ miền
+sản phẩm. Nghĩa của chúng ở tài liệu quy trình, không lặp lại ở đây.
 
 ## 6. Bất biến miền
 
@@ -94,21 +94,32 @@ Các bất biến sau phải giữ dù sau này chọn phương án kiến trúc
 2. Source đầu vào là read-only: không import, chạy, `exec`/`eval`, cài dependency, chạy
    hook/submodule hoặc ghi ngược vào source.
 3. Mọi architecture claim công bố phải có evidence. Candidate, unresolved, ambiguous và
-   runtime-dependent không được nâng thành semantic edge để làm kết quả đầy hơn.
+   runtime-dependent không được nâng thành semantic edge của lớp mặc định để làm kết quả
+   đầy hơn.
+
+   Chúng được phép hiện ra ở một **lớp phủ quan hệ chưa xác minh** mà người dùng chủ động
+   bật: lớp này mặc định tắt, vẽ khác hẳn cạnh đã xác minh, và mỗi quan hệ trong đó mang
+   nhãn trạng thái cùng lý do chưa kết luận được. Bật lớp phủ không biến chúng thành
+   architecture claim: chúng không vào tập cạnh kiến trúc, không tính vào coverage của
+   claim, và không xuất hiện khi lớp phủ tắt. Chỉ dùng nét vẽ khác mà không kèm nhãn và
+   lý do là vi phạm bất biến này, vì ký hiệu đồ họa rơi mất khi đổi công cụ xem.
 4. `Không phát hiện thấy` chỉ hợp lệ khi phạm vi tương ứng đã được xét đầy đủ. Nếu parser,
    adapter, context hoặc budget thiếu, kết quả phải là limitation/partial, không phải rỗng.
 5. Confidence của claim, completeness của thuộc tính và coverage của run là ba trục độc
    lập; không dùng một trục thay cho trục khác.
 6. Cùng snapshot, cấu hình, tool version và rule version phải cho cùng deterministic core
-   qua CLI và web. Run metadata và cách trình bày có thể khác theo contract.
+   qua CLI và web. Run metadata và cách trình bày có thể khác theo contract. Hệ quả bắt
+   buộc: CLI, web và exporter không tự phân tích source theo luật riêng; mọi cấu trúc
+   chúng trình bày phải đến từ cùng architecture model.
 7. Phân tích có thể đi xuống file/class/function/call, nhưng lớp mặc định cho người đọc
    dừng ở application/component theo ADR-2026-001.
-8. CLI, web và exporter không tự phân tích source theo các luật riêng; mọi cấu trúc chúng
-   trình bày phải đến từ cùng architecture model.
-9. AI mặc định tắt trong phase đầu. Khi được người dùng bật, AI không được thay đổi code
+8. AI mặc định tắt trong phase đầu. Khi được người dùng bật, AI không được thay đổi code
    fact, architecture claim, evidence, limitation, finding ID hoặc artifact cấu trúc.
-10. Lỗi một file hoặc một adapter không được che mất phần hợp lệ của run; kết quả phải giữ
-    phần dùng được và nói chính xác phạm vi đã mất.
+9. Lỗi một file hoặc một adapter không được che mất phần hợp lệ của run; kết quả phải giữ
+   phần dùng được và nói chính xác phạm vi đã mất.
+10. Khi run dừng vì hết ngân sách thời gian, bộ nhớ hoặc trần tiếp nhận, kết quả phải là
+    `partial` kèm phạm vi đã mất và nguyên nhân dừng. Không đánh dấu `completed` cho bộ
+    kết quả thiếu phạm vi, và không đánh dấu `failed` khi phần đã xét vẫn dùng được.
 
 ## 7. Ghi chú về tài liệu thiết kế cũ
 

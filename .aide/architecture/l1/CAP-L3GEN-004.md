@@ -1,5 +1,5 @@
 ---
-uid:
+uid: "01M30ZP2F2555Q072FXDDZG3W4"
 key: "CAP-L3GEN-004"
 type: "capability"
 group: "normative"
@@ -10,7 +10,7 @@ revision: 1
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
 relations: {"covers":["FR-L3GEN-011"],"governed_by":["ADR-2026-001"]}
 verified_at: 2026-09-21
-verified_against: [{"key":"FR-L3GEN-011","revision":8},{"key":"ADR-2026-001","revision":3}]
+verified_against: [{"key":"FR-L3GEN-011","revision":8},{"key":"ADR-2026-001","revision":3},{"key":"GLOSS-L3GEN-001","revision":3}]
 classification: "internal"
 ai_assisted: true
 ---

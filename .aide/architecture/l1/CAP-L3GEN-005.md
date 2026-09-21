@@ -1,5 +1,5 @@
 ---
-uid:
+uid: "01M30ZP2F200RMDRVW50KMZ67J"
 key: "CAP-L3GEN-005"
 type: "capability"
 group: "normative"
@@ -10,7 +10,7 @@ revision: 1
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
 relations: {"covers":["FR-L3GEN-007","FR-L3GEN-009"]}
 verified_at: 2026-09-21
-verified_against: [{"key":"FR-L3GEN-007","revision":5},{"key":"FR-L3GEN-009","revision":5}]
+verified_against: [{"key":"FR-L3GEN-007","revision":5},{"key":"FR-L3GEN-009","revision":5},{"key":"GLOSS-L3GEN-001","revision":3}]
 classification: "internal"
 ai_assisted: true
 ---
@@ -35,7 +35,9 @@ confidence, completeness, coverage là ba trục độc lập, không dùng tr�
   snapshot khác (bất biến miền #1).
 - `Finding` ở đây là cảnh báo tất định cần xác minh, **không** phải kết luận lỗ hổng bảo
   mật hay lỗi nghiệp vụ.
-- Lỗi một file hoặc một adapter không được che mất phần hợp lệ của run (bất biến miền #10).
+- Lỗi một file hoặc một adapter không được che mất phần hợp lệ của run (bất biến miền #9).
+- Run dừng vì hết ngân sách phải công bố `partial` kèm phạm vi đã mất và nguyên nhân,
+  không phải `completed` cũng không phải `failed` (bất biến miền #10).
 - **Không** quyết định cách hiển thị — đó là [CAP-L3GEN-006](CAP-L3GEN-006.md).
 
 ## FR được phủ
