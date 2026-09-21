@@ -49,6 +49,7 @@ sample-repos/
 # Personal and agent-specific notes
 PROGRESS.md
 CLAUDE.md
+docs/HANDOFF.md
 
 # Logs and temporary files
 *.log
