@@ -5,7 +5,7 @@
 change_request: CR-L3GEN-2026-002
 flow: new-system
 tier: T1
-baseline_analyzed: BL-r2.yaml
+baseline_analyzed: BL-r3.yaml
 
 touches:
   - ADR-2026-001
@@ -29,7 +29,13 @@ touches:
   - OQ-L3GEN-008
   - PRD-L3GEN-2609-001
 
-stale_artifacts: []
+stale_artifacts:
+  - CAP-L3GEN-007
+  - CAP-L3GEN-008
+  - CAP-L3GEN-009
+  - CAP-L3GEN-010
+  - CAP-L3GEN-011
+  - CAP-L3GEN-012
 
 affected_teams:
   - TEAM-L3GEN
@@ -62,7 +68,7 @@ confidence:
   graph_coverage: local-frontmatter-only
   level: low
   basis: >-
-    Tính từ 58 artifact có frontmatter trong .aide/. Quan hệ đọc từ trường relations, không qua graph tập trung.
+    Tính từ 64 artifact có frontmatter trong .aide/. Quan hệ đọc từ trường relations, không qua graph tập trung.
   not_established: >-
     Tính đủ của bộ yêu cầu so với đề bài; ảnh hưởng tới hệ thống ngoài; ảnh hưởng tới code.
 

@@ -27,5 +27,5 @@ intake:
   role_confirmed: true
   date: "2026-09-23"
   decisions: "Mở Change Set mới thay cho CHG-L3GEN-2026-001; mọi GOAL/KPI/FR/NFR mang key mới, không dùng lại key cũ; PRD là nguồn đúng, tài liệu khác chỉ để tham khảo."
-baseline_candidate: baseline/BL-r2.yaml
+baseline_candidate: baseline/BL-r3.yaml
 note: "Chưa qua Scope Gate. Approval 18/09/2026 của CHG-L3GEN-2026-001 giữ nguyên làm lịch sử. Impact dùng graph cục bộ từ frontmatter."

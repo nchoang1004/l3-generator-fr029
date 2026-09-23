@@ -2,15 +2,15 @@
 key: CSV-CHG-L3GEN-2026-002
 group: derived
 non_normative: true
-derived_from: [BL-CHG-L3GEN-2026-002-r2]
+derived_from: [BL-CHG-L3GEN-2026-002-r3]
 hand_written: false
 status: candidate
-generated_by: scripts/prd_package.py render --baseline BL-r2.yaml
+generated_by: scripts/prd_package.py render --baseline BL-r3.yaml
 ---
 
 # Làm lại phạm vi — mô hình ngôn ngữ đề xuất, code kiểm bằng chứng
 
-Bản ứng viên chưa duyệt, sinh từ `BL-CHG-L3GEN-2026-002-r2`. Khi view và nguồn bất đồng, **FR/NFR/PRD nguồn thắng**; sửa nguồn rồi chạy lại script render. Không dùng view này như approval.
+Bản ứng viên chưa duyệt, sinh từ `BL-CHG-L3GEN-2026-002-r3`. Khi view và nguồn bất đồng, **FR/NFR/PRD nguồn thắng**; sửa nguồn rồi chạy lại script render. Không dùng view này như approval.
 
 Gồm 9 FR, 5 NFR và 1 OBS trong baseline.
 
@@ -683,7 +683,7 @@ Product cùng Tech Lead/QA chốt ở Scope Gate. Không có waiver nào đượ
 
 ---
 
-Nguồn: [NFR-L3GEN-AI-002](../../requirements/nfr/NFR-L3GEN-AI-002.md) · revision 2 · status draft · SHA-256 `b18843ea5c2218e32fb03374cab10e413b180ef441f260c533637229d7dd2951`
+Nguồn: [NFR-L3GEN-AI-002](../../requirements/nfr/NFR-L3GEN-AI-002.md) · revision 3 · status draft · SHA-256 `a142ee726a8d39bcff28f3a4925c00c0df826294c24eae8b218b2664649782fa`
 
 ### NFR-L3GEN-AI-002 — Ranh giới, chi phí và truy vết của mô hình ngôn ngữ
 
@@ -699,13 +699,25 @@ Thay cho NFR-L3GEN-AI-001 và NFR-L3GEN-DET-001 của BL-r14; tái lập hạ xu
 
 **Đọc thêm code.** Đầu vào mặc định là tập dữ kiện, danh sách file của từng component, lời gọi giữa component, và chữ ký hàm (tên, tham số, kiểu, decorator, docstring). Khi cần xem thân hàm, model gọi công cụ đọc code của engine; công cụ chỉ trả đoạn code thuộc snapshot và phạm vi đang xét, đã che bí mật. Model phải hỗ trợ gọi công cụ; với `gpt-oss-120b` trên Groq điều này **chưa kiểm**, kiểm ở M1. Kết quả model trả về phải đúng schema đã định; phần sai schema, trỏ tới file không có trong snapshot, tham chiếu định danh không tồn tại, hoặc không qua bước kiểm bằng chứng của NFR-L3GEN-ACC-002 thì bị loại và ghi lý do loại.
 
-**Provider và model phase đầu.** Groq, model `openai/gpt-oss-120b`, gói miễn phí. Giới hạn gói do Khiêm cung cấp ngày 23/09/2026: 30 request/phút, 1.000 request/ngày, 8.000 token/phút, 200.000 token/ngày. Giới hạn này do Groq đặt và có thể đổi; công cụ đọc lỗi rate limit thực tế thay vì tin con số ghi ở đây.
+**Provider và model phase đầu.** Hai model, chia theo việc, đều dùng gói miễn phí:
+
+| Việc | Model | Số request mỗi lần chạy |
+|---|---|---|
+| Đọc code qua công cụ, đặt tên, mô tả, vai trò component, gắn nhãn cạnh | Groq `openai/gpt-oss-120b`, `reasoning_effort` trung bình | Nhiều, trong trần token bên dưới |
+| Đề xuất cạnh bổ sung cho cả repository, gộp trong một request, không đọc thêm code | Google `gemini-3.5-flash` | 1 |
+| Chia component khi repository phẳng (AC-L3GEN-022-05) | Google `gemini-3.5-flash` | 1, chỉ khi repository phẳng |
+
+Giới hạn gói do Khiêm cung cấp ngày 23/09/2026. Groq `gpt-oss-120b`: 30 request/phút, 1.000 request/ngày, 8.000 token/phút, 200.000 token/ngày. Google `gemini-3.5-flash`: 5 request/phút, 250.000 token/phút, 20 request/ngày. Giới hạn do provider đặt và có thể đổi; công cụ đọc lỗi rate limit thực tế thay vì tin con số ghi ở đây.
+
+Mỗi việc luôn do đúng model đã ghi ở bảng. Model của một việc lỗi hoặc hết quota thì việc đó dừng và báo, không chuyển sang model kia. Provenance ghi model của từng phần kết quả.
 
 **Trần mỗi lần chạy.**
 
 | Trần | Giá trị | Lý do |
 |---|---|---|
-| Token mỗi lần chạy, vào và ra cộng lại | ≤ 100.000 | Một nửa quota ngày, chừa chỗ cho một lần chạy lại |
+| Token mỗi lần chạy với `gpt-oss-120b`, vào và ra cộng lại | ≤ 100.000 | Một nửa quota ngày, chừa chỗ cho một lần chạy lại |
+| Request mỗi lần chạy với `gemini-3.5-flash` | ≤ 2 | Quota 20 request/ngày; cho khoảng 10 lần chạy mỗi ngày |
+| Token mỗi request với `gemini-3.5-flash` | ≤ 50.000 | Dưới trần 250.000 token/phút; chưa đo trên repo thật |
 | Token mỗi request | ≤ 6.000 | Dưới trần 8.000 token/phút của gói |
 | Request mỗi lần chạy | ≤ 40 | Chặn vòng gọi không dừng |
 | Timeout và thử lại | 30 giây mỗi request, thử lại tối đa 2 lần | Giữ từ BL-r14 |
@@ -779,7 +791,7 @@ Product cùng Tech Lead/QA chốt ở Scope Gate. Không có waiver nào đượ
 
 ---
 
-Nguồn: [NFR-L3GEN-SEC-002](../../requirements/nfr/NFR-L3GEN-SEC-002.md) · revision 2 · status draft · SHA-256 `509c44b243b6cf0cc61fc6e3f92a047ff182a24cca96ec6784447d44df22584b`
+Nguồn: [NFR-L3GEN-SEC-002](../../requirements/nfr/NFR-L3GEN-SEC-002.md) · revision 3 · status draft · SHA-256 `39cad9c4bd1ba58d339560c865cb3296a615d442f94d2176855515665dfcba8f`
 
 ### NFR-L3GEN-SEC-002 — An toàn khi tiếp nhận source và vòng đời dữ liệu
 
@@ -796,7 +808,7 @@ Thay cho NFR-L3GEN-SEC-001 và NFR-L3GEN-PRIV-001 của BL-r14.
 
 **Tiếp nhận an toàn.** File nén giải ra phải nằm trong vùng xử lý; đường dẫn thoát khỏi vùng đó bị từ chối. Trần một lần tiếp nhận, giữ từ BL-r14: ZIP nén 100 MB, giải nén 500 MB, 50.000 file. Lấy source từ GitHub timeout 120 giây. Vượt trần thì từ chối kèm lý do. Chỉ nhận repository GitHub public qua HTTPS; công cụ không nhận và không lưu credential truy cập repository.
 
-**Dữ liệu gửi ra ngoài.** Trước khi chạy, người dùng được cho biết dữ liệu nào sẽ được gửi tới provider model. Dữ liệu gửi đi gồm: tập dữ kiện đã trích (tên symbol, đường dẫn file, vị trí, giá trị literal như path của route), chữ ký hàm kèm docstring, và các đoạn code model yêu cầu qua công cụ đọc code trong giới hạn của NFR-L3GEN-AI-002. Không gửi nguyên file source hoặc cả repository. Giá trị cấu hình mang dấu hiệu bí mật bị che trước khi vào bất kỳ đầu ra nào, kể cả payload gửi model.
+**Dữ liệu gửi ra ngoài.** Trước khi chạy, người dùng được cho biết dữ liệu nào sẽ được gửi tới provider model. Dữ liệu gửi đi gồm: tập dữ kiện đã trích (tên symbol, đường dẫn file, vị trí, giá trị literal như path của route), chữ ký hàm kèm docstring, và các đoạn code model yêu cầu qua công cụ đọc code trong giới hạn của NFR-L3GEN-AI-002. Không gửi nguyên file source hoặc cả repository. Dữ liệu đi tới hai provider: Groq và Google, theo phân việc ở NFR-L3GEN-AI-002; màn hình và dòng lệnh báo rõ cả hai. Điều khoản dùng dữ liệu của gói miễn phí là của provider; công cụ nêu tên provider, không phát biểu thay họ. Giá trị cấu hình mang dấu hiệu bí mật bị che trước khi vào bất kỳ đầu ra nào, kể cả payload gửi model.
 
 **Vòng đời.** Phase đầu chỉ giữ dữ liệu cần cho lần chạy hiện tại. Trên web, source đã tiếp nhận và output hết hạn 24 giờ sau trạng thái cuối của lần chạy, và không được phục vụ sau hạn. Mốc 24 giờ cho source giữ từ BL-r14; áp cho output là mới, vì lịch sử 14 ngày của BL-r14 thuộc phase sau. Nếu máy tắt qua hạn, lần khởi động kế tiếp phải dọn trước khi phục vụ dữ liệu. Output của dòng lệnh do người dùng quản lý.
 
