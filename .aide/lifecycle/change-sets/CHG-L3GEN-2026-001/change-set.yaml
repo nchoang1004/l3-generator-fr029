@@ -2,7 +2,8 @@ key: CHG-L3GEN-2026-001
 type: change-set
 group: normative
 scope: lifecycle
-status: active
+status: superseded
+superseded_by: CHG-L3GEN-2026-002
 label: "Full product — Code → Architecture / L3 Generator"
 objective:
   satisfies: [GOAL-L3GEN-001, GOAL-L3GEN-002, GOAL-L3GEN-003]
@@ -37,3 +38,4 @@ intake:
   note: "Ngày 18/09/2026, Khiêm xác nhận mentor đã trao quyền quyết định cho cả Khiêm và Hoàng. Khiêm là đầu mối product-owner và người ký Scope Gate; Hoàng là reviewer nội bộ/UAT mặc định. Hai mentor là reviewer/cố vấn. Xem OQ-L3GEN-001 revision 7."
 baseline_candidate: baseline/BL-r14.yaml
 note: "Scope Gate đã được duyệt trên BL-r14/commit 1c283509c3ec1eec5e65de1005f00a8d4e3cbc91. M1–M3 là mốc kiểm tra nội bộ, chưa xác định các đợt release; nếu giao riêng từng mốc, tách Change Set/baseline tương ứng. Impact dùng graph cục bộ từ frontmatter, không phải metadata graph tập trung; xem confidence và skipped_with_reason trong impact.yaml."
+superseded_note: "Ngày 23/09/2026 Khiêm mở CHG-L3GEN-2026-002 theo CR-L3GEN-2026-002 (đổi sang mô hình ngôn ngữ). Approval Scope Gate và BL-r14 giữ nguyên làm lịch sử, không còn là phạm vi hiện hành."

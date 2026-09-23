@@ -1,0 +1,31 @@
+key: CHG-L3GEN-2026-002
+type: change-set
+group: normative
+scope: lifecycle
+status: active
+label: "Làm lại phạm vi — mô hình ngôn ngữ đề xuất, code kiểm bằng chứng"
+objective:
+  satisfies: [GOAL-L3GEN-004, GOAL-L3GEN-005, GOAL-L3GEN-006, GOAL-L3GEN-007]
+affected_systems: [SYS-L3GEN]
+affected_teams: [TEAM-L3GEN]
+flow: new-system
+tier: T1
+proposed_tier: T1
+tier_reason: "Hệ thống chưa có người dùng thật nên vẫn là new-system. T1 vì nhận source từ xa và gửi dữ liệu ra provider model bên ngoài."
+coordination:
+  mode: independent
+  integration_gate_required: false
+derived_from: []
+supersedes: CHG-L3GEN-2026-001
+change_request: CR-L3GEN-2026-002
+intake_status: done
+impact_status: done_local_graph
+scope_gate_status: pending
+intake:
+  performed_by: "Khiêm"
+  role_claimed: product-owner
+  role_confirmed: true
+  date: "2026-09-23"
+  decisions: "Mở Change Set mới thay cho CHG-L3GEN-2026-001; mọi GOAL/KPI/FR/NFR mang key mới, không dùng lại key cũ; PRD là nguồn đúng, tài liệu khác chỉ để tham khảo."
+baseline_candidate: baseline/BL-r1.yaml
+note: "Chưa qua Scope Gate. Approval 18/09/2026 của CHG-L3GEN-2026-001 giữ nguyên làm lịch sử. Impact dùng graph cục bộ từ frontmatter."

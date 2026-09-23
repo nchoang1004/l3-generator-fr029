@@ -1,22 +1,23 @@
-# Kiểm cấu trúc hồ sơ BL-r14
+# Kiểm cấu trúc hồ sơ BL-r1 — CHG-L3GEN-2026-002
 
-Ngày: 2026-09-18. Kiểm cục bộ cho baseline Gate 1 đã duyệt; không phải `check-sdlc` chính thức hoặc kiểm thử sản phẩm.
+Ngày: 2026-09-23. Kiểm cục bộ cho candidate chưa review; không phải `check-sdlc` chính thức hoặc kiểm thử sản phẩm.
 
 | Kiểm | Kết quả |
 |---|---|
-| Baseline 40 artifact: hash/revision/key/UID | Pass bằng `scripts/prd_package.py check` |
-| 18 FR / 84 AC / 11 NFR | Đủ trong candidate |
-| AC có Given/When/Then, mã không trùng | Pass: 84/84, không trùng |
-| Đường dẫn file Markdown | 442 lượt nội bộ, không thiếu file |
-| Open Question | 6/6 closed; Change Set View không còn câu hỏi mở |
-| impact.yaml | Parse YAML thành công; 40 touches, 0 stale, 0 FR bị OQ chặn |
-| Whitespace/patch | `git diff --check` pass |
-| Scope Gate | Hoàng review pass; Khiêm approved trên commit `1c283509c3ec1eec5e65de1005f00a8d4e3cbc91` |
+| Baseline 19 artifact: hash, revision, key, UID | Pass bằng `scripts/prd_package.py check --change-set CHG-L3GEN-2026-002 --baseline BL-r1.yaml` |
+| 8 FR / 31 AC / 5 NFR | Đủ trong candidate |
+| AC có Given/When/Then, mã không trùng | Pass: 31/31, không trùng |
+| Key mới không trùng key cũ | FR-019 đến 026, NFR `-002` và OPS-001, GOAL-004 đến 007, KPI-006 đến 010 |
+| Open Question | OQ-007 và OQ-008 closed; Change Set View không còn câu hỏi mở |
+| impact.yaml | Parse YAML được; 19 touches, 0 stale, 0 FR bị OQ chặn |
+| Link Markdown nội bộ | 543 lượt trong README, `docs/`, `.aide/` và file `.md` ở gốc; 0 thiếu file |
+| Whitespace | `git diff --check` sạch, trừ ký tự CR có sẵn trong các file CRLF cũ giữ nguyên byte |
+| Scope Gate | Chưa review, chưa ký |
 
-Phạm vi links: README, `docs/**/*.md`, `.aide/**/*.md`; bỏ code fence, anchor, URL ngoài và nội dung Mermaid. Check hash không xác nhận semantics đúng. Việc sinh CSV thành công không thay review nội dung.
+Phạm vi kiểm link: bỏ code fence, anchor thuần và URL ngoài. Check hash không xác nhận nội dung đúng. Sinh CSV thành công không thay review nội dung.
 
-Chưa thực hiện: benchmark sản phẩm, product tests, accessibility, threat-model test, canary/cleanup test, chọn repo/commit cho lần đo đầu, tuyển người pilot và Scope Gate approval. `implementation_target`/`validated_by` được lập sau Scope Gate và phải hoàn tất trước Definition of Ready cho code.
+`stale: 0` chỉ là kết quả của graph cục bộ. Script bỏ qua artifact deprecated, và không đọc quan hệ `derived_from`/`constrains`. ADR-2026-002 và threat model đã được gắn nhãn lỗi thời bằng tay.
 
-Impact chỉ đọc frontmatter, không quét source/test, không chứng minh không có external consumer; PII/financial chưa đánh giá (`null`). `stale_artifacts: []` chỉ là kết quả của graph cục bộ, không có nghĩa không còn lỗi tài liệu.
+Chưa thực hiện: benchmark sản phẩm, product test, threat-model test, chọn repo/commit cho dataset, đo token thật của tập dữ kiện, kiểm Groq trả JSON đúng schema. `implementation_target`/`validated_by` lập sau Scope Gate, phải xong trước Definition of Ready.
 
-Tái kiểm baseline: `python scripts/prd_package.py check --baseline BL-r14.yaml`. Báo cáo link/AC và `git diff --check` là các lượt kiểm bổ sung cục bộ, không nằm trong lệnh check này.
+**Lịch sử.** Báo cáo ngày 18/09/2026 cho BL-r14 của CHG-L3GEN-2026-001 (40 artifact, 18 FR / 84 AC / 11 NFR) nằm trong lịch sử git của file này. BL-r14 chỉ kiểm lại được tại commit `1c283509c3ec1eec5e65de1005f00a8d4e3cbc91`, vì các file của nó đã chuyển sang `requirements/_superseded-r23/`.

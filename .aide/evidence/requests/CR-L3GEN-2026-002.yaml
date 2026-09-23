@@ -1,0 +1,21 @@
+key: CR-L3GEN-2026-002
+type: change-request
+group: evidence
+scope: lifecycle
+captured_at_date: "2026-09-23"
+source: "Tin nhắn của Khiêm trong phiên làm việc ngày 23/09/2026; giữ nguyên chữ, kể cả lỗi gõ."
+requests_verbatim:
+  - "tôi nhớ là AI dùng để đề xuất các relationship còn vẫn có code để chứng minh evidence mà"
+  - "mở cái mới"
+  - "lần này coi như cải thiện lại ý tưởng từ đầu nên làm sao tường minh nhất là được"
+  - "prd là mặc định đúng những cái khác chỉ là doc đi kèm gợi ý thôi"
+  - "chỉnh hết qua bản mới để chính xác và những gì lỗi thời thì update cho phien bản mới luôn, 1 nheieuf quan trọng để bạn tự hiểu cần làm gì là mentor đã bảo dùng AI rồi nên tôi thay đổi ra bản mới"
+  - "thôi xóa L1, L2 để trong lịch sử git thôi"
+mentor_request_verbatim: null
+mentor_request_as_relayed: "Ngày 22/09/2026 mentor hướng dẫn dùng mô hình ngôn ngữ để đề xuất quan hệ kiến trúc; code vẫn phải chứng minh bằng chứng tại source. Mục đích là mở rộng sang framework khác mà không viết bộ luật riêng cho từng stack."
+conflicts_with:
+  - source: "Đề bài mục 3.6"
+    text: "AI có thể dùng để bổ sung description, nhưng relationship chính phải được chứng minh từ source/static analysis."
+    resolution: "Giữ yêu cầu chứng minh bằng source: model chỉ đề xuất, code kiểm dữ kiện chứng minh trước khi công bố (AC-L3GEN-022-02, NFR-L3GEN-ACC-002). Phần khác đề bài là AI được đề xuất quan hệ, không chỉ viết mô tả."
+supersedes_scope_of: CR-L3GEN-2026-001
+note: "Chưa có văn bản gốc của mentor; nội dung mentor là lời Khiêm truyền đạt, không phải approval của mentor. Nếu có tin nhắn gốc, bổ sung vào mentor_request_verbatim bằng revision mới, không sửa đè."

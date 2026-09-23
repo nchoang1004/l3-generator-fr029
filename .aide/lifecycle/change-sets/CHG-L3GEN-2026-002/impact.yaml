@@ -1,0 +1,70 @@
+# Sinh bằng scripts/impact.py — không sửa tay.
+# Đọc quan hệ khai trong frontmatter của .aide/, KHÔNG phải metadata graph
+# tập trung mà EXEC §B.3 mô tả. Xem confidence và skipped_with_reason.
+
+change_request: CR-L3GEN-2026-002
+flow: new-system
+tier: T1
+baseline_analyzed: BL-r1.yaml
+
+touches:
+  - ADR-2026-001
+  - FR-L3GEN-019
+  - FR-L3GEN-020
+  - FR-L3GEN-021
+  - FR-L3GEN-022
+  - FR-L3GEN-023
+  - FR-L3GEN-024
+  - FR-L3GEN-025
+  - FR-L3GEN-026
+  - GLOSS-L3GEN-001
+  - NFR-L3GEN-ABST-002
+  - NFR-L3GEN-ACC-002
+  - NFR-L3GEN-AI-002
+  - NFR-L3GEN-OPS-001
+  - NFR-L3GEN-SEC-002
+  - OBS-L3GEN-001
+  - OQ-L3GEN-007
+  - OQ-L3GEN-008
+  - PRD-L3GEN-2609-001
+
+stale_artifacts: []
+
+affected_teams:
+  - TEAM-L3GEN
+
+external_consumers: []
+
+risk_signals:
+  source_code_ingestion: true
+  remote_fetch: true
+  third_party_ai: true
+  user_data_retention: true
+  pii: null
+  financial: null
+
+path_signals:
+  - ".aide/requirements/**"
+  - ".aide/product/prd/**"
+  - "src/l3gen/**"
+  - "tests/**"
+
+blocked_by_open_questions:
+
+skipped_with_reason:
+  - { area: "external_consumers", reason: "Không có metadata graph tập trung nên không thấy hệ thống ngoài repo. Chưa kiểm chứng consumer bên ngoài; danh sách rỗng không chứng minh không có consumer." }
+  - { area: "architecture-and-contracts", reason: "Chưa có L1/L2/L3 hiện hành; L1/L2 cũ đã gỡ, ADR-2026-002 và threat model chờ xét lại sau Scope Gate. Graph chỉ có quan hệ từ frontmatter, chưa đủ để kết luận toàn bộ tác động tới thiết kế." }
+  - { area: "code-traceability", reason: "Chưa thực hiện quét source/test trong script này cho mã FR/AC/NFR; không suy được thay đổi yêu cầu chạm file code nào." }
+  - { area: "missing-requirements", reason: "Script chỉ thấy artifact đang tồn tại; yêu cầu bị bỏ sót hoàn toàn thì không có node để phát hiện. Hai chỗ hở đã tìm được (entry point, thư viện bên ngoài) là do đọc đề bài mục 3.6 bằng mắt, không do script. Việc rà đủ vẫn thuộc về người." }
+
+confidence:
+  graph_coverage: local-frontmatter-only
+  level: low
+  basis: >-
+    Tính từ 57 artifact có frontmatter trong .aide/. Quan hệ đọc từ trường relations, không qua graph tập trung.
+  not_established: >-
+    Tính đủ của bộ yêu cầu so với đề bài; ảnh hưởng tới hệ thống ngoài; ảnh hưởng tới code.
+
+review_note: >-
+  Bản này không thay việc mentor rà soát phạm vi. Nó nói thay đổi chạm những artifact
+  nào trong repo, không nói bộ yêu cầu đã đủ hay chưa.

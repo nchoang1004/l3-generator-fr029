@@ -1,0 +1,88 @@
+key: BL-CHG-L3GEN-2026-002-r1
+group: normative
+scope: lifecycle
+status: candidate
+candidate_only: true
+change_set: CHG-L3GEN-2026-002
+approval: null
+commit_sha: null
+supersedes: null
+hash_algorithm: sha256-full-file-bytes-local-pilot-not-official-hash-artifact
+note: Candidate đầu tiên của CHG-L3GEN-2026-002, lập ngày 2026-09-23. Chưa review, chưa approved. Khi review phải ghi commit chứa đúng các byte dưới đây. 19 artifact.
+artifacts:
+- key: PRD-L3GEN-2609-001
+  revision: 25
+  path: .aide/product/prd/PRD-L3GEN-2609-001.md
+  sha256: 8dd287ef1f837d60afd5203539ed41c095557aae1929dbd32f435e5d5451cce1
+- key: FR-L3GEN-019
+  revision: 1
+  path: .aide/requirements/fr/FR-L3GEN-019.md
+  sha256: c561b13248d85aa3a1240a2b30ee2405ad1feeceedc6a5a76cef65a4a304470c
+- key: FR-L3GEN-020
+  revision: 1
+  path: .aide/requirements/fr/FR-L3GEN-020.md
+  sha256: 242fa0670871662126dbf0e9b9d39a2948be464b272033c88a459706b94d5602
+- key: FR-L3GEN-021
+  revision: 1
+  path: .aide/requirements/fr/FR-L3GEN-021.md
+  sha256: 534667dc47e0667ae2eea65ff98df1c80766eeae8bccc4abcc36e768f12d827f
+- key: FR-L3GEN-022
+  revision: 1
+  path: .aide/requirements/fr/FR-L3GEN-022.md
+  sha256: 9cb6276b2b7304f81e851487d00f7f89c9459cb0d6d395a71d1dbf411e1746bf
+- key: FR-L3GEN-023
+  revision: 1
+  path: .aide/requirements/fr/FR-L3GEN-023.md
+  sha256: 38c1fee95c6ce178adcb690bcc90cc03fb4515e3f6298d569e56bb2cbdacf759
+- key: FR-L3GEN-024
+  revision: 1
+  path: .aide/requirements/fr/FR-L3GEN-024.md
+  sha256: 7aa296a2bdbfbfcba0d31ed5a9550405eb48d4d8a3dcb26c9021f6296f483d35
+- key: FR-L3GEN-025
+  revision: 1
+  path: .aide/requirements/fr/FR-L3GEN-025.md
+  sha256: e3dfe40837b224150f0e230fb7b1f559002cb1a7af8339e609708648df340479
+- key: FR-L3GEN-026
+  revision: 1
+  path: .aide/requirements/fr/FR-L3GEN-026.md
+  sha256: c10cedb6e6f0b2a6a1a8885a9f761b5b9d44f9d3b2cf8f5b44d298c6f1a75adb
+- key: NFR-L3GEN-ABST-002
+  revision: 1
+  path: .aide/requirements/nfr/NFR-L3GEN-ABST-002.md
+  sha256: 22bae9f5036c9f53f7b32b623b76feb246b77daecbd0bc3b4da14e4cc7f0c6a3
+- key: NFR-L3GEN-ACC-002
+  revision: 1
+  path: .aide/requirements/nfr/NFR-L3GEN-ACC-002.md
+  sha256: cef92fc5f13546aa25994ab245b265d824d81062bf05d701eee6776a3eb6c09f
+- key: NFR-L3GEN-AI-002
+  revision: 1
+  path: .aide/requirements/nfr/NFR-L3GEN-AI-002.md
+  sha256: 183c1fc4c7e68086e7cf3b84530f345c7c8350844306694d16fdc568272bc531
+- key: NFR-L3GEN-OPS-001
+  revision: 1
+  path: .aide/requirements/nfr/NFR-L3GEN-OPS-001.md
+  sha256: eac4c3dfbed44efad794b67ba0ed21b14ba74b00955260cf1610671cd424e187
+- key: NFR-L3GEN-SEC-002
+  revision: 1
+  path: .aide/requirements/nfr/NFR-L3GEN-SEC-002.md
+  sha256: 1d4bc7cd9470a825f27817fcf2042d395628cfcd9da84b4736405764e28f0cfa
+- key: OBS-L3GEN-001
+  revision: 5
+  path: .aide/observability/OBS-L3GEN-001.md
+  sha256: dda47f589f29bebc107f2149038a07b3ea4f836343401710c900d6c1bc18ae83
+- key: GLOSS-L3GEN-001
+  revision: 4
+  path: .aide/domain/glossary-core.md
+  sha256: 0c4f20b129129f2556b79964104ca0aa1fd5ec65a1487957c12b0ed2f4e792e8
+- key: ADR-2026-001
+  revision: 5
+  path: .aide/architecture/adr/ADR-2026-001.md
+  sha256: ea6ebaa7a2fcd2498e58621f4225d18e22ebab81af41070e5feac544baeedae7
+- key: OQ-L3GEN-007
+  revision: 1
+  path: .aide/lifecycle/change-sets/CHG-L3GEN-2026-002/open-questions/OQ-L3GEN-007.md
+  sha256: 0fe88aa4b355e0753cc05cf5f7597d55490c811f2126898b6969be3638ef38c7
+- key: OQ-L3GEN-008
+  revision: 1
+  path: .aide/lifecycle/change-sets/CHG-L3GEN-2026-002/open-questions/OQ-L3GEN-008.md
+  sha256: 91e34f0532190a33dc6811f7db92bb3e9db52f97c41ff5b3fd7f6219891d0519
