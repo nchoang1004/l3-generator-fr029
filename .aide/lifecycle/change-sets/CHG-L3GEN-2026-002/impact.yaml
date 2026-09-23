@@ -5,7 +5,7 @@
 change_request: CR-L3GEN-2026-002
 flow: new-system
 tier: T1
-baseline_analyzed: BL-r3.yaml
+baseline_analyzed: BL-r4.yaml
 
 touches:
   - ADR-2026-001

@@ -2,15 +2,15 @@
 key: CSV-CHG-L3GEN-2026-002
 group: derived
 non_normative: true
-derived_from: [BL-CHG-L3GEN-2026-002-r3]
+derived_from: [BL-CHG-L3GEN-2026-002-r4]
 hand_written: false
 status: candidate
-generated_by: scripts/prd_package.py render --baseline BL-r3.yaml
+generated_by: scripts/prd_package.py render --baseline BL-r4.yaml
 ---
 
 # Làm lại phạm vi — mô hình ngôn ngữ đề xuất, code kiểm bằng chứng
 
-Bản ứng viên chưa duyệt, sinh từ `BL-CHG-L3GEN-2026-002-r3`. Khi view và nguồn bất đồng, **FR/NFR/PRD nguồn thắng**; sửa nguồn rồi chạy lại script render. Không dùng view này như approval.
+Bản ứng viên chưa duyệt, sinh từ `BL-CHG-L3GEN-2026-002-r4`. Khi view và nguồn bất đồng, **FR/NFR/PRD nguồn thắng**; sửa nguồn rồi chạy lại script render. Không dùng view này như approval.
 
 Gồm 9 FR, 5 NFR và 1 OBS trong baseline.
 
@@ -525,7 +525,7 @@ Trên web, người dùng theo dõi lần chạy hiện tại rồi xem tổng q
 
 ---
 
-Nguồn: [FR-L3GEN-027](../../requirements/fr/FR-L3GEN-027.md) · revision 1 · status draft · SHA-256 `2848618e427daba401a8609aadb59e54dd69fb1eb64828580741d9a65bfed5f5`
+Nguồn: [FR-L3GEN-027](../../requirements/fr/FR-L3GEN-027.md) · revision 2 · status draft · SHA-256 `9742b69841cded17b030d716fbe916a656cec4406a294dd1c99e16cf77cf955d`
 
 ### FR-L3GEN-027 — Sinh tài liệu L3 contract
 
@@ -533,16 +533,27 @@ Nguồn: [FR-L3GEN-027](../../requirements/fr/FR-L3GEN-027.md) · revision 1 · 
 
 Theo quy trình của mentor, L3 là contract: API, bảng dữ liệu (TBL) và sự kiện (EVT), chia theo component sở hữu. Sơ đồ component là mức L2. FR này sinh tài liệu L3 cho repository được phân tích.
 
-Định dạng theo cấu trúc `tech-specs/` của mentor. Mỗi contract là một file `.md`: bảng cho người đọc, cộng một khối máy đọc được bên trong.
+Định dạng theo đúng cấu trúc `tech-specs/` của mentor (execution guide mục A.1 và B.10): thư mục gốc, cách chia theo component và cách đặt tên file. Mỗi contract là một file `.md`: bảng cho người đọc, cộng một khối máy đọc được bên trong.
 
 ```text
-l3/
-  README.md                              mục lục, sơ đồ component, phần giới hạn
-  <component>/
-    api/API-<component>.md               bảng endpoint + khối OpenAPI 3.1
-    schema/TBL-<component>.md            bảng cột + khối DDL
-    events/EVT-<component>-<topic>.md    producer, consumer + schema payload
+<thư mục output>/
+  README.md                                  mục lục, sơ đồ component, phần giới hạn
+  tech-specs/
+    <CMP-slug>/                              chỉ component sở hữu ít nhất một API, TBL hoặc EVT
+      api/API-<SYS>-<CMP>-v1.md              bảng endpoint + khối OpenAPI 3.1
+      schema/TBL-<SYS>-<CMP>.md              bảng cột + khối DDL
+      events/EVT-<SYS>-<CMP>-<topic>.md      producer, consumer + schema payload
 ```
+
+Quy tắc đặt tên:
+
+| Phần | Lấy từ | Ví dụ |
+|---|---|---|
+| `<SYS>` | Tên repository: viết hoa, bỏ dấu, ký tự không phải chữ hoặc số đổi thành `-` | `fastapi-shop` → `FASTAPI-SHOP` |
+| `<CMP-slug>`, `<CMP>` | Tên component, cùng quy tắc; trùng thì thêm `-2`, `-3` | `Order Service` → `ORDER-SERVICE` |
+| `-v1` | Luôn là `v1`: mỗi lần chạy sinh mới toàn bộ, không so với lần chạy trước | `API-FASTAPI-SHOP-ORDER-SERVICE-v1.md` |
+
+`README.md` nằm ngoài `tech-specs/` vì mẫu của mentor không có file mục lục. Component không sở hữu contract nào thì không có thư mục.
 
 Mỗi file có frontmatter ghi là bản sinh tự động, định danh snapshot và component sở hữu. Mỗi dòng trỏ về dữ kiện code làm bằng chứng. OpenAPI dựng từ phân tích tĩnh, không chạy code của repository. Nội dung sinh từ cùng mô hình với sơ đồ và JSON.
 

@@ -1,10 +1,10 @@
-# Kiểm cấu trúc hồ sơ BL-r3 — CHG-L3GEN-2026-002
+# Kiểm cấu trúc hồ sơ BL-r4 — CHG-L3GEN-2026-002
 
 Ngày: 2026-09-23. Kiểm cục bộ cho candidate chưa review; không phải `check-sdlc` chính thức hoặc kiểm thử sản phẩm.
 
 | Kiểm | Kết quả |
 |---|---|
-| Baseline 20 artifact: hash, revision, key, UID | Pass bằng `scripts/prd_package.py check --change-set CHG-L3GEN-2026-002 --baseline BL-r3.yaml` |
+| Baseline 20 artifact: hash, revision, key, UID | Pass bằng `scripts/prd_package.py check --change-set CHG-L3GEN-2026-002 --baseline BL-r4.yaml` |
 | 9 FR / 36 AC / 5 NFR | Đủ trong candidate |
 | AC có Given/When/Then, mã không trùng | Pass: 36/36, không trùng |
 | Key mới không trùng key cũ | FR-019 đến 027, NFR `-002` và OPS-001, GOAL-004 đến 007, KPI-006 đến 010, CAP-007 đến 012 |
