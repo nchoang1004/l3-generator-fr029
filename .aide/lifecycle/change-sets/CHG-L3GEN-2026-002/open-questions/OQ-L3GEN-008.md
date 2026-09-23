@@ -6,7 +6,7 @@ group: "normative"
 scope: "lifecycle"
 system: "SYS-L3GEN"
 status: "closed"
-revision: 1
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {}
 verified_at: null
@@ -54,4 +54,18 @@ Khiêm cung cấp giới hạn gói miễn phí của Groq ngày 23/09/2026. B�
 
 - **Blocking:** không còn.
 - **Trạng thái:** closed.
-- **Còn phải kiểm ở M1:** model có trả JSON đúng schema ổn định không; số token thực tế của tập dữ kiện trên repo mẫu.
+- **Còn phải kiểm ở M1:** số token thực tế của tập dữ kiện trên repo mẫu.
+
+## Cập nhật ngày 23/09/2026 — revision 2
+
+Agent thử nhanh 4 model trên cùng app FastAPI mẫu 6 file, 10 lần mỗi model (ghi ở `docs/HANDOFF.md`, bản cục bộ). Kết quả chính:
+
+| | gpt-oss-120b, prompt cũ | gpt-oss-120b, prompt sửa | qwen3.8-27b | gemini-2.5-flash | gemini-3.5-flash |
+|---|---|---|---|---|---|
+| JSON đúng schema | 10/10 | 10/10 | 10/10 | 10/10 | 10/10 |
+| Tên component là đường dẫn file | 60/60 | 0/60 | 0/60 | 0/60 | 6/60 |
+| Đề xuất cạnh gọi ra ngoài | 1/10 | 7/10 | 4/10 | 8/10 | 10/10 |
+
+Groq không cho dùng công cụ và JSON strict trong cùng một request, nên mỗi phạm vi gọi hai pha: đọc code, rồi trả JSON. Mẫu nhỏ; đây không phải số đo nghiệm thu.
+
+**Quyết định của Khiêm:** dùng cả hai model, chia theo việc: `gpt-oss-120b` đọc code, đặt tên, mô tả; `gemini-3.5-flash` đề xuất cạnh bổ sung và chia nhóm khi repository phẳng. Phân việc và trần chi tiết ở [NFR-L3GEN-AI-002](../../../../requirements/nfr/NFR-L3GEN-AI-002.md). `gemini-3.8-flash` không chọn vì trả lỗi quá tải hai lần khi thử.

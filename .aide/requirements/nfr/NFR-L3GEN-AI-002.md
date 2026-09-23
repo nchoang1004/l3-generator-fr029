@@ -6,7 +6,7 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 2
+revision: 3
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"constrains":["FR-L3GEN-021","FR-L3GEN-022","FR-L3GEN-024"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
@@ -29,13 +29,25 @@ Thay cho NFR-L3GEN-AI-001 và NFR-L3GEN-DET-001 của BL-r14; tái lập hạ xu
 
 **Đọc thêm code.** Đầu vào mặc định là tập dữ kiện, danh sách file của từng component, lời gọi giữa component, và chữ ký hàm (tên, tham số, kiểu, decorator, docstring). Khi cần xem thân hàm, model gọi công cụ đọc code của engine; công cụ chỉ trả đoạn code thuộc snapshot và phạm vi đang xét, đã che bí mật. Model phải hỗ trợ gọi công cụ; với `gpt-oss-120b` trên Groq điều này **chưa kiểm**, kiểm ở M1. Kết quả model trả về phải đúng schema đã định; phần sai schema, trỏ tới file không có trong snapshot, tham chiếu định danh không tồn tại, hoặc không qua bước kiểm bằng chứng của NFR-L3GEN-ACC-002 thì bị loại và ghi lý do loại.
 
-**Provider và model phase đầu.** Groq, model `openai/gpt-oss-120b`, gói miễn phí. Giới hạn gói do Khiêm cung cấp ngày 23/09/2026: 30 request/phút, 1.000 request/ngày, 8.000 token/phút, 200.000 token/ngày. Giới hạn này do Groq đặt và có thể đổi; công cụ đọc lỗi rate limit thực tế thay vì tin con số ghi ở đây.
+**Provider và model phase đầu.** Hai model, chia theo việc, đều dùng gói miễn phí:
+
+| Việc | Model | Số request mỗi lần chạy |
+|---|---|---|
+| Đọc code qua công cụ, đặt tên, mô tả, vai trò component, gắn nhãn cạnh | Groq `openai/gpt-oss-120b`, `reasoning_effort` trung bình | Nhiều, trong trần token bên dưới |
+| Đề xuất cạnh bổ sung cho cả repository, gộp trong một request, không đọc thêm code | Google `gemini-3.5-flash` | 1 |
+| Chia component khi repository phẳng (AC-L3GEN-022-05) | Google `gemini-3.5-flash` | 1, chỉ khi repository phẳng |
+
+Giới hạn gói do Khiêm cung cấp ngày 23/09/2026. Groq `gpt-oss-120b`: 30 request/phút, 1.000 request/ngày, 8.000 token/phút, 200.000 token/ngày. Google `gemini-3.5-flash`: 5 request/phút, 250.000 token/phút, 20 request/ngày. Giới hạn do provider đặt và có thể đổi; công cụ đọc lỗi rate limit thực tế thay vì tin con số ghi ở đây.
+
+Mỗi việc luôn do đúng model đã ghi ở bảng. Model của một việc lỗi hoặc hết quota thì việc đó dừng và báo, không chuyển sang model kia. Provenance ghi model của từng phần kết quả.
 
 **Trần mỗi lần chạy.**
 
 | Trần | Giá trị | Lý do |
 |---|---|---|
-| Token mỗi lần chạy, vào và ra cộng lại | ≤ 100.000 | Một nửa quota ngày, chừa chỗ cho một lần chạy lại |
+| Token mỗi lần chạy với `gpt-oss-120b`, vào và ra cộng lại | ≤ 100.000 | Một nửa quota ngày, chừa chỗ cho một lần chạy lại |
+| Request mỗi lần chạy với `gemini-3.5-flash` | ≤ 2 | Quota 20 request/ngày; cho khoảng 10 lần chạy mỗi ngày |
+| Token mỗi request với `gemini-3.5-flash` | ≤ 50.000 | Dưới trần 250.000 token/phút; chưa đo trên repo thật |
 | Token mỗi request | ≤ 6.000 | Dưới trần 8.000 token/phút của gói |
 | Request mỗi lần chạy | ≤ 40 | Chặn vòng gọi không dừng |
 | Timeout và thử lại | 30 giây mỗi request, thử lại tối đa 2 lần | Giữ từ BL-r14 |
