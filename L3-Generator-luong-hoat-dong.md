@@ -1,5 +1,7 @@
 # L3 Generator — Giải thích luồng hoạt động cho thành viên và agent
 
+> **Lỗi thời một phần từ 23/09/2026.** Tài liệu này viết cho hướng AI tắt hoặc AI chỉ viết mô tả, trên bộ yêu cầu BL-r14. Nguồn đúng hiện nay là [PRD revision 25](.aide/product/prd/PRD-L3GEN-2609-001.md) của CHG-L3GEN-2026-002: mô hình ngôn ngữ đề xuất component và quan hệ, code kiểm dữ kiện chứng minh. Mã FR/NFR nhắc ở đây là mã cũ. Khi khác nhau, PRD thắng. Đọc file này để hiểu cơ chế phân tích tĩnh, không dùng làm yêu cầu.
+
 > Tài liệu giải thích và hỗ trợ review, không thay thế PRD/FR/AC/NFR, không phải một quyết định kiến trúc mới và không phải báo cáo kiểm thử sản phẩm.
 
 | Thông tin | Giá trị |

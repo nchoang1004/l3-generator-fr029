@@ -1,5 +1,7 @@
 # Ý tưởng kiến trúc 2.0 — Language-first, Architecture-focused Analysis
 
+> **Lỗi thời một phần từ 23/09/2026.** Tài liệu này viết cho hướng AI tắt hoặc AI chỉ viết mô tả, trên bộ yêu cầu BL-r14. Nguồn đúng hiện nay là [PRD revision 25](../.aide/product/prd/PRD-L3GEN-2609-001.md) của CHG-L3GEN-2026-002: mô hình ngôn ngữ đề xuất component và quan hệ, code kiểm dữ kiện chứng minh. Mã FR/NFR nhắc ở đây là mã cũ. Khi khác nhau, PRD thắng. Đọc file này để hiểu cơ chế phân tích tĩnh, không dùng làm yêu cầu.
+
 > **Trạng thái trong gói hồ sơ này: ghi chép thiết kế, không phải artifact chuẩn tắc.**
 >
 > Tài liệu này đến từ một hướng làm song song và được đưa vào để người review thấy cơ chế

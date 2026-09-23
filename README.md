@@ -1,11 +1,13 @@
-# L3 Generator — hồ sơ sau Gate 1
+# L3 Generator — hồ sơ yêu cầu, chờ Scope Gate lần 2
 
-Scope Gate đã được Khiêm duyệt ngày 18/09/2026 sau khi Hoàng review đồng ý, trên baseline **BL-r14** tại commit `1c283509c3ec1eec5e65de1005f00a8d4e3cbc91`. Approval chỉ chốt phạm vi/yêu cầu; không dùng code hiện có để chứng minh sản phẩm đã đạt.
+Công cụ đọc source Python/FastAPI và sinh tài liệu kiến trúc ở mức component: L3 Markdown, sơ đồ và JSON. Phân tích tĩnh trích dữ kiện code kèm vị trí. Mô hình ngôn ngữ đề xuất component và quan hệ. Code kiểm từng đề xuất với dữ kiện trước khi công bố.
 
-1. [PRD](.aide/product/prd/PRD-L3GEN-2609-001.md): mục tiêu, phạm vi, luồng, lịch và phê duyệt.
-2. [Change Set View](.aide/generated/change-set-views/CSV-CHG-L3GEN-2026-001.md): 18 FR, 84 AC, 11 NFR; không còn OQ mở.
-3. [Hướng dẫn review](docs/PRD-REVIEW-README.md): quyết định cần xác nhận và cách kiểm hồ sơ.
+**Trạng thái:** chưa có baseline được duyệt. Candidate `BL-r1` của [CHG-L3GEN-2026-002](.aide/lifecycle/change-sets/CHG-L3GEN-2026-002/change-set.yaml) chờ Hoàng review và Khiêm ký. Chưa có code sản phẩm trên nhánh này, chưa có kết quả đo.
 
-Nguồn PRD/FR/NFR thắng bản tổng hợp. [BL-r14](.aide/lifecycle/change-sets/CHG-L3GEN-2026-001/baseline/BL-r14.yaml) là baseline Gate 1 đã duyệt; [approval](.aide/evidence/approvals/APPROVAL-SCOPE-L3GEN-2026-001.yaml) khóa đúng commit và review. Các baseline trước chỉ giữ để tra cứu lịch sử.
+1. [PRD revision 25](.aide/product/prd/PRD-L3GEN-2609-001.md): mục tiêu, phạm vi, luồng, lịch và phê duyệt.
+2. [Change Set View](.aide/generated/change-set-views/CSV-CHG-L3GEN-2026-002.md): 8 FR, 31 AC, 5 NFR; không còn câu hỏi mở.
+3. [Hướng dẫn review](docs/PRD-REVIEW-README.md): đọc gì, kiểm gì.
 
-[Kiểm cấu trúc](.aide/generated/traceability/PRD-PACKAGE-CHECK.md) không thay kiểm thử sản phẩm hoặc approval. Intake, thẩm quyền và tooling cục bộ đã được nhóm chốt tại OQ-001/006; impact từ graph frontmatter có giới hạn và không phải graph tập trung cấp tổ chức.
+Nguồn PRD/FR/NFR thắng bản tổng hợp. Tài liệu khác ở gốc repo và trong `docs/` chỉ để tham khảo.
+
+**Lịch sử.** Scope Gate lần 1 duyệt ngày 18/09/2026 trên BL-r14 của CHG-L3GEN-2026-001 (18 FR, 84 AC, 11 NFR). Ngày 22/09 mentor đổi hướng sang dùng mô hình ngôn ngữ, nên bộ đó đã superseded. Approval cũ giữ nguyên trong `.aide/evidence/`; FR/NFR cũ ở `.aide/requirements/_superseded-r23/`.
