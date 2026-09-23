@@ -5,7 +5,7 @@ type: "functional-requirement"
 group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
-status: "draft"
+status: "deprecated"
 revision: 7
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-003"],"constrained_by":["NFR-L3GEN-ABST-001","NFR-L3GEN-COMP-001","NFR-L3GEN-DET-001","NFR-L3GEN-PERF-001","NFR-L3GEN-REL-001","NFR-L3GEN-TRACE-001","NFR-L3GEN-USA-001"],"measured_by":["OBS-L3GEN-001"]}
@@ -84,6 +84,6 @@ Người dùng nhận tài liệu đọc được và JSON có cấu trúc cho c
 - [NFR-L3GEN-USA-001](../nfr/NFR-L3GEN-USA-001.md)
 - [NFR-L3GEN-COMP-001](../nfr/NFR-L3GEN-COMP-001.md)
 - [NFR-L3GEN-PERF-001](../nfr/NFR-L3GEN-PERF-001.md)
-- [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
-- [Thuật ngữ](../../domain/glossary-core.md)
+- [PRD](../../../product/prd/PRD-L3GEN-2609-001.md)
+- [Thuật ngữ](../../../domain/glossary-core.md)
 

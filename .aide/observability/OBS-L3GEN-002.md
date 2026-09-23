@@ -5,8 +5,8 @@ type: "observability"
 group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
-status: "draft"
-revision: 4
+status: "deprecated"
+revision: 5
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"measures":["KPI-L3GEN-001","KPI-L3GEN-002"]}
 verified_at: null
@@ -16,6 +16,8 @@ ai_assisted: true
 ---
 
 # Phương pháp đo trải nghiệm tìm hiểu kiến trúc
+
+> **Deprecated từ 23/09/2026.** File này đo KPI-L3GEN-001 và 002 cũ (pilot với người dùng). PRD revision 24 đã bỏ hai KPI đó. KPI hiện hành đo ở [OBS-L3GEN-001](OBS-L3GEN-001.md). Giữ lại để tra cứu.
 
 ## Câu hỏi
 

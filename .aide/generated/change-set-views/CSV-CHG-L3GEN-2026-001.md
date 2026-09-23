@@ -32,7 +32,7 @@ Toàn bộ FR trong candidate baseline; Must/Should và mốc nằm tại từng
 
 ---
 
-Nguồn: [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md) · revision 7 · status draft · SHA-256 `fc1e9d202cef360f3961da7793ade66a0474fd67cb25cca7b767383115ef9bf7`
+Nguồn: [FR-L3GEN-001](../../requirements/_superseded-r23/fr/FR-L3GEN-001.md) · revision 7 · status draft · SHA-256 `fc1e9d202cef360f3961da7793ade66a0474fd67cb25cca7b767383115ef9bf7`
 
 ### FR-L3GEN-001 — Nhận thư mục source và bắt đầu phân tích
 
@@ -115,7 +115,7 @@ Người dùng chỉ định thư mục source local và nơi lưu kết quả �
 
 ---
 
-Nguồn: [FR-L3GEN-002](../../requirements/fr/FR-L3GEN-002.md) · revision 6 · status draft · SHA-256 `44b24603efc0a3afaf93ea0676436702c536ef50f3041bf0ea256f63da33bd26`
+Nguồn: [FR-L3GEN-002](../../requirements/_superseded-r23/fr/FR-L3GEN-002.md) · revision 6 · status draft · SHA-256 `44b24603efc0a3afaf93ea0676436702c536ef50f3041bf0ea256f63da33bd26`
 
 ### FR-L3GEN-002 — Nhận diện đơn vị phân tích và phạm vi hỗ trợ
 
@@ -188,7 +188,7 @@ Người dùng xem được những phần repository được phân tích, bị
 
 ---
 
-Nguồn: [FR-L3GEN-003](../../requirements/fr/FR-L3GEN-003.md) · revision 8 · status draft · SHA-256 `c7449d774e6aeb2bedfda100b09ea5f716eee9041242571c155e4e8ccaec94e4`
+Nguồn: [FR-L3GEN-003](../../requirements/_superseded-r23/fr/FR-L3GEN-003.md) · revision 8 · status draft · SHA-256 `c7449d774e6aeb2bedfda100b09ea5f716eee9041242571c155e4e8ccaec94e4`
 
 ### FR-L3GEN-003 — Liệt kê API routes và handler
 
@@ -271,7 +271,7 @@ Người dùng xem method, path, handler, điều kiện đăng ký và nguồn 
 
 ---
 
-Nguồn: [FR-L3GEN-004](../../requirements/fr/FR-L3GEN-004.md) · revision 7 · status draft · SHA-256 `dab6e57d2007370bcce496d2ba6a8ac426a58ffee6e1a9b83c702fc863669c51`
+Nguồn: [FR-L3GEN-004](../../requirements/_superseded-r23/fr/FR-L3GEN-004.md) · revision 7 · status draft · SHA-256 `dab6e57d2007370bcce496d2ba6a8ac426a58ffee6e1a9b83c702fc863669c51`
 
 ### FR-L3GEN-004 — Liệt kê mô hình dữ liệu
 
@@ -354,7 +354,7 @@ Người dùng xem lớp dữ liệu, tên bảng nếu xác định được, c
 
 ---
 
-Nguồn: [FR-L3GEN-005](../../requirements/fr/FR-L3GEN-005.md) · revision 5 · status draft · SHA-256 `3611a95ed27624fdea2403a2f87d3b24f8adf96c79705aae1880ea977e8edb6a`
+Nguồn: [FR-L3GEN-005](../../requirements/_superseded-r23/fr/FR-L3GEN-005.md) · revision 5 · status draft · SHA-256 `3611a95ed27624fdea2403a2f87d3b24f8adf96c79705aae1880ea977e8edb6a`
 
 ### FR-L3GEN-005 — Liệt kê lời gọi HTTP và đích bên ngoài
 
@@ -417,7 +417,7 @@ Người dùng xác định nơi gọi HTTP qua thư viện thuộc phạm vi đ
 
 ---
 
-Nguồn: [FR-L3GEN-006](../../requirements/fr/FR-L3GEN-006.md) · revision 5 · status draft · SHA-256 `b6b93d9f4d3e08b466d22e0f35c474ff9bda24e8ce6be3268ac689585ba5b43e`
+Nguồn: [FR-L3GEN-006](../../requirements/_superseded-r23/fr/FR-L3GEN-006.md) · revision 5 · status draft · SHA-256 `b6b93d9f4d3e08b466d22e0f35c474ff9bda24e8ce6be3268ac689585ba5b43e`
 
 ### FR-L3GEN-006 — Truy vết tham chiếu và lời gọi xuyên file
 
@@ -490,7 +490,7 @@ Người dùng xem quan hệ gọi hàm, import và kế thừa với đích c�
 
 ---
 
-Nguồn: [FR-L3GEN-007](../../requirements/fr/FR-L3GEN-007.md) · revision 5 · status draft · SHA-256 `f26c36258ad3ec495d26106227e8a4bd5067b4ea86a3ab37d28fe83f3f3750bd`
+Nguồn: [FR-L3GEN-007](../../requirements/_superseded-r23/fr/FR-L3GEN-007.md) · revision 5 · status draft · SHA-256 `f26c36258ad3ec495d26106227e8a4bd5067b4ea86a3ab37d28fe83f3f3750bd`
 
 ### FR-L3GEN-007 — Kiểm chứng kết luận bằng nguồn và nhãn
 
@@ -553,7 +553,7 @@ Người đọc truy ngược được dữ kiện và quan hệ về đúng sou
 
 ---
 
-Nguồn: [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md) · revision 7 · status draft · SHA-256 `d0cd7bc40349aef8cbd4da220a7fddd8b81ae098e963c13d0fb876d10f12f16a`
+Nguồn: [FR-L3GEN-008](../../requirements/_superseded-r23/fr/FR-L3GEN-008.md) · revision 7 · status draft · SHA-256 `d0cd7bc40349aef8cbd4da220a7fddd8b81ae098e963c13d0fb876d10f12f16a`
 
 ### FR-L3GEN-008 — Xuất và sử dụng bộ kết quả
 
@@ -617,7 +617,7 @@ Người dùng nhận tài liệu đọc được và JSON có cấu trúc cho c
 
 ---
 
-Nguồn: [FR-L3GEN-009](../../requirements/fr/FR-L3GEN-009.md) · revision 5 · status draft · SHA-256 `217d8bba8b68cf42018379c869ae2a27ee1b17fda444983c2a783807b302b171`
+Nguồn: [FR-L3GEN-009](../../requirements/_superseded-r23/fr/FR-L3GEN-009.md) · revision 5 · status draft · SHA-256 `217d8bba8b68cf42018379c869ae2a27ee1b17fda444983c2a783807b302b171`
 
 ### FR-L3GEN-009 — Báo lỗi và giới hạn theo từng lần phân tích
 
@@ -690,7 +690,7 @@ Người dùng biết phần đã phân tích, bị bỏ qua và chưa hỗ tr�
 
 ---
 
-Nguồn: [FR-L3GEN-010](../../requirements/fr/FR-L3GEN-010.md) · revision 5 · status draft · SHA-256 `b956dfd1ed64a104902edbd467a884a1cefb2d90acefa0ed29c74098e8f7bcc1`
+Nguồn: [FR-L3GEN-010](../../requirements/_superseded-r23/fr/FR-L3GEN-010.md) · revision 5 · status draft · SHA-256 `b956dfd1ed64a104902edbd467a884a1cefb2d90acefa0ed29c74098e8f7bcc1`
 
 ### FR-L3GEN-010 — Chạy phân tích không phụ thuộc AI
 
@@ -743,7 +743,7 @@ Người dùng phân tích đầy đủ phần cốt lõi khi không có API key
 
 ---
 
-Nguồn: [FR-L3GEN-011](../../requirements/fr/FR-L3GEN-011.md) · revision 8 · status draft · SHA-256 `5e897c25f552ff7c7de60d1a7d743fa436ed07e6d707ace12ffbc278de40cb91`
+Nguồn: [FR-L3GEN-011](../../requirements/_superseded-r23/fr/FR-L3GEN-011.md) · revision 8 · status draft · SHA-256 `5e897c25f552ff7c7de60d1a7d743fa436ed07e6d707ace12ffbc278de40cb91`
 
 ### FR-L3GEN-011 — Xem component và tài liệu L3 của service
 
@@ -817,7 +817,7 @@ Người dùng xem các component bên trong service và quan hệ có chứng c
 
 ---
 
-Nguồn: [FR-L3GEN-012](../../requirements/fr/FR-L3GEN-012.md) · revision 6 · status draft · SHA-256 `83e4453835c0252a15fbda906f390e0c13be2774858ee1c8d9ef72b181f61e67`
+Nguồn: [FR-L3GEN-012](../../requirements/_superseded-r23/fr/FR-L3GEN-012.md) · revision 6 · status draft · SHA-256 `83e4453835c0252a15fbda906f390e0c13be2774858ee1c8d9ef72b181f61e67`
 
 ### FR-L3GEN-012 — Bổ sung mô tả và diễn giải cảnh báo bằng AI
 
@@ -870,7 +870,7 @@ Sau khi người dùng chủ động cho phép, AI có thể bổ sung mô tả 
 
 ---
 
-Nguồn: [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md) · revision 7 · status draft · SHA-256 `d3147cece6050dca7d0163a5562be34cbe6422a5c1719a0593225a91de1f22db`
+Nguồn: [FR-L3GEN-013](../../requirements/_superseded-r23/fr/FR-L3GEN-013.md) · revision 7 · status draft · SHA-256 `d3147cece6050dca7d0163a5562be34cbe6422a5c1719a0593225a91de1f22db`
 
 ### FR-L3GEN-013 — Phân tích và khám phá kiến trúc qua giao diện web
 
@@ -937,7 +937,7 @@ Web phase đầu hiển thị `running`, `completed`, `partial` hoặc `failed` 
 
 ---
 
-Nguồn: [FR-L3GEN-014](../../requirements/fr/FR-L3GEN-014.md) · revision 6 · status draft · SHA-256 `d5f43ea19262a8ef4ca43dbd8bccf74cc4d13a56ed1121d0028ce478cc3583ca`
+Nguồn: [FR-L3GEN-014](../../requirements/_superseded-r23/fr/FR-L3GEN-014.md) · revision 6 · status draft · SHA-256 `d5f43ea19262a8ef4ca43dbd8bccf74cc4d13a56ed1121d0028ce478cc3583ca`
 
 ### FR-L3GEN-014 — Xem cấu hình mà hệ thống sử dụng
 
@@ -1010,7 +1010,7 @@ Người dùng xem các khóa cấu hình và nơi sử dụng mà không lộ g
 
 ---
 
-Nguồn: [FR-L3GEN-015](../../requirements/fr/FR-L3GEN-015.md) · revision 7 · status draft · SHA-256 `9001d2c7ffa714dc31724aecfbbb6541b1e4267df5729866488b3288d438a78d`
+Nguồn: [FR-L3GEN-015](../../requirements/_superseded-r23/fr/FR-L3GEN-015.md) · revision 7 · status draft · SHA-256 `9001d2c7ffa714dc31724aecfbbb6541b1e4267df5729866488b3288d438a78d`
 
 ### FR-L3GEN-015 — Xem quan hệ phát và nhận sự kiện
 
@@ -1083,7 +1083,7 @@ Người dùng xem producer/consumer và topic của Kafka; biết phần thiế
 
 ---
 
-Nguồn: [FR-L3GEN-016](../../requirements/fr/FR-L3GEN-016.md) · revision 6 · status draft · SHA-256 `1e3192d651285df33a163431ae9c9fcbc861d87035d978b677de3f452e48d106`
+Nguồn: [FR-L3GEN-016](../../requirements/_superseded-r23/fr/FR-L3GEN-016.md) · revision 6 · status draft · SHA-256 `1e3192d651285df33a163431ae9c9fcbc861d87035d978b677de3f452e48d106`
 
 ### FR-L3GEN-016 — Nhận Git URL và bản nén repository
 
@@ -1150,7 +1150,7 @@ ZIP và GitHub public được xử lý trong lần chạy web hiện tại. Pha
 
 ---
 
-Nguồn: [FR-L3GEN-017](../../requirements/fr/FR-L3GEN-017.md) · revision 8 · status draft · SHA-256 `f4d88ac3525f3255aa6741e62c262da95052befc1626b22fb87160f992296003`
+Nguồn: [FR-L3GEN-017](../../requirements/_superseded-r23/fr/FR-L3GEN-017.md) · revision 8 · status draft · SHA-256 `f4d88ac3525f3255aa6741e62c262da95052befc1626b22fb87160f992296003`
 
 ### FR-L3GEN-017 — Theo dõi phiên phân tích và lấy kết quả qua API
 
@@ -1237,7 +1237,7 @@ Toàn bộ FR này thuộc phase sau. Trạng thái tạm của lần chạy web
 
 ---
 
-Nguồn: [FR-L3GEN-018](../../requirements/fr/FR-L3GEN-018.md) · revision 4 · status draft · SHA-256 `01b1799534a85395581cb717571dd22d30ac58f64f6db2201153c4b840e69dda`
+Nguồn: [FR-L3GEN-018](../../requirements/_superseded-r23/fr/FR-L3GEN-018.md) · revision 4 · status draft · SHA-256 `01b1799534a85395581cb717571dd22d30ac58f64f6db2201153c4b840e69dda`
 
 ### FR-L3GEN-018 — Xem thư viện bên ngoài mà hệ thống phụ thuộc
 
@@ -1351,13 +1351,13 @@ Không có FR chuẩn tắc nào bị giấu khỏi candidate.
 
 ---
 
-Nguồn: [NFR-L3GEN-ABST-001](../../requirements/nfr/NFR-L3GEN-ABST-001.md) · revision 4 · status draft · SHA-256 `7b5f9bc140d64ea7c9c8ffec9984d0d1143a31d74a6245d23e99472b03b77502`
+Nguồn: [NFR-L3GEN-ABST-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-ABST-001.md) · revision 4 · status draft · SHA-256 `7b5f9bc140d64ea7c9c8ffec9984d0d1143a31d74a6245d23e99472b03b77502`
 
 ### NFR-L3GEN-ABST-001 — Mức trừu tượng của kết quả trình bày
 
 - **Nhóm:** Abstraction level.
 - **Trạng thái:** ngưỡng đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-006](../../requirements/fr/FR-L3GEN-006.md), [FR-L3GEN-007](../../requirements/fr/FR-L3GEN-007.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-011](../../requirements/fr/FR-L3GEN-011.md), [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md).
+- **Áp dụng:** [FR-L3GEN-006](../../requirements/_superseded-r23/fr/FR-L3GEN-006.md), [FR-L3GEN-007](../../requirements/_superseded-r23/fr/FR-L3GEN-007.md), [FR-L3GEN-008](../../requirements/_superseded-r23/fr/FR-L3GEN-008.md), [FR-L3GEN-011](../../requirements/_superseded-r23/fr/FR-L3GEN-011.md), [FR-L3GEN-013](../../requirements/_superseded-r23/fr/FR-L3GEN-013.md).
 - **Quyết định nền:** [ADR-2026-001](../../architecture/adr/ADR-2026-001.md).
 
 #### Yêu cầu có thể kiểm chứng
@@ -1389,13 +1389,13 @@ Khiêm chốt ở Scope Gate; Hoàng review nội bộ/UAT theo quyết định 
 
 ---
 
-Nguồn: [NFR-L3GEN-ACC-001](../../requirements/nfr/NFR-L3GEN-ACC-001.md) · revision 5 · status draft · SHA-256 `691ff299d6171ad65ab52aa1af7d58b123d26bd673fd85ddd490e0fc709f05c1`
+Nguồn: [NFR-L3GEN-ACC-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-ACC-001.md) · revision 5 · status draft · SHA-256 `691ff299d6171ad65ab52aa1af7d58b123d26bd673fd85ddd490e0fc709f05c1`
 
 ### NFR-L3GEN-ACC-001 — Độ đúng của dữ kiện và component
 
 - **Nhóm:** Accuracy.
 - **Trạng thái:** ngưỡng đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-003](../../requirements/fr/FR-L3GEN-003.md), [FR-L3GEN-004](../../requirements/fr/FR-L3GEN-004.md), [FR-L3GEN-005](../../requirements/fr/FR-L3GEN-005.md), [FR-L3GEN-006](../../requirements/fr/FR-L3GEN-006.md), [FR-L3GEN-011](../../requirements/fr/FR-L3GEN-011.md), [FR-L3GEN-014](../../requirements/fr/FR-L3GEN-014.md), [FR-L3GEN-015](../../requirements/fr/FR-L3GEN-015.md).
+- **Áp dụng:** [FR-L3GEN-003](../../requirements/_superseded-r23/fr/FR-L3GEN-003.md), [FR-L3GEN-004](../../requirements/_superseded-r23/fr/FR-L3GEN-004.md), [FR-L3GEN-005](../../requirements/_superseded-r23/fr/FR-L3GEN-005.md), [FR-L3GEN-006](../../requirements/_superseded-r23/fr/FR-L3GEN-006.md), [FR-L3GEN-011](../../requirements/_superseded-r23/fr/FR-L3GEN-011.md), [FR-L3GEN-014](../../requirements/_superseded-r23/fr/FR-L3GEN-014.md), [FR-L3GEN-015](../../requirements/_superseded-r23/fr/FR-L3GEN-015.md).
 
 #### Yêu cầu có thể kiểm chứng
 
@@ -1421,13 +1421,13 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-AI-001](../../requirements/nfr/NFR-L3GEN-AI-001.md) · revision 4 · status draft · SHA-256 `f2168caf5e4e26d135bc55a2e7e918894b0917b3cc2d1ace7a530c31a57a1c08`
+Nguồn: [NFR-L3GEN-AI-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-AI-001.md) · revision 4 · status draft · SHA-256 `f2168caf5e4e26d135bc55a2e7e918894b0917b3cc2d1ace7a530c31a57a1c08`
 
 ### NFR-L3GEN-AI-001 — Giới hạn và ranh giới AI
 
 - **Nhóm:** AI reliability.
 - **Trạng thái:** ngưỡng chất lượng, provider và giới hạn chi phí đã chốt tại OQ-L3GEN-004/005; chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-010](../../requirements/fr/FR-L3GEN-010.md), [FR-L3GEN-012](../../requirements/fr/FR-L3GEN-012.md).
+- **Áp dụng:** [FR-L3GEN-010](../../requirements/_superseded-r23/fr/FR-L3GEN-010.md), [FR-L3GEN-012](../../requirements/_superseded-r23/fr/FR-L3GEN-012.md).
 
 #### Yêu cầu có thể kiểm chứng
 
@@ -1448,13 +1448,13 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-COMP-001](../../requirements/nfr/NFR-L3GEN-COMP-001.md) · revision 9 · status draft · SHA-256 `3b142d6bd1231cf3283df3dc6a3a3291199dd79900b56dfba5ec76c658b60ec5`
+Nguồn: [NFR-L3GEN-COMP-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-COMP-001.md) · revision 9 · status draft · SHA-256 `3b142d6bd1231cf3283df3dc6a3a3291199dd79900b56dfba5ec76c658b60ec5`
 
 ### NFR-L3GEN-COMP-001 — Stack và môi trường được hỗ trợ
 
 - **Nhóm:** Compatibility.
 - **Trạng thái:** phạm vi pattern đã chốt tại OQ-L3GEN-003; chưa có kết quả kiểm capability hoặc nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md), [FR-L3GEN-002](../../requirements/fr/FR-L3GEN-002.md), [FR-L3GEN-003](../../requirements/fr/FR-L3GEN-003.md), [FR-L3GEN-004](../../requirements/fr/FR-L3GEN-004.md), [FR-L3GEN-005](../../requirements/fr/FR-L3GEN-005.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md), [FR-L3GEN-014](../../requirements/fr/FR-L3GEN-014.md), [FR-L3GEN-015](../../requirements/fr/FR-L3GEN-015.md).
+- **Áp dụng:** [FR-L3GEN-001](../../requirements/_superseded-r23/fr/FR-L3GEN-001.md), [FR-L3GEN-002](../../requirements/_superseded-r23/fr/FR-L3GEN-002.md), [FR-L3GEN-003](../../requirements/_superseded-r23/fr/FR-L3GEN-003.md), [FR-L3GEN-004](../../requirements/_superseded-r23/fr/FR-L3GEN-004.md), [FR-L3GEN-005](../../requirements/_superseded-r23/fr/FR-L3GEN-005.md), [FR-L3GEN-008](../../requirements/_superseded-r23/fr/FR-L3GEN-008.md), [FR-L3GEN-013](../../requirements/_superseded-r23/fr/FR-L3GEN-013.md), [FR-L3GEN-014](../../requirements/_superseded-r23/fr/FR-L3GEN-014.md), [FR-L3GEN-015](../../requirements/_superseded-r23/fr/FR-L3GEN-015.md).
 
 #### Yêu cầu có thể kiểm chứng
 
@@ -1495,13 +1495,13 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-DET-001](../../requirements/nfr/NFR-L3GEN-DET-001.md) · revision 3 · status draft · SHA-256 `43e99d3355f0e541b0938be7b24f00a00d23474ab37bf814c30f705f8b65c824`
+Nguồn: [NFR-L3GEN-DET-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-DET-001.md) · revision 3 · status draft · SHA-256 `43e99d3355f0e541b0938be7b24f00a00d23474ab37bf814c30f705f8b65c824`
 
 ### NFR-L3GEN-DET-001 — Tái lập dữ kiện và định danh
 
 - **Nhóm:** Determinism.
 - **Trạng thái:** ngưỡng và phương pháp đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md), [FR-L3GEN-006](../../requirements/fr/FR-L3GEN-006.md), [FR-L3GEN-007](../../requirements/fr/FR-L3GEN-007.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-010](../../requirements/fr/FR-L3GEN-010.md), [FR-L3GEN-011](../../requirements/fr/FR-L3GEN-011.md), [FR-L3GEN-012](../../requirements/fr/FR-L3GEN-012.md), [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md), [FR-L3GEN-016](../../requirements/fr/FR-L3GEN-016.md).
+- **Áp dụng:** [FR-L3GEN-001](../../requirements/_superseded-r23/fr/FR-L3GEN-001.md), [FR-L3GEN-006](../../requirements/_superseded-r23/fr/FR-L3GEN-006.md), [FR-L3GEN-007](../../requirements/_superseded-r23/fr/FR-L3GEN-007.md), [FR-L3GEN-008](../../requirements/_superseded-r23/fr/FR-L3GEN-008.md), [FR-L3GEN-010](../../requirements/_superseded-r23/fr/FR-L3GEN-010.md), [FR-L3GEN-011](../../requirements/_superseded-r23/fr/FR-L3GEN-011.md), [FR-L3GEN-012](../../requirements/_superseded-r23/fr/FR-L3GEN-012.md), [FR-L3GEN-013](../../requirements/_superseded-r23/fr/FR-L3GEN-013.md), [FR-L3GEN-016](../../requirements/_superseded-r23/fr/FR-L3GEN-016.md).
 
 #### Yêu cầu có thể kiểm chứng
 
@@ -1526,13 +1526,13 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-PERF-001](../../requirements/nfr/NFR-L3GEN-PERF-001.md) · revision 3 · status draft · SHA-256 `d5d5b43cf0b7e519d69778feb1c4bc46a2cf5427899deeabd1dd05a3158e9766`
+Nguồn: [NFR-L3GEN-PERF-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-PERF-001.md) · revision 3 · status draft · SHA-256 `d5d5b43cf0b7e519d69778feb1c4bc46a2cf5427899deeabd1dd05a3158e9766`
 
 ### NFR-L3GEN-PERF-001 — Thời gian xử lý và giới hạn tài nguyên
 
 - **Nhóm:** Performance.
 - **Trạng thái:** ngưỡng và cấu hình benchmark đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md), [FR-L3GEN-016](../../requirements/fr/FR-L3GEN-016.md), [FR-L3GEN-017](../../requirements/fr/FR-L3GEN-017.md).
+- **Áp dụng:** [FR-L3GEN-001](../../requirements/_superseded-r23/fr/FR-L3GEN-001.md), [FR-L3GEN-008](../../requirements/_superseded-r23/fr/FR-L3GEN-008.md), [FR-L3GEN-013](../../requirements/_superseded-r23/fr/FR-L3GEN-013.md), [FR-L3GEN-016](../../requirements/_superseded-r23/fr/FR-L3GEN-016.md), [FR-L3GEN-017](../../requirements/_superseded-r23/fr/FR-L3GEN-017.md).
 
 #### Yêu cầu có thể kiểm chứng
 
@@ -1555,13 +1555,13 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-PRIV-001](../../requirements/nfr/NFR-L3GEN-PRIV-001.md) · revision 6 · status draft · SHA-256 `c5143681e84da63baeefb7956c22024b5b772a4e37fa77e386083ec71ae0156f`
+Nguồn: [NFR-L3GEN-PRIV-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-PRIV-001.md) · revision 6 · status draft · SHA-256 `c5143681e84da63baeefb7956c22024b5b772a4e37fa77e386083ec71ae0156f`
 
 ### NFR-L3GEN-PRIV-001 — Quyền riêng tư và vòng đời dữ liệu
 
 - **Nhóm:** Privacy.
 - **Trạng thái:** ngưỡng chất lượng và vòng đời dữ liệu đã chốt tại OQ-L3GEN-004/005; chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-005](../../requirements/fr/FR-L3GEN-005.md), [FR-L3GEN-007](../../requirements/fr/FR-L3GEN-007.md), [FR-L3GEN-010](../../requirements/fr/FR-L3GEN-010.md), [FR-L3GEN-012](../../requirements/fr/FR-L3GEN-012.md), [FR-L3GEN-014](../../requirements/fr/FR-L3GEN-014.md), [FR-L3GEN-016](../../requirements/fr/FR-L3GEN-016.md), [FR-L3GEN-017](../../requirements/fr/FR-L3GEN-017.md).
+- **Áp dụng:** [FR-L3GEN-005](../../requirements/_superseded-r23/fr/FR-L3GEN-005.md), [FR-L3GEN-007](../../requirements/_superseded-r23/fr/FR-L3GEN-007.md), [FR-L3GEN-010](../../requirements/_superseded-r23/fr/FR-L3GEN-010.md), [FR-L3GEN-012](../../requirements/_superseded-r23/fr/FR-L3GEN-012.md), [FR-L3GEN-014](../../requirements/_superseded-r23/fr/FR-L3GEN-014.md), [FR-L3GEN-016](../../requirements/_superseded-r23/fr/FR-L3GEN-016.md), [FR-L3GEN-017](../../requirements/_superseded-r23/fr/FR-L3GEN-017.md).
 
 #### Yêu cầu có thể kiểm chứng
 
@@ -1591,13 +1591,13 @@ Output chỉ giữ source digest, định danh commit nếu có và file/range d
 
 ---
 
-Nguồn: [NFR-L3GEN-REL-001](../../requirements/nfr/NFR-L3GEN-REL-001.md) · revision 3 · status draft · SHA-256 `a6425d4b46ecbbd246aa99a8cbae2670da5cf6d2ae776ddf8c487b814f03017e`
+Nguồn: [NFR-L3GEN-REL-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-REL-001.md) · revision 3 · status draft · SHA-256 `a6425d4b46ecbbd246aa99a8cbae2670da5cf6d2ae776ddf8c487b814f03017e`
 
 ### NFR-L3GEN-REL-001 — Hoàn tất, lỗi một phần và cách ly phiên
 
 - **Nhóm:** Reliability.
 - **Trạng thái:** ngưỡng và phương pháp đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md), [FR-L3GEN-002](../../requirements/fr/FR-L3GEN-002.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-009](../../requirements/fr/FR-L3GEN-009.md), [FR-L3GEN-016](../../requirements/fr/FR-L3GEN-016.md), [FR-L3GEN-017](../../requirements/fr/FR-L3GEN-017.md).
+- **Áp dụng:** [FR-L3GEN-001](../../requirements/_superseded-r23/fr/FR-L3GEN-001.md), [FR-L3GEN-002](../../requirements/_superseded-r23/fr/FR-L3GEN-002.md), [FR-L3GEN-008](../../requirements/_superseded-r23/fr/FR-L3GEN-008.md), [FR-L3GEN-009](../../requirements/_superseded-r23/fr/FR-L3GEN-009.md), [FR-L3GEN-016](../../requirements/_superseded-r23/fr/FR-L3GEN-016.md), [FR-L3GEN-017](../../requirements/_superseded-r23/fr/FR-L3GEN-017.md).
 
 #### Yêu cầu có thể kiểm chứng
 
@@ -1618,13 +1618,13 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-SEC-001](../../requirements/nfr/NFR-L3GEN-SEC-001.md) · revision 4 · status draft · SHA-256 `6e7e1c99acf01d692019847fe3cfed4e62394a7865abb75cdc3d19bff8166542`
+Nguồn: [NFR-L3GEN-SEC-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-SEC-001.md) · revision 4 · status draft · SHA-256 `6e7e1c99acf01d692019847fe3cfed4e62394a7865abb75cdc3d19bff8166542`
 
 ### NFR-L3GEN-SEC-001 — An toàn khi tiếp nhận và phân tích source
 
 - **Nhóm:** Security.
 - **Trạng thái:** ngưỡng chất lượng và phạm vi môi trường/an toàn đã chốt tại OQ-L3GEN-004/005; chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md), [FR-L3GEN-002](../../requirements/fr/FR-L3GEN-002.md), [FR-L3GEN-010](../../requirements/fr/FR-L3GEN-010.md), [FR-L3GEN-016](../../requirements/fr/FR-L3GEN-016.md), [FR-L3GEN-017](../../requirements/fr/FR-L3GEN-017.md).
+- **Áp dụng:** [FR-L3GEN-001](../../requirements/_superseded-r23/fr/FR-L3GEN-001.md), [FR-L3GEN-002](../../requirements/_superseded-r23/fr/FR-L3GEN-002.md), [FR-L3GEN-010](../../requirements/_superseded-r23/fr/FR-L3GEN-010.md), [FR-L3GEN-016](../../requirements/_superseded-r23/fr/FR-L3GEN-016.md), [FR-L3GEN-017](../../requirements/_superseded-r23/fr/FR-L3GEN-017.md).
 
 #### Yêu cầu có thể kiểm chứng
 
@@ -1645,13 +1645,13 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-TRACE-001](../../requirements/nfr/NFR-L3GEN-TRACE-001.md) · revision 3 · status draft · SHA-256 `f4d0ec841234a6ca1d8d5ad96f15b7788c2cfee8d92dfec8be8ed0dd2eac0033`
+Nguồn: [NFR-L3GEN-TRACE-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-TRACE-001.md) · revision 3 · status draft · SHA-256 `f4d0ec841234a6ca1d8d5ad96f15b7788c2cfee8d92dfec8be8ed0dd2eac0033`
 
 ### NFR-L3GEN-TRACE-001 — Nguồn bằng chứng và phiên bản
 
 - **Nhóm:** Traceability.
 - **Trạng thái:** ngưỡng và phương pháp đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-002](../../requirements/fr/FR-L3GEN-002.md), [FR-L3GEN-003](../../requirements/fr/FR-L3GEN-003.md), [FR-L3GEN-004](../../requirements/fr/FR-L3GEN-004.md), [FR-L3GEN-005](../../requirements/fr/FR-L3GEN-005.md), [FR-L3GEN-006](../../requirements/fr/FR-L3GEN-006.md), [FR-L3GEN-007](../../requirements/fr/FR-L3GEN-007.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-011](../../requirements/fr/FR-L3GEN-011.md), [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md), [FR-L3GEN-014](../../requirements/fr/FR-L3GEN-014.md), [FR-L3GEN-015](../../requirements/fr/FR-L3GEN-015.md).
+- **Áp dụng:** [FR-L3GEN-002](../../requirements/_superseded-r23/fr/FR-L3GEN-002.md), [FR-L3GEN-003](../../requirements/_superseded-r23/fr/FR-L3GEN-003.md), [FR-L3GEN-004](../../requirements/_superseded-r23/fr/FR-L3GEN-004.md), [FR-L3GEN-005](../../requirements/_superseded-r23/fr/FR-L3GEN-005.md), [FR-L3GEN-006](../../requirements/_superseded-r23/fr/FR-L3GEN-006.md), [FR-L3GEN-007](../../requirements/_superseded-r23/fr/FR-L3GEN-007.md), [FR-L3GEN-008](../../requirements/_superseded-r23/fr/FR-L3GEN-008.md), [FR-L3GEN-011](../../requirements/_superseded-r23/fr/FR-L3GEN-011.md), [FR-L3GEN-013](../../requirements/_superseded-r23/fr/FR-L3GEN-013.md), [FR-L3GEN-014](../../requirements/_superseded-r23/fr/FR-L3GEN-014.md), [FR-L3GEN-015](../../requirements/_superseded-r23/fr/FR-L3GEN-015.md).
 
 #### Yêu cầu có thể kiểm chứng
 
@@ -1672,13 +1672,13 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ---
 
-Nguồn: [NFR-L3GEN-USA-001](../../requirements/nfr/NFR-L3GEN-USA-001.md) · revision 3 · status draft · SHA-256 `68b43ecd687ead418e41dd0f2d8105d113c4341c0f6488b9372f83769d24a0ec`
+Nguồn: [NFR-L3GEN-USA-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-USA-001.md) · revision 3 · status draft · SHA-256 `68b43ecd687ead418e41dd0f2d8105d113c4341c0f6488b9372f83769d24a0ec`
 
 ### NFR-L3GEN-USA-001 — Khả năng sử dụng và tiếp cận
 
 - **Nhóm:** Usability.
 - **Trạng thái:** ngưỡng và phương pháp đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu, pilot ngoài nhóm có thể `not_evaluated` trong phase đầu.
-- **Áp dụng:** [FR-L3GEN-001](../../requirements/fr/FR-L3GEN-001.md), [FR-L3GEN-008](../../requirements/fr/FR-L3GEN-008.md), [FR-L3GEN-009](../../requirements/fr/FR-L3GEN-009.md), [FR-L3GEN-013](../../requirements/fr/FR-L3GEN-013.md), [FR-L3GEN-017](../../requirements/fr/FR-L3GEN-017.md).
+- **Áp dụng:** [FR-L3GEN-001](../../requirements/_superseded-r23/fr/FR-L3GEN-001.md), [FR-L3GEN-008](../../requirements/_superseded-r23/fr/FR-L3GEN-008.md), [FR-L3GEN-009](../../requirements/_superseded-r23/fr/FR-L3GEN-009.md), [FR-L3GEN-013](../../requirements/_superseded-r23/fr/FR-L3GEN-013.md), [FR-L3GEN-017](../../requirements/_superseded-r23/fr/FR-L3GEN-017.md).
 
 #### Yêu cầu có thể kiểm chứng
 

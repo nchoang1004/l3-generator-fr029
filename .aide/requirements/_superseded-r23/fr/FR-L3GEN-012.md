@@ -5,7 +5,7 @@ type: "functional-requirement"
 group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
-status: "draft"
+status: "deprecated"
 revision: 6
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"satisfies":["GOAL-L3GEN-001"],"constrained_by":["NFR-L3GEN-AI-001","NFR-L3GEN-DET-001","NFR-L3GEN-PRIV-001"],"measured_by":["OBS-L3GEN-001"]}
@@ -69,6 +69,6 @@ Sau khi người dùng chủ động cho phép, AI có thể bổ sung mô tả 
 - [NFR-L3GEN-PRIV-001](../nfr/NFR-L3GEN-PRIV-001.md)
 - [NFR-L3GEN-AI-001](../nfr/NFR-L3GEN-AI-001.md)
 - [NFR-L3GEN-DET-001](../nfr/NFR-L3GEN-DET-001.md)
-- [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
-- [Thuật ngữ](../../domain/glossary-core.md)
+- [PRD](../../../product/prd/PRD-L3GEN-2609-001.md)
+- [Thuật ngữ](../../../domain/glossary-core.md)
 

@@ -5,7 +5,7 @@ type: "non-functional-requirement"
 group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
-status: "draft"
+status: "deprecated"
 revision: 4
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"constrains":["FR-L3GEN-006","FR-L3GEN-007","FR-L3GEN-008","FR-L3GEN-011","FR-L3GEN-013"],"measured_by":["OBS-L3GEN-001"]}
@@ -20,7 +20,7 @@ ai_assisted: true
 - **Nhóm:** Abstraction level.
 - **Trạng thái:** ngưỡng đã chốt tại OQ-L3GEN-004; chưa đo nghiệm thu.
 - **Áp dụng:** [FR-L3GEN-006](../fr/FR-L3GEN-006.md), [FR-L3GEN-007](../fr/FR-L3GEN-007.md), [FR-L3GEN-008](../fr/FR-L3GEN-008.md), [FR-L3GEN-011](../fr/FR-L3GEN-011.md), [FR-L3GEN-013](../fr/FR-L3GEN-013.md).
-- **Quyết định nền:** [ADR-2026-001](../../architecture/adr/ADR-2026-001.md).
+- **Quyết định nền:** [ADR-2026-001](../../../architecture/adr/ADR-2026-001.md).
 
 ## Yêu cầu có thể kiểm chứng
 
@@ -45,6 +45,6 @@ Khiêm chốt ở Scope Gate; Hoàng review nội bộ/UAT theo quyết định 
 
 ## Liên kết
 
-- [ADR-2026-001](../../architecture/adr/ADR-2026-001.md).
-- [Phương pháp đo](../../observability/OBS-L3GEN-001.md).
-- [PRD](../../product/prd/PRD-L3GEN-2609-001.md).
+- [ADR-2026-001](../../../architecture/adr/ADR-2026-001.md).
+- [Phương pháp đo](../../../observability/OBS-L3GEN-001.md).
+- [PRD](../../../product/prd/PRD-L3GEN-2609-001.md).

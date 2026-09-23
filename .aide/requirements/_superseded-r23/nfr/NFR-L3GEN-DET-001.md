@@ -5,7 +5,7 @@ type: "non-functional-requirement"
 group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
-status: "draft"
+status: "deprecated"
 revision: 3
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"constrains":["FR-L3GEN-001","FR-L3GEN-006","FR-L3GEN-007","FR-L3GEN-008","FR-L3GEN-010","FR-L3GEN-011","FR-L3GEN-012","FR-L3GEN-013","FR-L3GEN-016"],"measured_by":["OBS-L3GEN-001"]}
@@ -39,6 +39,6 @@ Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/P
 
 ## Liên kết
 
-- [Phương pháp đo](../../observability/OBS-L3GEN-001.md).
-- [PRD](../../product/prd/PRD-L3GEN-2609-001.md).
+- [Phương pháp đo](../../../observability/OBS-L3GEN-001.md).
+- [PRD](../../../product/prd/PRD-L3GEN-2609-001.md).
 
