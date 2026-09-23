@@ -3,8 +3,10 @@
 
 Hai lệnh:
 
-    py -3.12 scripts/prd_package.py render --baseline BL-r9.yaml
-    py -3.12 scripts/prd_package.py check  --baseline BL-r9.yaml
+    py -3.12 scripts/prd_package.py render --change-set CHG-L3GEN-2026-002 --baseline BL-r1.yaml
+    py -3.12 scripts/prd_package.py check  --change-set CHG-L3GEN-2026-002 --baseline BL-r1.yaml
+
+`--change-set` bắt buộc khi có nhiều hơn một Change Set.
 
 `render` đọc baseline, lấy đúng các artifact có trong đó, rồi ghi
 `.aide/generated/change-set-views/CSV-<CHG-key>.md` theo bảy mục ở EXEC §D.1b.
@@ -197,16 +199,20 @@ def verify(baseline: dict) -> list[str]:
     return issues
 
 
-def guard_review_freeze() -> None:
-    """Có review hoặc approval rồi thì không ghi đè view.
+def guard_review_freeze(chg_key: str) -> None:
+    """Có review hoặc approval của Change Set này rồi thì không ghi đè view.
 
     EXEC §B.17: từ lúc ghi receipt tới lúc approve, cấm ghi vào artifact đã
     review. Xoá evidence để vượt kiểm là sai quy trình, nên script chỉ dừng
-    và báo, không tự xử lý.
+    và báo, không tự xử lý. Evidence của Change Set khác không chặn.
     """
     for name in ("reviews", "approvals"):
         folder = AIDE / "evidence" / name
-        if folder.exists() and any(p for p in folder.iterdir() if p.is_file()):
+        if folder.exists() and any(
+            f"change_set: {chg_key}" in p.read_text(encoding="utf-8")
+            for p in folder.iterdir()
+            if p.is_file()
+        ):
             raise Problem(
                 f"có file trong evidence/{name}/ — đang trong vòng review.\n"
                 "  Dùng quy trình re-review chính thức, không ghi đè view."
@@ -276,13 +282,22 @@ def render_open_questions(chg_dir: Path) -> str:
     return head + "\n".join(rows) + "\n"
 
 
-def render(baseline_name: str) -> Path:
+def pick_change_set(key: str | None) -> Path:
     chg_dirs = [p for p in CHANGE_SETS.iterdir() if p.is_dir()]
+    if key:
+        target = CHANGE_SETS / key
+        if not target.is_dir():
+            raise Problem(f"không có Change Set {key} trong {rel(CHANGE_SETS)}")
+        return target
     if len(chg_dirs) != 1:
         raise Problem(
-            f"cần đúng một Change Set trong {rel(CHANGE_SETS)}, thấy {len(chg_dirs)}"
+            f"có {len(chg_dirs)} Change Set trong {rel(CHANGE_SETS)}; truyền --change-set"
         )
-    chg_dir = chg_dirs[0]
+    return chg_dirs[0]
+
+
+def render(baseline_name: str, chg_key: str | None) -> Path:
+    chg_dir = pick_change_set(chg_key)
     chg = parse_change_set(chg_dir / "change-set.yaml")
 
     baseline_path = chg_dir / "baseline" / baseline_name
@@ -295,7 +310,7 @@ def render(baseline_name: str) -> Path:
             + "\n".join(f"  - {i}" for i in issues)
         )
 
-    guard_review_freeze()
+    guard_review_freeze(chg["key"])
 
     arts = baseline["artifacts"]
     frs = [a for a in arts if FR_RE.match(a["key"])]
@@ -348,10 +363,16 @@ def render(baseline_name: str) -> Path:
     # 2
     out.append("## 2. Mục tiêu nghiệp vụ đổi")
     out.append("")
-    out.append(
-        "Chưa có baseline đã approved để so diff — đây là baseline candidate đầu tiên "
-        "của một System mới, nên toàn bộ GOAL/KPI ở PRD đều là bản đầu, không phải thay đổi."
-    )
+    if chg.get("supersedes"):
+        out.append(
+            f"Change Set này thay cho `{chg['supersedes']}`. Mọi GOAL/KPI mang key mới; "
+            "GOAL/KPI của Change Set cũ không còn hiệu lực. Ánh xạ cũ sang mới ở PRD."
+        )
+    else:
+        out.append(
+            "Chưa có baseline đã approved để so diff — đây là baseline candidate đầu tiên "
+            "của một System mới, nên toàn bộ GOAL/KPI ở PRD đều là bản đầu, không phải thay đổi."
+        )
     out.append("")
 
     # 3
@@ -365,10 +386,17 @@ def render(baseline_name: str) -> Path:
     # 4
     out.append("## 4. Thay đổi hành vi hiện có")
     out.append("")
-    out.append(
-        "Không có baseline sản phẩm đã approved để so diff. "
-        "PRD không lấy hành vi code hiện tại làm chuẩn."
-    )
+    if chg.get("supersedes"):
+        out.append(
+            "Không có FR nào bump revision: mọi FR trong baseline này mang key mới. "
+            f"FR của `{chg['supersedes']}` đã deprecated; ánh xạ cũ sang mới ở PRD mục IV.3. "
+            "PRD không lấy hành vi code hiện tại làm chuẩn."
+        )
+    else:
+        out.append(
+            "Không có baseline sản phẩm đã approved để so diff. "
+            "PRD không lấy hành vi code hiện tại làm chuẩn."
+        )
     out.append("")
 
     # 5
@@ -419,15 +447,11 @@ def main(argv: list[str]) -> int:
     for name in ("render", "check"):
         p = sub.add_parser(name)
         p.add_argument("--baseline", required=True, help="tên file trong baseline/, ví dụ BL-r9.yaml")
+        p.add_argument("--change-set", help="key Change Set; bắt buộc khi có nhiều Change Set")
     args = ap.parse_args(argv)
 
-    chg_dirs = [p for p in CHANGE_SETS.iterdir() if p.is_dir()]
-    if len(chg_dirs) != 1:
-        print(f"LỖI: cần đúng một Change Set, thấy {len(chg_dirs)}", file=sys.stderr)
-        return 1
-    baseline_path = chg_dirs[0] / "baseline" / args.baseline
-
     try:
+        baseline_path = pick_change_set(args.change_set) / "baseline" / args.baseline
         if args.cmd == "check":
             baseline = parse_baseline(baseline_path)
             issues = verify(baseline)
@@ -441,7 +465,7 @@ def main(argv: list[str]) -> int:
             print("Hash, revision, key và UID: khớp toàn bộ.")
             return 0
 
-        target = render(args.baseline)
+        target = render(args.baseline, args.change_set)
         print(f"Đã ghi {rel(target)}")
         return 0
     except Problem as exc:

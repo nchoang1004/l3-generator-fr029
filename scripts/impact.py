@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Tính impact.yaml từ quan hệ khai trong frontmatter của `.aide/`.
 
-    py -3.12 scripts/impact.py --baseline BL-r12.yaml
+    py -3.12 scripts/impact.py --change-set CHG-L3GEN-2026-002 --baseline BL-r1.yaml
+
+`--change-set` bắt buộc khi có nhiều hơn một Change Set.
 
 Quy trình (EXEC §B.3) nói `impact.yaml` sinh từ **metadata graph tập trung**.
 Repo này không có graph đó. Script dựng graph cục bộ từ chính `relations` trong
@@ -107,14 +109,21 @@ def reverse_edges(arts: dict[str, dict]) -> dict[str, set[str]]:
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--baseline", required=True)
+    ap.add_argument("--change-set", help="key Change Set; bắt buộc khi có nhiều Change Set")
     ap.add_argument("--force", action="store_true", help="ghi đè impact.yaml đã có")
     args = ap.parse_args(argv)
 
     dirs = [p for p in CHANGE_SETS.iterdir() if p.is_dir()]
-    if len(dirs) != 1:
-        print(f"LỖI: cần đúng một Change Set, thấy {len(dirs)}", file=sys.stderr)
+    if args.change_set:
+        chg_dir = CHANGE_SETS / args.change_set
+        if not chg_dir.is_dir():
+            print(f"LỖI: không có Change Set {args.change_set}", file=sys.stderr)
+            return 1
+    elif len(dirs) != 1:
+        print(f"LỖI: có {len(dirs)} Change Set; truyền --change-set", file=sys.stderr)
         return 1
-    chg_dir = dirs[0]
+    else:
+        chg_dir = dirs[0]
     chg = parse_change_set(chg_dir / "change-set.yaml")
 
     cr_key = chg.get("change_request", "")
@@ -131,7 +140,15 @@ def main(argv: list[str]) -> int:
     touches = sorted(k for k in bl if k in arts)
 
     # stale: artifact NGOÀI baseline nhưng trỏ tới thứ trong baseline.
-    stale = sorted({s for k in bl for s in back.get(k, ()) if s not in bl})
+    # Bỏ artifact deprecated: chúng đã bị thay, không cần cập nhật theo.
+    stale = sorted(
+        {
+            s
+            for k in bl
+            for s in back.get(k, ())
+            if s not in bl and arts[s].get("status") != "deprecated"
+        }
+    )
 
     teams = sorted(
         {
@@ -145,9 +162,13 @@ def main(argv: list[str]) -> int:
     # risk_signals suy từ NFR có mặt trong baseline, không gõ tay.
     risk = {
         "source_code_ingestion": any(k.startswith("NFR-L3GEN-SEC") for k in bl),
-        "remote_fetch": any(k == "FR-L3GEN-016" for k in bl),
+        # FR-016 (BL-r14) và FR-019 (CHG-002) là FR nhận source từ xa;
+        # PRIV-001 (BL-r14) và SEC-002 (CHG-002) mang vòng đời dữ liệu.
+        "remote_fetch": any(k in ("FR-L3GEN-016", "FR-L3GEN-019") for k in bl),
         "third_party_ai": any(k.startswith("NFR-L3GEN-AI") for k in bl),
-        "user_data_retention": any(k.startswith("NFR-L3GEN-PRIV") for k in bl),
+        "user_data_retention": any(
+            k.startswith("NFR-L3GEN-PRIV") or k == "NFR-L3GEN-SEC-002" for k in bl
+        ),
         "pii": None,
         "financial": None,
     }
@@ -200,8 +221,9 @@ def main(argv: list[str]) -> int:
         '  - { area: "external_consumers", reason: "Không có metadata graph tập trung nên'
         " không thấy hệ thống ngoài repo. Chưa kiểm chứng consumer bên"
         ' ngoài; danh sách rỗng không chứng minh không có consumer." }',
-        '  - { area: "architecture-and-contracts", reason: "Chưa có artifact L1/L2/L3 nào'
-        " hoàn chỉnh được xác nhận; đã có ADR draft. Chưa đủ graph để kết luận toàn bộ"
+        '  - { area: "architecture-and-contracts", reason: "Chưa có L1/L2/L3 hiện hành;'
+        " L1/L2 cũ đã gỡ, ADR-2026-002 và threat model chờ xét lại sau Scope Gate."
+        " Graph chỉ có quan hệ từ frontmatter, chưa đủ để kết luận toàn bộ"
         ' tác động tới thiết kế." }',
         '  - { area: "code-traceability", reason: "Chưa thực hiện quét source/test trong script này cho'
         " mã FR/AC/NFR; không suy được thay đổi yêu cầu chạm"
