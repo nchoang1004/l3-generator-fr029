@@ -6,11 +6,11 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 1
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
 relations: {"covers":["FR-L3GEN-025","FR-L3GEN-026","FR-L3GEN-027"]}
 verified_at: 2026-09-23
-verified_against: [{"key":"FR-L3GEN-025","revision":2},{"key":"FR-L3GEN-026","revision":1},{"key":"FR-L3GEN-027","revision":1},{"key":"GLOSS-L3GEN-001","revision":5}]
+verified_against: [{"key":"FR-L3GEN-025","revision":2},{"key":"FR-L3GEN-026","revision":1},{"key":"FR-L3GEN-027","revision":2},{"key":"GLOSS-L3GEN-001","revision":5}]
 classification: "internal"
 ai_assisted: true
 ---
@@ -19,7 +19,7 @@ ai_assisted: true
 
 ## Năng lực này là gì
 
-Từ cùng một mô hình kiến trúc đã kiểm, sinh sơ đồ component (mức L2) kèm mã nguồn sơ đồ, tài liệu L3 contract (API, TBL, EVT theo cấu trúc `tech-specs/` của mentor) và JSON có schema version. Trên web, cho theo dõi lần chạy, xem tổng quan, đi sâu theo component và mở bằng chứng.
+Từ cùng một mô hình kiến trúc đã kiểm, sinh sơ đồ component (mức L2) kèm mã nguồn sơ đồ, tài liệu L3 contract (API, TBL, EVT đặt trong `tech-specs/` theo đúng mẫu của mentor, quy tắc tên ở FR-L3GEN-027) và JSON có schema version. Trên web, cho theo dõi lần chạy, xem tổng quan, đi sâu theo component và mở bằng chứng.
 
 ## Ranh giới
 

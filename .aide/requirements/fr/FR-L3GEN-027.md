@@ -6,7 +6,7 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 1
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"satisfies":["GOAL-L3GEN-006"],"constrained_by":["NFR-L3GEN-ACC-002","NFR-L3GEN-ABST-002"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
@@ -21,16 +21,27 @@ ai_assisted: true
 
 Theo quy trình của mentor, L3 là contract: API, bảng dữ liệu (TBL) và sự kiện (EVT), chia theo component sở hữu. Sơ đồ component là mức L2. FR này sinh tài liệu L3 cho repository được phân tích.
 
-Định dạng theo cấu trúc `tech-specs/` của mentor. Mỗi contract là một file `.md`: bảng cho người đọc, cộng một khối máy đọc được bên trong.
+Định dạng theo đúng cấu trúc `tech-specs/` của mentor (execution guide mục A.1 và B.10): thư mục gốc, cách chia theo component và cách đặt tên file. Mỗi contract là một file `.md`: bảng cho người đọc, cộng một khối máy đọc được bên trong.
 
 ```text
-l3/
-  README.md                              mục lục, sơ đồ component, phần giới hạn
-  <component>/
-    api/API-<component>.md               bảng endpoint + khối OpenAPI 3.1
-    schema/TBL-<component>.md            bảng cột + khối DDL
-    events/EVT-<component>-<topic>.md    producer, consumer + schema payload
+<thư mục output>/
+  README.md                                  mục lục, sơ đồ component, phần giới hạn
+  tech-specs/
+    <CMP-slug>/                              chỉ component sở hữu ít nhất một API, TBL hoặc EVT
+      api/API-<SYS>-<CMP>-v1.md              bảng endpoint + khối OpenAPI 3.1
+      schema/TBL-<SYS>-<CMP>.md              bảng cột + khối DDL
+      events/EVT-<SYS>-<CMP>-<topic>.md      producer, consumer + schema payload
 ```
+
+Quy tắc đặt tên:
+
+| Phần | Lấy từ | Ví dụ |
+|---|---|---|
+| `<SYS>` | Tên repository: viết hoa, bỏ dấu, ký tự không phải chữ hoặc số đổi thành `-` | `fastapi-shop` → `FASTAPI-SHOP` |
+| `<CMP-slug>`, `<CMP>` | Tên component, cùng quy tắc; trùng thì thêm `-2`, `-3` | `Order Service` → `ORDER-SERVICE` |
+| `-v1` | Luôn là `v1`: mỗi lần chạy sinh mới toàn bộ, không so với lần chạy trước | `API-FASTAPI-SHOP-ORDER-SERVICE-v1.md` |
+
+`README.md` nằm ngoài `tech-specs/` vì mẫu của mentor không có file mục lục. Component không sở hữu contract nào thì không có thư mục.
 
 Mỗi file có frontmatter ghi là bản sinh tự động, định danh snapshot và component sở hữu. Mỗi dòng trỏ về dữ kiện code làm bằng chứng. OpenAPI dựng từ phân tích tĩnh, không chạy code của repository. Nội dung sinh từ cùng mô hình với sơ đồ và JSON.
 
