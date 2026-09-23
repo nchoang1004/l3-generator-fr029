@@ -1,85 +1,76 @@
 ---
-uid: "01M2J06Z49Y374WH78RBY19X1Z"
+uid: "01M34AM2AH38TP25RR4G8E8GGA"
 key: "FR-L3GEN-005"
 type: "functional-requirement"
 group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 5
+revision: 1
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-002"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-COMP-001","NFR-L3GEN-PRIV-001","NFR-L3GEN-TRACE-001"],"measured_by":["OBS-L3GEN-001"]}
+relations: {"satisfies":["GOAL-L3GEN-002","GOAL-L3GEN-004"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-ABST-001"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
 ai_assisted: true
 ---
 
-# FR-L3GEN-005 — Liệt kê lời gọi HTTP và đích bên ngoài
+# FR-L3GEN-005 — Bằng chứng và nhãn mức chắc chắn
 
 ## Mô tả
 
-Người dùng xác định nơi gọi HTTP qua thư viện thuộc phạm vi đã công bố và mức độ biết đích đến; không đồng nhất mọi HTTP call với một hệ thống bên ngoài đã xác nhận. Phase đầu phủ requests/httpx của Python; client HTTP của Java/Spring Boot thuộc phase sau.
+Người đọc lần ngược được mỗi kết luận về đúng file trong snapshot đã phân tích, và phân biệt được phần đọc trực tiếp từ bằng chứng, phần suy ra, và phần chưa kết luận được.
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Nhóm luồng | Trích xuất dữ kiện |
-| Ưu tiên đề xuất | Must Have |
-| Mốc đề xuất | M1: requests/httpx; phase sau: client HTTP phía Java |
-| Người sở hữu | Vai Product của TEAM-L3GEN; tên người chốt ở OQ-L3GEN-001 |
+| Nhóm luồng | Kiểm chứng kết quả |
+| Ưu tiên | Must Have |
+| Mốc | M1 |
+| Người sở hữu | Vai Product của TEAM-L3GEN |
 
 ## Acceptance Criteria
 
 ### AC-L3GEN-005-01
 
-- **Given:** Code dùng requests/httpx trực tiếp hoặc client/session được xác định bằng gán và with/async with.
-- **When:** người dùng phân tích.
-- **Then:** công cụ xuất method, caller, URL biết được và vị trí lời gọi, kể cả async.
-- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-COMP-001, NFR-L3GEN-PRIV-001, NFR-L3GEN-TRACE-001]
-- `implementation_target:` []
-- `validated_by:` []
-- **Cách kiểm dự kiến:** Kiểm alias import, Client, AsyncClient, Session.
-
-### AC-L3GEN-005-02
-
-- **Given:** URL ghép từ biến hoặc client dùng base_url chưa giải được.
-- **When:** người dùng phân tích.
-- **Then:** công cụ giữ biểu thức và phần URL biết được, gán partial; không gọi một path tương đối là host đầy đủ.
-- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-PRIV-001, NFR-L3GEN-TRACE-001]
-- `implementation_target:` []
-- `validated_by:` []
-- **Cách kiểm dự kiến:** Kiểm /health và settings.BASE_URL.
-
-### AC-L3GEN-005-03
-
-- **Given:** Biến local tên requests hoặc httpx che tên thư viện.
-- **When:** người dùng phân tích.
-- **Then:** công cụ không phân loại lời gọi của biến local thành HTTP của thư viện chỉ vì trùng tên.
+- **Given:** Người đọc chọn một component, một cạnh dependency hoặc một dữ kiện trong kết quả.
+- **When:** người đọc mở phần bằng chứng.
+- **Then:** công cụ chỉ ra các file trong snapshot làm cơ sở cho kết luận đó.
 - `constrained_by:` [NFR-L3GEN-ACC-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** Fixture shadowing và method get của object nội bộ.
+
+### AC-L3GEN-005-02
+
+- **Given:** Một kết luận được công bố trong tài liệu hoặc sơ đồ.
+- **When:** công cụ sinh kết quả.
+- **Then:** kết luận mang nhãn confidence là exact hoặc inferred và nhãn completeness là full hoặc partial ở hai trường riêng; inferred và partial kèm lý do.
+- `constrained_by:` [NFR-L3GEN-ACC-001]
+- `implementation_target:` []
+- `validated_by:` []
+
+### AC-L3GEN-005-03
+
+- **Given:** Source trên đĩa đã thay đổi so với snapshot đã phân tích.
+- **When:** người đọc mở bằng chứng của một kết luận.
+- **Then:** công cụ báo snapshot không còn khớp, không dùng nội dung source mới làm bằng chứng cho kết luận cũ.
+- `constrained_by:` [NFR-L3GEN-ACC-001]
+- `implementation_target:` []
+- `validated_by:` []
 
 ### AC-L3GEN-005-04
 
-- **Given:** Test client gọi chính ứng dụng hoặc đích chưa xác định.
-- **When:** người dùng xem dependency.
-- **Then:** công cụ phân biệt HTTP nội bộ/đích chưa biết với external host đã xác nhận; không tuyên bố thêm external system không có bằng chứng.
-- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-TRACE-001]
+- **Given:** Một kết luận không có bằng chứng trỏ tới file có thật trong snapshot.
+- **When:** công cụ sinh kết quả.
+- **Then:** kết luận đó không được công bố trong sơ đồ hoặc tài liệu L3.
+- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-ABST-001]
 - `implementation_target:` []
 - `validated_by:` []
-- **Cách kiểm dự kiến:** Test thư mục integration-tests được loại và test client không bị gộp external host.
 
 ## Trạng thái liên kết triển khai
 
-Ở Scope Gate, `implementation_target` và `validated_by` có thể để trống vì component/contract/test IDs được lập ở bước thiết kế và planning tiếp theo. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
+`implementation_target` và `validated_by` để trống ở Scope Gate; component, contract và test ID được lập ở bước thiết kế và planning. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ## Tài liệu liên quan
 
-- [NFR-L3GEN-ACC-001](../nfr/NFR-L3GEN-ACC-001.md)
-- [NFR-L3GEN-TRACE-001](../nfr/NFR-L3GEN-TRACE-001.md)
-- [NFR-L3GEN-COMP-001](../nfr/NFR-L3GEN-COMP-001.md)
-- [NFR-L3GEN-PRIV-001](../nfr/NFR-L3GEN-PRIV-001.md)
 - [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
 - [Thuật ngữ](../../domain/glossary-core.md)
-

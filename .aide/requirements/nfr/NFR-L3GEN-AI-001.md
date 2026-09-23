@@ -1,40 +1,47 @@
 ---
-uid: "01M2J06Z53NZ07VJNMHBDS8DR1"
+uid: "01M34AM2AKW0142NJS913FEHT7"
 key: "NFR-L3GEN-AI-001"
 type: "non-functional-requirement"
 group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 4
+revision: 1
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"constrains":["FR-L3GEN-010","FR-L3GEN-012"],"measured_by":["OBS-L3GEN-001"]}
+relations: {"constrains":["FR-L3GEN-003","FR-L3GEN-004","FR-L3GEN-006"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
 ai_assisted: true
 ---
 
-# NFR-L3GEN-AI-001 — Giới hạn và ranh giới AI
+# NFR-L3GEN-AI-001 — Ranh giới, chi phí và truy vết của mô hình ngôn ngữ
 
 - **Nhóm:** AI reliability.
-- **Trạng thái:** ngưỡng chất lượng, provider và giới hạn chi phí đã chốt tại OQ-L3GEN-004/005; chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-010](../fr/FR-L3GEN-010.md), [FR-L3GEN-012](../fr/FR-L3GEN-012.md).
+- **Trạng thái:** hướng đã chốt ngày 22/09/2026; provider, model và trần kích thước repository chờ OQ-L3GEN-008. Chưa đo nghiệm thu.
+- **Áp dụng:** [FR-L3GEN-003](../fr/FR-L3GEN-003.md), [FR-L3GEN-004](../fr/FR-L3GEN-004.md), [FR-L3GEN-006](../fr/FR-L3GEN-006.md).
 
 ## Yêu cầu có thể kiểm chứng
 
-AI không được sửa IAM/architecture model, tạo entity/edge hoặc category finding mới. Chỉ nhận output đúng schema và ID đã có. Mỗi request timeout tối đa 30 giây, retry tối đa 2 lần; mỗi phiên tối đa 20 request. Phase đầu có trần chi phí trả phí bằng 0 đồng, chỉ dùng quota miễn phí; chưa cấu hình được cap tương ứng thì không gọi AI. Hết quota, rate limit, thiếu key/SDK hoặc đạt cap thì tiếp tục trả dữ kiện tĩnh và cảnh báo. Provider là tham số cấu hình, không khóa cứng vào một hãng, nhưng chỉ adapter được công bố là hỗ trợ mới được sử dụng; khóa API do người dùng cung cấp tại thời điểm chạy và không được ghi vào output, log, evidence hay bộ kết quả lưu lại. Công cụ không phát biểu thay người dùng về mức an toàn dữ liệu của provider họ chọn; điều khoản của provider thuộc trách nhiệm người dùng.
+Gộp phần ranh giới AI trước đây ở NFR-AI-001 với phần tái lập ở NFR-DET-001, sau khi tái lập bị hạ xuống mức ghi nhận.
+
+**Ranh giới.** Mô hình ngôn ngữ chỉ nhận tập dữ kiện code đã trích kèm vị trí file, không nhận toàn bộ source repository. Kết quả model trả về phải đúng schema đã định; phần sai schema, trỏ tới file không có trong snapshot, hoặc tham chiếu định danh không tồn tại thì bị loại và ghi lý do loại.
+
+**Chi phí.** Chỉ dùng model qua API. Phase đầu giới hạn ở quota miễn phí với trần chi phí trả phí bằng 0 đồng. Hết quota, bị rate limit, thiếu key hoặc chạm trần thì dừng bước dựng quan hệ kiến trúc và báo rõ, không tự chuyển sang phương án tính tiền và không đoán để lấp chỗ trống. Mỗi lần chạy có trần số request và timeout cho mỗi request.
+
+**Bí mật.** Khóa API do người dùng cung cấp lúc chạy, không được ghi vào output, log, bằng chứng hay bộ kết quả lưu lại. Công cụ không phát biểu thay người dùng về mức an toàn dữ liệu của provider họ chọn.
+
+**Tái lập.** Kết quả không bắt buộc giống hệt giữa các lần chạy. Bù lại, mỗi lần chạy phải ghi lại provider, tên model, phiên bản prompt, phiên bản tool và định danh snapshot, đủ để dựng lại bối cảnh của một kết quả cũ. Đây là yêu cầu ghi nhận, không phải ngưỡng chặn phát hành.
 
 ## Điều kiện và cách kiểm
 
-Mock provider trả JSON hỏng, ID lạ, chèn route, timeout, 429 và trả mô tả khác; so sánh model trước/sau. Kiểm request count và logging. Đặt khóa API dạng canary rồi kiểm toàn bộ output, log và evidence không chứa giá trị đó; kiểm đổi provider bằng cấu hình mà không sửa code. Ngân sách thật/provider chờ OQ, không dùng giá hay model giả.
+Dùng provider giả trả về JSON hỏng, định danh lạ, đường dẫn không tồn tại, timeout và lỗi rate limit; kiểm rằng phần không hợp lệ bị loại và lý do được ghi. Đặt khóa API dạng đánh dấu rồi kiểm toàn bộ output, log và bằng chứng không chứa giá trị đó. Kiểm đổi provider bằng cấu hình mà không sửa code. Kiểm mỗi bộ kết quả có đủ trường truy vết đã nêu. Không dùng giá hoặc model giả định để kết luận về chi phí.
 
 ## Người chốt và ngoại lệ
 
-Product cùng Tech Lead/QA chốt ở Scope Gate; Security tham gia phần SEC/PRIV. Danh tính theo OQ-L3GEN-001. Không có waiver nào được cấp. Nếu chưa đạt: ghi kết quả failed/not_run, thu hẹp phạm vi qua review hoặc sửa sản phẩm; không tự hạ ngưỡng sau benchmark.
+Product cùng Tech Lead/QA chốt ở Scope Gate. Không có waiver nào được cấp sẵn. Chưa đạt thì ghi kết quả failed hoặc not_run, thu hẹp phạm vi qua review, hoặc sửa sản phẩm; không tự hạ ngưỡng sau khi đã đo.
 
 ## Liên kết
 
-- [Phương pháp đo](../../observability/OBS-L3GEN-001.md).
-- [PRD](../../product/prd/PRD-L3GEN-2609-001.md).
-
+- [Phương pháp đo](../../observability/OBS-L3GEN-001.md)
+- [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
