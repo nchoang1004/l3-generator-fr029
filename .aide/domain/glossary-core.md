@@ -6,7 +6,7 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 4
+revision: 5
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {}
 verified_at: null
@@ -25,6 +25,8 @@ với tài liệu này, nghĩa trong baseline yêu cầu và tài liệu này đ
 buộc và được đề xuất component, quan hệ. Code vẫn kiểm bằng chứng trước khi công bố.
 Revision 3 (approved 21/09/2026) viết cho hướng AI mặc định tắt; các mục đổi là 2, 4, 5,
 bất biến #6, #8 và mục 7.
+
+**Revision 5 (23/09/2026):** code chia component tất định, model chỉ chia khi repository phẳng; L3 là contract (API, TBL, EVT), sơ đồ component là mức L2.
 
 ## 1. Nguồn và lần phân tích
 
@@ -46,7 +48,7 @@ bất biến #6, #8 và mục 7.
 | Candidate | Đối tượng hoặc quan hệ có tín hiệu ban đầu nhưng chưa đủ điều kiện để công bố thành architecture claim |
 | Resolution result | Kết quả nối một tham chiếu/call tới một đích: `resolved`, `ambiguous`, `unresolved` hoặc `runtime-dependent` |
 | Architecture claim | Thực thể hoặc quan hệ ở mức application/component được công bố trong architecture model |
-| Model proposal | Component, vai trò hoặc cạnh do mô hình ngôn ngữ đề xuất từ tập code fact. Chưa là architecture claim cho tới khi qua bước kiểm bằng chứng của code |
+| Model proposal | Tên, mô tả, vai trò, nhãn cạnh, cạnh bổ sung, hoặc cách chia component với repository phẳng, do mô hình ngôn ngữ đề xuất. Cạnh và cách chia chưa là architecture claim cho tới khi qua bước kiểm bằng chứng của code |
 | Evidence | Các code fact trong tập fact của lần chạy, mỗi fact nằm ở file/range thuộc chính source snapshot, kèm lý do khi cần. Với cạnh A→B, evidence phải có ít nhất một fact đã xác định đích, vị trí thuộc A và đích thuộc B. Lời khẳng định của model không phải evidence |
 | Diagnostic | Dữ liệu giải thích quá trình phân tích, candidate, raw call, budget hoặc nguyên nhân không kết luận được; không phải architecture claim |
 | Limitation | Phần engine không đọc, không hỗ trợ, không resolve hoặc phải dừng do budget/runtime; không đồng nghĩa repository không có dữ kiện đó |
@@ -57,12 +59,14 @@ bất biến #6, #8 và mục 7.
 
 | Thuật ngữ | Nghĩa dùng trong hệ thống |
 |---|---|
-| Component | Nhóm thành viên code có cùng trách nhiệm kiến trúc. Phase đầu do mô hình ngôn ngữ đề xuất cách nhóm; mỗi thành viên phải là code fact có thật trong snapshot. Tên thư mục hoặc tên class riêng lẻ không đủ chứng minh |
+| Component | Nhóm file source có cùng trách nhiệm kiến trúc. Code chia tất định theo cây thư mục, tên và lời gọi giữa nhóm; mỗi file thuộc đúng một component. Với repository phẳng, tức cây thư mục không chia được thành ít nhất hai nhóm, mô hình ngôn ngữ đề xuất cách chia và component mang nhãn `inferred` |
+| Repository phẳng | Repository mà cây thư mục không chia được file source trong phạm vi thành ít nhất hai nhóm |
 | Component role | Nhãn như API, service/business, repository/data-access hoặc integration dựa trên framework marker, registration hay effect đã hỗ trợ; khi thiếu bằng chứng dùng unknown/candidate |
 | Architecture model | Tập application, component, interface, data, external system, event, configuration và quan hệ L3; đây là nguồn cấu trúc chung cho CLI, web và artifact xuất |
 | Evidence/diagnostic model | Dữ kiện chi tiết mức file/class/function/call dùng để kiểm chứng hoặc chẩn đoán; không được UI/diagram coi là lớp kiến trúc mặc định |
 | IAM | Tên lịch sử của mô hình trung gian. Trong thiết kế mới phải nói rõ đang chỉ architecture model hay evidence/diagnostic model; không dùng `IAM` như một schema gộp mơ hồ cả hai |
-| L3 | Trong sản phẩm này: mô tả cấu trúc bên trong application/service ở mức component, interface, data, config, event và dependency; là bản ban đầu để review, không tuyên bố chứng nhận C4 |
+| L2 | Mức component: sơ đồ component và dependency bên trong một application. Theo quy trình mentor, L2 nằm ở `architecture/l2/` |
+| L3 | Mức contract, theo quy trình mentor: API, bảng dữ liệu (TBL) và sự kiện (EVT), chia theo component sở hữu, đặt ở `tech-specs/<component>/`. Sản phẩm sinh bản L3 ban đầu để review cho repository được phân tích (FR-L3GEN-027) |
 | Dependency | Architecture claim có hướng giữa hai thực thể kiến trúc, được tổng hợp từ evidence; không tự đồng nghĩa thứ tự thực thi hay mọi hành vi runtime |
 | External system | Đích tích hợp bên ngoài application/component, ví dụ HTTP service, datastore hay broker đã xác định đủ để lập quan hệ kiến trúc |
 | External library | Gói phụ thuộc được khai báo hoặc có dấu vết sử dụng trong code; không phải external system và không phải component dependency |
@@ -86,7 +90,7 @@ bất biến #6, #8 và mục 7.
 | Thuật ngữ | Nghĩa dùng trong hệ thống |
 |---|---|
 | Tầng tất định | Phần không dùng AI: tạo code fact, kiểm evidence của model proposal, ghi limitation và xuất artifact. Cùng snapshot và cùng phiên bản tool thì cho cùng tập code fact |
-| Mô hình ngôn ngữ | Phần dùng AI, bắt buộc từ PRD revision 25. Chỉ nhận tập code fact đã trích, không nhận toàn bộ source. Chỉ tạo model proposal; không sửa code fact và không tự công bố claim |
+| Mô hình ngôn ngữ | Phần dùng AI, bắt buộc từ PRD revision 25. Nhận tập code fact, danh sách file của component và chữ ký hàm; đọc thêm đoạn code qua công cụ có giới hạn. Không nhận toàn bộ source. Chỉ tạo model proposal; không sửa code fact và không tự công bố claim |
 | Provenance | Thông tin cho biết một claim đến từ đâu: provider, model, phiên bản prompt, phiên bản tool và snapshot. Ghi cho mỗi lần chạy |
 
 `FR`, `AC`, `NFR`, `OBS` và `Baseline` là thuật ngữ quy trình, không phải thuật ngữ miền
@@ -120,8 +124,9 @@ Các bất biến sau phải giữ dù sau này chọn phương án kiến trúc
    trình bày phải đến từ cùng architecture model của lần chạy đó.
 7. Phân tích có thể đi xuống file/class/function/call, nhưng lớp mặc định cho người đọc
    dừng ở application/component theo ADR-2026-001.
-8. Mô hình ngôn ngữ chỉ đề xuất. Một model proposal chỉ thành architecture claim khi tầng
-   tất định kiểm được evidence của nó. Model không được sửa code fact, evidence hoặc
+8. Mô hình ngôn ngữ chỉ đề xuất. Code chia component; model chỉ chia khi repository phẳng.
+   Một model proposal về cạnh hoặc cách chia chỉ thành architecture claim khi tầng tất định
+   kiểm được evidence của nó. Model không được sửa code fact, evidence hoặc
    limitation, và không được bỏ qua bước kiểm. Hết quota hoặc lỗi model thì dừng bước
    dựng quan hệ và báo rõ, không đoán để lấp chỗ trống.
 9. Lỗi một file hoặc một adapter không được che mất phần hợp lệ của run; kết quả phải giữ

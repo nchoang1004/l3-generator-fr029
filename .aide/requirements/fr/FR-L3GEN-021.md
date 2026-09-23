@@ -6,7 +6,7 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 1
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"satisfies":["GOAL-L3GEN-004","GOAL-L3GEN-006"],"constrained_by":["NFR-L3GEN-ACC-002","NFR-L3GEN-AI-002","NFR-L3GEN-SEC-002"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
@@ -19,7 +19,7 @@ ai_assisted: true
 
 ## Mô tả
 
-Công cụ trích từ source các dữ kiện làm nguyên liệu cho mô hình kiến trúc: API route, mô hình dữ liệu, lời gọi ra ngoài, tham chiếu xuyên file, cấu hình, quan hệ sự kiện và thư viện phụ thuộc. Mỗi dữ kiện kèm vị trí file trong snapshot.
+Công cụ trích từ source các dữ kiện làm nguyên liệu cho mô hình kiến trúc và tài liệu L3 contract: API route cùng request/response model, mô hình dữ liệu, lời gọi ra ngoài, tham chiếu xuyên file, cấu hình, quan hệ sự kiện và thư viện phụ thuộc. Mỗi dữ kiện kèm vị trí file trong snapshot.
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -63,6 +63,15 @@ Công cụ trích từ source các dữ kiện làm nguyên liệu cho mô hình
 - **When:** công cụ trích dữ kiện.
 - **Then:** dữ kiện được giữ lại với nhãn unresolved kèm lý do, và không được nâng thành quan hệ kiến trúc ở FR-L3GEN-022.
 - `constrained_by:` [NFR-L3GEN-ACC-002, NFR-L3GEN-AI-002]
+- `implementation_target:` []
+- `validated_by:` []
+
+### AC-L3GEN-021-05
+
+- **Given:** Handler của một route khai báo kiểu cho request body, tham số, hoặc response model, ví dụ bằng Pydantic model.
+- **When:** công cụ trích dữ kiện.
+- **Then:** mỗi route ghi được tên model của request và response cùng danh sách trường, kiểu và trường bắt buộc, kèm vị trí khai báo; status code nếu khai báo trong code. Phần không khai kiểu hoặc sinh lúc chạy để `unknown` kèm lý do, không suy từ tên biến.
+- `constrained_by:` [NFR-L3GEN-ACC-002]
 - `implementation_target:` []
 - `validated_by:` []
 

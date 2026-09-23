@@ -6,7 +6,7 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 1
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"constrains":["FR-L3GEN-019","FR-L3GEN-021","FR-L3GEN-025","FR-L3GEN-026"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
@@ -30,7 +30,7 @@ Thay cho NFR-L3GEN-SEC-001 và NFR-L3GEN-PRIV-001 của BL-r14.
 
 **Tiếp nhận an toàn.** File nén giải ra phải nằm trong vùng xử lý; đường dẫn thoát khỏi vùng đó bị từ chối. Trần một lần tiếp nhận, giữ từ BL-r14: ZIP nén 100 MB, giải nén 500 MB, 50.000 file. Lấy source từ GitHub timeout 120 giây. Vượt trần thì từ chối kèm lý do. Chỉ nhận repository GitHub public qua HTTPS; công cụ không nhận và không lưu credential truy cập repository.
 
-**Dữ liệu gửi ra ngoài.** Trước khi chạy, người dùng được cho biết dữ liệu nào sẽ được gửi tới provider model. Dữ liệu gửi đi là tập dữ kiện đã trích: tên symbol, đường dẫn file, vị trí và các giá trị literal được trích làm dữ kiện, ví dụ path của route. Không gửi nguyên nội dung file source. Giá trị cấu hình mang dấu hiệu bí mật bị che trước khi vào bất kỳ đầu ra nào, kể cả payload gửi model.
+**Dữ liệu gửi ra ngoài.** Trước khi chạy, người dùng được cho biết dữ liệu nào sẽ được gửi tới provider model. Dữ liệu gửi đi gồm: tập dữ kiện đã trích (tên symbol, đường dẫn file, vị trí, giá trị literal như path của route), chữ ký hàm kèm docstring, và các đoạn code model yêu cầu qua công cụ đọc code trong giới hạn của NFR-L3GEN-AI-002. Không gửi nguyên file source hoặc cả repository. Giá trị cấu hình mang dấu hiệu bí mật bị che trước khi vào bất kỳ đầu ra nào, kể cả payload gửi model.
 
 **Vòng đời.** Phase đầu chỉ giữ dữ liệu cần cho lần chạy hiện tại. Trên web, source đã tiếp nhận và output hết hạn 24 giờ sau trạng thái cuối của lần chạy, và không được phục vụ sau hạn. Mốc 24 giờ cho source giữ từ BL-r14; áp cho output là mới, vì lịch sử 14 ngày của BL-r14 thuộc phase sau. Nếu máy tắt qua hạn, lần khởi động kế tiếp phải dọn trước khi phục vụ dữ liệu. Output của dòng lệnh do người dùng quản lý.
 

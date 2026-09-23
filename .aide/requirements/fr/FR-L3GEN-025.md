@@ -6,7 +6,7 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 1
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"satisfies":["GOAL-L3GEN-006"],"constrained_by":["NFR-L3GEN-ABST-002","NFR-L3GEN-OPS-001","NFR-L3GEN-SEC-002"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
@@ -19,7 +19,7 @@ ai_assisted: true
 
 ## Mô tả
 
-Người dùng lấy được tài liệu L3 để đọc và bộ dữ liệu có cấu trúc để công cụ khác dùng lại, cùng thông tin phiên bản và phạm vi của lần chạy.
+Người dùng lấy được sơ đồ component (mức L2), tài liệu L3 contract theo FR-L3GEN-027, và bộ dữ liệu có cấu trúc để công cụ khác dùng lại, cùng thông tin phiên bản và phạm vi của lần chạy.
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -34,7 +34,7 @@ Người dùng lấy được tài liệu L3 để đọc và bộ dữ liệu c
 
 - **Given:** Một lần phân tích kết thúc với trạng thái hoàn tất hoặc partial.
 - **When:** người dùng xuất kết quả.
-- **Then:** công cụ tạo tài liệu L3 Markdown, sơ đồ component và dependency, mã nguồn sơ đồ, và bộ dữ liệu JSON.
+- **Then:** công cụ tạo tài liệu L3 contract theo FR-L3GEN-027, sơ đồ component và dependency, mã nguồn sơ đồ, và bộ dữ liệu JSON.
 - `constrained_by:` [NFR-L3GEN-OPS-001, NFR-L3GEN-SEC-002]
 - `implementation_target:` []
 - `validated_by:` []

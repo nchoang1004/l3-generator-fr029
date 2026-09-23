@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 1
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"constrains":["FR-L3GEN-020","FR-L3GEN-021","FR-L3GEN-022","FR-L3GEN-023","FR-L3GEN-024"],"measured_by":["OBS-L3GEN-001"]}
+relations: {"constrains":["FR-L3GEN-020","FR-L3GEN-021","FR-L3GEN-022","FR-L3GEN-023","FR-L3GEN-024","FR-L3GEN-027"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
@@ -19,17 +19,17 @@ ai_assisted: true
 
 - **Nhóm:** Accuracy.
 - **Trạng thái:** ngưỡng đã chốt tại OQ-L3GEN-007 ngày 22/09/2026. Chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-020](../fr/FR-L3GEN-020.md), [FR-L3GEN-021](../fr/FR-L3GEN-021.md), [FR-L3GEN-022](../fr/FR-L3GEN-022.md), [FR-L3GEN-023](../fr/FR-L3GEN-023.md), [FR-L3GEN-024](../fr/FR-L3GEN-024.md).
+- **Áp dụng:** [FR-L3GEN-020](../fr/FR-L3GEN-020.md), [FR-L3GEN-021](../fr/FR-L3GEN-021.md), [FR-L3GEN-022](../fr/FR-L3GEN-022.md), [FR-L3GEN-023](../fr/FR-L3GEN-023.md), [FR-L3GEN-024](../fr/FR-L3GEN-024.md), [FR-L3GEN-027](../fr/FR-L3GEN-027.md).
 
 ## Yêu cầu có thể kiểm chứng
 
 Thay cho NFR-L3GEN-ACC-001 và NFR-L3GEN-TRACE-001 của BL-r14.
 
-**Độ đúng của dữ kiện và component.** Precision và recall đều phải đạt từ 80% trở lên, đo riêng cho từng loại: route, entity/table, lời gọi HTTP, config, event, thư viện, thành viên component và cạnh dependency. Ngưỡng 80% chốt tại OQ-L3GEN-007, thay cho ngưỡng 90% của revision 23 vốn đặt cho bộ luật tất định; bộ trích xuất dùng mô hình ngôn ngữ không có cùng đặc tính sai số nên không dùng lại con số đó.
+**Độ đúng của dữ kiện và component.** Precision và recall đều phải đạt từ 80% trở lên, đo riêng cho từng loại: route, request/response model, entity/table, lời gọi HTTP, config, event, thư viện, thành viên component và cạnh dependency. Ngưỡng 80% chốt tại OQ-L3GEN-007, thay cho ngưỡng 90% của revision 23 vốn đặt cho bộ luật tất định; bộ trích xuất dùng mô hình ngôn ngữ không có cùng đặc tính sai số nên không dùng lại con số đó.
 
 Chấm thuộc tính riêng với chấm sự tồn tại: một route thiếu prefix không tính là route đúng, một tên bảng suy sai không tính là tên bảng đúng. Nhóm nào chưa đủ mẫu thì báo TP/FP/FN, không báo đạt.
 
-**Bằng chứng.** Bằng chứng của một kết luận là các dữ kiện code trong tập dữ kiện của lần chạy, mỗi dữ kiện nằm ở file có thật trong snapshot đã phân tích. Với cạnh dependency A→B, phải có ít nhất một dữ kiện đã xác định đích, vị trí thuộc A và đích thuộc B. Code kiểm điều này; lời khẳng định của model không được tính là bằng chứng. Tỷ lệ kết luận công bố có bằng chứng hợp lệ phải đạt 100%, không có ngoại lệ: kết luận không thỏa thì bị loại trước khi xuất, không được hạ thành cảnh báo. Bằng chứng không được trỏ sang snapshot khác hoặc sang source hiện tại trên đĩa.
+**Bằng chứng.** Bằng chứng của một kết luận là các dữ kiện code trong tập dữ kiện của lần chạy, mỗi dữ kiện nằm ở file có thật trong snapshot đã phân tích. Với cạnh dependency A→B do code dựng, phải có ít nhất một dữ kiện đã xác định đích, vị trí thuộc A và đích thuộc B. Với cạnh do model đề xuất thêm, phải có dữ kiện ở cả hai đầu theo AC-L3GEN-022-02. Code kiểm điều này; lời khẳng định của model không được tính là bằng chứng. Tỷ lệ kết luận công bố có bằng chứng hợp lệ phải đạt 100%, không có ngoại lệ: kết luận không thỏa thì bị loại trước khi xuất, không được hạ thành cảnh báo. Bằng chứng không được trỏ sang snapshot khác hoặc sang source hiện tại trên đĩa.
 
 **Nhãn chất lượng.** Confidence, completeness và coverage là ba trục độc lập, không dùng trục này thay trục kia. Nhãn `exact` chỉ dùng cho kết luận đọc trực tiếp từ bằng chứng; kết luận suy ra mang nhãn `inferred` kèm lý do. Không được nâng `inferred` thành `exact` để kết quả trông chắc chắn hơn. Tỷ lệ nhãn khớp đánh giá người duyệt phải đạt từ 80% trở lên. Riêng tỷ lệ gán `exact` cho kết luận thật ra sai phải ở mức 5% trở xuống, và là chỉ số chặn: gán nhãn chắc chắn cho kết luận sai gây hại hơn bỏ sót, vì người đọc tin mà không kiểm lại.
 

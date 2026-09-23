@@ -2,17 +2,17 @@
 key: CSV-CHG-L3GEN-2026-002
 group: derived
 non_normative: true
-derived_from: [BL-CHG-L3GEN-2026-002-r1]
+derived_from: [BL-CHG-L3GEN-2026-002-r2]
 hand_written: false
 status: candidate
-generated_by: scripts/prd_package.py render --baseline BL-r1.yaml
+generated_by: scripts/prd_package.py render --baseline BL-r2.yaml
 ---
 
 # Làm lại phạm vi — mô hình ngôn ngữ đề xuất, code kiểm bằng chứng
 
-Bản ứng viên chưa duyệt, sinh từ `BL-CHG-L3GEN-2026-002-r1`. Khi view và nguồn bất đồng, **FR/NFR/PRD nguồn thắng**; sửa nguồn rồi chạy lại script render. Không dùng view này như approval.
+Bản ứng viên chưa duyệt, sinh từ `BL-CHG-L3GEN-2026-002-r2`. Khi view và nguồn bất đồng, **FR/NFR/PRD nguồn thắng**; sửa nguồn rồi chạy lại script render. Không dùng view này như approval.
 
-Gồm 8 FR, 5 NFR và 1 OBS trong baseline.
+Gồm 9 FR, 5 NFR và 1 OBS trong baseline.
 
 ## 1. Mục tiêu
 
@@ -153,13 +153,13 @@ Người dùng biết phần nào của repository được phân tích, phần 
 
 ---
 
-Nguồn: [FR-L3GEN-021](../../requirements/fr/FR-L3GEN-021.md) · revision 1 · status draft · SHA-256 `534667dc47e0667ae2eea65ff98df1c80766eeae8bccc4abcc36e768f12d827f`
+Nguồn: [FR-L3GEN-021](../../requirements/fr/FR-L3GEN-021.md) · revision 2 · status draft · SHA-256 `598cb3e9cb8851236f344b56f75c68dc28003df817d289d34f5a09a970f31a04`
 
 ### FR-L3GEN-021 — Trích dữ kiện code
 
 #### Mô tả
 
-Công cụ trích từ source các dữ kiện làm nguyên liệu cho mô hình kiến trúc: API route, mô hình dữ liệu, lời gọi ra ngoài, tham chiếu xuyên file, cấu hình, quan hệ sự kiện và thư viện phụ thuộc. Mỗi dữ kiện kèm vị trí file trong snapshot.
+Công cụ trích từ source các dữ kiện làm nguyên liệu cho mô hình kiến trúc và tài liệu L3 contract: API route cùng request/response model, mô hình dữ liệu, lời gọi ra ngoài, tham chiếu xuyên file, cấu hình, quan hệ sự kiện và thư viện phụ thuộc. Mỗi dữ kiện kèm vị trí file trong snapshot.
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -206,19 +206,37 @@ Công cụ trích từ source các dữ kiện làm nguyên liệu cho mô hình
 - `implementation_target:` []
 - `validated_by:` []
 
+##### AC-L3GEN-021-05
+
+- **Given:** Handler của một route khai báo kiểu cho request body, tham số, hoặc response model, ví dụ bằng Pydantic model.
+- **When:** công cụ trích dữ kiện.
+- **Then:** mỗi route ghi được tên model của request và response cùng danh sách trường, kiểu và trường bắt buộc, kèm vị trí khai báo; status code nếu khai báo trong code. Phần không khai kiểu hoặc sinh lúc chạy để `unknown` kèm lý do, không suy từ tên biến.
+- `constrained_by:` [NFR-L3GEN-ACC-002]
+- `implementation_target:` []
+- `validated_by:` []
+
 #### Trạng thái liên kết triển khai
 
 `implementation_target` và `validated_by` để trống ở Scope Gate; component, contract và test ID được lập ở bước thiết kế và planning. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
 ---
 
-Nguồn: [FR-L3GEN-022](../../requirements/fr/FR-L3GEN-022.md) · revision 1 · status draft · SHA-256 `9cb6276b2b7304f81e851487d00f7f89c9459cb0d6d395a71d1dbf411e1746bf`
+Nguồn: [FR-L3GEN-022](../../requirements/fr/FR-L3GEN-022.md) · revision 2 · status draft · SHA-256 `b4b5e77d235b1cde3ca493b726accc11865f013e460617a2496552749b7cf264`
 
 ### FR-L3GEN-022 — Dựng component và quan hệ kiến trúc
 
 #### Mô tả
 
-Từ tập dữ kiện code của FR-L3GEN-021, công cụ dựng component, vai trò của chúng và các cạnh dependency ở mức application/component. Đây là bước mô hình ngôn ngữ tham gia. Model chỉ **đề xuất**. Code kiểm từng đề xuất với tập dữ kiện, và chỉ phần có dữ kiện chứng minh mới vào mô hình kiến trúc.
+Từ tập dữ kiện code của FR-L3GEN-021, công cụ dựng component, vai trò của chúng và các cạnh dependency ở mức application/component. Việc chia làm hai phần:
+
+| Phần | Ai làm |
+|---|---|
+| Chia file vào component | Code, tất định: theo cây thư mục, tên và số lời gọi giữa các nhóm. Riêng repository phẳng thì mô hình ngôn ngữ đề xuất cách chia (AC-L3GEN-022-05) |
+| Cạnh giữa component | Code, từ lời gọi và tham chiếu đã xác định đích |
+| Tên, mô tả, vai trò component; nhãn cạnh | Mô hình ngôn ngữ |
+| Cạnh mà phân tích tĩnh không thấy, ví dụ qua REST, queue, cấu hình | Mô hình ngôn ngữ đề xuất; code kiểm dữ kiện chứng minh (AC-L3GEN-022-02) |
+
+Cách chia này học từ CodeBoarding: cho model tự chia component cho kết quả dao động giữa các lần chạy mà không tốt hơn cách chia tất định.
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -231,18 +249,18 @@ Từ tập dữ kiện code của FR-L3GEN-021, công cụ dựng component, vai
 
 ##### AC-L3GEN-022-01
 
-- **Given:** Đã có tập dữ kiện code kèm vị trí file của một đơn vị phân tích.
+- **Given:** Đã có tập dữ kiện code kèm vị trí file của một đơn vị phân tích, và cây thư mục chia được file source thành ít nhất hai nhóm.
 - **When:** công cụ dựng mô hình kiến trúc.
-- **Then:** kết quả gồm component, vai trò của từng component và cạnh dependency giữa chúng; mỗi component và mỗi cạnh trỏ được về các dữ kiện code đã sinh ra nó.
-- `constrained_by:` [NFR-L3GEN-ACC-002, NFR-L3GEN-ABST-002]
+- **Then:** code chia mỗi file source vào đúng một component, và dựng cạnh từ lời gọi, tham chiếu đã xác định đích; mô hình ngôn ngữ đặt tên, mô tả, vai trò cho từng component và gắn nhãn cho từng cạnh, nhưng không thêm, bớt, gộp hay tách component. Mỗi component và mỗi cạnh trỏ được về các dữ kiện code đã sinh ra nó.
+- `constrained_by:` [NFR-L3GEN-ACC-002, NFR-L3GEN-ABST-002, NFR-L3GEN-AI-002]
 - `implementation_target:` []
 - `validated_by:` []
 
 ##### AC-L3GEN-022-02
 
-- **Given:** Mô hình ngôn ngữ đề xuất một component hoặc một cạnh A→B.
+- **Given:** Mô hình ngôn ngữ đề xuất thêm một cạnh A→B mà code chưa dựng được.
 - **When:** công cụ kiểm đề xuất trước khi đưa vào mô hình kiến trúc.
-- **Then:** đề xuất chỉ được giữ khi mọi dữ kiện nó trích dẫn có trong tập dữ kiện của lần chạy và nằm ở file có trong snapshot; với cạnh A→B, phải có ít nhất một dữ kiện đã xác định đích mà vị trí thuộc A và đích thuộc B. Đề xuất không thỏa bị loại, ghi lý do loại, và không xuất hiện trong sơ đồ hoặc tài liệu.
+- **Then:** đề xuất chỉ được giữ khi mọi dữ kiện nó trích dẫn có trong tập dữ kiện của lần chạy và nằm ở file có trong snapshot, và có dữ kiện ở cả hai đầu: một dữ kiện có vị trí thuộc A, một dữ kiện có vị trí thuộc B. Đề xuất không thỏa bị loại, ghi lý do loại, và không xuất hiện trong sơ đồ hoặc tài liệu.
 - `constrained_by:` [NFR-L3GEN-AI-002, NFR-L3GEN-ACC-002]
 - `implementation_target:` []
 - `validated_by:` []
@@ -251,7 +269,7 @@ Từ tập dữ kiện code của FR-L3GEN-021, công cụ dựng component, vai
 
 - **Given:** Mô hình ngôn ngữ không khả dụng, hết quota, tập dữ kiện vượt trần token của một lần chạy, hoặc model trả về payload sai schema.
 - **When:** công cụ chạy phân tích.
-- **Then:** công cụ dừng bước dựng quan hệ kiến trúc và báo rõ nguyên nhân, giữ lại tập dữ kiện code đã trích được; không tự dựng quan hệ bằng cách đoán để lấp chỗ trống.
+- **Then:** công cụ dừng bước dùng model và báo rõ nguyên nhân, trả kết quả partial gồm tập dữ kiện code và phần chia nhóm, cạnh do code dựng; component chưa có tên do model thì đặt tên theo đường dẫn và ghi rõ chưa được đặt tên. Không tự thêm quan hệ bằng cách đoán để lấp chỗ trống.
 - `constrained_by:` [NFR-L3GEN-AI-002]
 - `implementation_target:` []
 - `validated_by:` []
@@ -262,6 +280,15 @@ Từ tập dữ kiện code của FR-L3GEN-021, công cụ dựng component, vai
 - **When:** công cụ dựng sơ đồ.
 - **Then:** sơ đồ mặc định vẫn ở mức application/component trong trần số node đã quy định; phần không lên sơ đồ mặc định được giữ ở lớp bằng chứng, không bị loại khỏi bộ kết quả.
 - `constrained_by:` [NFR-L3GEN-ABST-002]
+- `implementation_target:` []
+- `validated_by:` []
+
+##### AC-L3GEN-022-05
+
+- **Given:** Repository phẳng: cây thư mục không chia được file source trong phạm vi thành ít nhất hai nhóm.
+- **When:** công cụ dựng mô hình kiến trúc.
+- **Then:** mô hình ngôn ngữ đề xuất cách chia file vào component; code kiểm mỗi file source thuộc đúng một component và mỗi file có trong snapshot, loại đề xuất không thỏa kèm lý do. Component chia theo cách này mang nhãn `inferred` với lý do "chia nhóm do model vì cây thư mục không đủ".
+- `constrained_by:` [NFR-L3GEN-AI-002, NFR-L3GEN-ACC-002]
 - `implementation_target:` []
 - `validated_by:` []
 
@@ -389,13 +416,13 @@ Mỗi lần chạy kèm phần nêu rõ những gì công cụ không đọc đ�
 
 ---
 
-Nguồn: [FR-L3GEN-025](../../requirements/fr/FR-L3GEN-025.md) · revision 1 · status draft · SHA-256 `e3dfe40837b224150f0e230fb7b1f559002cb1a7af8339e609708648df340479`
+Nguồn: [FR-L3GEN-025](../../requirements/fr/FR-L3GEN-025.md) · revision 2 · status draft · SHA-256 `2da45b8291d1f7bb02cbde4491d4a83f8198b55959f6648562d4f6902abf906a`
 
 ### FR-L3GEN-025 — Xuất kết quả
 
 #### Mô tả
 
-Người dùng lấy được tài liệu L3 để đọc và bộ dữ liệu có cấu trúc để công cụ khác dùng lại, cùng thông tin phiên bản và phạm vi của lần chạy.
+Người dùng lấy được sơ đồ component (mức L2), tài liệu L3 contract theo FR-L3GEN-027, và bộ dữ liệu có cấu trúc để công cụ khác dùng lại, cùng thông tin phiên bản và phạm vi của lần chạy.
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -410,7 +437,7 @@ Người dùng lấy được tài liệu L3 để đọc và bộ dữ liệu c
 
 - **Given:** Một lần phân tích kết thúc với trạng thái hoàn tất hoặc partial.
 - **When:** người dùng xuất kết quả.
-- **Then:** công cụ tạo tài liệu L3 Markdown, sơ đồ component và dependency, mã nguồn sơ đồ, và bộ dữ liệu JSON.
+- **Then:** công cụ tạo tài liệu L3 contract theo FR-L3GEN-027, sơ đồ component và dependency, mã nguồn sơ đồ, và bộ dữ liệu JSON.
 - `constrained_by:` [NFR-L3GEN-OPS-001, NFR-L3GEN-SEC-002]
 - `implementation_target:` []
 - `validated_by:` []
@@ -496,6 +523,69 @@ Trên web, người dùng theo dõi lần chạy hiện tại rồi xem tổng q
 
 `implementation_target` và `validated_by` để trống ở Scope Gate; component, contract và test ID được lập ở bước thiết kế và planning. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
 
+---
+
+Nguồn: [FR-L3GEN-027](../../requirements/fr/FR-L3GEN-027.md) · revision 1 · status draft · SHA-256 `2848618e427daba401a8609aadb59e54dd69fb1eb64828580741d9a65bfed5f5`
+
+### FR-L3GEN-027 — Sinh tài liệu L3 contract
+
+#### Mô tả
+
+Theo quy trình của mentor, L3 là contract: API, bảng dữ liệu (TBL) và sự kiện (EVT), chia theo component sở hữu. Sơ đồ component là mức L2. FR này sinh tài liệu L3 cho repository được phân tích.
+
+Định dạng theo cấu trúc `tech-specs/` của mentor. Mỗi contract là một file `.md`: bảng cho người đọc, cộng một khối máy đọc được bên trong.
+
+```text
+l3/
+  README.md                              mục lục, sơ đồ component, phần giới hạn
+  <component>/
+    api/API-<component>.md               bảng endpoint + khối OpenAPI 3.1
+    schema/TBL-<component>.md            bảng cột + khối DDL
+    events/EVT-<component>-<topic>.md    producer, consumer + schema payload
+```
+
+Mỗi file có frontmatter ghi là bản sinh tự động, định danh snapshot và component sở hữu. Mỗi dòng trỏ về dữ kiện code làm bằng chứng. OpenAPI dựng từ phân tích tĩnh, không chạy code của repository. Nội dung sinh từ cùng mô hình với sơ đồ và JSON.
+
+| Thuộc tính | Giá trị |
+|---|---|
+| Nhóm luồng | Sử dụng kết quả |
+| Ưu tiên | Must Have |
+| Mốc | M1 cho API và TBL; M3 cho EVT |
+| Người sở hữu | Vai Product của TEAM-L3GEN |
+
+#### Acceptance Criteria
+
+##### AC-L3GEN-027-01
+
+- **Given:** Lần chạy đã trích được route và request/response model theo FR-L3GEN-021.
+- **When:** công cụ sinh tài liệu L3.
+- **Then:** mỗi component có route sinh một file API gồm bảng endpoint (method, path đầy đủ, handler, request model, response model, status code, dependency hoặc auth nếu xác định được) và một khối OpenAPI 3.1 cùng nội dung. Trường không xác định được ghi `unknown` kèm lý do; mỗi dòng trỏ về dữ kiện code làm bằng chứng.
+- `constrained_by:` [NFR-L3GEN-ACC-002, NFR-L3GEN-ABST-002]
+- `implementation_target:` []
+- `validated_by:` []
+
+##### AC-L3GEN-027-02
+
+- **Given:** Lần chạy đã trích được lớp dữ liệu ánh xạ tới bảng theo FR-L3GEN-021.
+- **When:** công cụ sinh tài liệu L3.
+- **Then:** mỗi component sở hữu bảng sinh một file TBL gồm bảng cột (tên, kiểu, khóa chính, khóa ngoại, nullable) và một khối DDL cùng nội dung. Tên bảng hoặc kiểu không xác định được ghi `unknown` kèm lý do, không suy từ tên lớp; mỗi dòng trỏ về dữ kiện code làm bằng chứng.
+- `constrained_by:` [NFR-L3GEN-ACC-002, NFR-L3GEN-ABST-002]
+- `implementation_target:` []
+- `validated_by:` []
+
+##### AC-L3GEN-027-03
+
+- **Given:** Lần chạy đã trích được quan hệ phát hoặc nhận sự kiện theo FR-L3GEN-021.
+- **When:** công cụ sinh tài liệu L3.
+- **Then:** mỗi topic sinh một file EVT gồm topic, component phát, component nhận và schema payload nếu biết. Không nối producer với consumer chỉ vì cùng tên topic khi broker hoặc cấu hình chưa xác định; phần đó ghi `unknown` kèm lý do.
+- `constrained_by:` [NFR-L3GEN-ACC-002, NFR-L3GEN-ABST-002]
+- `implementation_target:` []
+- `validated_by:` []
+
+#### Trạng thái liên kết triển khai
+
+`implementation_target` và `validated_by` để trống ở Scope Gate; component, contract và test ID được lập ở bước thiết kế và planning. Hai mapping phải hoàn tất trước Definition of Ready cho code. Không tạo ID giả để lấp chỗ trống.
+
 ## 4. Thay đổi hành vi hiện có
 
 Không có FR nào bump revision: mọi FR trong baseline này mang key mới. FR của `CHG-L3GEN-2026-001` đã deprecated; ánh xạ cũ sang mới ở PRD mục IV.3. PRD không lấy hành vi code hiện tại làm chuẩn.
@@ -522,20 +612,21 @@ Không có FR chuẩn tắc nào bị giấu khỏi candidate.
 
 ---
 
-Nguồn: [NFR-L3GEN-ABST-002](../../requirements/nfr/NFR-L3GEN-ABST-002.md) · revision 1 · status draft · SHA-256 `22bae9f5036c9f53f7b32b623b76feb246b77daecbd0bc3b4da14e4cc7f0c6a3`
+Nguồn: [NFR-L3GEN-ABST-002](../../requirements/nfr/NFR-L3GEN-ABST-002.md) · revision 2 · status draft · SHA-256 `3688067a84de64602791c1e581f1d7c19612538685093a622531675ea8bc1292`
 
 ### NFR-L3GEN-ABST-002 — Mức trừu tượng của kết quả trình bày
 
 - **Nhóm:** Abstraction level.
 - **Trạng thái:** thay cho NFR-L3GEN-ABST-001 của BL-r14, giữ nguyên phạm vi và ngưỡng. Ngưỡng 500/50 đã chốt tại OQ-L3GEN-004 (CHG-L3GEN-2026-001); chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-022](../../requirements/fr/FR-L3GEN-022.md), [FR-L3GEN-023](../../requirements/fr/FR-L3GEN-023.md), [FR-L3GEN-025](../../requirements/fr/FR-L3GEN-025.md), [FR-L3GEN-026](../../requirements/fr/FR-L3GEN-026.md).
+- **Áp dụng:** [FR-L3GEN-022](../../requirements/fr/FR-L3GEN-022.md), [FR-L3GEN-023](../../requirements/fr/FR-L3GEN-023.md), [FR-L3GEN-025](../../requirements/fr/FR-L3GEN-025.md), [FR-L3GEN-026](../../requirements/fr/FR-L3GEN-026.md), [FR-L3GEN-027](../../requirements/fr/FR-L3GEN-027.md).
 - **Quyết định nền:** [ADR-2026-001](../../architecture/adr/ADR-2026-001.md).
 
 #### Yêu cầu có thể kiểm chứng
 
 Phân tích và trình bày là hai mức khác nhau. Công cụ được đọc sâu tới function, tham số và phép gán để chứng minh một quan hệ, nhưng kết quả mặc định cho người đọc dừng ở application/component.
 
-- Sơ đồ và tài liệu L3 mặc định chỉ có node mức application, component và hệ thống ngoài. Node mức function, class hoặc file không xuất hiện ở lớp mặc định.
+- Sơ đồ mặc định (mức L2) chỉ có node mức application, component và hệ thống ngoài. Node mức function, class hoặc file không xuất hiện ở lớp mặc định.
+- Tài liệu L3 liệt kê contract: endpoint, bảng, sự kiện, chia theo component. Function và class chỉ xuất hiện khi là handler hoặc model được nêu trong contract, hoặc ở lớp bằng chứng.
 - Số node của sơ đồ mặc định không tỷ lệ với số function của repository. Repository có từ 500 function trở lên vẫn cho sơ đồ mặc định không quá 50 node. Phần vượt trần không bị loại khỏi bộ kết quả mà nằm ở lớp bằng chứng; không xuất sơ đồ đầy đủ rồi để người đọc tự lọc.
 - Dữ kiện mức function và class vẫn nằm trong bộ kết quả, nhưng ở lớp bằng chứng có nhãn riêng, không trộn vào lớp kiến trúc mặc định.
 - Một quan hệ kiến trúc chỉ tồn tại khi đích đã xác định. Lời gọi chưa xác định được đích giữ ở lớp dữ kiện với nhãn unresolved, không nâng thành cạnh giữa hai component.
@@ -555,23 +646,23 @@ Product cùng Tech Lead/QA chốt ở Scope Gate. Không có waiver nào đượ
 
 ---
 
-Nguồn: [NFR-L3GEN-ACC-002](../../requirements/nfr/NFR-L3GEN-ACC-002.md) · revision 1 · status draft · SHA-256 `cef92fc5f13546aa25994ab245b265d824d81062bf05d701eee6776a3eb6c09f`
+Nguồn: [NFR-L3GEN-ACC-002](../../requirements/nfr/NFR-L3GEN-ACC-002.md) · revision 2 · status draft · SHA-256 `006f6eea321fc7cf8b9a6fcddfdbd7cbe43ed19de941f32f3bd3966ec770a8ef`
 
 ### NFR-L3GEN-ACC-002 — Độ đúng của kết quả và bằng chứng
 
 - **Nhóm:** Accuracy.
 - **Trạng thái:** ngưỡng đã chốt tại OQ-L3GEN-007 ngày 22/09/2026. Chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-020](../../requirements/fr/FR-L3GEN-020.md), [FR-L3GEN-021](../../requirements/fr/FR-L3GEN-021.md), [FR-L3GEN-022](../../requirements/fr/FR-L3GEN-022.md), [FR-L3GEN-023](../../requirements/fr/FR-L3GEN-023.md), [FR-L3GEN-024](../../requirements/fr/FR-L3GEN-024.md).
+- **Áp dụng:** [FR-L3GEN-020](../../requirements/fr/FR-L3GEN-020.md), [FR-L3GEN-021](../../requirements/fr/FR-L3GEN-021.md), [FR-L3GEN-022](../../requirements/fr/FR-L3GEN-022.md), [FR-L3GEN-023](../../requirements/fr/FR-L3GEN-023.md), [FR-L3GEN-024](../../requirements/fr/FR-L3GEN-024.md), [FR-L3GEN-027](../../requirements/fr/FR-L3GEN-027.md).
 
 #### Yêu cầu có thể kiểm chứng
 
 Thay cho NFR-L3GEN-ACC-001 và NFR-L3GEN-TRACE-001 của BL-r14.
 
-**Độ đúng của dữ kiện và component.** Precision và recall đều phải đạt từ 80% trở lên, đo riêng cho từng loại: route, entity/table, lời gọi HTTP, config, event, thư viện, thành viên component và cạnh dependency. Ngưỡng 80% chốt tại OQ-L3GEN-007, thay cho ngưỡng 90% của revision 23 vốn đặt cho bộ luật tất định; bộ trích xuất dùng mô hình ngôn ngữ không có cùng đặc tính sai số nên không dùng lại con số đó.
+**Độ đúng của dữ kiện và component.** Precision và recall đều phải đạt từ 80% trở lên, đo riêng cho từng loại: route, request/response model, entity/table, lời gọi HTTP, config, event, thư viện, thành viên component và cạnh dependency. Ngưỡng 80% chốt tại OQ-L3GEN-007, thay cho ngưỡng 90% của revision 23 vốn đặt cho bộ luật tất định; bộ trích xuất dùng mô hình ngôn ngữ không có cùng đặc tính sai số nên không dùng lại con số đó.
 
 Chấm thuộc tính riêng với chấm sự tồn tại: một route thiếu prefix không tính là route đúng, một tên bảng suy sai không tính là tên bảng đúng. Nhóm nào chưa đủ mẫu thì báo TP/FP/FN, không báo đạt.
 
-**Bằng chứng.** Bằng chứng của một kết luận là các dữ kiện code trong tập dữ kiện của lần chạy, mỗi dữ kiện nằm ở file có thật trong snapshot đã phân tích. Với cạnh dependency A→B, phải có ít nhất một dữ kiện đã xác định đích, vị trí thuộc A và đích thuộc B. Code kiểm điều này; lời khẳng định của model không được tính là bằng chứng. Tỷ lệ kết luận công bố có bằng chứng hợp lệ phải đạt 100%, không có ngoại lệ: kết luận không thỏa thì bị loại trước khi xuất, không được hạ thành cảnh báo. Bằng chứng không được trỏ sang snapshot khác hoặc sang source hiện tại trên đĩa.
+**Bằng chứng.** Bằng chứng của một kết luận là các dữ kiện code trong tập dữ kiện của lần chạy, mỗi dữ kiện nằm ở file có thật trong snapshot đã phân tích. Với cạnh dependency A→B do code dựng, phải có ít nhất một dữ kiện đã xác định đích, vị trí thuộc A và đích thuộc B. Với cạnh do model đề xuất thêm, phải có dữ kiện ở cả hai đầu theo AC-L3GEN-022-02. Code kiểm điều này; lời khẳng định của model không được tính là bằng chứng. Tỷ lệ kết luận công bố có bằng chứng hợp lệ phải đạt 100%, không có ngoại lệ: kết luận không thỏa thì bị loại trước khi xuất, không được hạ thành cảnh báo. Bằng chứng không được trỏ sang snapshot khác hoặc sang source hiện tại trên đĩa.
 
 **Nhãn chất lượng.** Confidence, completeness và coverage là ba trục độc lập, không dùng trục này thay trục kia. Nhãn `exact` chỉ dùng cho kết luận đọc trực tiếp từ bằng chứng; kết luận suy ra mang nhãn `inferred` kèm lý do. Không được nâng `inferred` thành `exact` để kết quả trông chắc chắn hơn. Tỷ lệ nhãn khớp đánh giá người duyệt phải đạt từ 80% trở lên. Riêng tỷ lệ gán `exact` cho kết luận thật ra sai phải ở mức 5% trở xuống, và là chỉ số chặn: gán nhãn chắc chắn cho kết luận sai gây hại hơn bỏ sót, vì người đọc tin mà không kiểm lại.
 
@@ -592,7 +683,7 @@ Product cùng Tech Lead/QA chốt ở Scope Gate. Không có waiver nào đượ
 
 ---
 
-Nguồn: [NFR-L3GEN-AI-002](../../requirements/nfr/NFR-L3GEN-AI-002.md) · revision 1 · status draft · SHA-256 `183c1fc4c7e68086e7cf3b84530f345c7c8350844306694d16fdc568272bc531`
+Nguồn: [NFR-L3GEN-AI-002](../../requirements/nfr/NFR-L3GEN-AI-002.md) · revision 2 · status draft · SHA-256 `b18843ea5c2218e32fb03374cab10e413b180ef441f260c533637229d7dd2951`
 
 ### NFR-L3GEN-AI-002 — Ranh giới, chi phí và truy vết của mô hình ngôn ngữ
 
@@ -604,7 +695,9 @@ Nguồn: [NFR-L3GEN-AI-002](../../requirements/nfr/NFR-L3GEN-AI-002.md) · revis
 
 Thay cho NFR-L3GEN-AI-001 và NFR-L3GEN-DET-001 của BL-r14; tái lập hạ xuống mức ghi nhận.
 
-**Ranh giới.** Mô hình ngôn ngữ chỉ nhận tập dữ kiện code đã trích kèm vị trí file, không nhận toàn bộ source repository. Model chỉ đề xuất component, vai trò và cạnh; nó không sửa dữ kiện code và không tự công bố kết luận. Kết quả model trả về phải đúng schema đã định; phần sai schema, trỏ tới file không có trong snapshot, tham chiếu định danh không tồn tại, hoặc không qua bước kiểm bằng chứng của NFR-L3GEN-ACC-002 thì bị loại và ghi lý do loại.
+**Ranh giới.** Mô hình ngôn ngữ chỉ nhận tập dữ kiện code đã trích kèm vị trí file, không nhận toàn bộ source repository. Model đặt tên, mô tả, vai trò cho component đã được code chia, gắn nhãn cạnh, và đề xuất cạnh mà phân tích tĩnh không thấy. Chỉ với repository phẳng, model mới đề xuất cách chia component (AC-L3GEN-022-05). Model không sửa dữ kiện code và không tự công bố kết luận.
+
+**Đọc thêm code.** Đầu vào mặc định là tập dữ kiện, danh sách file của từng component, lời gọi giữa component, và chữ ký hàm (tên, tham số, kiểu, decorator, docstring). Khi cần xem thân hàm, model gọi công cụ đọc code của engine; công cụ chỉ trả đoạn code thuộc snapshot và phạm vi đang xét, đã che bí mật. Model phải hỗ trợ gọi công cụ; với `gpt-oss-120b` trên Groq điều này **chưa kiểm**, kiểm ở M1. Kết quả model trả về phải đúng schema đã định; phần sai schema, trỏ tới file không có trong snapshot, tham chiếu định danh không tồn tại, hoặc không qua bước kiểm bằng chứng của NFR-L3GEN-ACC-002 thì bị loại và ghi lý do loại.
 
 **Provider và model phase đầu.** Groq, model `openai/gpt-oss-120b`, gói miễn phí. Giới hạn gói do Khiêm cung cấp ngày 23/09/2026: 30 request/phút, 1.000 request/ngày, 8.000 token/phút, 200.000 token/ngày. Giới hạn này do Groq đặt và có thể đổi; công cụ đọc lỗi rate limit thực tế thay vì tin con số ghi ở đây.
 
@@ -616,6 +709,7 @@ Thay cho NFR-L3GEN-AI-001 và NFR-L3GEN-DET-001 của BL-r14; tái lập hạ xu
 | Token mỗi request | ≤ 6.000 | Dưới trần 8.000 token/phút của gói |
 | Request mỗi lần chạy | ≤ 40 | Chặn vòng gọi không dừng |
 | Timeout và thử lại | 30 giây mỗi request, thử lại tối đa 2 lần | Giữ từ BL-r14 |
+| Lần đọc code theo yêu cầu model | ≤ 6 lần mỗi phạm vi, mỗi lần ≤ 60 dòng | 6 lần theo CodeBoarding; 60 dòng để vừa trần token mỗi request |
 
 Công cụ ước tính số token của tập dữ kiện trước request đầu tiên; vượt trần thì không gọi model và xử lý theo AC-L3GEN-022-03. Trần token thay cho "trần kích thước repository": model nhận tập dữ kiện chứ không nhận source, nên đơn vị đo là token. Quy đổi sang số file hoặc số dòng code chưa đo; M1 đo và công bố.
 
@@ -685,7 +779,7 @@ Product cùng Tech Lead/QA chốt ở Scope Gate. Không có waiver nào đượ
 
 ---
 
-Nguồn: [NFR-L3GEN-SEC-002](../../requirements/nfr/NFR-L3GEN-SEC-002.md) · revision 1 · status draft · SHA-256 `1d4bc7cd9470a825f27817fcf2042d395628cfcd9da84b4736405764e28f0cfa`
+Nguồn: [NFR-L3GEN-SEC-002](../../requirements/nfr/NFR-L3GEN-SEC-002.md) · revision 2 · status draft · SHA-256 `509c44b243b6cf0cc61fc6e3f92a047ff182a24cca96ec6784447d44df22584b`
 
 ### NFR-L3GEN-SEC-002 — An toàn khi tiếp nhận source và vòng đời dữ liệu
 
@@ -702,7 +796,7 @@ Thay cho NFR-L3GEN-SEC-001 và NFR-L3GEN-PRIV-001 của BL-r14.
 
 **Tiếp nhận an toàn.** File nén giải ra phải nằm trong vùng xử lý; đường dẫn thoát khỏi vùng đó bị từ chối. Trần một lần tiếp nhận, giữ từ BL-r14: ZIP nén 100 MB, giải nén 500 MB, 50.000 file. Lấy source từ GitHub timeout 120 giây. Vượt trần thì từ chối kèm lý do. Chỉ nhận repository GitHub public qua HTTPS; công cụ không nhận và không lưu credential truy cập repository.
 
-**Dữ liệu gửi ra ngoài.** Trước khi chạy, người dùng được cho biết dữ liệu nào sẽ được gửi tới provider model. Dữ liệu gửi đi là tập dữ kiện đã trích: tên symbol, đường dẫn file, vị trí và các giá trị literal được trích làm dữ kiện, ví dụ path của route. Không gửi nguyên nội dung file source. Giá trị cấu hình mang dấu hiệu bí mật bị che trước khi vào bất kỳ đầu ra nào, kể cả payload gửi model.
+**Dữ liệu gửi ra ngoài.** Trước khi chạy, người dùng được cho biết dữ liệu nào sẽ được gửi tới provider model. Dữ liệu gửi đi gồm: tập dữ kiện đã trích (tên symbol, đường dẫn file, vị trí, giá trị literal như path của route), chữ ký hàm kèm docstring, và các đoạn code model yêu cầu qua công cụ đọc code trong giới hạn của NFR-L3GEN-AI-002. Không gửi nguyên file source hoặc cả repository. Giá trị cấu hình mang dấu hiệu bí mật bị che trước khi vào bất kỳ đầu ra nào, kể cả payload gửi model.
 
 **Vòng đời.** Phase đầu chỉ giữ dữ liệu cần cho lần chạy hiện tại. Trên web, source đã tiếp nhận và output hết hạn 24 giờ sau trạng thái cuối của lần chạy, và không được phục vụ sau hạn. Mốc 24 giờ cho source giữ từ BL-r14; áp cho output là mới, vì lịch sử 14 ngày của BL-r14 thuộc phase sau. Nếu máy tắt qua hạn, lần khởi động kế tiếp phải dọn trước khi phục vụ dữ liệu. Output của dòng lệnh do người dùng quản lý.
 
