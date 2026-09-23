@@ -17,6 +17,13 @@ ai_assisted: true
 
 # TM-SYS-L3GEN — Threat model
 
+> **Lỗi thời từ 23/09/2026 — phải xét lại ở bước 7, sau Scope Gate CHG-L3GEN-2026-002.**
+> Threat model này chưa có mối đe dọa của hướng mới: gửi tập dữ kiện ra Groq, prompt
+> injection qua tên symbol hoặc chuỗi trong source, và model trả đề xuất giả. Các CMP được
+> nhắc tới đã gỡ khỏi repo, còn trong lịch sử git (commit `5ed1712`). NFR hiện hành là
+> [NFR-L3GEN-SEC-002](../../requirements/nfr/NFR-L3GEN-SEC-002.md) và
+> [NFR-L3GEN-AI-002](../../requirements/nfr/NFR-L3GEN-AI-002.md).
+
 - **Trạng thái:** approved. Khiêm xác nhận giả định nền ngày 21/09/2026, trong đó
   có điểm then chốt: **web chỉ chạy cục bộ hoặc workspace tin cậy**.
 - **Ngày soạn:** 2026-09-21.
@@ -194,8 +201,8 @@ kết quả kiểm."*
 
 ## 7. Liên kết
 
-- [NFR-SEC-001](../../requirements/nfr/NFR-L3GEN-SEC-001.md) — an toàn khi tiếp nhận và phân tích.
-- [NFR-PRIV-001](../../requirements/nfr/NFR-L3GEN-PRIV-001.md) — riêng tư và vòng đời dữ liệu.
-- [NFR-PERF-001](../../requirements/nfr/NFR-L3GEN-PERF-001.md) — trần tài nguyên.
+- [NFR-SEC-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-SEC-001.md) — an toàn khi tiếp nhận và phân tích.
+- [NFR-PRIV-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-PRIV-001.md) — riêng tư và vòng đời dữ liệu.
+- [NFR-PERF-001](../../requirements/_superseded-r23/nfr/NFR-L3GEN-PERF-001.md) — trần tài nguyên.
 - [ADR-2026-002](../adr/ADR-2026-002.md) — trục chia component.
 - [Glossary và bất biến miền](../../domain/glossary-core.md).
