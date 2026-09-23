@@ -1,6 +1,6 @@
 ---
 uid: "01M34AM2AJZBAF4QHY33Z5909H"
-key: "FR-L3GEN-007"
+key: "FR-L3GEN-025"
 type: "functional-requirement"
 group: "normative"
 scope: "system"
@@ -8,14 +8,14 @@ system: "SYS-L3GEN"
 status: "draft"
 revision: 1
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"satisfies":["GOAL-L3GEN-003"],"constrained_by":["NFR-L3GEN-ABST-001","NFR-L3GEN-OPS-001","NFR-L3GEN-SEC-001"],"measured_by":["OBS-L3GEN-001"]}
+relations: {"satisfies":["GOAL-L3GEN-006"],"constrained_by":["NFR-L3GEN-ABST-002","NFR-L3GEN-OPS-001","NFR-L3GEN-SEC-002"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
 ai_assisted: true
 ---
 
-# FR-L3GEN-007 — Xuất kết quả
+# FR-L3GEN-025 — Xuất kết quả
 
 ## Mô tả
 
@@ -30,16 +30,16 @@ Người dùng lấy được tài liệu L3 để đọc và bộ dữ liệu c
 
 ## Acceptance Criteria
 
-### AC-L3GEN-007-01
+### AC-L3GEN-025-01
 
 - **Given:** Một lần phân tích kết thúc với trạng thái hoàn tất hoặc partial.
 - **When:** người dùng xuất kết quả.
 - **Then:** công cụ tạo tài liệu L3 Markdown, sơ đồ component và dependency, mã nguồn sơ đồ, và bộ dữ liệu JSON.
-- `constrained_by:` [NFR-L3GEN-OPS-001, NFR-L3GEN-SEC-001]
+- `constrained_by:` [NFR-L3GEN-OPS-001, NFR-L3GEN-SEC-002]
 - `implementation_target:` []
 - `validated_by:` []
 
-### AC-L3GEN-007-02
+### AC-L3GEN-025-02
 
 - **Given:** Một hệ thống khác đọc bộ dữ liệu JSON.
 - **When:** hệ thống đó nạp file.
@@ -48,7 +48,7 @@ Người dùng lấy được tài liệu L3 để đọc và bộ dữ liệu c
 - `implementation_target:` []
 - `validated_by:` []
 
-### AC-L3GEN-007-03
+### AC-L3GEN-025-03
 
 - **Given:** Một artifact trong bộ kết quả sinh lỗi.
 - **When:** công cụ xuất kết quả.
@@ -57,12 +57,12 @@ Người dùng lấy được tài liệu L3 để đọc và bộ dữ liệu c
 - `implementation_target:` []
 - `validated_by:` []
 
-### AC-L3GEN-007-04
+### AC-L3GEN-025-04
 
 - **Given:** Cùng một mô hình kiến trúc được xuất ra nhiều dạng artifact.
 - **When:** người dùng đối chiếu giữa các artifact.
 - **Then:** không artifact nào chứa component hoặc quan hệ mà artifact khác không có; mọi artifact giữ mức application/component.
-- `constrained_by:` [NFR-L3GEN-ABST-001]
+- `constrained_by:` [NFR-L3GEN-ABST-002]
 - `implementation_target:` []
 - `validated_by:` []
 

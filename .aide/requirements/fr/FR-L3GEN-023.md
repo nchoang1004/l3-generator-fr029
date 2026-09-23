@@ -1,6 +1,6 @@
 ---
 uid: "01M34AM2AH38TP25RR4G8E8GGA"
-key: "FR-L3GEN-005"
+key: "FR-L3GEN-023"
 type: "functional-requirement"
 group: "normative"
 scope: "system"
@@ -8,18 +8,18 @@ system: "SYS-L3GEN"
 status: "draft"
 revision: 1
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"satisfies":["GOAL-L3GEN-002","GOAL-L3GEN-004"],"constrained_by":["NFR-L3GEN-ACC-001","NFR-L3GEN-ABST-001"],"measured_by":["OBS-L3GEN-001"]}
+relations: {"satisfies":["GOAL-L3GEN-005","GOAL-L3GEN-007"],"constrained_by":["NFR-L3GEN-ACC-002","NFR-L3GEN-ABST-002"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
 ai_assisted: true
 ---
 
-# FR-L3GEN-005 — Bằng chứng và nhãn mức chắc chắn
+# FR-L3GEN-023 — Bằng chứng và nhãn mức chắc chắn
 
 ## Mô tả
 
-Người đọc lần ngược được mỗi kết luận về đúng file trong snapshot đã phân tích, và phân biệt được phần đọc trực tiếp từ bằng chứng, phần suy ra, và phần chưa kết luận được.
+Người đọc lần ngược được mỗi kết luận về đúng dữ kiện code và file trong snapshot đã phân tích, và phân biệt được phần đọc trực tiếp từ bằng chứng, phần suy ra, và phần chưa kết luận được.
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -30,39 +30,39 @@ Người đọc lần ngược được mỗi kết luận về đúng file tron
 
 ## Acceptance Criteria
 
-### AC-L3GEN-005-01
+### AC-L3GEN-023-01
 
 - **Given:** Người đọc chọn một component, một cạnh dependency hoặc một dữ kiện trong kết quả.
 - **When:** người đọc mở phần bằng chứng.
-- **Then:** công cụ chỉ ra các file trong snapshot làm cơ sở cho kết luận đó.
-- `constrained_by:` [NFR-L3GEN-ACC-001]
+- **Then:** công cụ chỉ ra các dữ kiện code và vị trí của chúng trong snapshot làm cơ sở cho kết luận đó.
+- `constrained_by:` [NFR-L3GEN-ACC-002]
 - `implementation_target:` []
 - `validated_by:` []
 
-### AC-L3GEN-005-02
+### AC-L3GEN-023-02
 
 - **Given:** Một kết luận được công bố trong tài liệu hoặc sơ đồ.
 - **When:** công cụ sinh kết quả.
 - **Then:** kết luận mang nhãn confidence là exact hoặc inferred và nhãn completeness là full hoặc partial ở hai trường riêng; inferred và partial kèm lý do.
-- `constrained_by:` [NFR-L3GEN-ACC-001]
+- `constrained_by:` [NFR-L3GEN-ACC-002]
 - `implementation_target:` []
 - `validated_by:` []
 
-### AC-L3GEN-005-03
+### AC-L3GEN-023-03
 
 - **Given:** Source trên đĩa đã thay đổi so với snapshot đã phân tích.
 - **When:** người đọc mở bằng chứng của một kết luận.
 - **Then:** công cụ báo snapshot không còn khớp, không dùng nội dung source mới làm bằng chứng cho kết luận cũ.
-- `constrained_by:` [NFR-L3GEN-ACC-001]
+- `constrained_by:` [NFR-L3GEN-ACC-002]
 - `implementation_target:` []
 - `validated_by:` []
 
-### AC-L3GEN-005-04
+### AC-L3GEN-023-04
 
-- **Given:** Một kết luận không có bằng chứng trỏ tới file có thật trong snapshot.
+- **Given:** Một kết luận không có bằng chứng là dữ kiện code có thật trong snapshot, hoặc bằng chứng đó không qua bước kiểm ở AC-L3GEN-022-02.
 - **When:** công cụ sinh kết quả.
 - **Then:** kết luận đó không được công bố trong sơ đồ hoặc tài liệu L3.
-- `constrained_by:` [NFR-L3GEN-ACC-001, NFR-L3GEN-ABST-001]
+- `constrained_by:` [NFR-L3GEN-ACC-002, NFR-L3GEN-ABST-002]
 - `implementation_target:` []
 - `validated_by:` []
 

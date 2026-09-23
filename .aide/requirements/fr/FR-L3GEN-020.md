@@ -1,6 +1,6 @@
 ---
 uid: "01M34AM2AGN88WN875NJARJEDP"
-key: "FR-L3GEN-002"
+key: "FR-L3GEN-020"
 type: "functional-requirement"
 group: "normative"
 scope: "system"
@@ -8,14 +8,14 @@ system: "SYS-L3GEN"
 status: "draft"
 revision: 1
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"satisfies":["GOAL-L3GEN-001","GOAL-L3GEN-004"],"constrained_by":["NFR-L3GEN-OPS-001","NFR-L3GEN-ACC-001"],"measured_by":["OBS-L3GEN-001"]}
+relations: {"satisfies":["GOAL-L3GEN-004","GOAL-L3GEN-007"],"constrained_by":["NFR-L3GEN-OPS-001","NFR-L3GEN-ACC-002"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
 ai_assisted: true
 ---
 
-# FR-L3GEN-002 — Xác định phạm vi phân tích
+# FR-L3GEN-020 — Xác định phạm vi phân tích
 
 ## Mô tả
 
@@ -30,7 +30,7 @@ Người dùng biết phần nào của repository được phân tích, phần 
 
 ## Acceptance Criteria
 
-### AC-L3GEN-002-01
+### AC-L3GEN-020-01
 
 - **Given:** Repository chứa nhiều thư mục, trong đó có phần thuộc stack được hỗ trợ và phần không.
 - **When:** công cụ chạy phân tích.
@@ -39,7 +39,7 @@ Người dùng biết phần nào của repository được phân tích, phần 
 - `implementation_target:` []
 - `validated_by:` []
 
-### AC-L3GEN-002-02
+### AC-L3GEN-020-02
 
 - **Given:** Repository rỗng, hoặc toàn bộ nội dung thuộc ngôn ngữ chưa được hỗ trợ.
 - **When:** công cụ chạy phân tích.
@@ -48,12 +48,12 @@ Người dùng biết phần nào của repository được phân tích, phần 
 - `implementation_target:` []
 - `validated_by:` []
 
-### AC-L3GEN-002-03
+### AC-L3GEN-020-03
 
 - **Given:** Một đơn vị phân tích thuộc ngôn ngữ được hỗ trợ nhưng ở mức độ sâu thấp hơn Python.
 - **When:** công cụ chạy phân tích.
 - **Then:** công cụ công bố mức hỗ trợ áp dụng cho đơn vị đó, để người đọc biết nhãn chất lượng của kết luận trong đơn vị này được đặt theo mức nào.
-- `constrained_by:` [NFR-L3GEN-ACC-001]
+- `constrained_by:` [NFR-L3GEN-ACC-002]
 - `implementation_target:` []
 - `validated_by:` []
 

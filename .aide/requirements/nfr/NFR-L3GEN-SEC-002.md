@@ -1,6 +1,6 @@
 ---
 uid: "01M34AM2AKCTWDBD72J4X3R13C"
-key: "NFR-L3GEN-SEC-001"
+key: "NFR-L3GEN-SEC-002"
 type: "non-functional-requirement"
 group: "normative"
 scope: "system"
@@ -8,31 +8,31 @@ system: "SYS-L3GEN"
 status: "draft"
 revision: 1
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"constrains":["FR-L3GEN-001","FR-L3GEN-003","FR-L3GEN-007","FR-L3GEN-008"],"measured_by":["OBS-L3GEN-001"]}
+relations: {"constrains":["FR-L3GEN-019","FR-L3GEN-021","FR-L3GEN-025","FR-L3GEN-026"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
 ai_assisted: true
 ---
 
-# NFR-L3GEN-SEC-001 — An toàn khi tiếp nhận source và vòng đời dữ liệu
+# NFR-L3GEN-SEC-002 — An toàn khi tiếp nhận source và vòng đời dữ liệu
 
 - **Nhóm:** Security và Privacy.
 - **Trạng thái:** phạm vi đã chốt; chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-001](../fr/FR-L3GEN-001.md), [FR-L3GEN-003](../fr/FR-L3GEN-003.md), [FR-L3GEN-007](../fr/FR-L3GEN-007.md), [FR-L3GEN-008](../fr/FR-L3GEN-008.md).
+- **Áp dụng:** [FR-L3GEN-019](../fr/FR-L3GEN-019.md), [FR-L3GEN-021](../fr/FR-L3GEN-021.md), [FR-L3GEN-025](../fr/FR-L3GEN-025.md), [FR-L3GEN-026](../fr/FR-L3GEN-026.md).
 - **Threat model:** [TM-SYS-L3GEN](../../architecture/threat-model/TM-SYS-L3GEN.md).
 
 ## Yêu cầu có thể kiểm chứng
 
-Gộp NFR-SEC-001 và NFR-PRIV-001 cũ.
+Thay cho NFR-L3GEN-SEC-001 và NFR-L3GEN-PRIV-001 của BL-r14.
 
 **Read-only với source.** Không chạy, không import, không `exec` hay `eval`, không cài dependency, không chạy hook hoặc submodule, và không ghi ngược vào cây source đầu vào.
 
-**Tiếp nhận an toàn.** File nén giải ra phải nằm trong vùng xử lý; đường dẫn thoát khỏi vùng đó bị từ chối. Có trần kích thước và số file cho một lần tiếp nhận. Chỉ nhận repository GitHub public qua HTTPS; công cụ không nhận và không lưu credential truy cập repository.
+**Tiếp nhận an toàn.** File nén giải ra phải nằm trong vùng xử lý; đường dẫn thoát khỏi vùng đó bị từ chối. Trần một lần tiếp nhận, giữ từ BL-r14: ZIP nén 100 MB, giải nén 500 MB, 50.000 file. Lấy source từ GitHub timeout 120 giây. Vượt trần thì từ chối kèm lý do. Chỉ nhận repository GitHub public qua HTTPS; công cụ không nhận và không lưu credential truy cập repository.
 
-**Dữ liệu gửi ra ngoài.** Trước khi chạy, người dùng được cho biết dữ liệu nào sẽ được gửi tới provider model. Giá trị cấu hình mang dấu hiệu bí mật bị che trước khi vào bất kỳ đầu ra nào, kể cả payload gửi model.
+**Dữ liệu gửi ra ngoài.** Trước khi chạy, người dùng được cho biết dữ liệu nào sẽ được gửi tới provider model. Dữ liệu gửi đi là tập dữ kiện đã trích: tên symbol, đường dẫn file, vị trí và các giá trị literal được trích làm dữ kiện, ví dụ path của route. Không gửi nguyên nội dung file source. Giá trị cấu hình mang dấu hiệu bí mật bị che trước khi vào bất kỳ đầu ra nào, kể cả payload gửi model.
 
-**Vòng đời.** Phase đầu chỉ giữ dữ liệu cần cho lần chạy hiện tại. Source đã tiếp nhận và output tạm được dọn theo vòng đời đã công bố; không giữ lại bản sao source ngoài phạm vi đó.
+**Vòng đời.** Phase đầu chỉ giữ dữ liệu cần cho lần chạy hiện tại. Trên web, source đã tiếp nhận và output hết hạn 24 giờ sau trạng thái cuối của lần chạy, và không được phục vụ sau hạn. Mốc 24 giờ cho source giữ từ BL-r14; áp cho output là mới, vì lịch sử 14 ngày của BL-r14 thuộc phase sau. Nếu máy tắt qua hạn, lần khởi động kế tiếp phải dọn trước khi phục vụ dữ liệu. Output của dòng lệnh do người dùng quản lý.
 
 ## Điều kiện và cách kiểm
 

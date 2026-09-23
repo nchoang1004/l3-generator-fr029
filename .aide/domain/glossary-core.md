@@ -5,11 +5,11 @@ type: "glossary"
 group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
-status: "approved"
-revision: 3
+status: "draft"
+revision: 4
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {}
-verified_at: 2026-09-21
+verified_at: null
 verified_against: []
 classification: "internal"
 ai_assisted: true
@@ -20,6 +20,11 @@ ai_assisted: true
 Tài liệu này thống nhất cách gọi trước khi chia capability và component. Nó không chọn
 pipeline, framework triển khai hay thứ tự chạy. Khi một ghi chép thiết kế cũ dùng từ khác
 với tài liệu này, nghĩa trong baseline yêu cầu và tài liệu này được ưu tiên.
+
+**Revision 4 (23/09/2026):** cập nhật theo PRD revision 25. Mô hình ngôn ngữ nay là bắt
+buộc và được đề xuất component, quan hệ. Code vẫn kiểm bằng chứng trước khi công bố.
+Revision 3 (approved 21/09/2026) viết cho hướng AI mặc định tắt; các mục đổi là 2, 4, 5,
+bất biến #6, #8 và mục 7.
 
 ## 1. Nguồn và lần phân tích
 
@@ -41,7 +46,8 @@ với tài liệu này, nghĩa trong baseline yêu cầu và tài liệu này đ
 | Candidate | Đối tượng hoặc quan hệ có tín hiệu ban đầu nhưng chưa đủ điều kiện để công bố thành architecture claim |
 | Resolution result | Kết quả nối một tham chiếu/call tới một đích: `resolved`, `ambiguous`, `unresolved` hoặc `runtime-dependent` |
 | Architecture claim | Thực thể hoặc quan hệ ở mức application/component được công bố trong architecture model |
-| Evidence | Một hoặc nhiều file/range thuộc chính source snapshot, kèm rule/reason và đường suy luận khi cần, hỗ trợ một fact hoặc claim |
+| Model proposal | Component, vai trò hoặc cạnh do mô hình ngôn ngữ đề xuất từ tập code fact. Chưa là architecture claim cho tới khi qua bước kiểm bằng chứng của code |
+| Evidence | Các code fact trong tập fact của lần chạy, mỗi fact nằm ở file/range thuộc chính source snapshot, kèm lý do khi cần. Với cạnh A→B, evidence phải có ít nhất một fact đã xác định đích, vị trí thuộc A và đích thuộc B. Lời khẳng định của model không phải evidence |
 | Diagnostic | Dữ liệu giải thích quá trình phân tích, candidate, raw call, budget hoặc nguyên nhân không kết luận được; không phải architecture claim |
 | Limitation | Phần engine không đọc, không hỗ trợ, không resolve hoặc phải dừng do budget/runtime; không đồng nghĩa repository không có dữ kiện đó |
 | Coverage | Bản kê phần đã xét, bị loại, lỗi hoặc ngoài phạm vi. Coverage mô tả phạm vi quan sát, không phải confidence của từng claim |
@@ -51,7 +57,7 @@ với tài liệu này, nghĩa trong baseline yêu cầu và tài liệu này đ
 
 | Thuật ngữ | Nghĩa dùng trong hệ thống |
 |---|---|
-| Component | Nhóm thành viên code có cùng trách nhiệm kiến trúc, được tạo bởi rule grouping công bố và có evidence membership; tên thư mục hoặc tên class riêng lẻ không đủ chứng minh |
+| Component | Nhóm thành viên code có cùng trách nhiệm kiến trúc. Phase đầu do mô hình ngôn ngữ đề xuất cách nhóm; mỗi thành viên phải là code fact có thật trong snapshot. Tên thư mục hoặc tên class riêng lẻ không đủ chứng minh |
 | Component role | Nhãn như API, service/business, repository/data-access hoặc integration dựa trên framework marker, registration hay effect đã hỗ trợ; khi thiếu bằng chứng dùng unknown/candidate |
 | Architecture model | Tập application, component, interface, data, external system, event, configuration và quan hệ L3; đây là nguồn cấu trúc chung cho CLI, web và artifact xuất |
 | Evidence/diagnostic model | Dữ kiện chi tiết mức file/class/function/call dùng để kiểm chứng hoặc chẩn đoán; không được UI/diagram coi là lớp kiến trúc mặc định |
@@ -66,7 +72,7 @@ với tài liệu này, nghĩa trong baseline yêu cầu và tài liệu này đ
 
 | Thuật ngữ | Nghĩa dùng trong hệ thống |
 |---|---|
-| exact / inferred | Claim/thuộc tính đọc trực tiếp từ bằng chứng / suy bằng rule tất định đã công bố. `inferred` không có nghĩa phỏng đoán tự do |
+| exact / inferred | `exact`: đọc trực tiếp từ code fact đã xác định đích, và bước kiểm của code xác nhận được. `inferred`: có code fact làm căn cứ nhưng cần một bước diễn giải, bởi luật đã công bố hoặc bởi mô hình ngôn ngữ, và phải kèm lý do. `inferred` không có nghĩa phỏng đoán không căn cứ |
 | full / partial | Biết đủ / còn thiếu thuộc tính hoặc binding trong phạm vi contract đã công bố; không phải mức bao phủ tuyệt đối của repository |
 | unresolved / ambiguous | Chưa xác định được đích / có nhiều đích nhưng chưa đủ bằng chứng để chọn |
 | runtime-dependent | Kết luận phụ thuộc dữ liệu hoặc hành vi chỉ có khi chạy source; phase đầu không chạy source để xác nhận |
@@ -79,8 +85,9 @@ với tài liệu này, nghĩa trong baseline yêu cầu và tài liệu này đ
 
 | Thuật ngữ | Nghĩa dùng trong hệ thống |
 |---|---|
-| Deterministic core | Phần tạo code fact, architecture claim, evidence, limitation, finding và artifact cấu trúc mà không phụ thuộc AI |
-| AI description | Văn bản tùy chọn, có nhãn, chỉ diễn đạt dữ kiện/finding đã có; không có quyền sửa hoặc bổ sung cấu trúc |
+| Tầng tất định | Phần không dùng AI: tạo code fact, kiểm evidence của model proposal, ghi limitation và xuất artifact. Cùng snapshot và cùng phiên bản tool thì cho cùng tập code fact |
+| Mô hình ngôn ngữ | Phần dùng AI, bắt buộc từ PRD revision 25. Chỉ nhận tập code fact đã trích, không nhận toàn bộ source. Chỉ tạo model proposal; không sửa code fact và không tự công bố claim |
+| Provenance | Thông tin cho biết một claim đến từ đâu: provider, model, phiên bản prompt, phiên bản tool và snapshot. Ghi cho mỗi lần chạy |
 
 `FR`, `AC`, `NFR`, `OBS` và `Baseline` là thuật ngữ quy trình, không phải thuật ngữ miền
 sản phẩm. Nghĩa của chúng ở tài liệu quy trình, không lặp lại ở đây.
@@ -107,14 +114,16 @@ Các bất biến sau phải giữ dù sau này chọn phương án kiến trúc
    adapter, context hoặc budget thiếu, kết quả phải là limitation/partial, không phải rỗng.
 5. Confidence của claim, completeness của thuộc tính và coverage của run là ba trục độc
    lập; không dùng một trục thay cho trục khác.
-6. Cùng snapshot, cấu hình, tool version và rule version phải cho cùng deterministic core
-   qua CLI và web. Run metadata và cách trình bày có thể khác theo contract. Hệ quả bắt
-   buộc: CLI, web và exporter không tự phân tích source theo luật riêng; mọi cấu trúc
-   chúng trình bày phải đến từ cùng architecture model.
+6. CLI và web dùng cùng một engine. Cùng snapshot và cùng phiên bản tool thì cho cùng tập
+   code fact. Model proposal có thể khác giữa hai lần chạy; mỗi lần chạy ghi provenance.
+   CLI, web và exporter không tự phân tích source theo luật riêng; mọi cấu trúc chúng
+   trình bày phải đến từ cùng architecture model của lần chạy đó.
 7. Phân tích có thể đi xuống file/class/function/call, nhưng lớp mặc định cho người đọc
    dừng ở application/component theo ADR-2026-001.
-8. AI mặc định tắt trong phase đầu. Khi được người dùng bật, AI không được thay đổi code
-   fact, architecture claim, evidence, limitation, finding ID hoặc artifact cấu trúc.
+8. Mô hình ngôn ngữ chỉ đề xuất. Một model proposal chỉ thành architecture claim khi tầng
+   tất định kiểm được evidence của nó. Model không được sửa code fact, evidence hoặc
+   limitation, và không được bỏ qua bước kiểm. Hết quota hoặc lỗi model thì dừng bước
+   dựng quan hệ và báo rõ, không đoán để lấp chỗ trống.
 9. Lỗi một file hoặc một adapter không được che mất phần hợp lệ của run; kết quả phải giữ
    phần dùng được và nói chính xác phạm vi đã mất.
 10. Khi run dừng vì hết ngân sách thời gian, bộ nhớ hoặc trần tiếp nhận, kết quả phải là
@@ -125,10 +134,11 @@ Các bất biến sau phải giữ dù sau này chọn phương án kiến trúc
 
 Các ý vẫn dùng được từ `SPEC_Code_to_L3_Generator.md` và
 `docs/ARCHITECTURE_V2_IDEA.md` là: tách fact/evidence/architecture, phân tích sâu nhưng
-trình bày L3, resolver có trạng thái rõ, framework rule tất định và unresolved không tạo
-edge. Các nội dung sau không được mang sang thiết kế phase đầu nếu không có quyết định mới:
+trình bày L3, resolver có trạng thái rõ và unresolved không tạo edge. Hai tài liệu đó viết
+cho hướng AI tắt; phần "AI chỉ viết mô tả" và "chế độ không AI cho kết quả đầy đủ" không còn
+đúng. Các nội dung sau không được mang sang thiết kế phase đầu nếu không có quyết định mới:
 
-- lịch sử nhiều phiên và retention của FR-L3GEN-017;
+- lịch sử nhiều phiên và retention của FR-L3GEN-017 cũ;
 - SQLModel, `mapped_column`, `add_api_route` và resolution động ngoài ma trận phase đầu;
 - local folder như đầu vào web hoặc Git/ZIP như đầu vào CLI;
 - một schema `IAM` gộp dữ liệu kỹ thuật với public architecture contract;

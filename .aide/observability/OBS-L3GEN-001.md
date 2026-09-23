@@ -6,53 +6,56 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 4
+revision: 5
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"measures":["KPI-L3GEN-003","KPI-L3GEN-004","KPI-L3GEN-005"]}
+relations: {"measures":["KPI-L3GEN-006","KPI-L3GEN-007","KPI-L3GEN-008","KPI-L3GEN-009","KPI-L3GEN-010"]}
 verified_at: null
 verified_against: []
 classification: "internal"
 ai_assisted: true
 ---
 
-# Phương pháp đo chất lượng và tái lập
+# Phương pháp đo chất lượng kết quả
 
 ## Phạm vi
 
-Đo sản phẩm mục tiêu, không dùng số test hay benchmark của code hiện có làm bằng chứng đạt PRD. Threshold chuẩn nằm trong NFR; OBS chỉ định nghĩa mẫu và cách đo. Kết quả hiện tại: **not_run**.
+Tài liệu này quy định cách đo năm KPI ở PRD mục II.4. Ngưỡng nằm trong NFR; OBS chỉ định nghĩa dữ liệu, cách tính và cỡ mẫu. Kết quả hiện tại: **not_run**.
 
-## Dataset và người làm đáp án
+Revision 5 (23/09/2026) viết lại cho PRD revision 25: đo KPI-L3GEN-006 đến 010 thay cho KPI-001 đến 005 cũ. Không dùng số test hay benchmark của code cũ làm bằng chứng đạt PRD.
 
-- Trước lần đo đầu tiên, chọn ít nhất 3 repo Python public độc lập có cấu trúc khác nhau (simple app, app factory/layered, monorepo), ghi quyền sử dụng và pin commit/source digest. Chưa có danh sách thật thì trạng thái là `not_run`, không tạo tên hoặc SHA giả.
-- Hai người đọc độc lập, chưa nhìn output công cụ, lập route/path/điều kiện, entity/table/column, HTTP, config, event và mẫu cạnh nội bộ; giữ hai bản, ghi disagreement và bản adjudicated (đáp án đã đối chiếu).
-- Không chỉ lấy file tool đã phát hiện để làm đáp án. Ghi đầy đủ phạm vi file trước khi chạy; mọi loại loại trừ có lý do.
-- Tổng cỡ mẫu đề xuất để báo tỷ lệ tổng hợp: route ≥100, entity ≥20, HTTP ≥30, config ≥30, event ≥20, internal call edge ≥100; component membership ≥30 và component dependency ≥20. Chưa đủ mẫu: báo TP/FP/FN, chưa kết luận đạt tỷ lệ.
-- Có bộ micro fixtures cho từng pattern AC; thêm negative cases, alias/shadowing, mount, nested factory, điều kiện, dynamic pattern, unknown table, event identity và config secret.
-- SDK/event không có repo đáp ứng thì dùng fixture riêng và công bố dataset category; không gộp thành tỷ lệ real-world.
+## Dataset và đáp án
 
-## Matching và công thức
+- Trước lần đo đầu, chọn ít nhất 3 repo Python/FastAPI public, cấu trúc khác nhau: app đơn giản, app factory hoặc chia tầng, monorepo. Ghi quyền sử dụng và pin commit hoặc digest. Chưa có danh sách thật thì trạng thái là `not_run`; không tạo tên hoặc SHA giả.
+- Khiêm và Hoàng lập hai đáp án độc lập, **trước khi xem output**: route, entity/table, HTTP, config, event, thư viện, thành viên component và cạnh dependency. Giữ cả hai bản, ghi chỗ bất đồng và bản đã đối chiếu.
+- Tách repo dùng để viết prompt khỏi repo dùng để đo. Repo đã dùng để chỉnh prompt không được tính vào kết quả.
+- Không lấy output của công cụ làm đáp án. Ghi phạm vi file trước khi chạy; mọi phần loại trừ phải có lý do.
+- Cỡ mẫu tối thiểu để báo tỷ lệ: route ≥ 100, entity ≥ 20, HTTP ≥ 30, config ≥ 30, event ≥ 20, thành viên component ≥ 30, cạnh dependency ≥ 20. Chưa đủ thì báo TP/FP/FN và `not_evaluated`.
+- Có bộ fixture nhỏ cho từng mẫu trong AC, kèm ca âm: tên giống route nhưng không phải route, mount, prefix động, tên bảng sinh lúc chạy, config chứa bí mật, lời gọi không xác định được đích.
 
-- TP là dự đoán trùng identity trong đáp án: route dựa method + handler/source range + registration context; bảng dựa entity source; HTTP/config/event dựa callsite/key/binding. Dùng matching một-một.
-- Precision = TP/(TP+FP); recall = TP/(TP+FN). Mẫu số bằng 0 → not_evaluated, không ghi 100%.
-- Báo riêng precision exact, inferred và toàn bộ; exact precision chỉ dùng dự đoán exact nhưng ground truth vẫn được lập độc lập. Báo recall trong pattern cam kết và recall toàn phạm vi riêng.
-- Chấm thuộc tính method/path/prefix/condition/table name/topic/host riêng với số đúng/số kiểm; phát hiện tồn tại không đồng nghĩa đúng thuộc tính.
-- Với partial, chấm việc giữ phần biết được và nêu thiếu đúng; không tính giá trị chưa biết là giá trị đã giải đúng.
-- Component: con người chốt mapping trước, đo membership bằng tập (component identity, code entity identity); chấm cạnh gộp bằng endpoint+loại. Vai trò nghiệp vụ chưa thống nhất không ép oracle rồi báo exact.
-- Evidence coverage = số claim có nguồn hợp lệ / tổng claim khẳng định. Chấm semantic support bằng mẫu người đọc, không chỉ existence của file.
+## Cách tính từng KPI
 
-## Thời gian, tài nguyên và tích hợp
+| KPI | Cách tính | Ai chấm |
+|---|---|---|
+| KPI-L3GEN-006 — độ đúng sơ đồ cấu trúc | Precision và recall của cặp (component, thành viên) và của cạnh (đầu, cuối, loại) so với đáp án. Ghép một-một | Máy so với đáp án người lập |
+| KPI-L3GEN-007 — độ đúng bằng chứng | Số kết luận công bố có bằng chứng hợp lệ theo NFR-L3GEN-ACC-002, chia cho tổng kết luận công bố | Máy, trên mọi lần chạy |
+| KPI-L3GEN-008 — độ đúng dữ kiện L3 | Precision và recall riêng từng loại: route, entity/table, HTTP, config, event, thư viện. Chấm thuộc tính riêng: route thiếu prefix không tính là route đúng | Máy so với đáp án người lập |
+| KPI-L3GEN-009 — nhãn mức chắc chắn | Tỷ lệ nhãn `exact`/`inferred`/`unresolved` khớp đáp án; riêng tỷ lệ kết luận gán `exact` mà thật ra sai | Người chấm theo đáp án |
+| KPI-L3GEN-010 — tự báo phần không đọc được | Số ca cài sẵn trong fixture (file lỗi cú pháp, file ngoài phạm vi hỗ trợ, quan hệ không xác định đích) xuất hiện ở mục giới hạn, chia cho tổng số ca đã cài. Mẫu số lấy từ fixture, không lấy từ output | Máy |
 
-Ghi source digest, commit nếu có, config digest, tool/rule/schema version, OS/interpreter/hardware, loại input, thời gian fetch/analyze/render riêng, peak RSS, kích thước output và exit/job status. NFR-L3GEN-PERF-001 sở hữu ngưỡng. Đo determinism theo NFR-L3GEN-DET-001.
+Công thức chung: precision = TP/(TP+FP); recall = TP/(TP+FN). Mẫu số bằng 0 thì `not_evaluated`, không ghi 100%. Với kết quả partial, chấm phần đã biết và việc nêu phần thiếu; không tính giá trị chưa biết là đã giải đúng.
 
-KPI-L3GEN-003 đạt khi các nhóm chất lượng thuộc Must đạt ngưỡng và mẫu đủ. KPI-L3GEN-004 đo trên bộ fixture có cài sẵn lỗi cú pháp, file ngoài stack hỗ trợ và quan hệ chưa resolve được: đếm số trường hợp cài sẵn xuất hiện trong phần giới hạn của kết quả, chia cho tổng số trường hợp đã cài. Mẫu số lấy từ fixture, không lấy từ chính output — nếu không thì mọi lần chạy đều ra 100%. KPI-L3GEN-005 đạt khi công cụ đọc độc lập tiêu thụ được JSON/schema, kiểm không có dangling edge, và Mermaid render được; lưu script/version/kết quả.
+KPI-L3GEN-008 so với baseline là bộ luật tĩnh FastAPI trên nhánh `feat/language-first-semantic-v2`, chạy lại trên cùng dataset. Chưa chạy lại thì baseline là `not_run`.
+
+## Chạy nhiều lần vì model không tất định
+
+- Mỗi cấu hình đo chạy **3 lần** trên cùng snapshot. Báo cả ba kết quả và giá trị thấp nhất. Không chọn lần chạy đẹp nhất.
+- Mỗi lần chạy ghi provenance theo NFR-L3GEN-AI-002: provider, model, phiên bản prompt, phiên bản tool, digest snapshot.
+- Ba lần chạy dùng khoảng 3 × 100.000 token, vượt quota một ngày của gói miễn phí. Lịch đo phải trải qua nhiều ngày.
+
+## Thời gian và tài nguyên
+
+Mỗi lần chạy ghi: digest snapshot, commit nếu có, phiên bản tool, hệ điều hành, interpreter, phần cứng, loại đầu vào, thời gian từng chặng (lấy source, phân tích tĩnh, gọi model, sinh artifact), số request và token, bộ nhớ đỉnh, kích thước output và trạng thái cuối. NFR-L3GEN-OPS-001 và NFR-L3GEN-AI-002 giữ ngưỡng.
 
 ## Lưu bằng chứng
 
-Mỗi lần đo lưu trong .aide/evidence/tests/<host>-<clone>/<run-id>/, append-only; có input hashes, kết quả passed/failed/not_run và raw counts. Không log secrets. Việc sửa đáp án sau đo có revision và lý do, không xóa kết quả cũ.
-
-
-## Bổ sung đánh giá theo phase và dependency
-
-Phase đầu chỉ đánh giá Python/FastAPI. Java/Spring Boot phải có dataset và báo cáo riêng khi vào phase Java; không lấy tỷ lệ Python thay bằng chứng Java. Khiêm và Hoàng lập hai đáp án độc lập trước khi xem output, giữ disagreement và bản adjudicated. Hoàng điều phối dataset/báo cáo, Khiêm chuẩn bị fixture. Danh sách repo/commit chưa có thì ghi `not_run`; không coi ví dụ hoặc fixture chưa tồn tại là dữ liệu đã chuẩn bị.
-
-FR-018: kiểm manifest hỗ trợ, thiếu/hỏng/ngoài phạm vi, phiên bản literal/range và URL chứa secret; chấm tên/ràng buộc phiên bản, vị trí evidence và nhãn declared/usage độc lập. Import-package mapping không chắc chắn là unknown. Trước khi duyệt ngưỡng thống kê riêng, nghiệm thu FR-018 bằng toàn bộ AC trên fixture có đáp án, báo raw counts, không áp ngưỡng route cho thư viện. NFR-ACC dẫn tới phương pháp này.
+Mỗi lần đo lưu ở `.aide/evidence/tests/<run-id>/`, chỉ thêm, không ghi đè. Có hash đầu vào, kết quả passed/failed/not_run và số đếm thô. Không lưu khóa API hoặc bí mật. Sửa đáp án sau khi đo phải có revision và lý do; không xóa kết quả cũ.
