@@ -39,8 +39,7 @@ Nguyên tắc:
 | Tài liệu | Vai trò |
 |---|---|
 | [Đề bài](Đề%20bài.md) | Mục tiêu gốc |
-| [USE_CASES](docs/USE_CASES.md) | Người dùng cần gì |
-| [SCENARIOS](docs/SCENARIOS.md) | Hành vi cụ thể cần đạt |
+| [PRD](.aide/product/prd/PRD-L3GEN-2609-001.md) | Người dùng cần gì và hành vi cụ thể cần đạt |
 | [ARCHITECTURE_V2_IDEA](docs/ARCHITECTURE_V2_IDEA.md) | Pipeline và quyết định thiết kế |
 | File này | Contract để code/test |
 | [HANDOFF](docs/HANDOFF.md) | Hiện trạng, kết quả kiểm chứng và việc tiếp theo |

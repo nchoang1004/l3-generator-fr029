@@ -70,8 +70,6 @@ Các tài liệu hiện có đã được đọc theo vai trò sau:
 |---|---|
 | [`Đề bài.md`](../Đề%20bài.md) | Mục tiêu chương trình, scope riêng của Code → L3 và timebox 2–3 người/4–6 tuần |
 | [`SPEC_Code_to_L3_Generator.md`](../SPEC_Code_to_L3_Generator.md) | Contract, IAM, pipeline, extractor, resolver, acceptance, task breakdown và UI mở rộng |
-| [`docs/USE_CASES.md`](USE_CASES.md) | 9 use case từ sinh L3, no-AI, trace source tới graph/UI |
-| [`docs/SCENARIOS.md`](SCENARIOS.md) | 10 luồng end-to-end, gồm syntax lỗi, unsupported stack và multi-language repo |
 | `PROGRESS.md` | Nhật ký tuần 1 cho thấy công việc đang ở pha requirement/thách thức kỹ thuật |
 | `CLAUDE.md` | Quy tắc làm việc trong repository; không phải implementation sản phẩm |
 
@@ -716,7 +714,7 @@ nhưng vẫn giữ một điểm khác biệt mà chưa repo nào trong nhóm l�
 ## Nguồn tham khảo
 
 [^1]: Tài liệu dự án, [SPEC — Code → Architecture / L3 Generator](../SPEC_Code_to_L3_Generator.md), đặc biệt các mục 3, 5, 8, 9 và 15.
-[^2]: Tài liệu dự án, [Use Cases](USE_CASES.md) và [Scenarios](SCENARIOS.md).
+[^2]: Tài liệu dự án, [PRD](../.aide/product/prd/PRD-L3GEN-2609-001.md).
 [^3]: RepoDNA, [README tại commit `1ebc4a7`](https://github.com/AnasBabari/RepoDNA/blob/1ebc4a739df8918cf0c9533cde781a482b35a1da/README.md).
 [^4]: RepoDNA, [Architecture](https://github.com/AnasBabari/RepoDNA/blob/1ebc4a739df8918cf0c9533cde781a482b35a1da/docs/ARCHITECTURE.md).
 [^5]: RepoDNA, [artifact schema v2](https://github.com/AnasBabari/RepoDNA/blob/1ebc4a739df8918cf0c9533cde781a482b35a1da/schema/repodna-v2.schema.json).
