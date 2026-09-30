@@ -6,7 +6,7 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 2
+revision: 3
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"satisfies":["GOAL-L3GEN-006"],"constrained_by":["NFR-L3GEN-ACC-002","NFR-L3GEN-ABST-002"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
@@ -45,6 +45,17 @@ Quy tắc đặt tên:
 
 Mỗi file có frontmatter ghi là bản sinh tự động, định danh snapshot và component sở hữu. Mỗi dòng trỏ về dữ kiện code làm bằng chứng. OpenAPI dựng từ phân tích tĩnh, không chạy code của repository. Nội dung sinh từ cùng mô hình với sơ đồ và JSON.
 
+### Chia tài liệu theo component
+
+- API đặt ở component chứa nơi khai báo route; bảng đặt ở component chứa khai báo bảng/model ánh xạ. Nơi gọi API hoặc dùng bảng chỉ tham chiếu, không đổi chủ sở hữu.
+- EVT đặt ở từng component có điểm gửi hoặc nhận. Mỗi file mô tả vai trò của chính component đó; không có nghĩa component sở hữu độc quyền topic. Ví dụ: mục Đơn hàng ghi gửi `order-created`, mục Kho ghi nhận `order-created`.
+- Trong một component, các điểm gửi/nhận cùng topic chỉ gom khi có bằng chứng cùng broker/cấu hình. Khác broker hoặc chưa chứng minh được thì giữ riêng. Tên topic dùng quy tắc chuẩn hóa như tên component; trùng tên file thì thêm `-2`, `-3` theo thứ tự nguồn ổn định. Topic chưa biết dùng nhãn file từ mã dữ kiện, không coi nhãn đó là tên topic thật.
+- Chỉ liên kết tài liệu hai bên khi có bằng chứng nối được chúng. Chỉ thấy bên nhận vẫn xuất EVT, ghi bên gửi `unknown` kèm lý do. Nhiều bên phát không phải chọn một bên làm chủ; mỗi bên có tài liệu về phần mình. README lập mục lục để tra cứu các file.
+
+### Khi chưa đủ dữ kiện
+
+Xuất phần biết được; tài liệu và kết quả ghi rõ `partial`, trường thiếu và lý do. Markdown ghi `unknown`; khối máy chỉ chứa phần biểu diễn được đúng định dạng. Nếu không dựng được khối máy hợp lệ, ghi rõ không có khối đó và lý do, không tạo giá trị giả. SQL dialect (biến thể SQL) lấy từ source; chưa xác định thì ghi chưa biết, không mặc định PostgreSQL.
+
 | Thuộc tính | Giá trị |
 |---|---|
 | Nhóm luồng | Sử dụng kết quả |
@@ -76,7 +87,7 @@ Mỗi file có frontmatter ghi là bản sinh tự động, định danh snapsho
 
 - **Given:** Lần chạy đã trích được quan hệ phát hoặc nhận sự kiện theo FR-L3GEN-021.
 - **When:** công cụ sinh tài liệu L3.
-- **Then:** mỗi topic sinh một file EVT gồm topic, component phát, component nhận và schema payload nếu biết. Không nối producer với consumer chỉ vì cùng tên topic khi broker hoặc cấu hình chưa xác định; phần đó ghi `unknown` kèm lý do.
+- **Then:** mỗi component có điểm gửi/nhận sinh file EVT theo quy tắc chia tài liệu ở trên. File ghi topic, vai trò gửi/nhận của component, các bên liên quan đã xác minh và schema payload nếu biết. Chỉ thấy bên nhận hoặc có nhiều bên phát vẫn xuất được tài liệu. Không nối producer với consumer chỉ vì cùng tên topic khi broker hoặc cấu hình chưa xác định; phần đó ghi `unknown` kèm lý do và đánh dấu `partial`.
 - `constrained_by:` [NFR-L3GEN-ACC-002, NFR-L3GEN-ABST-002]
 - `implementation_target:` []
 - `validated_by:` []
@@ -89,4 +100,5 @@ Mỗi file có frontmatter ghi là bản sinh tự động, định danh snapsho
 
 - [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
 - [Thuật ngữ](../../domain/glossary-core.md)
+- [Quyết định về chia tài liệu và dữ liệu thiếu](../../evidence/requests/CR-L3GEN-2026-003-decisions-01.yaml)
 - [Execution guide](../../../docs/agentic-sdlc-execution-guide.md), mục A.1 và B.10 — định nghĩa L3 và định dạng API/TBL/EVT

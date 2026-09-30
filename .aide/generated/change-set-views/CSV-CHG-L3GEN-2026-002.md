@@ -2,15 +2,15 @@
 key: CSV-CHG-L3GEN-2026-002
 group: derived
 non_normative: true
-derived_from: [BL-CHG-L3GEN-2026-002-r4]
+derived_from: [BL-CHG-L3GEN-2026-002-r5]
 hand_written: false
 status: candidate
-generated_by: scripts/prd_package.py render --baseline BL-r4.yaml
+generated_by: scripts/prd_package.py render --baseline BL-r5.yaml
 ---
 
 # Làm lại phạm vi — mô hình ngôn ngữ đề xuất, code kiểm bằng chứng
 
-Bản ứng viên chưa duyệt, sinh từ `BL-CHG-L3GEN-2026-002-r4`. Khi view và nguồn bất đồng, **FR/NFR/PRD nguồn thắng**; sửa nguồn rồi chạy lại script render. Không dùng view này như approval.
+Bản ứng viên chưa duyệt, sinh từ `BL-CHG-L3GEN-2026-002-r5`. Khi view và nguồn bất đồng, **FR/NFR/PRD nguồn thắng**; sửa nguồn rồi chạy lại script render. Không dùng view này như approval.
 
 Gồm 9 FR, 5 NFR và 1 OBS trong baseline.
 
@@ -525,7 +525,7 @@ Trên web, người dùng theo dõi lần chạy hiện tại rồi xem tổng q
 
 ---
 
-Nguồn: [FR-L3GEN-027](../../requirements/fr/FR-L3GEN-027.md) · revision 2 · status draft · SHA-256 `9742b69841cded17b030d716fbe916a656cec4406a294dd1c99e16cf77cf955d`
+Nguồn: [FR-L3GEN-027](../../requirements/fr/FR-L3GEN-027.md) · revision 3 · status draft · SHA-256 `4ed582ca0df5092b2fa59e4cc5d607f77d38effc63d84b5e0788ed89c198c51f`
 
 ### FR-L3GEN-027 — Sinh tài liệu L3 contract
 
@@ -556,6 +556,17 @@ Quy tắc đặt tên:
 `README.md` nằm ngoài `tech-specs/` vì mẫu của mentor không có file mục lục. Component không sở hữu contract nào thì không có thư mục.
 
 Mỗi file có frontmatter ghi là bản sinh tự động, định danh snapshot và component sở hữu. Mỗi dòng trỏ về dữ kiện code làm bằng chứng. OpenAPI dựng từ phân tích tĩnh, không chạy code của repository. Nội dung sinh từ cùng mô hình với sơ đồ và JSON.
+
+##### Chia tài liệu theo component
+
+- API đặt ở component chứa nơi khai báo route; bảng đặt ở component chứa khai báo bảng/model ánh xạ. Nơi gọi API hoặc dùng bảng chỉ tham chiếu, không đổi chủ sở hữu.
+- EVT đặt ở từng component có điểm gửi hoặc nhận. Mỗi file mô tả vai trò của chính component đó; không có nghĩa component sở hữu độc quyền topic. Ví dụ: mục Đơn hàng ghi gửi `order-created`, mục Kho ghi nhận `order-created`.
+- Trong một component, các điểm gửi/nhận cùng topic chỉ gom khi có bằng chứng cùng broker/cấu hình. Khác broker hoặc chưa chứng minh được thì giữ riêng. Tên topic dùng quy tắc chuẩn hóa như tên component; trùng tên file thì thêm `-2`, `-3` theo thứ tự nguồn ổn định. Topic chưa biết dùng nhãn file từ mã dữ kiện, không coi nhãn đó là tên topic thật.
+- Chỉ liên kết tài liệu hai bên khi có bằng chứng nối được chúng. Chỉ thấy bên nhận vẫn xuất EVT, ghi bên gửi `unknown` kèm lý do. Nhiều bên phát không phải chọn một bên làm chủ; mỗi bên có tài liệu về phần mình. README lập mục lục để tra cứu các file.
+
+##### Khi chưa đủ dữ kiện
+
+Xuất phần biết được; tài liệu và kết quả ghi rõ `partial`, trường thiếu và lý do. Markdown ghi `unknown`; khối máy chỉ chứa phần biểu diễn được đúng định dạng. Nếu không dựng được khối máy hợp lệ, ghi rõ không có khối đó và lý do, không tạo giá trị giả. SQL dialect (biến thể SQL) lấy từ source; chưa xác định thì ghi chưa biết, không mặc định PostgreSQL.
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -588,7 +599,7 @@ Mỗi file có frontmatter ghi là bản sinh tự động, định danh snapsho
 
 - **Given:** Lần chạy đã trích được quan hệ phát hoặc nhận sự kiện theo FR-L3GEN-021.
 - **When:** công cụ sinh tài liệu L3.
-- **Then:** mỗi topic sinh một file EVT gồm topic, component phát, component nhận và schema payload nếu biết. Không nối producer với consumer chỉ vì cùng tên topic khi broker hoặc cấu hình chưa xác định; phần đó ghi `unknown` kèm lý do.
+- **Then:** mỗi component có điểm gửi/nhận sinh file EVT theo quy tắc chia tài liệu ở trên. File ghi topic, vai trò gửi/nhận của component, các bên liên quan đã xác minh và schema payload nếu biết. Chỉ thấy bên nhận hoặc có nhiều bên phát vẫn xuất được tài liệu. Không nối producer với consumer chỉ vì cùng tên topic khi broker hoặc cấu hình chưa xác định; phần đó ghi `unknown` kèm lý do và đánh dấu `partial`.
 - `constrained_by:` [NFR-L3GEN-ACC-002, NFR-L3GEN-ABST-002]
 - `implementation_target:` []
 - `validated_by:` []

@@ -1,0 +1,23 @@
+key: CR-L3GEN-2026-003-decisions-01
+type: decision-evidence
+group: evidence
+scope: lifecycle
+captured_at_date: "2026-09-23"
+related_request: CR-L3GEN-2026-003
+related_change_set: CHG-L3GEN-2026-002
+source: "Các câu trả lời của Khiêm trong cùng phiên; bổ sung, không sửa bằng chứng trước."
+answers:
+  - context: "API và bảng đặt theo component chứa nơi khai báo; nơi sử dụng chỉ tham chiếu."
+    answer_verbatim: "Đồng ý, đặt theo nơi khai báo (đề xuất)"
+  - context: "Thiếu dữ kiện OpenAPI/DDL: xuất phần biết, ghi unknown và lý do; SQL dialect từ source, không mặc định PostgreSQL."
+    answer_verbatim: "Xuất phần biết được, đánh dấu partial rõ ràng (đề xuất)"
+  - question_verbatim: "Ví dụ Đơn hàng gửi sự kiện “đã tạo đơn”, Kho nhận sự kiện đó. Bạn muốn tài liệu sự kiện xuất hiện thế nào?"
+    answer_verbatim: "tự xem các tài liệu L3 bình thường phổ biến như thế nào cho tường minh, thuận tiện nhất thì làm theo đó"
+delegated_event_decision:
+  decided_by: agent
+  decision: "Mỗi component gửi/nhận có tài liệu EVT về phần mình; chỉ liên kết hai bên khi có bằng chứng broker/cấu hình."
+  reason: "Tra cứu từ component nào cũng thấy phần nó thực hiện; không cần đoán một chủ sở hữu khi chỉ có consumer hoặc nhiều producer."
+  reference: "https://www.asyncapi.com/docs/reference/specification/v3.0.0"
+  reference_accessed: "2026-09-23"
+  reference_scope: "Tham khảo góc nhìn send/receive theo ứng dụng. Cách chia file do dự án chọn; không thêm định dạng AsyncAPI vào phạm vi."
+limits: "Chỉ chốt các lựa chọn nêu trên; không phải review hay chữ ký Scope Gate/Architecture Gate."

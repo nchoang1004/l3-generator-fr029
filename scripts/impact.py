@@ -221,9 +221,10 @@ def main(argv: list[str]) -> int:
         '  - { area: "external_consumers", reason: "Không có metadata graph tập trung nên'
         " không thấy hệ thống ngoài repo. Chưa kiểm chứng consumer bên"
         ' ngoài; danh sách rỗng không chứng minh không có consumer." }',
-        '  - { area: "architecture-and-contracts", reason: "Chưa có L1/L2/L3 hiện hành;'
-        " L1/L2 cũ đã gỡ, ADR-2026-002 và threat model chờ xét lại sau Scope Gate."
-        " Graph chỉ có quan hệ từ frontmatter, chưa đủ để kết luận toàn bộ"
+        '  - { area: "architecture-and-contracts", reason: "Chỉ đọc các quan hệ'
+        " satisfies/constrained_by/measured_by/covers/blocked_by; không đọc"
+        " implements/depends_on/governed_by/derived_from/constrains hay verified_against."
+        " Vì vậy chưa đủ để kết luận toàn bộ"
         ' tác động tới thiết kế." }',
         '  - { area: "code-traceability", reason: "Chưa thực hiện quét source/test trong script này cho'
         " mã FR/AC/NFR; không suy được thay đổi yêu cầu chạm"

@@ -6,11 +6,11 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 1
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
 relations: {"implements":["CAP-L3GEN-010"],"governed_by":["ADR-2026-003"],"depends_on":["CMP-L3GEN-002","CMP-L3GEN-004"]}
 verified_at: 2026-09-23
-verified_against: [{"key":"CAP-L3GEN-010","revision":1},{"key":"ADR-2026-003","revision":1},{"key":"NFR-L3GEN-AI-002","revision":3},{"key":"NFR-L3GEN-SEC-002","revision":3},{"key":"GLOSS-L3GEN-001","revision":5}]
+verified_against: [{"key":"CAP-L3GEN-010","revision":1},{"key":"ADR-2026-003","revision":2},{"key":"NFR-L3GEN-AI-002","revision":3},{"key":"NFR-L3GEN-SEC-002","revision":3},{"key":"GLOSS-L3GEN-001","revision":5}]
 classification: "internal"
 ai_assisted: true
 ---

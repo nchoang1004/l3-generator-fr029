@@ -6,11 +6,11 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 1
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
 relations: {"implements":["CAP-L3GEN-011"],"governed_by":["ADR-2026-003"],"depends_on":["CMP-L3GEN-002","CMP-L3GEN-004","CMP-L3GEN-005"]}
 verified_at: 2026-09-23
-verified_against: [{"key":"CAP-L3GEN-011","revision":1},{"key":"ADR-2026-003","revision":1},{"key":"NFR-L3GEN-ACC-002","revision":2},{"key":"GLOSS-L3GEN-001","revision":5}]
+verified_against: [{"key":"CAP-L3GEN-011","revision":1},{"key":"ADR-2026-003","revision":2},{"key":"NFR-L3GEN-ACC-002","revision":2},{"key":"FR-L3GEN-027","revision":3},{"key":"GLOSS-L3GEN-001","revision":5}]
 classification: "internal"
 ai_assisted: true
 ---
@@ -29,11 +29,24 @@ Thực hiện [CAP-L3GEN-011](../l1/CAP-L3GEN-011.md). Là **cửa kiểm cuối
 
 Không làm: không dùng model. Không sửa kết luận cho vừa bằng chứng; thiếu thì loại.
 
+### Kiểm nội dung contract trước khi xuất
+
+| Kiểm | Điều kiện |
+|---|---|
+| Nguồn từng trường | Dữ kiện được dẫn phải có trong lần chạy, đúng snapshot và chứng minh giá trị tương ứng; một file tồn tại chưa đủ chứng minh mọi trường |
+| Component sở hữu | Component tồn tại; liên kết với contract có nguồn và tuân theo quy tắc sở hữu được chốt ở CMP-005 |
+| API | Path giữ căn cứ ghép prefix/mount; model và từng trường truy được về khai báo; không xác nhận auth chỉ từ tên dependency |
+| TBL | Tên bảng, cột, kiểu, khóa và nullable đối chiếu với dữ kiện; không chấp nhận tên bảng suy từ tên lớp |
+| EVT | Từng điểm phát/nhận có nguồn; quan hệ giữa chúng có căn cứ broker/cấu hình phù hợp ngoài tên topic |
+
+Giá trị không có bằng chứng bị loại. Phần còn biết được giữ lại cùng lý do thiếu theo FR-027. CMP-008 nhận nội dung đã kiểm kèm tham chiếu nguồn ở mức trường để gắn vào từng dòng tài liệu. Việc bảng Markdown và khối máy biểu diễn cùng nội dung được CMP-008 kiểm khi sinh.
+
 ## 2. Cấu trúc bên trong
 
 | Phần | Việc |
 |---|---|
 | Kiểm bằng chứng | Đối chiếu dữ kiện, file, hai đầu cạnh |
+| Kiểm contract | Đối chiếu từng giá trị API/TBL/EVT và component sở hữu; giữ tham chiếu nguồn cho từng trường |
 | Kiểm nhãn | Kiểm `exact` chỉ dùng cho kết luận đọc thẳng từ bằng chứng |
 | Gom giới hạn | Gộp giới hạn từ mọi component thành một danh sách |
 | Kiểm khi mở bằng chứng | So mã băm file với snapshot; khớp thì trả đoạn file, không khớp hoặc mất file thì báo snapshot không còn khớp |
@@ -50,6 +63,7 @@ sequenceDiagram
         E->>E: dữ kiện có thật? file có trong snapshot? cạnh đúng hai đầu? nhãn đúng?
         E->>S: kiểm file, mã băm
     end
+    E->>E: kiểm từng trường contract và liên kết component sở hữu
     E-->>R: mô hình đã kiểm + kết luận bị loại + phần giới hạn
 ```
 
@@ -74,6 +88,7 @@ sequenceDiagram
 | Hỏng ở đâu | Hành vi |
 |---|---|
 | Kết luận không có bằng chứng hợp lệ | Loại, không hạ thành cảnh báo (AC-L3GEN-023-04) |
+| Một giá trị contract không có bằng chứng | Loại giá trị đó; giữ phần có bằng chứng, ghi phần thiếu và lý do; không thay bằng giá trị model đoán |
 | Nhãn `exact` cho kết luận suy ra | Hạ về `inferred`, ghi lý do |
 | Phạm vi chưa xét đủ | Ghi là giới hạn, không ghi "không phát hiện thấy" (AC-L3GEN-024-04) |
 | Source trên đĩa khác snapshot | Báo snapshot không còn khớp; không dùng source mới làm bằng chứng (AC-L3GEN-023-03) |

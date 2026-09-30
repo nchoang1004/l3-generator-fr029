@@ -2,7 +2,7 @@
 
 Công cụ đọc source Python/FastAPI và sinh hai thứ: sơ đồ component (mức L2) và tài liệu L3 contract (API, bảng dữ liệu, sự kiện), cùng JSON. Phân tích tĩnh trích dữ kiện code, chia component và dựng cạnh. Mô hình ngôn ngữ đặt tên, mô tả và đề xuất quan hệ phân tích tĩnh không thấy. Code kiểm từng đề xuất với dữ kiện trước khi công bố.
 
-**Trạng thái:** chưa có baseline được duyệt. Candidate `BL-r4` của [CHG-L3GEN-2026-002](.aide/lifecycle/change-sets/CHG-L3GEN-2026-002/change-set.yaml) chờ Hoàng review và Khiêm ký. Chưa có code sản phẩm trên nhánh này, chưa có kết quả đo.
+**Trạng thái:** chưa có baseline được duyệt. Candidate `BL-r5` của [CHG-L3GEN-2026-002](.aide/lifecycle/change-sets/CHG-L3GEN-2026-002/change-set.yaml) chờ Hoàng review và Khiêm ký. L1/L2 đã bổ sung thiết kế cho lát sinh tài liệu L3. Chưa có code sản phẩm trên nhánh này, chưa có kết quả đo.
 
 1. [PRD revision 28](.aide/product/prd/PRD-L3GEN-2609-001.md): mục tiêu, phạm vi, luồng, lịch và phê duyệt.
 2. [Change Set View](.aide/generated/change-set-views/CSV-CHG-L3GEN-2026-002.md): 9 FR, 36 AC, 5 NFR; không còn câu hỏi mở.

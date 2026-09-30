@@ -1,0 +1,18 @@
+key: CR-L3GEN-2026-003
+type: change-request
+group: evidence
+scope: lifecycle
+captured_at_date: "2026-09-23"
+source: "Tin nhắn của Khiêm trong phiên làm việc; giữ nguyên chữ, kể cả lỗi gõ."
+requests_verbatim:
+  - "giờ theo yêu cầu cảu mentor là triển khai dọc, thay vì xong hết từng bước thì làm cho từng chức năng rồi mở rộng ra, trước mắt tôi muốn làm chức năng sinh L3 document, prd đã có rồi, tôi muốn đi từ L1 đến L2 rồi đến L3, đọc kỹ folder [Quy_tac](Quy_tac/)  để từ đó mà follow theo"
+  - "tôi sợ L1 bị tập trung quá cho phần architecture diagram, nhưng bạn đã nói thế thì ok, hoàn thiện tiếp cho tôi đi, có chỗ nào thắc mắc cần hỏi, hoặc quyết định nào cần tôi quyết định thì hỏi ngay, không tự ý làm"
+  - "ok"
+decision_context:
+  proposal: "Giữ 8 component: CMP-004 trích dữ kiện; CMP-005 xác định component sở hữu contract; CMP-007 kiểm bằng chứng; CMP-008 dựng Markdown, OpenAPI, DDL và schema sự kiện, kiểm tính nhất quán và ghi file."
+  alternative: "Thêm CMP-009 chuyên dựng contract."
+  accepted: "Giữ 8 component và bổ sung phần sinh tài liệu L3."
+  limits: "Chưa quyết quy tắc sở hữu cụ thể, biểu diễn trường thiếu hoặc biến thể SQL. Phải hỏi Khiêm khi cần quyết định thêm. Không phải chữ ký Scope Gate hay Architecture Gate."
+mentor_request_verbatim: null
+mentor_request_as_relayed: "Triển khai dọc theo từng chức năng rồi mở rộng, theo lời Khiêm truyền đạt."
+related_change_set: CHG-L3GEN-2026-002

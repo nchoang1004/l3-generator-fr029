@@ -6,18 +6,19 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 3
+revision: 4
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
 relations: {"constrains":["CMP-L3GEN-001","CMP-L3GEN-002","CMP-L3GEN-004","CMP-L3GEN-005","CMP-L3GEN-006","CMP-L3GEN-007","CMP-L3GEN-008"],"derived_from":["ADR-2026-003"]}
 verified_at: 2026-09-23
-verified_against: [{"key":"ADR-2026-003","revision":1},{"key":"NFR-L3GEN-SEC-002","revision":3},{"key":"NFR-L3GEN-AI-002","revision":3},{"key":"GLOSS-L3GEN-001","revision":5}]
+verified_against: [{"key":"ADR-2026-003","revision":2},{"key":"NFR-L3GEN-SEC-002","revision":3},{"key":"NFR-L3GEN-AI-002","revision":3},{"key":"GLOSS-L3GEN-001","revision":5}]
 classification: "internal"
 ai_assisted: true
 ---
 
 # TM-SYS-L3GEN — Threat model
 
-- **Trạng thái:** draft, revision 3. Chưa review, chưa ký Architecture Gate.
+- **Trạng thái:** draft, revision 4. Chưa review, chưa ký Architecture Gate.
+- **Revision 4:** cập nhật theo ADR-003 revision 2; bổ sung T-08 cho nội dung contract và các bản biểu diễn không khớp nhau.
 - **Thay đổi so với revision 2** (approved 21/09/2026, còn trong lịch sử git): trỏ sang tám component của [ADR-2026-003](../adr/ADR-2026-003.md); thêm T-09 đến T-12 cho phần gọi model; sửa T-04 và T-07 theo [NFR-L3GEN-SEC-002](../../requirements/nfr/NFR-L3GEN-SEC-002.md).
 - **Chưa có kết quả kiểm thử an toàn.** Tài liệu này liệt kê mối đe dọa và biện pháp thiết kế. Nó không phải bằng chứng hệ thống đã an toàn.
 
@@ -52,6 +53,7 @@ ai_assisted: true
 | Nội dung repository đi vào prompt của model | CMP-L3GEN-006 | Cao |
 | Dữ liệu gửi tới Groq và Google | CMP-L3GEN-006 | Trung bình |
 | Đề xuất do model trả về | CMP-L3GEN-005, 007 | Trung bình |
+| Dữ kiện API/TBL/EVT và nguồn từng trường | CMP-L3GEN-004, 005, 007, 008 | Trung bình |
 | Nội dung artifact xuất ra | CMP-L3GEN-008 | Trung bình |
 
 ## 4. Mối đe dọa và biện pháp
@@ -124,6 +126,10 @@ ai_assisted: true
 
 **Biện pháp:** bộ nhận diện khớp ký hiệu đầy đủ, không khớp tên ngắn. Tham chiếu chưa nối được đích không thành cạnh. Mọi kết luận có bằng chứng truy về nguồn.
 
+Với tài liệu L3: CMP-004 giữ nguồn của từng trường; CMP-005 giữ liên kết contract với component; CMP-007 kiểm bằng chứng trước khi xuất. CMP-008 dựng bảng và khối máy từ cùng dữ liệu, kiểm tham chiếu và báo phần thiếu. Giá trị chưa biết không được biến thành giá trị giả để khối OpenAPI/DDL trông đầy đủ. DDL sinh ra không được thực thi trong quá trình phân tích hay xuất.
+
+**Cách kiểm phần contract:** cài dữ kiện có tên bảng động, schema không đọc được và tham chiếu model hỏng; kiểm không xuất giá trị tự bịa. Cố ý làm lệch bảng Markdown với khối máy, xác nhận artifact đó không được công bố và lỗi được ghi. Chưa chạy các phép kiểm này.
+
 **Rủi ro còn lại:** phân tích tĩnh không phát hiện được mọi cách che giấu. Sản phẩm là tài liệu kiến trúc, không phải kiểm toán bảo mật.
 
 ### T-09 — Dữ liệu gửi ra provider bên ngoài
@@ -172,9 +178,9 @@ ai_assisted: true
 | CMP-L3GEN-002 Tiếp nhận | T-02, T-03, T-05 | **Cao** |
 | CMP-L3GEN-006 Cổng gọi model | T-04, T-09, T-10, T-11, T-12 | **Cao** |
 | CMP-L3GEN-004 Trích dữ kiện | T-01, T-04, T-08 | Cao |
-| CMP-L3GEN-005 Dựng mô hình | T-10 | Trung bình |
+| CMP-L3GEN-005 Dựng mô hình | T-08, T-10 | Trung bình |
 | CMP-L3GEN-007 Kiểm bằng chứng | T-08, T-10 | Trung bình |
-| CMP-L3GEN-008 Xuất | T-06 | Trung bình |
+| CMP-L3GEN-008 Xuất | T-06, T-08 | Trung bình |
 | CMP-L3GEN-001 Điều phối | T-05, T-07 | Trung bình |
 | CMP-L3GEN-003 Kiểm kê | Không trực tiếp | Thấp |
 
@@ -182,7 +188,7 @@ ai_assisted: true
 
 | Việc | Trạng thái |
 |---|---|
-| Threat model revision 3 | Draft, chờ Architecture Gate |
+| Threat model revision 4 | Draft, chờ Architecture Gate |
 | Kiểm thử T-01 đến T-12 | **Chưa chạy** |
 | Phạm vi mạng của web | Cục bộ hoặc workspace tin cậy; mở Internet cần quyết định mới |
 

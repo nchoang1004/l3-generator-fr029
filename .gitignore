@@ -68,3 +68,12 @@ Desktop.ini
 
 # Thu muc doi chieu tam thoi, khong day len remote
 _compare-khiem/
+claude_smoke_test
+codex_smoke_test
+independent_poc
+smoke pipline
+experiments
+
+# Local evaluation evidence and handoff history
+evaluation/quote-evidence/
+docs/HANDOFF-luu-tru-*.md
