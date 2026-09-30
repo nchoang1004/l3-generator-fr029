@@ -1,0 +1,606 @@
+{
+  "all": {
+    "precision": 0.323,
+    "precision_strict": 0.278,
+    "recall": 0.333,
+    "drawn": 36,
+    "hits": [
+      [
+        "admin_data",
+        "db"
+      ],
+      [
+        "admin_svc",
+        "admin_data"
+      ],
+      [
+        "api",
+        "admin_svc"
+      ],
+      [
+        "app",
+        "api"
+      ],
+      [
+        "app",
+        "mw"
+      ],
+      [
+        "app",
+        "plugin_admin"
+      ],
+      [
+        "celery",
+        "admin_svc"
+      ],
+      [
+        "celery",
+        "ext:broker"
+      ],
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "sio",
+        "ext:redis"
+      ]
+    ],
+    "wrong": [
+      [
+        "admin_data",
+        "common"
+      ],
+      [
+        "admin_svc",
+        "celery"
+      ],
+      [
+        "admin_svc",
+        "common"
+      ],
+      [
+        "api",
+        "common"
+      ],
+      [
+        "api",
+        "sio"
+      ],
+      [
+        "app",
+        "common"
+      ],
+      [
+        "celery",
+        "common"
+      ],
+      [
+        "common",
+        "admin_data"
+      ],
+      [
+        "common",
+        "admin_svc"
+      ],
+      [
+        "common",
+        "celery"
+      ],
+      [
+        "common",
+        "db"
+      ],
+      [
+        "common",
+        "ext:redis"
+      ],
+      [
+        "common",
+        "ext:smtp"
+      ],
+      [
+        "common",
+        "ext?:Dịch vụ định vị IP"
+      ],
+      [
+        "db",
+        "ext:redis"
+      ],
+      [
+        "mw",
+        "common"
+      ],
+      [
+        "plugin_admin",
+        "common"
+      ],
+      [
+        "redis",
+        "common"
+      ],
+      [
+        "redis",
+        "db"
+      ],
+      [
+        "sio",
+        "common"
+      ],
+      [
+        "sio",
+        "db"
+      ]
+    ],
+    "not_counted": [
+      [
+        "admin_svc",
+        "db"
+      ],
+      [
+        "api",
+        "db"
+      ],
+      [
+        "celery",
+        "db"
+      ],
+      [
+        "mw",
+        "admin_svc"
+      ],
+      [
+        "mw",
+        "db"
+      ]
+    ],
+    "missed": [
+      [
+        "admin_svc",
+        "plugin_mgr"
+      ],
+      [
+        "admin_svc",
+        "security"
+      ],
+      [
+        "api",
+        "task_svc"
+      ],
+      [
+        "app",
+        "plugin_app"
+      ],
+      [
+        "app",
+        "sio"
+      ],
+      [
+        "celery",
+        "task_data"
+      ],
+      [
+        "cli",
+        "db"
+      ],
+      [
+        "cli",
+        "plugin_mgr"
+      ],
+      [
+        "plugin_admin",
+        "db"
+      ],
+      [
+        "plugin_app",
+        "admin_data"
+      ],
+      [
+        "plugin_app",
+        "db"
+      ],
+      [
+        "plugin_app",
+        "ext:oauth"
+      ],
+      [
+        "plugin_app",
+        "ext:smtp"
+      ],
+      [
+        "plugin_app",
+        "security"
+      ],
+      [
+        "plugin_mgr",
+        "redis"
+      ],
+      [
+        "redis",
+        "ext:redis"
+      ],
+      [
+        "security",
+        "redis"
+      ],
+      [
+        "task_data",
+        "db"
+      ],
+      [
+        "task_svc",
+        "celery"
+      ],
+      [
+        "task_svc",
+        "task_data"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.292,
+    "precision_strict": 0.241,
+    "recall": 0.292,
+    "drawn": 29,
+    "hits": [
+      [
+        "admin_data",
+        "db"
+      ],
+      [
+        "admin_svc",
+        "admin_data"
+      ],
+      [
+        "api",
+        "admin_svc"
+      ],
+      [
+        "app",
+        "api"
+      ],
+      [
+        "app",
+        "mw"
+      ],
+      [
+        "app",
+        "plugin_admin"
+      ],
+      [
+        "celery",
+        "admin_svc"
+      ]
+    ],
+    "wrong": [
+      [
+        "admin_data",
+        "common"
+      ],
+      [
+        "admin_svc",
+        "celery"
+      ],
+      [
+        "admin_svc",
+        "common"
+      ],
+      [
+        "api",
+        "common"
+      ],
+      [
+        "api",
+        "sio"
+      ],
+      [
+        "app",
+        "common"
+      ],
+      [
+        "celery",
+        "common"
+      ],
+      [
+        "common",
+        "admin_data"
+      ],
+      [
+        "common",
+        "admin_svc"
+      ],
+      [
+        "common",
+        "celery"
+      ],
+      [
+        "common",
+        "db"
+      ],
+      [
+        "mw",
+        "common"
+      ],
+      [
+        "plugin_admin",
+        "common"
+      ],
+      [
+        "redis",
+        "common"
+      ],
+      [
+        "redis",
+        "db"
+      ],
+      [
+        "sio",
+        "common"
+      ],
+      [
+        "sio",
+        "db"
+      ]
+    ],
+    "not_counted": [
+      [
+        "admin_svc",
+        "db"
+      ],
+      [
+        "api",
+        "db"
+      ],
+      [
+        "celery",
+        "db"
+      ],
+      [
+        "mw",
+        "admin_svc"
+      ],
+      [
+        "mw",
+        "db"
+      ]
+    ],
+    "missed": [
+      [
+        "admin_svc",
+        "plugin_mgr"
+      ],
+      [
+        "admin_svc",
+        "security"
+      ],
+      [
+        "api",
+        "task_svc"
+      ],
+      [
+        "app",
+        "plugin_app"
+      ],
+      [
+        "app",
+        "sio"
+      ],
+      [
+        "celery",
+        "task_data"
+      ],
+      [
+        "cli",
+        "db"
+      ],
+      [
+        "cli",
+        "plugin_mgr"
+      ],
+      [
+        "plugin_admin",
+        "db"
+      ],
+      [
+        "plugin_app",
+        "admin_data"
+      ],
+      [
+        "plugin_app",
+        "db"
+      ],
+      [
+        "plugin_app",
+        "security"
+      ],
+      [
+        "plugin_mgr",
+        "redis"
+      ],
+      [
+        "security",
+        "redis"
+      ],
+      [
+        "task_data",
+        "db"
+      ],
+      [
+        "task_svc",
+        "celery"
+      ],
+      [
+        "task_svc",
+        "task_data"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 0.429,
+    "precision_strict": 0.429,
+    "recall": 0.5,
+    "drawn": 7,
+    "hits": [
+      [
+        "celery",
+        "ext:broker"
+      ],
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "sio",
+        "ext:redis"
+      ]
+    ],
+    "wrong": [
+      [
+        "common",
+        "ext:redis"
+      ],
+      [
+        "common",
+        "ext:smtp"
+      ],
+      [
+        "common",
+        "ext?:Dịch vụ định vị IP"
+      ],
+      [
+        "db",
+        "ext:redis"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "plugin_app",
+        "ext:oauth"
+      ],
+      [
+        "plugin_app",
+        "ext:smtp"
+      ],
+      [
+        "redis",
+        "ext:redis"
+      ]
+    ]
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.562,
+  "components": 23,
+  "mapping": {
+    "C1": [
+      "Quản lý Snowflake",
+      "common"
+    ],
+    "C2": [
+      "Quản lý PubSub Cache",
+      "redis"
+    ],
+    "C3": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C4": [
+      "Xử lý Middleware",
+      "mw"
+    ],
+    "C5": [
+      "API quản trị",
+      "api"
+    ],
+    "C6": [
+      "API ứng dụng",
+      "api"
+    ],
+    "C7": [
+      "API plugin",
+      "app"
+    ],
+    "C8": [
+      "API SocketIO",
+      "sio"
+    ],
+    "C9": [
+      "API hệ thống",
+      "plugin_admin"
+    ],
+    "C10": [
+      "Dịch vụ backend",
+      "common"
+    ],
+    "C11": [
+      "Dịch vụ CRUD",
+      "admin_data"
+    ],
+    "C12": [
+      "Dịch vụ nghiệp vụ",
+      "admin_svc"
+    ],
+    "C13": [
+      "Dịch vụ tác vụ",
+      "celery"
+    ],
+    "C14": [
+      "Dịch vụ tiện ích",
+      "admin_svc"
+    ],
+    "C15": [
+      "Dữ liệu CRUD",
+      "admin_data"
+    ],
+    "C16": [
+      "Mô hình dữ liệu",
+      "admin_data"
+    ],
+    "C17": [
+      "Dữ liệu nhiệm vụ",
+      "celery"
+    ],
+    "C18": [
+      "Tiện ích dữ liệu",
+      "admin_svc"
+    ],
+    "C19": [
+      "Cơ sở hạ tầng DB",
+      "db"
+    ],
+    "C20": [
+      "Cơ sở hạ tầng quan sát",
+      "common"
+    ],
+    "C21": [
+      "Khởi tạo tracing Celery",
+      "celery"
+    ],
+    "C22": [
+      "Tiện ích hỗ trợ backend",
+      "common"
+    ],
+    "C23": [
+      "Dùng chung",
+      "celery"
+    ]
+  },
+  "files_outside_oracle": [
+    "backend/app/admin/schema/captcha.py",
+    "backend/app/admin/schema/data_rule.py",
+    "backend/app/admin/schema/data_scope.py",
+    "backend/app/admin/schema/dept.py",
+    "backend/app/admin/schema/login_log.py",
+    "backend/app/admin/schema/menu.py",
+    "backend/app/admin/schema/monitor.py",
+    "backend/app/admin/schema/opera_log.py",
+    "backend/app/admin/schema/role.py",
+    "backend/app/admin/schema/token.py",
+    "backend/app/admin/schema/user.py",
+    "backend/app/admin/schema/user_password_history.py",
+    "backend/app/task/enums.py",
+    "backend/app/task/schema/control.py",
+    "backend/app/task/schema/result.py",
+    "backend/app/task/schema/scheduler.py"
+  ]
+}

@@ -1,0 +1,68 @@
+flowchart LR
+  C1["Middleware chung API"]
+  C2["Worker Celery nền"]
+  C3["Khởi tạo FastAPI"]
+  C4["API quản trị hệ thống"]
+  C5["API plugin mở rộng"]
+  C6["API quản lý tác vụ"]
+  C7["Service xử lý nghiệp vụ"]
+  C8["Data mô hình quản trị"]
+  C9["CRUD thao tác dữ liệu"]
+  C10["Model dữ liệu plugin"]
+  C11["Mô hình dữ liệu công việc"]
+  C12["Xử lý backend task"]
+  C13["Quản lý cache người dùng"]
+  C14["Kết nối cơ sở dữ liệu"]
+  C15["Gửi email"]
+  C16["HTTP request parser"]
+  C17["Redis client và SocketIO"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C18["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Message broker"])
+    X2(["Redis"])
+    X3[("Database")]
+    X4(["SMTP"])
+    X5(["Dịch vụ tra cứu vị trí IP"])
+  end
+  C4 -->|"lấy token swagger"| C7
+  C4 -->|"lưu captcha redis"| C17
+  C4 -->|"gọi router task"| C6
+  C1 -->|"tạo log opera"| C7
+  C1 -->|"bắt đầu giao dịch DB"| C14
+  C1 -->|"phân tích thông tin người dùng"| C16
+  C7 -->|"truy xuất dữ liệu"| C9
+  C7 -->|"tạo kết nối DB"| C14
+  C7 -->|"gửi email"| C15
+  C7 -->|"tải mô hình"| C10
+  C7 -->|"tạo mã kinh doanh"| C11
+  C7 -->|"lấy mã captcha"| C17
+  C7 -->|"xóa cache quy tắc"| C13
+  C9 -->|"liên kết role"| C8
+  C9 -->|"truy vấn DB"| C14
+  C2 -->|"khởi tạo Celery"| C7
+  C2 -->|"khởi tạo task data"| C12
+  C3 -->|"đăng ký middleware"| C1
+  C3 -->|"cấu hình FastAPI"| C7
+  C3 -->|"kết nối router plugin"| C5
+  C16 -->|"Lấy vị trí IP"| C17
+  C11 -->|"cập nhật Redis"| C17
+  C5 -->|"import module admin"| C4
+  C5 -->|"gọi service code gen"| C7
+  C5 -->|"gửi email xác thực"| C15
+  C5 -->|"lưu captcha redis"| C17
+  C5 -->|"gọi router task"| C6
+  C17 -->|"Tạo pool kết nối"| C14
+  C6 -->|"lấy danh sách đăng ký"| C7
+  C12 -->|"thực thi truy vấn DB"| C14
+  C12 -->|"cấu hình task"| C11
+  C12 -->|"khóa Redis"| C17
+  C13 -->|"truy vấn role"| C8
+  C13 -->|"thực thi DB"| C14
+  C13 -->|"xóa cache Redis"| C17
+  C2 -.->|"gửi tác vụ"| X1
+  C17 -.->|"đọc ghi"| X2
+  C14 -.->|"truy vấn"| X3
+  C15 -.->|"gửi email"| X4
+  C16 -.->|"gọi API"| X5

@@ -1,0 +1,86 @@
+flowchart LR
+  C1["Trình tạo SDK TypeScript"]
+  C2["Khởi tạo ứng dụng LNBITS"]
+  C3["API lõi LNBITS"]
+  C4["API phụ LNBITS"]
+  C5["Dịch vụ lõi LNBITS"]
+  C6["Công cụ xử lý dữ liệu"]
+  C7["Xử lý dữ liệu lõi"]
+  C8["Thao tác CRUD dữ liệu"]
+  C9["Dữ liệu công cụ"]
+  C10["Hạ tầng client WASM"]
+  C11["Quản lý kết nối CSDL"]
+  C12["Định nghĩa mô hình mở rộng"]
+  C13["Xử lý dịch vụ fiat"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C14["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Extension HTTP endpoint"])
+    X2(["Bark notification service"])
+    X3(["Blink wallet service"])
+    X4(["HTTP API bên ngoài"])
+    X5(["Keycloak OpenID Provider"])
+    X6(["OIDC OpenID Provider"])
+    X7(["Keycloak OAuth"])
+    X8(["OIDC OAuth"])
+    X9(["Fiat verification service"])
+    X10(["LNURL streaming API"])
+    X11(["Nostr relay API"])
+    X12(["SMTP"])
+    X13(["Extensions review API"])
+    X14(["LNURL service"])
+    X15(["1ML node API"])
+    X16(["Extension API"])
+    X17(["External HTTP API"])
+    X18[("Database")]
+    X19(["PayPal API"])
+    X20(["Revolut API"])
+    X21(["Square API"])
+  end
+  C1 -->|"tạo phương thức API"| C5
+  C3 -->|"lấy cài đặt admin"| C8
+  C3 -->|"lấy tỷ giá fiat"| C11
+  C3 -->|"đăng ký bộ giới hạn"| C5
+  C3 -->|"xóa file extension"| C12
+  C3 -->|"gửi thông báo email"| C13
+  C7 -->|"thực hiện truy vấn"| C11
+  C8 -->|"truy vấn có bộ lọc"| C11
+  C2 -->|"cài đặt extension"| C3
+  C2 -->|"di chuyển cơ sở dữ liệu"| C7
+  C2 -->|"cập nhật thanh toán"| C8
+  C2 -->|"tạo kênh gRPC"| C11
+  C2 -->|"cấu hình middleware"| C5
+  C2 -->|"tạo đối tượng extension"| C12
+  C5 -->|"gửi yêu cầu extension"| C10
+  C5 -->|"di chuyển DB extension"| C7
+  C5 -->|"lấy ví độc lập"| C8
+  C5 -->|"đặt bộ lọc"| C11
+  C5 -->|"tạo thống kê wasm"| C12
+  C5 -->|"rút lnurl và thông báo"| C13
+  C12 -->|"lấy URL khám phá"| C11
+  C13 -->|"chuyển đổi fiat sang sat"| C11
+  C9 -->|"thực thi câu lệnh"| C11
+  C6 -->|"thực thi truy vấn"| C11
+  C6 -->|"xử lý đường dẫn"| C5
+  C2 -.->|"gọi API"| X1
+  C2 -.->|"gọi API"| X2
+  C2 -.->|"gọi API"| X3
+  C12 -.->|"gọi API"| X4
+  C12 -.->|"gọi API"| X5
+  C12 -.->|"gọi API"| X6
+  C12 -.->|"đăng nhập"| X7
+  C12 -.->|"đăng nhập"| X8
+  C13 -.->|"gọi API"| X9
+  C13 -.->|"gọi API"| X10
+  C13 -.->|"gọi API"| X11
+  C13 -.->|"gửi email"| X12
+  C3 -.->|"gọi API"| X13
+  C3 -.->|"gọi API"| X14
+  C3 -.->|"gọi API"| X15
+  C10 -.->|"gọi API"| X16
+  C10 -.->|"gọi API"| X17
+  C11 -.->|"truy vấn"| X18
+  C11 -.->|"gọi API"| X19
+  C11 -.->|"gọi API"| X20
+  C11 -.->|"gọi API"| X21

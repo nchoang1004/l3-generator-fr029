@@ -248,6 +248,11 @@ class Ai7Tests(unittest.TestCase):
                      "app/models.py:1 class User:",                                    # another file
                      "3: invented line of code"):
             self.assertIsNone(ai7._quote(self.idx, text, ["app/db.py"]))
+        # brackets or "…" the model adds after a cut line are dropped (run v7c); the rest must still match
+        for text in ("app/db.py:3 engine = create_async_engine()", "3: engine = create_async_engine('postgresql…)"):
+            self.assertEqual(ai7._quote(self.idx, text, ["app/db.py"])["line"], 3)
+        for text in ("app/db.py:3 engine = create_engine()", "3: engine)"):     # other code; too short once cut
+            self.assertIsNone(ai7._quote(self.idx, text, ["app/db.py"]))
 
     def test_failed_request_falls_back(self):
         g, owner, _ = self.group(FakeLLM(top=[TOP_PARTIAL], fail={"place-1"}))
@@ -328,12 +333,13 @@ class Ai7Tests(unittest.TestCase):
         text, units, issues = ai7.overview(self.idx, self.facts, self.an, 3_000)
         self.assertEqual(issues, [])
         self.assertEqual(sorted(units), ["app/", "app/api/", "app/clients/", "app/domain/", "app/service/"])
-        self.assertIn("app/main.py\n  -> app/api/users.py (app/main.py:9 app.include_router(router))", text)
+        self.assertIn("app/main.py\n  -> app/api/users.py: app/main.py:9 app.include_router(router)\n", text)
         lines = {row.split(" ")[1]: row for row in text.splitlines() if re.match(r"D\d+ ", row)}
         self.assertTrue(lines["app/"].startswith("D1 app/ 9 files | constants.py, container.py, crud.py,"))
-        self.assertIn("sure entry x1 (main.py:7 app = FastAPI())", lines["app/"])
-        self.assertIn("io database (db.py:3 engine = create_async_engine(", lines["app/"])
-        self.assertIn("io http (pay.py:6 self.client = httpx.AsyncClient(", lines["app/clients/"])
+        self.assertIn("sure entry x1: main.py:7 app = FastAPI() |", lines["app/"])
+        # code sits last, never in brackets; a cut line ends in "…" (run v7c: the model copied the bracket)
+        self.assertIn("io database: db.py:3 engine = create_async_engine('postgresql+asyncpg:/… |", lines["app/"])
+        self.assertTrue(lines["app/clients/"].endswith("io http: pay.py:6 self.client = httpx.AsyncClient("))
         self.assertTrue(lines["app/api/"].endswith("| -> D1, D4 | <- D1 (include)"))   # a plain call has no label
         self.assertTrue(lines["app/domain/"].endswith("| <- D2"))
 
@@ -346,7 +352,7 @@ class Ai7Tests(unittest.TestCase):
         text, units, issues = ai7.overview(self.idx, self.facts, self.an, 10)   # merged up to the repo root
         self.assertEqual(list(units), ["./"])
         self.assertTrue(any("above 10" in i for i in issues))
-        self.assertIn("D1 ./ 16 files in 5 dirs | sub-dirs app/ | sure entry x1 (app/main.py:7", text)
+        self.assertIn("D1 ./ 16 files in 5 dirs | sub-dirs app/ | sure entry x1: app/main.py:7", text)
 
     def test_router_tree_skips_prefix_and_other_keywords(self):
         files = {"main.py": "from fastapi import FastAPI\nfrom api import router\nfrom config import PREFIX\n\n"
@@ -358,7 +364,7 @@ class Ai7Tests(unittest.TestCase):
                 (Path(tmp) / rel).write_text(body, encoding="utf-8")
             idx = pyindex.index(Path(tmp), inventory.scan(Path(tmp)))
             tree = ai7._router_tree(idx, calls.facts(idx))
-        self.assertEqual(tree, ["main.py", "  -> api.py (main.py:6 app.include_router(router, prefix=PREFIX))"])
+        self.assertEqual(tree, ["main.py", "  -> api.py: main.py:6 app.include_router(router, prefix=PREFIX)"])
 
     def test_top_blocks_checked_answer_kept(self):
         fake = FakeLLM(top=[TOP_GOOD])
@@ -382,7 +388,8 @@ class Ai7Tests(unittest.TestCase):
                      "path app/db.py given to two blocks: database, pay",
                      "block pay: reason 'app/clients/pay.py:6 invented code' is not a line of the repository",
                      "3 data blocks, above the limit of 2",
-                     "block models (data) is called only by block crud (data) (app/crud.py:",
+                     "block models (data) is called only by block crud (data): a block that only serves one block joins it; "
+                     "line app/crud.py:",
                      "data block dto has no file with a model, a query or a database call"):
             self.assertIn(text, found)
         retry = fake.calls[1]
@@ -401,7 +408,8 @@ class Ai7Tests(unittest.TestCase):
     def test_shared_with_io_or_sure_layer_is_a_problem(self):
         blocks = {"database": {"layer": "infra", "paths": ["app/clients/"], "reason": {}}}
         found = ai7._violations(self.idx, self.facts, self.an, blocks, ["app/db.py", "app/api/"])
-        self.assertIn("shared holds app/db.py, sure infra (app/db.py:3 engine = create_async_engine(", "\n".join(found))
+        self.assertIn("shared holds app/db.py, sure infra: shared is support without I/O; line app/db.py:3 "
+                      "engine = create_async_engine(", "\n".join(found))
         self.assertIn("shared holds app/api/users.py, sure api", "\n".join(found))
 
     def test_two_api_blocks_registered_by_one_file_is_a_problem(self):
@@ -417,8 +425,8 @@ class Ai7Tests(unittest.TestCase):
         blocks = {"app": {"layer": "entry", "paths": ["main.py"]}, "a_api": {"layer": "api", "paths": ["a.py"]},
                   "b_api": {"layer": "api", "paths": ["b.py"]}}
         found = ai7._violations(idx, facts, flow.analyze(idx, facts), blocks, [])
-        self.assertEqual(found, ["api blocks a_api and b_api are both registered by main.py (main.py:6 "
-                                 "app.include_router(a.router)): split api blocks only for a different way in"])
+        self.assertEqual(found, ["api blocks a_api and b_api are both registered by main.py: split api blocks only for a "
+                                 "different way in; line main.py:6 app.include_router(a.router)"])
 
     def test_dry_run_estimates_every_request(self):
         est = run7.dry_run(self.root)

@@ -1,0 +1,355 @@
+{
+  "all": {
+    "precision": 0.727,
+    "precision_strict": 0.471,
+    "recall": 0.471,
+    "drawn": 17,
+    "hits": [
+      [
+        "admin",
+        "services"
+      ],
+      [
+        "cache",
+        "ext:memcached"
+      ],
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "routes",
+        "auth"
+      ],
+      [
+        "routes",
+        "services"
+      ],
+      [
+        "scripts",
+        "services"
+      ],
+      [
+        "services",
+        "crud"
+      ],
+      [
+        "taskiq",
+        "ext:broker"
+      ]
+    ],
+    "wrong": [
+      [
+        "admin",
+        "routes"
+      ],
+      [
+        "crud",
+        "ext:postgres"
+      ],
+      [
+        "scripts",
+        "auth"
+      ]
+    ],
+    "not_counted": [
+      [
+        "admin",
+        "auth"
+      ],
+      [
+        "admin",
+        "crud"
+      ],
+      [
+        "auth",
+        "crud"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "scripts",
+        "crud"
+      ],
+      [
+        "services",
+        "auth"
+      ]
+    ],
+    "missed": [
+      [
+        "admin",
+        "db"
+      ],
+      [
+        "app",
+        "admin"
+      ],
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "auth",
+        "db"
+      ],
+      [
+        "auth",
+        "ext:google"
+      ],
+      [
+        "auth",
+        "ext:redis"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "scripts",
+        "db"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.714,
+    "precision_strict": 0.385,
+    "recall": 0.455,
+    "drawn": 13,
+    "hits": [
+      [
+        "admin",
+        "services"
+      ],
+      [
+        "routes",
+        "auth"
+      ],
+      [
+        "routes",
+        "services"
+      ],
+      [
+        "scripts",
+        "services"
+      ],
+      [
+        "services",
+        "crud"
+      ]
+    ],
+    "wrong": [
+      [
+        "admin",
+        "routes"
+      ],
+      [
+        "scripts",
+        "auth"
+      ]
+    ],
+    "not_counted": [
+      [
+        "admin",
+        "auth"
+      ],
+      [
+        "admin",
+        "crud"
+      ],
+      [
+        "auth",
+        "crud"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "scripts",
+        "crud"
+      ],
+      [
+        "services",
+        "auth"
+      ]
+    ],
+    "missed": [
+      [
+        "admin",
+        "db"
+      ],
+      [
+        "app",
+        "admin"
+      ],
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "auth",
+        "db"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "scripts",
+        "db"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 0.75,
+    "precision_strict": 0.75,
+    "recall": 0.5,
+    "drawn": 4,
+    "hits": [
+      [
+        "cache",
+        "ext:memcached"
+      ],
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "taskiq",
+        "ext:broker"
+      ]
+    ],
+    "wrong": [
+      [
+        "crud",
+        "ext:postgres"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "auth",
+        "ext:google"
+      ],
+      [
+        "auth",
+        "ext:redis"
+      ],
+      [
+        "db",
+        "ext:postgres"
+      ]
+    ]
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.769,
+  "components": 18,
+  "mapping": {
+    "C1": [
+      "CLI khởi tạo lệnh",
+      null
+    ],
+    "C2": [
+      "Web app FastAPI",
+      "scripts"
+    ],
+    "C3": [
+      "API công cộng router",
+      "routes"
+    ],
+    "C4": [
+      "API hệ thống router",
+      "admin"
+    ],
+    "C5": [
+      "API xác thực router",
+      "routes"
+    ],
+    "C6": [
+      "Quản lý giao diện admin",
+      "admin"
+    ],
+    "C7": [
+      "Quản lý khóa API",
+      "routes"
+    ],
+    "C8": [
+      "Xác thực người dùng",
+      "auth"
+    ],
+    "C9": [
+      "Quản lý giới hạn tốc độ",
+      "services"
+    ],
+    "C10": [
+      "Quản lý cấp độ người dùng",
+      "services"
+    ],
+    "C11": [
+      "Dịch vụ người dùng",
+      "services"
+    ],
+    "C12": [
+      "Dữ liệu xác thực",
+      "auth"
+    ],
+    "C13": [
+      "Cơ sở dữ liệu PostgreSQL",
+      "crud"
+    ],
+    "C14": [
+      "Broker hạ tầng",
+      "taskiq"
+    ],
+    "C15": [
+      "Cache hạ tầng",
+      "cache"
+    ],
+    "C16": [
+      "Quản lý cơ sở dữ liệu",
+      "db"
+    ],
+    "C17": [
+      "Cấu hình Redis",
+      "cache"
+    ],
+    "C18": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [
+    "backend/src/infrastructure/__init__.py",
+    "backend/src/modules/__init__.py",
+    "backend/src/modules/api_keys/__init__.py",
+    "backend/src/modules/api_keys/enums.py",
+    "backend/src/modules/api_keys/schemas.py",
+    "backend/src/modules/rate_limit/__init__.py",
+    "backend/src/modules/rate_limit/schemas.py",
+    "backend/src/modules/tier/__init__.py",
+    "backend/src/modules/tier/schemas.py",
+    "backend/src/modules/user/__init__.py",
+    "backend/src/modules/user/constants.py",
+    "backend/src/modules/user/enums.py",
+    "backend/src/modules/user/schemas.py",
+    "cli/src/cli/app.py",
+    "cli/src/cli/commands/deploy.py",
+    "cli/src/cli/commands/env.py",
+    "cli/src/cli/features/__init__.py",
+    "cli/src/cli/features/_builtins/deploy/feature.py",
+    "cli/src/cli/features/base.py",
+    "cli/src/cli/features/installer.py",
+    "cli/src/cli/features/registry.py",
+    "cli/src/cli/lib/project.py",
+    "cli/src/cli/lib/prompts.py",
+    "cli/src/cli/lib/render.py",
+    "cli/src/cli/plugins.py"
+  ]
+}

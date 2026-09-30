@@ -1,0 +1,99 @@
+flowchart LR
+  C1["Quản lý Snowflake"]
+  C2["Quản lý PubSub Cache"]
+  C3["Khởi tạo FastAPI"]
+  C4["Xử lý Middleware"]
+  C5["API quản trị"]
+  C6["API ứng dụng"]
+  C7["API plugin"]
+  C8["API SocketIO"]
+  C9["API hệ thống"]
+  C10["Dịch vụ backend"]
+  C11["Dịch vụ CRUD"]
+  C12["Dịch vụ nghiệp vụ"]
+  C13["Dịch vụ tác vụ"]
+  C14["Dịch vụ tiện ích"]
+  C15["Dữ liệu CRUD"]
+  C16["Mô hình dữ liệu"]
+  C17["Dữ liệu nhiệm vụ"]
+  C18["Tiện ích dữ liệu"]
+  C19["Cơ sở hạ tầng DB"]
+  C20["Cơ sở hạ tầng quan sát"]
+  C21["Khởi tạo tracing Celery"]
+  C22["Tiện ích hỗ trợ backend"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C23["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Message broker"])
+    X2(["Redis"])
+    X3[("Database")]
+    X4(["SMTP"])
+    X5(["Dịch vụ định vị IP"])
+  end
+  C5 -->|"đăng nhập thành công"| C10
+  C5 -->|"lưu captcha"| C19
+  C5 -->|"xác thực người dùng"| C12
+  C5 -->|"gửi email xác thực"| C22
+  C6 -->|"gọi admin_v1"| C5
+  C6 -->|"gọi ServerError"| C10
+  C6 -->|"gọi task_result"| C12
+  C6 -->|"gửi sự kiện"| C8
+  C1 -->|"xử lý lỗi server"| C10
+  C1 -->|"quét và xóa key"| C19
+  C10 -->|"gọi get_join, sys_user"| C15
+  C10 -->|"gọi"| C11
+  C10 -->|"gọi begin, init"| C19
+  C10 -->|"gọi new_business, CodeGenBusiness"| C16
+  C10 -->|"gọi"| C12
+  C10 -->|"gọi"| C17
+  C10 -->|"gọi"| C21
+  C10 -->|"gọi"| C13
+  C10 -->|"gọi"| C18
+  C10 -->|"gọi"| C22
+  C10 -->|"gọi"| C14
+  C2 -->|"cảnh báo pubsub"| C10
+  C2 -->|"phát thông báo"| C19
+  C3 -->|"cấu hình FastAPI"| C10
+  C3 -->|"thêm middleware"| C4
+  C3 -->|"xây dựng router"| C7
+  C15 -->|"truy vấn cơ sở dữ liệu"| C19
+  C15 -->|"liên kết thực thể"| C16
+  C11 -->|"chuẩn hoá dữ liệu"| C10
+  C11 -->|"truy vấn cơ sở dữ liệu"| C19
+  C4 -->|"đo thời gian"| C10
+  C4 -->|"ghi log DB"| C19
+  C4 -->|"tạo bản ghi"| C12
+  C4 -->|"phân tích thông tin"| C22
+  C20 -->|"lấy danh sách engine"| C19
+  C7 -->|"nhập mô-đun"| C5
+  C7 -->|"nhập mô-đun"| C6
+  C7 -->|"xử lý plugin"| C10
+  C7 -->|"nhập mô-đun"| C9
+  C12 -->|"gây lỗi xác thực"| C10
+  C12 -->|"lấy danh sách menu"| C15
+  C12 -->|"lấy thực thể dữ liệu"| C11
+  C12 -->|"cập nhật thực thể"| C19
+  C12 -->|"gửi tác vụ Celery"| C21
+  C12 -->|"xóa cache quy tắc"| C18
+  C12 -->|"đặt lại mật khẩu"| C14
+  C8 -->|"ghi log lỗi"| C10
+  C8 -->|"cập nhật Redis"| C19
+  C9 -->|"trả về cấu hình"| C10
+  C17 -->|"thực thi truy vấn DB"| C19
+  C21 -->|"khởi tạo tracing"| C20
+  C13 -->|"thông báo tác vụ"| C10
+  C13 -->|"xóa log DB"| C19
+  C13 -->|"xóa log đăng nhập"| C12
+  C13 -->|"định nghĩa tác vụ"| C21
+  C18 -->|"xóa bản ghi DB"| C19
+  C22 -->|"truy cập Redis"| C19
+  C14 -->|"ném lỗi yêu cầu"| C10
+  C14 -->|"lấy lịch sử mật khẩu"| C11
+  C21 -.->|"gửi tác vụ"| X1
+  C20 -.->|"đọc ghi"| X2
+  C8 -.->|"đọc ghi"| X2
+  C19 -.->|"đọc ghi"| X2
+  C19 -.->|"truy vấn"| X3
+  C22 -.->|"gửi email"| X4
+  C22 -.->|"gọi API"| X5

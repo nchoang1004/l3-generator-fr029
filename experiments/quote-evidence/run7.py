@@ -106,7 +106,7 @@ def run(repo: Path, out: Path, client, oracle: dict | None) -> dict:
     total = time.perf_counter() - started
     meta = {"repo": repo.name, "pipeline": "v7", "prompt_sha": ai7.PROMPT_SHA,
             "status": "partial" if issues or result["rejected"] else "complete",
-            "files": len(graph.content_files(idx)), "issues": issues, "model": llm.MODEL,
+            "files": len(graph.content_files(idx)), "issues": issues, "model": getattr(client, "model", llm.MODEL),
             "timing": {"total_s": round(total, 1), "model_s": round(model_time, 1)},
             "tokens": sum(map(llm.cost, new)), "requests": len(new), "cached": len(client.calls) - len(new),
             "calls": client.calls, "grouping": {k: {"layer": grouping["layer"][k], "files": files}
@@ -141,14 +141,22 @@ def main() -> None:
     parser.add_argument("--budget", type=int, default=100_000, help="total Groq tokens across all runs")
     parser.add_argument("--env", type=Path, default=ROOT / ".env")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--provider", choices=["groq", "openrouter"], default="groq")
+    parser.add_argument("--model", default=llm.MODEL, help="with --provider openrouter, e.g. anthropic/claude-haiku-4.5")
     args = parser.parse_args()
+    if args.provider == "openrouter":      # no 6k cap per request there: whole overview, room to answer
+        ai7.LIMIT, ai7.TOP_PROMPT = 32_000, 16_000
     if args.dry_run:
         print(json.dumps({r.name: dry_run(r) for r in args.repo}, indent=2))
         return
     if len(args.repo) != 1 or not args.out or args.out.exists():
         sys.exit("one repository, and --out must be a new directory")
     oracle = json.loads(args.oracle.read_text(encoding="utf-8")) if args.oracle else None
-    client = llm.Groq(llm.load_key(args.env), args.budget)
+    if args.provider == "openrouter":
+        client = llm.Groq(llm.load_key(args.env, "OPENROUTER_API_KEY"), args.budget, model=args.model,
+                          url=llm.OPENROUTER_URL)
+    else:
+        client = llm.Groq(llm.load_key(args.env), args.budget)
     print(json.dumps(run(args.repo[0], args.out, client, oracle), ensure_ascii=False, indent=2))
 
 

@@ -1,0 +1,58 @@
+flowchart LR
+  C1["CLI khởi tạo lệnh"]
+  C2["Web app FastAPI"]
+  C3["API công cộng router"]
+  C4["API hệ thống router"]
+  C5["API xác thực router"]
+  C6["Quản lý giao diện admin"]
+  C7["Quản lý khóa API"]
+  C8["Xác thực người dùng"]
+  C9["Quản lý giới hạn tốc độ"]
+  C10["Quản lý cấp độ người dùng"]
+  C11["Dịch vụ người dùng"]
+  C12["Dữ liệu xác thực"]
+  C13["Cơ sở dữ liệu PostgreSQL"]
+  C14["Broker hạ tầng"]
+  C15["Cache hạ tầng"]
+  C16["Quản lý cơ sở dữ liệu"]
+  C17["Cấu hình Redis"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C18["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Memcached"])
+    X2(["Redis"])
+    X3[("Database")]
+    X4(["Message broker"])
+  end
+  C6 -->|"thêm bản ghi"| C13
+  C7 -->|"tạo dịch vụ khóa"| C13
+  C3 -->|"tạo API key"| C7
+  C3 -->|"gắn router auth"| C5
+  C3 -->|"cài đặt rate limit"| C12
+  C3 -->|"lấy danh sách rate limit"| C9
+  C3 -->|"lấy danh sách tier"| C10
+  C3 -->|"tạo người dùng"| C11
+  C4 -->|"gắn router v1"| C3
+  C4 -->|"gắn router oauth"| C12
+  C4 -->|"khởi tạo engine DB"| C13
+  C4 -->|"xóa tier vĩnh viễn"| C10
+  C4 -->|"ẩn danh người dùng"| C11
+  C5 -->|"xác thực mật khẩu"| C12
+  C5 -->|"lấy session ID"| C8
+  C5 -->|"lấy người dùng DB"| C13
+  C12 -->|"gọi async_session"| C13
+  C8 -->|"lấy người dùng"| C13
+  C15 -->|"gọi aclose"| C17
+  C9 -->|"kiểm tra tồn tại"| C13
+  C10 -->|"kiểm tra rate limit"| C13
+  C11 -->|"gọi password_policy"| C8
+  C11 -->|"gọi CRUD tier"| C13
+  C2 -->|"lấy người dùng tùy chọn"| C8
+  C2 -->|"commit giao dịch DB"| C13
+  C2 -->|"tạo người dùng mới"| C11
+  C15 -.->|"đọc ghi"| X1
+  C15 -.->|"đọc ghi"| X2
+  C17 -.->|"đọc ghi"| X2
+  C13 -.->|"truy vấn"| X3
+  C14 -.->|"gửi tác vụ"| X4

@@ -1,0 +1,1548 @@
+{
+  "meta": {
+    "repo": "fastapi-boilerplate",
+    "pipeline": "v7",
+    "prompt_sha": "c3ff7d5656e3c6df",
+    "status": "partial",
+    "files": 103,
+    "issues": [
+      "top-2 failed: top-2: incomplete answer (length)",
+      "top: blocks dropped for a reason not in the code: api_admin, cli_entry, core_services, infra_logging, scripts_entry, task_worker_service",
+      "top: 9 problems left after the retry",
+      "place-1: 3 answers rejected (unknown file or block, a sure file shared, or reason not on a line of that file)",
+      "place-1: 56 files without a checked answer, placed by rule",
+      "6 service blocks, above 5",
+      "name-4 failed: name-4: incomplete answer (length)"
+    ],
+    "model": "openai/gpt-oss-120b",
+    "timing": {
+      "total_s": 2044.8,
+      "model_s": 2044.2
+    },
+    "tokens": 107154,
+    "requests": 9,
+    "cached": 0,
+    "calls": [
+      {
+        "at": "2026-09-30T17:24:58",
+        "step": "top-1",
+        "status": 200,
+        "seconds": 55.28,
+        "estimated": 32000,
+        "prompt_tokens": 2608,
+        "completion_tokens": 3986,
+        "total_tokens": 6594,
+        "error": "",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000774116
+      },
+      {
+        "at": "2026-09-30T17:38:03",
+        "step": "top-2",
+        "status": 200,
+        "seconds": 784.55,
+        "estimated": 32000,
+        "prompt_tokens": 4000,
+        "completion_tokens": 26934,
+        "total_tokens": 30934,
+        "error": "",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.00469878
+      },
+      {
+        "at": "2026-09-30T17:38:09",
+        "step": "place-1",
+        "status": 200,
+        "seconds": 6.37,
+        "estimated": 32000,
+        "prompt_tokens": 7280,
+        "completion_tokens": 242,
+        "total_tokens": 7522,
+        "error": "",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.00025954
+      },
+      {
+        "at": "2026-09-30T17:38:51",
+        "step": "edges-1",
+        "status": 200,
+        "seconds": 41.35,
+        "estimated": 32000,
+        "prompt_tokens": 611,
+        "completion_tokens": 731,
+        "total_tokens": 1342,
+        "error": "",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.00014991
+      },
+      {
+        "at": "2026-09-30T17:44:06",
+        "step": "name-1",
+        "status": 200,
+        "seconds": 315.53,
+        "estimated": 32000,
+        "prompt_tokens": 1455,
+        "completion_tokens": 20938,
+        "total_tokens": 22393,
+        "error": "",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.003613295
+      },
+      {
+        "at": "2026-09-30T17:44:25",
+        "step": "name-2",
+        "status": 200,
+        "seconds": 18.56,
+        "estimated": 32000,
+        "prompt_tokens": 926,
+        "completion_tokens": 1180,
+        "total_tokens": 2106,
+        "error": "",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000234862
+      },
+      {
+        "at": "2026-09-30T17:44:50",
+        "step": "name-3",
+        "status": 200,
+        "seconds": 24.67,
+        "estimated": 32000,
+        "prompt_tokens": 837,
+        "completion_tokens": 1548,
+        "total_tokens": 2385,
+        "error": "",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000294129
+      },
+      {
+        "at": "2026-09-30T17:57:58",
+        "step": "name-4",
+        "status": 200,
+        "seconds": 788.56,
+        "estimated": 32000,
+        "prompt_tokens": 476,
+        "completion_tokens": 31438,
+        "total_tokens": 31914,
+        "error": "",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.00535874
+      },
+      {
+        "at": "2026-09-30T17:58:07",
+        "step": "name-retry-1",
+        "status": 200,
+        "seconds": 9.33,
+        "estimated": 32000,
+        "prompt_tokens": 476,
+        "completion_tokens": 1488,
+        "total_tokens": 1964,
+        "error": "",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.0003958
+      }
+    ],
+    "grouping": {
+      "web_app_entry": {
+        "layer": "entry",
+        "files": [
+          "backend/scripts/create_first_superuser.py",
+          "backend/scripts/create_first_tier.py",
+          "backend/scripts/create_tables.py",
+          "backend/scripts/setup_initial_data.py",
+          "backend/src/infrastructure/app_factory.py",
+          "backend/src/infrastructure/dependencies.py",
+          "backend/src/infrastructure/middleware.py",
+          "backend/src/infrastructure/taskiq/worker.py"
+        ]
+      },
+      "shared": {
+        "layer": "shared",
+        "files": [
+          "backend/src/infrastructure/__init__.py",
+          "backend/src/infrastructure/auth/__init__.py",
+          "backend/src/infrastructure/config/__init__.py",
+          "backend/src/infrastructure/config/enums.py",
+          "backend/src/infrastructure/config/settings.py",
+          "backend/src/infrastructure/logging/__init__.py",
+          "backend/src/infrastructure/logging/config.py",
+          "backend/src/infrastructure/logging/factory.py",
+          "backend/src/infrastructure/logging/formatters.py",
+          "backend/src/infrastructure/logging/handlers.py",
+          "backend/src/infrastructure/security/__init__.py",
+          "backend/src/infrastructure/security/production_validator.py",
+          "backend/src/infrastructure/taskiq/__init__.py",
+          "backend/src/infrastructure/taskiq/app.py",
+          "backend/src/infrastructure/taskiq/deps.py",
+          "backend/src/infrastructure/taskiq/registry.py",
+          "backend/src/interfaces/admin/auth.py",
+          "backend/src/modules/__init__.py",
+          "backend/src/modules/common/constants.py",
+          "backend/src/modules/common/exceptions.py",
+          "backend/src/modules/common/schemas.py",
+          "backend/src/modules/common/utils/error_handler.py",
+          "backend/src/modules/common/utils/logger.py",
+          "backend/src/modules/user/constants.py",
+          "cli/src/cli/features/__init__.py",
+          "cli/src/cli/features/_builtins/deploy/feature.py",
+          "cli/src/cli/features/base.py",
+          "cli/src/cli/features/installer.py",
+          "cli/src/cli/features/registry.py",
+          "cli/src/cli/lib/project.py",
+          "cli/src/cli/lib/prompts.py",
+          "cli/src/cli/lib/render.py",
+          "cli/src/cli/plugins.py"
+        ]
+      },
+      "auth_service": {
+        "layer": "service",
+        "files": [
+          "backend/src/infrastructure/auth/dependencies.py",
+          "backend/src/infrastructure/auth/http_exceptions.py",
+          "backend/src/infrastructure/auth/password_policy.py"
+        ]
+      },
+      "auth_api": {
+        "layer": "api",
+        "files": [
+          "backend/src/infrastructure/auth/routes.py"
+        ]
+      },
+      "auth_data": {
+        "layer": "data",
+        "files": [
+          "backend/src/infrastructure/auth/setup.py"
+        ]
+      },
+      "infra_cache": {
+        "layer": "infra",
+        "files": [
+          "backend/src/infrastructure/cache/__init__.py",
+          "backend/src/infrastructure/cache/backends/__init__.py",
+          "backend/src/infrastructure/cache/backends/memcached.py",
+          "backend/src/infrastructure/cache/backends/redis.py",
+          "backend/src/infrastructure/cache/base.py",
+          "backend/src/infrastructure/cache/decorator.py",
+          "backend/src/infrastructure/cache/exceptions.py",
+          "backend/src/infrastructure/cache/initialize.py",
+          "backend/src/infrastructure/cache/provider.py",
+          "backend/src/infrastructure/cache/utils.py"
+        ]
+      },
+      "infra_database": {
+        "layer": "infra",
+        "files": [
+          "backend/src/infrastructure/database/__init__.py",
+          "backend/src/infrastructure/database/initialize.py"
+        ]
+      },
+      "postgres_data": {
+        "layer": "data",
+        "files": [
+          "backend/src/infrastructure/database/models.py",
+          "backend/src/infrastructure/database/session.py",
+          "backend/src/modules/api_keys/crud.py",
+          "backend/src/modules/api_keys/models.py",
+          "backend/src/modules/api_keys/service.py",
+          "backend/src/modules/rate_limit/crud.py",
+          "backend/src/modules/rate_limit/models.py",
+          "backend/src/modules/tier/crud.py",
+          "backend/src/modules/tier/models.py",
+          "backend/src/modules/user/crud.py",
+          "backend/src/modules/user/models.py"
+        ]
+      },
+      "infrastructure_infra": {
+        "layer": "infra",
+        "files": [
+          "backend/src/infrastructure/redis.py"
+        ]
+      },
+      "infra_broker": {
+        "layer": "infra",
+        "files": [
+          "backend/src/infrastructure/taskiq/brokers.py"
+        ]
+      },
+      "api_system": {
+        "layer": "api",
+        "files": [
+          "backend/src/interfaces/admin/initialize.py",
+          "backend/src/interfaces/admin/views/tiers.py",
+          "backend/src/interfaces/admin/views/users.py",
+          "backend/src/interfaces/api/__init__.py",
+          "backend/src/interfaces/main.py"
+        ]
+      },
+      "admin_service": {
+        "layer": "service",
+        "files": [
+          "backend/src/interfaces/admin/mixins.py",
+          "backend/src/interfaces/admin/views/__init__.py"
+        ]
+      },
+      "api_public": {
+        "layer": "api",
+        "files": [
+          "backend/src/interfaces/api/v1/__init__.py",
+          "backend/src/modules/api_keys/__init__.py",
+          "backend/src/modules/api_keys/routes.py",
+          "backend/src/modules/rate_limit/__init__.py",
+          "backend/src/modules/rate_limit/routes.py",
+          "backend/src/modules/tier/__init__.py",
+          "backend/src/modules/tier/routes.py",
+          "backend/src/modules/user/__init__.py",
+          "backend/src/modules/user/routes.py"
+        ]
+      },
+      "api_keys_service": {
+        "layer": "service",
+        "files": [
+          "backend/src/modules/api_keys/dependencies.py",
+          "backend/src/modules/api_keys/enums.py",
+          "backend/src/modules/api_keys/schemas.py"
+        ]
+      },
+      "rate_limit_service": {
+        "layer": "service",
+        "files": [
+          "backend/src/modules/rate_limit/dependencies.py",
+          "backend/src/modules/rate_limit/schemas.py",
+          "backend/src/modules/rate_limit/service.py"
+        ]
+      },
+      "tier_service": {
+        "layer": "service",
+        "files": [
+          "backend/src/modules/tier/dependencies.py",
+          "backend/src/modules/tier/schemas.py",
+          "backend/src/modules/tier/service.py"
+        ]
+      },
+      "user_service": {
+        "layer": "service",
+        "files": [
+          "backend/src/modules/user/dependencies.py",
+          "backend/src/modules/user/enums.py",
+          "backend/src/modules/user/schemas.py",
+          "backend/src/modules/user/service.py"
+        ]
+      },
+      "cli_entry": {
+        "layer": "entry",
+        "files": [
+          "cli/src/cli/app.py",
+          "cli/src/cli/commands/deploy.py",
+          "cli/src/cli/commands/env.py"
+        ]
+      }
+    },
+    "reasons": {
+      "backend/scripts/create_first_superuser.py": {
+        "file": "backend/scripts/create_first_superuser.py",
+        "line": 88,
+        "text": "if __name__ == \"__main__\":"
+      }
+    },
+    "block_reasons": {
+      "web_app_entry": {
+        "file": "backend/src/infrastructure/app_factory.py",
+        "line": 269,
+        "text": "application = FastAPI(lifespan=lifespan, **kwargs)"
+      },
+      "api_public": {
+        "file": "backend/src/interfaces/api/v1/__init__.py",
+        "line": 12,
+        "text": "router.include_router(users_router, prefix=\"/users\","
+      },
+      "api_system": {
+        "file": "backend/src/interfaces/main.py",
+        "line": 71,
+        "text": "@app.get(\"/health\", tags=[\"System\"])"
+      },
+      "postgres_data": {
+        "file": "backend/src/infrastructure/database/session.py",
+        "line": 28,
+        "text": "return create_async_engine(settings.DATABASE_URL,"
+      },
+      "infra_database": {
+        "file": "backend/src/infrastructure/database/session.py",
+        "line": 28,
+        "text": "return create_async_engine(settings.DATABASE_URL,"
+      },
+      "infra_cache": {
+        "file": "backend/src/infrastructure/cache/backends/redis.py",
+        "line": 51,
+        "text": "self.client = client or Redis("
+      },
+      "infra_broker": {
+        "file": "backend/src/infrastructure/taskiq/brokers.py",
+        "line": 36,
+        "text": "broker = ListQueueBroker(url=redis_url, queue_name="
+      }
+    },
+    "ambiguous": {
+      "no_path": [
+        "backend/scripts/create_first_superuser.py",
+        "backend/scripts/create_first_tier.py",
+        "backend/scripts/create_tables.py",
+        "backend/scripts/setup_initial_data.py",
+        "backend/src/infrastructure/__init__.py",
+        "backend/src/infrastructure/auth/__init__.py",
+        "backend/src/infrastructure/auth/dependencies.py",
+        "backend/src/infrastructure/auth/http_exceptions.py",
+        "backend/src/infrastructure/auth/password_policy.py",
+        "backend/src/infrastructure/auth/routes.py",
+        "backend/src/infrastructure/auth/setup.py",
+        "backend/src/infrastructure/logging/__init__.py",
+        "backend/src/infrastructure/logging/config.py",
+        "backend/src/infrastructure/logging/factory.py",
+        "backend/src/infrastructure/logging/formatters.py",
+        "backend/src/infrastructure/logging/handlers.py",
+        "backend/src/infrastructure/redis.py",
+        "backend/src/infrastructure/taskiq/__init__.py",
+        "backend/src/infrastructure/taskiq/app.py",
+        "backend/src/infrastructure/taskiq/deps.py",
+        "backend/src/infrastructure/taskiq/registry.py",
+        "backend/src/infrastructure/taskiq/worker.py",
+        "backend/src/interfaces/admin/auth.py",
+        "backend/src/interfaces/admin/initialize.py",
+        "backend/src/interfaces/admin/mixins.py",
+        "backend/src/interfaces/admin/views/__init__.py",
+        "backend/src/interfaces/admin/views/tiers.py",
+        "backend/src/interfaces/admin/views/users.py",
+        "backend/src/interfaces/api/__init__.py",
+        "backend/src/modules/__init__.py",
+        "backend/src/modules/api_keys/dependencies.py",
+        "backend/src/modules/api_keys/enums.py",
+        "backend/src/modules/api_keys/schemas.py",
+        "backend/src/modules/api_keys/service.py",
+        "backend/src/modules/rate_limit/dependencies.py",
+        "backend/src/modules/rate_limit/schemas.py",
+        "backend/src/modules/rate_limit/service.py",
+        "backend/src/modules/tier/dependencies.py",
+        "backend/src/modules/tier/schemas.py",
+        "backend/src/modules/tier/service.py",
+        "backend/src/modules/user/constants.py",
+        "backend/src/modules/user/dependencies.py",
+        "backend/src/modules/user/enums.py",
+        "backend/src/modules/user/schemas.py",
+        "backend/src/modules/user/service.py",
+        "cli/src/cli/app.py",
+        "cli/src/cli/commands/deploy.py",
+        "cli/src/cli/commands/env.py",
+        "cli/src/cli/features/__init__.py",
+        "cli/src/cli/features/_builtins/deploy/feature.py",
+        "cli/src/cli/features/base.py",
+        "cli/src/cli/features/installer.py",
+        "cli/src/cli/features/registry.py",
+        "cli/src/cli/lib/project.py",
+        "cli/src/cli/lib/prompts.py",
+        "cli/src/cli/lib/render.py",
+        "cli/src/cli/plugins.py"
+      ],
+      "sure_above": []
+    },
+    "by_rule": [
+      "backend/scripts/create_first_tier.py",
+      "backend/scripts/create_tables.py",
+      "backend/scripts/setup_initial_data.py",
+      "backend/src/infrastructure/__init__.py",
+      "backend/src/infrastructure/redis.py",
+      "backend/src/infrastructure/auth/__init__.py",
+      "backend/src/infrastructure/auth/dependencies.py",
+      "backend/src/infrastructure/auth/http_exceptions.py",
+      "backend/src/infrastructure/auth/password_policy.py",
+      "backend/src/infrastructure/auth/routes.py",
+      "backend/src/infrastructure/auth/setup.py",
+      "backend/src/infrastructure/logging/__init__.py",
+      "backend/src/infrastructure/logging/config.py",
+      "backend/src/infrastructure/logging/factory.py",
+      "backend/src/infrastructure/logging/formatters.py",
+      "backend/src/infrastructure/logging/handlers.py",
+      "backend/src/infrastructure/taskiq/__init__.py",
+      "backend/src/infrastructure/taskiq/app.py",
+      "backend/src/infrastructure/taskiq/deps.py",
+      "backend/src/infrastructure/taskiq/registry.py",
+      "backend/src/infrastructure/taskiq/worker.py",
+      "backend/src/interfaces/admin/auth.py",
+      "backend/src/interfaces/admin/initialize.py",
+      "backend/src/interfaces/admin/mixins.py",
+      "backend/src/interfaces/admin/views/__init__.py",
+      "backend/src/interfaces/admin/views/tiers.py",
+      "backend/src/interfaces/admin/views/users.py",
+      "backend/src/interfaces/api/__init__.py",
+      "backend/src/modules/__init__.py",
+      "backend/src/modules/api_keys/dependencies.py",
+      "backend/src/modules/api_keys/enums.py",
+      "backend/src/modules/api_keys/schemas.py",
+      "backend/src/modules/api_keys/service.py",
+      "backend/src/modules/rate_limit/dependencies.py",
+      "backend/src/modules/rate_limit/schemas.py",
+      "backend/src/modules/rate_limit/service.py",
+      "backend/src/modules/tier/dependencies.py",
+      "backend/src/modules/tier/schemas.py",
+      "backend/src/modules/tier/service.py",
+      "backend/src/modules/user/constants.py",
+      "backend/src/modules/user/dependencies.py",
+      "backend/src/modules/user/enums.py",
+      "backend/src/modules/user/schemas.py",
+      "backend/src/modules/user/service.py",
+      "cli/src/cli/app.py",
+      "cli/src/cli/plugins.py",
+      "cli/src/cli/commands/deploy.py",
+      "cli/src/cli/commands/env.py",
+      "cli/src/cli/features/__init__.py",
+      "cli/src/cli/features/base.py",
+      "cli/src/cli/features/installer.py",
+      "cli/src/cli/features/registry.py",
+      "cli/src/cli/features/_builtins/deploy/feature.py",
+      "cli/src/cli/lib/project.py",
+      "cli/src/cli/lib/prompts.py",
+      "cli/src/cli/lib/render.py"
+    ],
+    "top": {
+      "found": [
+        "block cli_entry: reason 'cli/src/cli/app.py:1 # entry point for the CLI (click/typer command registration)' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block scripts_entry: reason 'backend/scripts/create_first_superuser.py:1 # script started manually or by a scheduler' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block api_admin: path 'backend/src/interfaces/admin/__init__.py' holds no file of the repository",
+        "block api_admin: reason 'backend/src/interfaces/admin/views/users.py:5 @router.get(\"/admin/users\", tags=[\"Admin\"])' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block core_services: reason 'backend/src/modules/user/service.py:3 class UserService:  # business logic for users' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block task_worker_service: reason 'backend/src/infrastructure/taskiq/brokers.py:36 broker = ListQueueBroker(url=redis_url, queue_name=…)  # I/O broker used by the worker' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "path backend/src/infrastructure/database/models.py given to two blocks: postgres_data, infra_database",
+        "path backend/src/infrastructure/database/session.py given to two blocks: postgres_data, infra_database",
+        "block infra_logging: reason 'backend/src/infrastructure/logging/factory.py:5 def get_logger(name: str) -> logging.Logger:  # logger factory' is not a line of the repository copied exactly (\"<file>:<line> <code>\")"
+      ],
+      "left": [
+        "block cli_entry: reason 'cli/src/cli/app.py:1 # entry point for the CLI (click/typer command registration)' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block scripts_entry: reason 'backend/scripts/create_first_superuser.py:1 # script started manually or by a scheduler' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block api_admin: path 'backend/src/interfaces/admin/__init__.py' holds no file of the repository",
+        "block api_admin: reason 'backend/src/interfaces/admin/views/users.py:5 @router.get(\"/admin/users\", tags=[\"Admin\"])' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block core_services: reason 'backend/src/modules/user/service.py:3 class UserService:  # business logic for users' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block task_worker_service: reason 'backend/src/infrastructure/taskiq/brokers.py:36 broker = ListQueueBroker(url=redis_url, queue_name=…)  # I/O broker used by the worker' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "path backend/src/infrastructure/database/models.py given to two blocks: postgres_data, infra_database",
+        "path backend/src/infrastructure/database/session.py given to two blocks: postgres_data, infra_database",
+        "block infra_logging: reason 'backend/src/infrastructure/logging/factory.py:5 def get_logger(name: str) -> logging.Logger:  # logger factory' is not a line of the repository copied exactly (\"<file>:<line> <code>\")"
+      ]
+    },
+    "layer_differs": [],
+    "edge_check": [
+      {
+        "source": "api_system",
+        "target": "admin_service",
+        "kind": "wiring",
+        "reason": {
+          "file": "backend/src/interfaces/admin/initialize.py",
+          "line": 34,
+          "text": "register_admin_views(admin)"
+        },
+        "checked": true
+      },
+      {
+        "source": "user_service",
+        "target": "auth_data",
+        "kind": "check",
+        "reason": {
+          "file": "backend/src/modules/user/service.py",
+          "line": 81,
+          "text": "await auth.validate_password(user.password, source=\"register\")"
+        },
+        "checked": true
+      },
+      {
+        "source": "web_app_entry",
+        "target": "infra_database",
+        "kind": "pass",
+        "reason": {
+          "file": "backend/scripts/create_first_superuser.py",
+          "line": 85,
+          "text": "await close_database()"
+        },
+        "checked": true
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "C1",
+      "key": "cli_entry",
+      "name": "CLI khởi tạo lệnh",
+      "layer": "entry",
+      "role": "Khởi tạo giao diện dòng lệnh cho các lệnh triển khai và môi trường.",
+      "role_quote": {
+        "file": "cli/src/cli/app.py",
+        "line": 16,
+        "text": "app = typer.Typer("
+      },
+      "shared": false,
+      "files": [
+        "cli/src/cli/app.py",
+        "cli/src/cli/commands/deploy.py",
+        "cli/src/cli/commands/env.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C2",
+      "key": "web_app_entry",
+      "name": "Web app FastAPI",
+      "layer": "entry",
+      "role": "Tạo ứng dụng FastAPI và cấu hình vòng đời.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/app_factory.py",
+        "line": 269,
+        "text": "application = FastAPI(lifespan=lifespan, **kwargs)"
+      },
+      "shared": false,
+      "files": [
+        "backend/scripts/create_first_superuser.py",
+        "backend/scripts/create_first_tier.py",
+        "backend/scripts/create_tables.py",
+        "backend/scripts/setup_initial_data.py",
+        "backend/src/infrastructure/app_factory.py",
+        "backend/src/infrastructure/dependencies.py",
+        "backend/src/infrastructure/middleware.py",
+        "backend/src/infrastructure/taskiq/worker.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C3",
+      "key": "api_public",
+      "name": "API công cộng router",
+      "layer": "api",
+      "role": "Cung cấp các endpoint công cộng cho người dùng và API keys.",
+      "role_quote": {
+        "file": "backend/src/interfaces/api/v1/__init__.py",
+        "line": 12,
+        "text": "router.include_router(users_router, prefix=\"/users\", dependencies=rate_limit_dependencies)"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/interfaces/api/v1/__init__.py",
+        "backend/src/modules/api_keys/__init__.py",
+        "backend/src/modules/api_keys/routes.py",
+        "backend/src/modules/rate_limit/__init__.py",
+        "backend/src/modules/rate_limit/routes.py",
+        "backend/src/modules/tier/__init__.py",
+        "backend/src/modules/tier/routes.py",
+        "backend/src/modules/user/__init__.py",
+        "backend/src/modules/user/routes.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C4",
+      "key": "api_system",
+      "name": "API hệ thống router",
+      "layer": "api",
+      "role": "Cung cấp các endpoint hệ thống như health và admin.",
+      "role_quote": {
+        "file": "backend/src/interfaces/api/__init__.py",
+        "line": 7,
+        "text": "router.include_router(v1_router, prefix=\"/api\")"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/interfaces/admin/initialize.py",
+        "backend/src/interfaces/admin/views/tiers.py",
+        "backend/src/interfaces/admin/views/users.py",
+        "backend/src/interfaces/api/__init__.py",
+        "backend/src/interfaces/main.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C5",
+      "key": "auth_api",
+      "name": "API xác thực router",
+      "layer": "api",
+      "role": "Xử lý đăng nhập và xác thực người dùng.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/auth/routes.py",
+        "line": 21,
+        "text": "@router.post("
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/auth/routes.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C6",
+      "key": "admin_service",
+      "name": "Quản lý giao diện admin",
+      "layer": "service",
+      "role": "Cung cấp các view và mixin cho admin, thêm đối tượng vào cơ sở dữ liệu.",
+      "role_quote": {
+        "file": "backend/src/interfaces/admin/mixins.py",
+        "line": 60,
+        "text": "session.add(obj)"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/interfaces/admin/mixins.py",
+        "backend/src/interfaces/admin/views/__init__.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C7",
+      "key": "api_keys_service",
+      "name": "Quản lý khóa API",
+      "layer": "service",
+      "role": "Cung cấp dịch vụ tạo và truy xuất khóa API cho hệ thống.",
+      "role_quote": {
+        "file": "backend/src/modules/api_keys/dependencies.py",
+        "line": 9,
+        "text": "return APIKeyService()"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/modules/api_keys/dependencies.py",
+        "backend/src/modules/api_keys/enums.py",
+        "backend/src/modules/api_keys/schemas.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C8",
+      "key": "auth_service",
+      "name": "Xác thực người dùng",
+      "layer": "service",
+      "role": "Lấy thông tin người dùng hiện tại từ cơ sở dữ liệu để xác thực.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/auth/dependencies.py",
+        "line": 62,
+        "text": "user = await crud_users.get(db=db, id=principal.user_id, is_deleted=False)"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/auth/dependencies.py",
+        "backend/src/infrastructure/auth/http_exceptions.py",
+        "backend/src/infrastructure/auth/password_policy.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C9",
+      "key": "rate_limit_service",
+      "name": "Quản lý giới hạn tốc độ",
+      "layer": "service",
+      "role": "Kiểm tra và tạo các giới hạn tốc độ trong cơ sở dữ liệu.",
+      "role_quote": {
+        "file": "backend/src/modules/rate_limit/service.py",
+        "line": 41,
+        "text": "name_exists = await crud_rate_limits.exists(db=db, name=rate_limit_dict[\"name\"])"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/modules/rate_limit/dependencies.py",
+        "backend/src/modules/rate_limit/schemas.py",
+        "backend/src/modules/rate_limit/service.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C10",
+      "key": "tier_service",
+      "name": "Quản lý cấp độ người dùng",
+      "layer": "service",
+      "role": "Kiểm tra sự tồn tại của rate limit cho mỗi tier.",
+      "role_quote": {
+        "file": "backend/src/modules/tier/service.py",
+        "line": 98,
+        "text": "if await crud_rate_limits.exists(db=db, tier_id=tier[\"id\"]):"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/modules/tier/dependencies.py",
+        "backend/src/modules/tier/schemas.py",
+        "backend/src/modules/tier/service.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C11",
+      "key": "user_service",
+      "name": "Dịch vụ người dùng",
+      "layer": "service",
+      "role": "Quản lý logic người dùng và tương tác với cơ sở dữ liệu.",
+      "role_quote": {
+        "file": "backend/src/modules/user/dependencies.py",
+        "line": 8,
+        "text": "def get_user_service() -> UserService:"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/modules/user/dependencies.py",
+        "backend/src/modules/user/enums.py",
+        "backend/src/modules/user/schemas.py",
+        "backend/src/modules/user/service.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C12",
+      "key": "auth_data",
+      "name": "Dữ liệu xác thực",
+      "layer": "data",
+      "role": "Cung cấp kết nối và cấu hình cho hệ thống xác thực.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/auth/setup.py",
+        "line": 37,
+        "text": "def _rate_limiter() -> RateLimiterBackend | None:"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/auth/setup.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C13",
+      "key": "postgres_data",
+      "name": "Cơ sở dữ liệu PostgreSQL",
+      "layer": "data",
+      "role": "Quản lý kết nối và mô hình dữ liệu cho PostgreSQL.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/database/session.py",
+        "line": 28,
+        "text": "return create_async_engine(settings.DATABASE_URL, **options)"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/database/models.py",
+        "backend/src/infrastructure/database/session.py",
+        "backend/src/modules/api_keys/crud.py",
+        "backend/src/modules/api_keys/models.py",
+        "backend/src/modules/api_keys/service.py",
+        "backend/src/modules/rate_limit/crud.py",
+        "backend/src/modules/rate_limit/models.py",
+        "backend/src/modules/tier/crud.py",
+        "backend/src/modules/tier/models.py",
+        "backend/src/modules/user/crud.py",
+        "backend/src/modules/user/models.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C14",
+      "key": "infra_broker",
+      "name": "Broker hạ tầng",
+      "layer": "infra",
+      "role": "Cấu hình broker cho hệ thống task queue.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/taskiq/brokers.py",
+        "line": 9,
+        "text": "settings = get_settings()"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/taskiq/brokers.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C15",
+      "key": "infra_cache",
+      "name": "Cache hạ tầng",
+      "layer": "infra",
+      "role": "Cung cấp các backend cache như Redis và Memcached.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/cache/backends/redis.py",
+        "line": 16,
+        "text": "settings = get_settings()"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/cache/__init__.py",
+        "backend/src/infrastructure/cache/backends/__init__.py",
+        "backend/src/infrastructure/cache/backends/memcached.py",
+        "backend/src/infrastructure/cache/backends/redis.py",
+        "backend/src/infrastructure/cache/base.py",
+        "backend/src/infrastructure/cache/decorator.py",
+        "backend/src/infrastructure/cache/exceptions.py",
+        "backend/src/infrastructure/cache/initialize.py",
+        "backend/src/infrastructure/cache/provider.py",
+        "backend/src/infrastructure/cache/utils.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C16",
+      "key": "infra_database",
+      "name": "Quản lý cơ sở dữ liệu",
+      "layer": "infra",
+      "role": "Cung cấp hàm khởi tạo và đóng kết nối DB.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/database/__init__.py",
+        "line": 18,
+        "text": "def __getattr__(name: str) -> Any:"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/database/__init__.py",
+        "backend/src/infrastructure/database/initialize.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C17",
+      "key": "infrastructure_infra",
+      "name": "Cấu hình Redis",
+      "layer": "infra",
+      "role": "Khởi tạo cài đặt Redis từ cấu hình hệ thống.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/redis.py",
+        "line": 7,
+        "text": "settings = get_settings()"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/redis.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C18",
+      "key": "shared",
+      "name": "Dùng chung",
+      "layer": "shared",
+      "role": "",
+      "role_quote": null,
+      "shared": true,
+      "files": [
+        "backend/src/infrastructure/__init__.py",
+        "backend/src/infrastructure/auth/__init__.py",
+        "backend/src/infrastructure/config/__init__.py",
+        "backend/src/infrastructure/config/enums.py",
+        "backend/src/infrastructure/config/settings.py",
+        "backend/src/infrastructure/logging/__init__.py",
+        "backend/src/infrastructure/logging/config.py",
+        "backend/src/infrastructure/logging/factory.py",
+        "backend/src/infrastructure/logging/formatters.py",
+        "backend/src/infrastructure/logging/handlers.py",
+        "backend/src/infrastructure/security/__init__.py",
+        "backend/src/infrastructure/security/production_validator.py",
+        "backend/src/infrastructure/taskiq/__init__.py",
+        "backend/src/infrastructure/taskiq/app.py",
+        "backend/src/infrastructure/taskiq/deps.py",
+        "backend/src/infrastructure/taskiq/registry.py",
+        "backend/src/interfaces/admin/auth.py",
+        "backend/src/modules/__init__.py",
+        "backend/src/modules/common/constants.py",
+        "backend/src/modules/common/exceptions.py",
+        "backend/src/modules/common/schemas.py",
+        "backend/src/modules/common/utils/error_handler.py",
+        "backend/src/modules/common/utils/logger.py",
+        "backend/src/modules/user/constants.py",
+        "cli/src/cli/features/__init__.py",
+        "cli/src/cli/features/_builtins/deploy/feature.py",
+        "cli/src/cli/features/base.py",
+        "cli/src/cli/features/installer.py",
+        "cli/src/cli/features/registry.py",
+        "cli/src/cli/lib/project.py",
+        "cli/src/cli/lib/prompts.py",
+        "cli/src/cli/lib/render.py",
+        "cli/src/cli/plugins.py"
+      ],
+      "described": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "E1",
+      "source": "C6",
+      "target": "C13",
+      "label": "thêm bản ghi",
+      "quote": {
+        "file": "backend/src/interfaces/admin/mixins.py",
+        "line": 60,
+        "text": "session.add(obj)"
+      }
+    },
+    {
+      "id": "E2",
+      "source": "C7",
+      "target": "C13",
+      "label": "tạo dịch vụ khóa",
+      "quote": {
+        "file": "backend/src/modules/api_keys/dependencies.py",
+        "line": 9,
+        "text": "return APIKeyService()"
+      }
+    },
+    {
+      "id": "E3",
+      "source": "C3",
+      "target": "C7",
+      "label": "tạo API key",
+      "quote": {
+        "file": "backend/src/modules/api_keys/routes.py",
+        "line": 52,
+        "text": "return await api_key_service.create_api_key("
+      }
+    },
+    {
+      "id": "E4",
+      "source": "C3",
+      "target": "C5",
+      "label": "gắn router auth",
+      "quote": {
+        "file": "backend/src/interfaces/api/v1/__init__.py",
+        "line": 15,
+        "text": "router.include_router(auth_router, prefix=\"/auth\")"
+      }
+    },
+    {
+      "id": "E5",
+      "source": "C3",
+      "target": "C12",
+      "label": "cài đặt rate limit",
+      "quote": {
+        "file": "backend/src/interfaces/api/v1/__init__.py",
+        "line": 10,
+        "text": "rate_limit_dependencies = [Depends(api_rate_limit_dependency)]"
+      }
+    },
+    {
+      "id": "E6",
+      "source": "C3",
+      "target": "C9",
+      "label": "lấy danh sách rate limit",
+      "quote": {
+        "file": "backend/src/modules/rate_limit/routes.py",
+        "line": 49,
+        "text": "rate_limits_data = await rate_limit_service.get_all("
+      }
+    },
+    {
+      "id": "E7",
+      "source": "C3",
+      "target": "C10",
+      "label": "lấy danh sách tier",
+      "quote": {
+        "file": "backend/src/modules/tier/routes.py",
+        "line": 27,
+        "text": "tiers_data = await tier_service.get_all("
+      }
+    },
+    {
+      "id": "E8",
+      "source": "C3",
+      "target": "C11",
+      "label": "tạo người dùng",
+      "quote": {
+        "file": "backend/src/modules/user/routes.py",
+        "line": 52,
+        "text": "return await user_service.create(user, db)"
+      }
+    },
+    {
+      "id": "E9",
+      "source": "C4",
+      "target": "C3",
+      "label": "gắn router v1",
+      "quote": {
+        "file": "backend/src/interfaces/api/__init__.py",
+        "line": 7,
+        "text": "router.include_router(v1_router, prefix=\"/api\")"
+      }
+    },
+    {
+      "id": "E10",
+      "source": "C4",
+      "target": "C12",
+      "label": "gắn router oauth",
+      "quote": {
+        "file": "backend/src/interfaces/api/__init__.py",
+        "line": 10,
+        "text": "router.include_router(auth.oauth_router)"
+      }
+    },
+    {
+      "id": "E11",
+      "source": "C4",
+      "target": "C13",
+      "label": "khởi tạo engine DB",
+      "quote": {
+        "file": "backend/src/interfaces/admin/initialize.py",
+        "line": 29,
+        "text": "engine=get_engine(),"
+      }
+    },
+    {
+      "id": "E12",
+      "source": "C4",
+      "target": "C10",
+      "label": "xóa tier vĩnh viễn",
+      "quote": {
+        "file": "backend/src/interfaces/admin/views/tiers.py",
+        "line": 33,
+        "text": "form_create_rules = list(TierCreate.model_fields.keys())"
+      }
+    },
+    {
+      "id": "E13",
+      "source": "C4",
+      "target": "C11",
+      "label": "ẩn danh người dùng",
+      "quote": {
+        "file": "backend/src/interfaces/admin/views/users.py",
+        "line": 44,
+        "text": "form_edit_rules = [*UserUpdate.model_fields.keys(), \"tier_id\", \"is_superuser\"]"
+      }
+    },
+    {
+      "id": "E14",
+      "source": "C5",
+      "target": "C12",
+      "label": "xác thực mật khẩu",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/routes.py",
+        "line": 66,
+        "text": "user = await crud_auth.authenticate_password(db, form_data.username, form_data.password, request=request)"
+      }
+    },
+    {
+      "id": "E15",
+      "source": "C5",
+      "target": "C8",
+      "label": "lấy session ID",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/routes.py",
+        "line": 99,
+        "text": "session_id = principal.metadata.get(\"session_id\")"
+      }
+    },
+    {
+      "id": "E16",
+      "source": "C5",
+      "target": "C13",
+      "label": "lấy người dùng DB",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/routes.py",
+        "line": 203,
+        "text": "user = await crud_users.get(db=db, id=principal.user_id, is_deleted=False)"
+      }
+    },
+    {
+      "id": "E17",
+      "source": "C12",
+      "target": "C13",
+      "label": "gọi async_session",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/setup.py",
+        "line": 81,
+        "text": "auth = CRUDAuth("
+      }
+    },
+    {
+      "id": "E18",
+      "source": "C8",
+      "target": "C13",
+      "label": "lấy người dùng",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/dependencies.py",
+        "line": 62,
+        "text": "user = await crud_users.get(db=db, id=principal.user_id, is_deleted=False)"
+      }
+    },
+    {
+      "id": "E19",
+      "source": "C15",
+      "target": "C17",
+      "label": "gọi aclose",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/initialize.py",
+        "line": 72,
+        "text": "await cache_redis_client.aclose()"
+      }
+    },
+    {
+      "id": "E20",
+      "source": "C9",
+      "target": "C13",
+      "label": "kiểm tra tồn tại",
+      "quote": {
+        "file": "backend/src/modules/rate_limit/service.py",
+        "line": 41,
+        "text": "name_exists = await crud_rate_limits.exists(db=db, name=rate_limit_dict[\"name\"])"
+      }
+    },
+    {
+      "id": "E21",
+      "source": "C10",
+      "target": "C13",
+      "label": "kiểm tra rate limit",
+      "quote": {
+        "file": "backend/src/modules/tier/service.py",
+        "line": 98,
+        "text": "if await crud_rate_limits.exists(db=db, tier_id=tier[\"id\"]):"
+      }
+    },
+    {
+      "id": "E22",
+      "source": "C11",
+      "target": "C8",
+      "label": "gọi password_policy",
+      "quote": {
+        "file": "backend/src/modules/user/schemas.py",
+        "line": 85,
+        "text": "password: password_policy.body_field()  # type: ignore[valid-type]"
+      }
+    },
+    {
+      "id": "E23",
+      "source": "C11",
+      "target": "C13",
+      "label": "gọi CRUD tier",
+      "quote": {
+        "file": "backend/src/modules/user/service.py",
+        "line": 513,
+        "text": "tier_exists = await crud_tiers.exists(db=db, id=tier_update.tier_id)"
+      }
+    },
+    {
+      "id": "E24",
+      "source": "C2",
+      "target": "C8",
+      "label": "lấy người dùng tùy chọn",
+      "quote": {
+        "file": "backend/src/infrastructure/dependencies.py",
+        "line": 16,
+        "text": "OptionalUserDep = Annotated[dict[str, Any] | None, Depends(get_optional_user)]"
+      }
+    },
+    {
+      "id": "E25",
+      "source": "C2",
+      "target": "C13",
+      "label": "commit giao dịch DB",
+      "quote": {
+        "file": "backend/scripts/create_first_superuser.py",
+        "line": 56,
+        "text": "await session.commit()"
+      }
+    },
+    {
+      "id": "E26",
+      "source": "C2",
+      "target": "C11",
+      "label": "tạo người dùng mới",
+      "quote": {
+        "file": "backend/scripts/create_first_superuser.py",
+        "line": 62,
+        "text": "user_data = UserCreate(name=name, email=email, username=username, password=password)"
+      }
+    }
+  ],
+  "externals": [
+    {
+      "id": "X1",
+      "name": "Memcached",
+      "kind": "memcached",
+      "edges": [
+        {
+          "source": "C15",
+          "label": "đọc ghi",
+          "quote": {
+            "file": "backend/src/infrastructure/cache/backends/memcached.py",
+            "line": 59,
+            "text": "self.client = aiomcache.Client("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X2",
+      "name": "Redis",
+      "kind": "redis",
+      "edges": [
+        {
+          "source": "C15",
+          "label": "đọc ghi",
+          "quote": {
+            "file": "backend/src/infrastructure/cache/backends/redis.py",
+            "line": 51,
+            "text": "self.client = client or Redis("
+          }
+        },
+        {
+          "source": "C17",
+          "label": "đọc ghi",
+          "quote": {
+            "file": "backend/src/infrastructure/redis.py",
+            "line": 11,
+            "text": "return Redis("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X3",
+      "name": "Database",
+      "kind": "database",
+      "edges": [
+        {
+          "source": "C13",
+          "label": "truy vấn",
+          "quote": {
+            "file": "backend/src/infrastructure/database/session.py",
+            "line": 28,
+            "text": "return create_async_engine(settings.DATABASE_URL, **options)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X4",
+      "name": "Message broker",
+      "kind": "broker",
+      "edges": [
+        {
+          "source": "C14",
+          "label": "gửi tác vụ",
+          "quote": {
+            "file": "backend/src/infrastructure/taskiq/brokers.py",
+            "line": 36,
+            "text": "broker = ListQueueBroker(url=redis_url, queue_name=\"default\").with_result_backend("
+          }
+        }
+      ]
+    }
+  ],
+  "quotes": {
+    "returned": 17,
+    "valid": 17
+  },
+  "rejected": [],
+  "issues": [
+    "name-4 failed: name-4: incomplete answer (length)"
+  ],
+  "file_lines": {
+    "backend/scripts/create_first_superuser.py": 89,
+    "backend/scripts/create_first_tier.py": 58,
+    "backend/scripts/create_tables.py": 31,
+    "backend/scripts/setup_initial_data.py": 51,
+    "backend/src/infrastructure/__init__.py": 10,
+    "backend/src/infrastructure/app_factory.py": 332,
+    "backend/src/infrastructure/auth/__init__.py": 7,
+    "backend/src/infrastructure/auth/dependencies.py": 88,
+    "backend/src/infrastructure/auth/http_exceptions.py": 82,
+    "backend/src/infrastructure/auth/password_policy.py": 13,
+    "backend/src/infrastructure/auth/routes.py": 226,
+    "backend/src/infrastructure/auth/setup.py": 137,
+    "backend/src/infrastructure/cache/__init__.py": 38,
+    "backend/src/infrastructure/cache/backends/__init__.py": 32,
+    "backend/src/infrastructure/cache/backends/memcached.py": 155,
+    "backend/src/infrastructure/cache/backends/redis.py": 150,
+    "backend/src/infrastructure/cache/base.py": 243,
+    "backend/src/infrastructure/cache/decorator.py": 124,
+    "backend/src/infrastructure/cache/exceptions.py": 199,
+    "backend/src/infrastructure/cache/initialize.py": 72,
+    "backend/src/infrastructure/cache/provider.py": 166,
+    "backend/src/infrastructure/cache/utils.py": 111,
+    "backend/src/infrastructure/config/__init__.py": 12,
+    "backend/src/infrastructure/config/enums.py": 63,
+    "backend/src/infrastructure/config/settings.py": 422,
+    "backend/src/infrastructure/database/__init__.py": 23,
+    "backend/src/infrastructure/database/initialize.py": 8,
+    "backend/src/infrastructure/database/models.py": 172,
+    "backend/src/infrastructure/database/session.py": 188,
+    "backend/src/infrastructure/dependencies.py": 19,
+    "backend/src/infrastructure/logging/__init__.py": 34,
+    "backend/src/infrastructure/logging/config.py": 350,
+    "backend/src/infrastructure/logging/factory.py": 240,
+    "backend/src/infrastructure/logging/formatters.py": 189,
+    "backend/src/infrastructure/logging/handlers.py": 77,
+    "backend/src/infrastructure/middleware.py": 53,
+    "backend/src/infrastructure/redis.py": 38,
+    "backend/src/infrastructure/security/__init__.py": 5,
+    "backend/src/infrastructure/security/production_validator.py": 786,
+    "backend/src/infrastructure/taskiq/__init__.py": 12,
+    "backend/src/infrastructure/taskiq/app.py": 43,
+    "backend/src/infrastructure/taskiq/brokers.py": 52,
+    "backend/src/infrastructure/taskiq/deps.py": 58,
+    "backend/src/infrastructure/taskiq/registry.py": 65,
+    "backend/src/infrastructure/taskiq/worker.py": 13,
+    "backend/src/interfaces/admin/auth.py": 45,
+    "backend/src/interfaces/admin/initialize.py": 36,
+    "backend/src/interfaces/admin/mixins.py": 64,
+    "backend/src/interfaces/admin/views/__init__.py": 18,
+    "backend/src/interfaces/admin/views/tiers.py": 57,
+    "backend/src/interfaces/admin/views/users.py": 72,
+    "backend/src/interfaces/api/__init__.py": 10,
+    "backend/src/interfaces/api/v1/__init__.py": 16,
+    "backend/src/interfaces/main.py": 74,
+    "backend/src/modules/__init__.py": 15,
+    "backend/src/modules/api_keys/__init__.py": 74,
+    "backend/src/modules/api_keys/crud.py": 7,
+    "backend/src/modules/api_keys/dependencies.py": 12,
+    "backend/src/modules/api_keys/enums.py": 70,
+    "backend/src/modules/api_keys/models.py": 86,
+    "backend/src/modules/api_keys/routes.py": 322,
+    "backend/src/modules/api_keys/schemas.py": 189,
+    "backend/src/modules/api_keys/service.py": 632,
+    "backend/src/modules/common/constants.py": 48,
+    "backend/src/modules/common/exceptions.py": 73,
+    "backend/src/modules/common/schemas.py": 35,
+    "backend/src/modules/common/utils/error_handler.py": 109,
+    "backend/src/modules/common/utils/logger.py": 43,
+    "backend/src/modules/rate_limit/__init__.py": 17,
+    "backend/src/modules/rate_limit/crud.py": 5,
+    "backend/src/modules/rate_limit/dependencies.py": 12,
+    "backend/src/modules/rate_limit/models.py": 24,
+    "backend/src/modules/rate_limit/routes.py": 174,
+    "backend/src/modules/rate_limit/schemas.py": 97,
+    "backend/src/modules/rate_limit/service.py": 116,
+    "backend/src/modules/tier/__init__.py": 27,
+    "backend/src/modules/tier/crud.py": 5,
+    "backend/src/modules/tier/dependencies.py": 12,
+    "backend/src/modules/tier/models.py": 31,
+    "backend/src/modules/tier/routes.py": 51,
+    "backend/src/modules/tier/schemas.py": 95,
+    "backend/src/modules/tier/service.py": 106,
+    "backend/src/modules/user/__init__.py": 34,
+    "backend/src/modules/user/constants.py": 5,
+    "backend/src/modules/user/crud.py": 5,
+    "backend/src/modules/user/dependencies.py": 12,
+    "backend/src/modules/user/enums.py": 15,
+    "backend/src/modules/user/models.py": 64,
+    "backend/src/modules/user/routes.py": 400,
+    "backend/src/modules/user/schemas.py": 190,
+    "backend/src/modules/user/service.py": 637,
+    "cli/src/cli/app.py": 55,
+    "cli/src/cli/commands/deploy.py": 91,
+    "cli/src/cli/commands/env.py": 111,
+    "cli/src/cli/features/__init__.py": 25,
+    "cli/src/cli/features/_builtins/deploy/feature.py": 78,
+    "cli/src/cli/features/base.py": 98,
+    "cli/src/cli/features/installer.py": 87,
+    "cli/src/cli/features/registry.py": 44,
+    "cli/src/cli/lib/project.py": 70,
+    "cli/src/cli/lib/prompts.py": 32,
+    "cli/src/cli/lib/render.py": 33,
+    "cli/src/cli/plugins.py": 109
+  },
+  "snapshot": {
+    "backend/scripts/create_first_superuser.py": "fafa28ef81e315f4d18823ac4f240a9fd7690ebee627aaa2ded95dfaceb3dd20",
+    "backend/scripts/create_first_tier.py": "e2438029e27613e6181e3400c5c2c10fd50c34a19def3fafa4a65b27344c123b",
+    "backend/scripts/create_tables.py": "9c6dab282e3aeb85b6e64741af50f4b6257193cdede86a7cfdd732793c129417",
+    "backend/scripts/setup_initial_data.py": "e33650ca07cdc6d1a2771fe0e771278a7e4f08db371f718f9d02ada928a76de9",
+    "backend/src/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/src/infrastructure/__init__.py": "2244b2eade02c96a573a3623d5c4c51424fec2f18a8c98f8b0b276fb950725f6",
+    "backend/src/infrastructure/app_factory.py": "60bde490baf2104f82c19611da27af03b58440e0c0bac9c9209bf3379d0e98c8",
+    "backend/src/infrastructure/auth/__init__.py": "86e86a1dad0f8e0d1c04dec8f1fbd4d0ce7b07cd07ea405201a347aecd578519",
+    "backend/src/infrastructure/auth/dependencies.py": "a169da380143b304c6cd87a54516452f848a754dbed6fe13a7d452d3772b0026",
+    "backend/src/infrastructure/auth/http_exceptions.py": "a4aa4cae965b229990303fba31501d42aa7046652742caba78dd45bfb0658584",
+    "backend/src/infrastructure/auth/password_policy.py": "28f62c6c81c492abe2c13a1506f8b3e8290c5c694fa49502543972fc4d254b4e",
+    "backend/src/infrastructure/auth/routes.py": "f0f362d647a20af01af44a904680e1fbc5dba7aa1cc66213ff2be227a8215544",
+    "backend/src/infrastructure/auth/setup.py": "43ad256a06981dacd542c4c22e4a36cc79ae3318d111471a32fee67206af7842",
+    "backend/src/infrastructure/cache/__init__.py": "fd62fed3fe3f6a95d43a41f7389f5bda1838c31cbe74878ba7782e90464d7128",
+    "backend/src/infrastructure/cache/backends/__init__.py": "cfb821a9ef6b2e50c29358ba3f0ad41fed3e0ea878d6d925204b4399484268b8",
+    "backend/src/infrastructure/cache/backends/memcached.py": "00c407762d27dc0efe814676fd6024c7a3c96ae37baa52a689ea04307a6710cf",
+    "backend/src/infrastructure/cache/backends/redis.py": "486a0b3b376e11eb8c023be5128a747742b1c411bd5a95b83bcc6b93883843c2",
+    "backend/src/infrastructure/cache/base.py": "3b874c946756a57bdbe53aa7dbc205b165a300e6bad5215787947f38bc9cc3c7",
+    "backend/src/infrastructure/cache/decorator.py": "b27a0f7441725743612419fd0ba9a1c37c864e00cf83db1700345c660378a839",
+    "backend/src/infrastructure/cache/exceptions.py": "309a48ace3a7ba14dba3639395d062587d0f968bffd861c6ae7eeb67c35529d9",
+    "backend/src/infrastructure/cache/initialize.py": "0279818fc55f4de7c0c2dbf526aaf30f94b96b86eb703454c6b8fbb243bb2fc8",
+    "backend/src/infrastructure/cache/provider.py": "0d66ad7d5a644a38b8b130f5e7d45eabd05ae3a80e97bc178559295f41a811b2",
+    "backend/src/infrastructure/cache/utils.py": "8e37402d3da54488a06df04289bb73c178ca63cc275305c88d9071d378347cf7",
+    "backend/src/infrastructure/config/__init__.py": "426ad9ce08f6b60a28e48fdbcc3f347032e476de8d057f6b689bb8bbc06a5249",
+    "backend/src/infrastructure/config/enums.py": "ae74b04237c1fd5eb0f4f337d6aea4e9f302f8137e0e0c6d4bae434f3e20e7c1",
+    "backend/src/infrastructure/config/settings.py": "916bd14062f850806f8afad1d5c6ed4853b5df935c9c789726a705f644e4a3b3",
+    "backend/src/infrastructure/database/__init__.py": "d852f7a1112c1a660f6e9712131d2d4cb5669d8443561b65e0b5e28089c4ed34",
+    "backend/src/infrastructure/database/initialize.py": "c36ec3a7756b5347b5a4589d73075e4555292688335b28468527b0d902183972",
+    "backend/src/infrastructure/database/models.py": "94214f76a4c9f505b76c4cc2d74aa997f9bc4389a243fd5551cb36247770c78e",
+    "backend/src/infrastructure/database/session.py": "cc60e7c4aafab5e9eb6b24512ebac69a8cc6447ddb4796953a0a25206b11b59f",
+    "backend/src/infrastructure/dependencies.py": "ac559c496446ecc06c0358d802bb2eb5a2182ebe1d7fd3f73975e78255ddff72",
+    "backend/src/infrastructure/logging/__init__.py": "765c03fd09bfaa97a088cef9fc9fa42d762ccd77e15567adbb1fff56446e9760",
+    "backend/src/infrastructure/logging/config.py": "29854ba42e350b988a21f9955fb37cbe1b4aa59ea2558f7ad2874b2ec9212d48",
+    "backend/src/infrastructure/logging/factory.py": "af55e0b4f88e9c7cc15da06f9c709277302b494952a83670ae2f9f8b856d3149",
+    "backend/src/infrastructure/logging/formatters.py": "52b4368f901729bca0c951b92099ee802fe4351c7c04bc4a922a03d4ada678ca",
+    "backend/src/infrastructure/logging/handlers.py": "d5e1969baf93015385ef3951408f8c0f570142668c2bdddc1b399ae72671bd56",
+    "backend/src/infrastructure/middleware.py": "53bc94080dd2c53fe50eafa3dfd0ac17da473829fd44daaf13c1f38f3a8b3cbf",
+    "backend/src/infrastructure/redis.py": "d1e298d363b1b930abeb3cfa71967393ae7040a01af297aa6f2970188fef4732",
+    "backend/src/infrastructure/security/__init__.py": "8270944bcc6afaabb3c5bc1254e7fcc8838b2e13efb93deb94de48f6addb1dcc",
+    "backend/src/infrastructure/security/production_validator.py": "19ae56cdb0c8afab2484eb5279f7a0c17b985a68e4bb70416332eb3c791d4486",
+    "backend/src/infrastructure/taskiq/__init__.py": "b04555df2e127e8e30de09ed5082693bcd40f044aaa04850a042da79b516cb02",
+    "backend/src/infrastructure/taskiq/app.py": "c5288abcf3f2def6fe3740dab7d55a6a9bac17f7e955b6c6421f3b2f2ab11ccd",
+    "backend/src/infrastructure/taskiq/brokers.py": "3efbe18598cb91d0d78133c14783adfde94a92119cf391eba04be672458c5d11",
+    "backend/src/infrastructure/taskiq/deps.py": "37e1f72b0ddb46ff7363fedf6b64229b8b4f621f77ef290fdc038a63ffc38f60",
+    "backend/src/infrastructure/taskiq/registry.py": "dc51f18d6fa0362cc45df0ad4f19365160cc715d51870f07fb8b4390827867b3",
+    "backend/src/infrastructure/taskiq/worker.py": "334fec5428959d5b1b2865dad4991ddcbbe9452778d15dfb59d02b9a5960beb3",
+    "backend/src/interfaces/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/src/interfaces/admin/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/src/interfaces/admin/auth.py": "e4dcbdaf0946bf463058bfdfc843913514804748fe06fa5bc5a7983d0f8c280f",
+    "backend/src/interfaces/admin/initialize.py": "d82a829caeee639c187e825827edeac873dbc51f8c041c1fc66c925684371bd8",
+    "backend/src/interfaces/admin/mixins.py": "6a5bc21d8ab17efe282623ea1c3b95312cbf0f20be2322157f6b99d60a6e72b3",
+    "backend/src/interfaces/admin/views/__init__.py": "ece6cdb2c3d52c516b13e5ecf0f5f9924d3d59f6d19832aac49a0577c87c0111",
+    "backend/src/interfaces/admin/views/tiers.py": "8a97c5fbb6a0f06525fc9af4596481a7d7a5ace8637f12a9ad724f58d72c5b90",
+    "backend/src/interfaces/admin/views/users.py": "04d558568ca4139be8ec694058ea0bca9a86a4ee08e3805206f555737845d004",
+    "backend/src/interfaces/api/__init__.py": "635ceebe9de86b30c37852517e9185c8cdb69d5a016f1a88fec35a450d4df2cd",
+    "backend/src/interfaces/api/v1/__init__.py": "077bd2d5a435f5e3c4a8fe699be01ec5b50bd76cf04d8f6f5323152eadf320b2",
+    "backend/src/interfaces/main.py": "850ed53b3696e5daba7dfe8eff23da968900b73d9828c555d9642f9ff42490fb",
+    "backend/src/modules/__init__.py": "908c32eece136e75ae6054d32b9472d1c452bfc6e0e80de19c395539aabb67d4",
+    "backend/src/modules/api_keys/__init__.py": "46daa311ad2e059bd5763ebf0f2e2a2b86c38ca730cdec33135a56abde68c4fd",
+    "backend/src/modules/api_keys/crud.py": "8be744aa11bebf54ca22bcd0671abe7bb30e3718c8a980a95e946f7a5111f702",
+    "backend/src/modules/api_keys/dependencies.py": "2c3322a2ddad10048078241dac441b3442b0fb62288c797a4e7a7135bfd259c4",
+    "backend/src/modules/api_keys/enums.py": "98782664b8b018790f86ba3d95880c4c997481aafa0d842a90ed797e9a963ba9",
+    "backend/src/modules/api_keys/models.py": "0aba5114ba756237ee592203fd4ddbd5f7bd6f4c32a2f2c8599bb38945d8ab7e",
+    "backend/src/modules/api_keys/routes.py": "7033c94b9cf592e334277eadefbc0b689b593e481bfd7902b1713bb2a76307ba",
+    "backend/src/modules/api_keys/schemas.py": "75f7088cb2d3492e7150d68c729f21421b0fac8258846a0b653428a023498180",
+    "backend/src/modules/api_keys/service.py": "6d995a8414722977f37fbb47e4f50c5fa2676d4c8229c44913bd3d9ac0fc59d8",
+    "backend/src/modules/common/__init__.py": "60c63ab5be4be4399a22032384243266829326590388ebb8767ae646d8386e00",
+    "backend/src/modules/common/constants.py": "f9f30002e0f7f055f6018ed90d6c6fe593d6064c4d5f02501a1d1bc4ade5df25",
+    "backend/src/modules/common/exceptions.py": "dfb09cf2915c5556a4a9ac601b47eddefa301d3fe592b145947312217aedd396",
+    "backend/src/modules/common/schemas.py": "7d4ad15fbba2ac60c27fdbbabcc8f69a6c1c97d0d821d6581f961569f008484d",
+    "backend/src/modules/common/utils/__init__.py": "b6ac8d7601aa66b708492836bc1b4c955c6c3afc1a2e8df38ea224e5fdd09213",
+    "backend/src/modules/common/utils/error_handler.py": "437859a5553773b78581ac89d0e80043912f0c731bd977ff6f532133282014e5",
+    "backend/src/modules/common/utils/logger.py": "77c8fcc6ace103f0ae89f5c4f9d9508c5e3410e58d371a08afb1ed773dbb40b3",
+    "backend/src/modules/rate_limit/__init__.py": "ead67684f6e59b1a53ed3a2058a317f234676566270e68b9b45a11abea57829d",
+    "backend/src/modules/rate_limit/crud.py": "5d898214acf1d5bcb423219acd2fba68c992bd46c64e12462050d44829ef478d",
+    "backend/src/modules/rate_limit/dependencies.py": "9f3b766238c70d609823f0cf30b6fa88c8257d41ad0ced6a0c5de6290d421124",
+    "backend/src/modules/rate_limit/models.py": "41d1654d0cb53b4a1f85869ac3fabc6262aff54da668b7eeff7e8b3819c9160b",
+    "backend/src/modules/rate_limit/routes.py": "7e6e9122533d5045f68f4aaef76f2a4c81ee380a3645d43f93fd1adbbe13a581",
+    "backend/src/modules/rate_limit/schemas.py": "3ef200eec9eeda0a45ce3be11b2683abf9e0d096eddb4ff3d69bb4d311572f3c",
+    "backend/src/modules/rate_limit/service.py": "a5292003859083469c39c02b98de5cd93bf19bf623449d0ffd2c9921a6011ad9",
+    "backend/src/modules/tier/__init__.py": "04531f0f1ede009549b0ef047582b24e18243c5a3b63468ad4ecec41a35762a9",
+    "backend/src/modules/tier/crud.py": "ac1af25c87790ca3906492408af5460fd4378cb59494ca7a89ec1a75caae976d",
+    "backend/src/modules/tier/dependencies.py": "1d807ab61f2dfd6f15fac0954c2a2b715e4d485cb453dbb3ea287c2df80f65b0",
+    "backend/src/modules/tier/models.py": "116d300933b906496903586488b356587dffed4bc9c1112d74b32c71dba61cb4",
+    "backend/src/modules/tier/routes.py": "2401136114aa156e611fd2b14d7b622e9ba20c204d1a9f25a5890ac1e7a763ac",
+    "backend/src/modules/tier/schemas.py": "28fcc80143fc2becebecbee200e31a012eea2d027b9b318637874f2f6b73598b",
+    "backend/src/modules/tier/service.py": "88cc7095e1f152696fd06ebeb6c2165921ae7f40c972192e80fc307c854aa043",
+    "backend/src/modules/user/__init__.py": "e44614286cbf41026ab65939e1e7b6ac28f2edfc70ec91533edc9eb825f27294",
+    "backend/src/modules/user/constants.py": "7db88f0719ce54df288bc2a9b6a0c7c537e5662ba476b3417dd875bc26bc30cb",
+    "backend/src/modules/user/crud.py": "31ac21f9b30cc8eb89f483b88be2bf78540e087606ba6d3e942842d360646dbf",
+    "backend/src/modules/user/dependencies.py": "8bd7dd20496f7765f9ad9a9ba35feaed55cce371869970f6e72bf671fad37250",
+    "backend/src/modules/user/enums.py": "49a59df52a206607953cf8de094aa41896629f89f2c57bfefa19e259101d2aa3",
+    "backend/src/modules/user/models.py": "1d93551f8cde1ad8ba02ef196276e250b39d57b1dbfecc2df411c6d312547303",
+    "backend/src/modules/user/routes.py": "1cbfda659bb764acea3268cc7a17963b7e7aecf79c96fcfae128b5dd40fcf899",
+    "backend/src/modules/user/schemas.py": "bb6771e6048fcfc509570bd13699184e1a42f02b87858e176a9f678ee8b11cdc",
+    "backend/src/modules/user/service.py": "993d5ad80062b1cc170c034d3df9244f820477104fd6ed4224bf05d2dc8f26dc",
+    "cli/src/cli/__init__.py": "c3063ca886d3c561c4e5b9158e82869865490c49d369154e5c42e65a0082eb38",
+    "cli/src/cli/app.py": "f6f6cf611f0ad297fbc2feb2f66243dc571132983dc51328dd965637f5ff9d5b",
+    "cli/src/cli/commands/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cli/src/cli/commands/deploy.py": "2a5a6dfc9071e22adb1d1cb157bedba02910de45640fd05ccc44a95ba2c35ea0",
+    "cli/src/cli/commands/env.py": "f00a01f48b946defcec6c9831f08df4a8303c26f70001f96cb737b2bc634d46f",
+    "cli/src/cli/features/__init__.py": "0cd1745a97f150a9e1596a4bf27518a902dad28826f48f97622421169847a090",
+    "cli/src/cli/features/_builtins/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cli/src/cli/features/_builtins/deploy/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cli/src/cli/features/_builtins/deploy/feature.py": "6efc8b6e94edcd316fc24161422ee5ce000f37270c255916a93b622e5520e0e0",
+    "cli/src/cli/features/base.py": "5c526c078eddd7434245054c4ccaa028a92695d718f3cda88b5d95499e6f8a02",
+    "cli/src/cli/features/installer.py": "55cfa15c13ddfa76b9849fd8c5774f2343ed5073902f435654fb41891f672f0a",
+    "cli/src/cli/features/registry.py": "875529d9692d3829673d7eeb834ab2590f26e4840cd8a78b4f6db69d8a875cbc",
+    "cli/src/cli/lib/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cli/src/cli/lib/project.py": "d3dc2965ec4358682bb3f4286063495053575f78fc98d9a25037d89ddc5014e6",
+    "cli/src/cli/lib/prompts.py": "f6edb4794a9d5ed5bd1d66fa3ae515db812f9adaf0592fc2a7655d860fedb634",
+    "cli/src/cli/lib/render.py": "cf1635c9b5b6f4c242af9118fcc42e13db66052173d8e08adf9ab653adaf6f98",
+    "cli/src/cli/plugins.py": "b2e2ba2f5eef6c7cfaed761c923ad1ae26ebceb35b4ee16e77f669cb86e5e835"
+  },
+  "excluded": {
+    "dir:migrations": 1,
+    "dir:tests": 61
+  }
+}

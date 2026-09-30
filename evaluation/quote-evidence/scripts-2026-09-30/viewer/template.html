@@ -1,0 +1,348 @@
+<title>Soi sơ đồ khối</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: thanh chọn trên cùng, sơ đồ theo tầng bên trái, bảng chi tiết bên phải (xuống dưới khi hẹp). */
+:root {
+  --bg: #f6f7f7; --panel: #ffffff; --fg: #1d2426; --muted: #5e6b6e; --line: #d9dfe0;
+  --accent: #0f6e73; --accent-soft: #e0efef; --band: #eef1f1;
+  --ok: #1f7a4d; --bad: #c2412d; --miss: #a86a00; --soft: #8b9699;
+  --sans: "IBM Plex Sans", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121718; --panel: #1a2122; --fg: #e3e9ea; --muted: #97a4a6; --line: #2e3839;
+  --accent: #4fb3b8; --accent-soft: #1d3334; --band: #172021;
+  --ok: #4cc488; --bad: #f07a63; --miss: #e0a53a; --soft: #6f7c7e; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #121718; --panel: #1a2122; --fg: #e3e9ea; --muted: #97a4a6; --line: #2e3839;
+  --accent: #4fb3b8; --accent-soft: #1d3334; --band: #172021;
+  --ok: #4cc488; --bad: #f07a63; --miss: #e0a53a; --soft: #6f7c7e; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--sans); padding-inline: 16px; padding-block: 16px 40px }
+.wrap { max-width: 1440px; margin: 0 auto; display: grid; gap: 16px }
+h1 { font-size: 20px; font-weight: 600; margin: 0; text-wrap: balance }
+h2 { font-size: 15px; font-weight: 600; margin: 0 }
+.sub { color: var(--muted); margin: 2px 0 0; max-width: 72ch }
+.bar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel) }
+.seg button { font: 500 13px var(--sans); color: var(--muted); background: none; border: 0; padding: 6px 12px; cursor: pointer }
+.seg button + button { border-left: 1px solid var(--line) }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent) }
+.seg button:focus-visible, .edge:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
+.lbl { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted) }
+.stats { display: flex; flex-wrap: wrap; gap: 8px }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; min-width: 92px }
+.stat b { display: block; font: 500 17px var(--mono); font-variant-numeric: tabular-nums }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start }
+@media (max-width: 980px) { .main { grid-template-columns: minmax(0, 1fr) } }
+.canvas { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; min-width: 0 }
+svg { display: block }
+.band { fill: var(--band) }
+.bandlbl { fill: var(--muted); font: 500 11px var(--sans); letter-spacing: .06em; text-transform: uppercase }
+.node rect { fill: var(--panel); stroke: var(--line); stroke-width: 1.2 }
+.node.ext rect { stroke-dasharray: 4 3 }
+.node text { fill: var(--fg); font: 500 12.5px var(--sans) }
+.node text.meta { fill: var(--muted); font: 11px var(--mono) }
+.node { cursor: pointer }
+.node.sel rect { stroke: var(--accent); stroke-width: 2 }
+.edge path.vis { fill: none; stroke-width: 1.8; transition: opacity .15s }
+.edge path.hit { fill: none; stroke: transparent; stroke-width: 12; cursor: pointer }
+.edge.s-ok path.vis { stroke: var(--ok) } .edge.s-bad path.vis { stroke: var(--bad) }
+.edge.s-miss path.vis { stroke: var(--miss); stroke-dasharray: 6 4 } .edge.s-soft path.vis { stroke: var(--soft); stroke-width: 1.3 }
+.edge.s-plain path.vis { stroke: var(--accent) }
+.edge.up path.vis { stroke-dasharray: 2 3 }
+svg.focus .edge:not(.on) path.vis { opacity: .12 } svg.focus .node:not(.on) { opacity: .45 }
+.edge.sel path.vis { stroke-width: 3.2 }
+.mk-ok { fill: var(--ok) } .mk-bad { fill: var(--bad) } .mk-miss { fill: var(--miss) } .mk-soft { fill: var(--soft) } .mk-plain { fill: var(--accent) }
+.side { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 12px; min-width: 0 }
+.legend { display: grid; gap: 6px }
+.legend div { display: flex; gap: 8px; align-items: center; font-size: 13px }
+.legend svg { flex: none }
+.legend .n { margin-left: auto; font: 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums }
+.detail { border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 8px; min-width: 0 }
+.detail .empty { color: var(--muted) }
+code, .code { font: 12px/1.5 var(--mono) }
+.code { background: var(--band); border-radius: 6px; padding: 8px 10px; overflow-x: auto; white-space: pre; display: block }
+.where { color: var(--accent); font: 12px var(--mono); word-break: break-all }
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.chip { font: 12px var(--mono); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted) }
+ul.files { margin: 0; padding-left: 18px; font: 12px var(--mono); color: var(--muted); max-height: 180px; overflow: auto }
+table { border-collapse: collapse; width: 100%; font-size: 13px }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); white-space: nowrap }
+th { font-weight: 500; color: var(--muted); font-size: 12px }
+td.num { font: 13px var(--mono); font-variant-numeric: tabular-nums; text-align: right }
+.tablebox { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto }
+.note { color: var(--muted); font-size: 13px; max-width: 80ch }
+@media (prefers-reduced-motion: reduce) { .edge path.vis { transition: none } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Soi sơ đồ khối</h1>
+    <p class="sub">Sơ đồ component mà pipeline v7 vẽ từ code, đặt cạnh bản vẽ tay (đáp án). Chỉ 4 repo lộ có chi tiết; repo kín chỉ có số tổng ở cuối trang.</p>
+  </header>
+
+  <div class="bar">
+    <div><div class="lbl">Repo</div><div class="seg" id="repos"></div></div>
+    <div><div class="lbl">Lần chạy</div><div class="seg" id="runs"></div></div>
+    <div><div class="lbl">Xem</div><div class="seg" id="views">
+      <button id="v-pipe" aria-pressed="true">Pipeline vẽ</button><button id="v-oracle" aria-pressed="false">Chấm với đáp án</button>
+    </div></div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="main">
+    <div class="canvas" id="canvas"></div>
+    <aside class="side">
+      <div><h2 id="side-title">Chú thích</h2><p class="note" id="side-note" style="margin:4px 0 0"></p></div>
+      <div class="legend" id="legend"></div>
+      <div class="chips" id="shared"></div>
+      <div class="detail" id="detail"><div class="empty">Bấm vào một khối hoặc một đường nối để xem trích dẫn file:dòng. Rê chuột vào khối để làm nổi các đường của nó.</div></div>
+    </aside>
+  </div>
+
+  <section style="display:grid;gap:8px">
+    <h2>Repo kín: chỉ số tổng</h2>
+    <p class="note">P: tỷ lệ cạnh vẽ ra đúng. Pk: như P nhưng cạnh đáp án chỉ "chấp nhận" (lắp ráp, kiểm tra, đi lên) cũng tính là thừa. R: tỷ lệ cạnh bắt buộc của đáp án được vẽ ra.</p>
+    <div class="tablebox"><table id="closed"></table></div>
+  </section>
+</div>
+
+<script>
+const DATA = /*DATA*/null;
+const LAYERS = ["entry", "api", "service", "data", "infra", "ext"];
+const LAYER_VI = {entry: "Điểm vào", api: "API", service: "Nghiệp vụ", data: "Dữ liệu", infra: "Hạ tầng", ext: "Hệ thống ngoài"};
+const STATUS = {
+  ok: ["Đúng, có trong đáp án", "ok"], bad: ["Thừa, đáp án không có", "bad"], soft: ["Đáp án chấp nhận, không bắt buộc", "soft"],
+  miss: ["Thiếu, đáp án có mà pipeline không vẽ", "miss"], plain: ["Không chấm (trong cùng khối đáp án hoặc dùng chung)", "plain"]};
+const NW = 168, NH = 46, GAP = 28, ROWH = 118, PADL = 104, PADT = 22;
+const st = {repo: 0, run: null, view: "pipe", sel: null};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const f2 = x => x == null ? "–" : x.toFixed(2).replace(".", ",");
+const key = (a, b) => a + "→" + b;
+
+function judgedSets(run) {
+  const m = {};
+  for (const [k, list] of Object.entries(run.judged)) for (const [a, b] of list) m[key(a, b)] = k;
+  return m;
+}
+const J2S = {hits: "ok", wrong: "bad", not_counted: "soft", missed: "miss"};
+
+function pipelineGraph(run) {
+  const nodes = [], edges = [], J = judgedSets(run);
+  const shared = run.components.filter(c => c.shared);
+  for (const c of run.components) if (!c.shared)
+    nodes.push({id: c.id, label: c.name || c.key, meta: `${c.files.length} file · ${run.mapping[c.id] || "?"}`, layer: c.layer, info: c, kind: "comp"});
+  for (const x of run.externals)
+    nodes.push({id: x.id, label: x.name, meta: x.kind, layer: "ext", info: x, kind: "ext"});
+  const ids = new Set(nodes.map(n => n.id));
+  for (const e of run.edges) if (ids.has(e.s) && ids.has(e.t)) {
+    const a = run.mapping[e.s], b = run.mapping[e.t];
+    edges.push({s: e.s, t: e.t, label: e.label, quote: e.quote, status: J2S[J[key(a, b)]] || "plain", judged: [a, b]});
+  }
+  for (const x of run.externals) for (const e of x.edges) if (ids.has(e.s)) {
+    const a = run.mapping[e.s], b = "ext:" + x.kind;
+    edges.push({s: e.s, t: x.id, label: e.label, quote: e.quote, status: J2S[J[key(a, b)]] || "plain", judged: [a, b]});
+  }
+  return {nodes, edges, shared: shared.map(c => c.name || c.key)};
+}
+
+function oracleGraph(o, run) {
+  const nodes = [], edges = [], seen = new Set(), shared = new Set(o.shared);
+  const layerOf = Object.fromEntries(o.blocks.map(b => [b.key, b.layer]));
+  const add = k => {
+    if (seen.has(k)) return;
+    seen.add(k);
+    if (k.startsWith("ext:")) nodes.push({id: k, label: k.slice(4), meta: "hệ thống ngoài", layer: "ext", kind: "ext", info: {key: k}});
+    else { const b = o.blocks.find(x => x.key === k) || {key: k, layer: layerOf[k] || "service", paths: []};
+      nodes.push({id: k, label: k, meta: shared.has(k) ? "dùng chung" : `${b.paths.length} path`, layer: b.layer, kind: "oracle", info: b}); }
+  };
+  o.blocks.filter(b => !shared.has(b.key)).forEach(b => add(b.key));
+  const req = Object.fromEntries(o.required.map(e => [key(e.s, e.t), e]));
+  for (const [k, list] of Object.entries(run.judged)) for (const [a, b] of list) {
+    add(a); add(b);
+    const r = req[key(a, b)];
+    edges.push({s: a, t: b, status: J2S[k], label: r ? "cạnh bắt buộc" : (o.acceptable.find(x => x.s === a && x.t === b)?.label || ""),
+                quote: r?.quote || null, judged: [a, b]});
+  }
+  return {nodes, edges, shared: [...shared]};
+}
+
+function layout(g) {
+  const rows = LAYERS.map(l => g.nodes.filter(n => n.layer === l)).filter(r => r.length);
+  const pos = {};
+  const place = () => rows.forEach((r, i) => r.forEach((n, j) => pos[n.id] = {row: i, x: j}));
+  place();
+  const nb = {};
+  for (const e of g.edges) { (nb[e.s] ||= []).push(e.t); (nb[e.t] ||= []).push(e.s); }
+  for (let sweep = 0; sweep < 4; sweep++) {           // order each row by the mean position of its neighbours
+    for (const r of rows) {
+      const bc = n => { const xs = (nb[n.id] || []).map(m => pos[m]).filter(p => p && p.row !== pos[n.id].row).map(p => p.x / Math.max(1, rows[p.row].length - 1));
+        return xs.length ? xs.reduce((a, b) => a + b) / xs.length : pos[n.id].x / Math.max(1, r.length - 1); };
+      r.sort((a, b) => bc(a) - bc(b));
+    }
+    place();
+  }
+  const widest = Math.max(...rows.map(r => r.length));
+  const W = PADL + widest * (NW + GAP) + 24;
+  const box = {};
+  rows.forEach((r, i) => {
+    const span = r.length * (NW + GAP) - GAP, x0 = PADL + (widest * (NW + GAP) - GAP - span) / 2;
+    r.forEach((n, j) => box[n.id] = {x: x0 + j * (NW + GAP), y: PADT + i * ROWH, row: i});
+  });
+  return {rows, box, W, H: PADT + rows.length * ROWH - (ROWH - NH) + 34};
+}
+
+function ports(g, box) {
+  // spread the ends of the edges along each side of a box so lines do not stack
+  const side = new Map();                      // "node|t" or "node|b" -> [{e, end, other}]
+  const put = (id, s, e, end, other) => { const k = id + "|" + s; if (!side.has(k)) side.set(k, []); side.get(k).push({e, end, other}); };
+  for (const e of g.edges) {
+    const a = box[e.s], b = box[e.t];
+    if (!a || !b) continue;
+    const down = a.row < b.row, same = a.row === b.row;
+    put(e.s, down || same ? "b" : "t", e, "src", b);
+    put(e.t, down ? "t" : "b", e, "dst", a);
+  }
+  const at = new Map();
+  for (const [k, list] of side) {
+    const [id, s] = k.split("|"), bx = box[id], n = list.length;
+    list.sort((p, q) => p.other.x - q.other.x);
+    list.forEach((p, i) => {
+      const x = bx.x + NW * (0.15 + 0.7 * (n === 1 ? 0.5 : i / (n - 1)));
+      const cur = at.get(p.e) || {};
+      cur[p.end] = {x, y: s === "t" ? bx.y : bx.y + NH};
+      at.set(p.e, cur);
+    });
+  }
+  return at;
+}
+
+function draw() {
+  const repo = DATA.open[st.repo], run = repo.runs[st.run];
+  const g = st.view === "pipe" ? pipelineGraph(run) : oracleGraph(repo.oracle, run);
+  const L = layout(g), P = ports(g, L.box);
+  const svg = [`<svg id="svg" width="${L.W}" height="${L.H}" viewBox="0 0 ${L.W} ${L.H}" role="img" aria-label="Sơ đồ khối theo tầng"><defs>`];
+  for (const s of Object.keys(STATUS))
+    svg.push(`<marker id="m-${s}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L10,5 L0,9 z" class="mk-${s}"/></marker>`);
+  svg.push("</defs>");
+  L.rows.forEach((r, i) => {
+    const y = PADT + i * ROWH - 12;
+    svg.push(`<rect class="band" x="0" y="${y}" width="${L.W}" height="${NH + 24}" rx="0"/><text class="bandlbl" x="14" y="${y + NH / 2 + 16}">${LAYER_VI[r[0].layer]}</text>`);
+  });
+  g.edges.forEach((e, i) => {
+    const p = P.get(e); if (!p || !p.src || !p.dst) return;
+    const {x: x1, y: y1} = p.src, {x: x2, y: y2} = p.dst, a = L.box[e.s], b = L.box[e.t];
+    let d, up = a.row > b.row;
+    if (a.row === b.row) { const dip = 34 + Math.abs(x2 - x1) * 0.12; d = `M${x1},${y1} C${x1},${y1 + dip} ${x2},${y2 + dip} ${x2},${y2}`; }
+    else { const k = Math.max(30, Math.abs(y2 - y1) * 0.45) * (up ? -1 : 1); d = `M${x1},${y1} C${x1},${y1 + k} ${x2},${y2 - k} ${x2},${y2}`; }
+    svg.push(`<g class="edge s-${e.status}${up ? " up" : ""}" data-e="${i}" tabindex="0"><path class="vis" d="${d}" marker-end="url(#m-${e.status})"/><path class="hit" d="${d}"/></g>`);
+  });
+  for (const n of g.nodes) {
+    const b = L.box[n.id], lab = n.label.length > 22 ? n.label.slice(0, 21) + "…" : n.label;
+    svg.push(`<g class="node${n.kind === "ext" ? " ext" : ""}" data-n="${esc(n.id)}" tabindex="0"><rect x="${b.x}" y="${b.y}" width="${NW}" height="${NH}" rx="6"/>
+      <text x="${b.x + 10}" y="${b.y + 19}">${esc(lab)}</text><text class="meta" x="${b.x + 10}" y="${b.y + 36}">${esc(n.meta)}</text><title>${esc(n.label)}</title></g>`);
+  }
+  svg.push("</svg>");
+  $("canvas").innerHTML = svg.join("");
+  const el = $("svg");
+  const focus = id => { el.classList.toggle("focus", !!id);
+    el.querySelectorAll(".on").forEach(x => x.classList.remove("on"));
+    if (!id) return;
+    el.querySelector(`.node[data-n="${CSS.escape(id)}"]`)?.classList.add("on");
+    g.edges.forEach((e, i) => { if (e.s === id || e.t === id) { el.querySelector(`.edge[data-e="${i}"]`)?.classList.add("on");
+      for (const m of [e.s, e.t]) el.querySelector(`.node[data-n="${CSS.escape(m)}"]`)?.classList.add("on"); } }); };
+  el.querySelectorAll(".node").forEach(x => {
+    x.addEventListener("mouseenter", () => focus(x.dataset.n));
+    x.addEventListener("mouseleave", () => focus(st.sel?.node || null));
+    const pick = () => { st.sel = {node: x.dataset.n}; mark(el); focus(x.dataset.n); showNode(g.nodes.find(n => n.id === x.dataset.n), g); };
+    x.addEventListener("click", pick); x.addEventListener("keydown", ev => ev.key === "Enter" && pick());
+  });
+  el.querySelectorAll(".edge").forEach(x => {
+    const pick = () => { st.sel = {edge: +x.dataset.e}; mark(el); showEdge(g.edges[+x.dataset.e], g); };
+    x.addEventListener("click", pick); x.addEventListener("keydown", ev => ev.key === "Enter" && pick());
+  });
+  legend(g);
+  $("shared").innerHTML = g.shared.length ? `<span class="lbl" style="width:100%">Dùng chung (không vẽ cạnh)</span>` + g.shared.map(s => `<span class="chip">${esc(s)}</span>`).join("") : "";
+}
+
+function mark(el) {
+  el.querySelectorAll(".sel").forEach(x => x.classList.remove("sel"));
+  if (st.sel?.node) el.querySelector(`.node[data-n="${CSS.escape(st.sel.node)}"]`)?.classList.add("sel");
+  if (st.sel?.edge != null) el.querySelector(`.edge[data-e="${st.sel.edge}"]`)?.classList.add("sel");
+}
+
+function legend(g) {
+  const count = {};
+  g.edges.forEach(e => count[e.status] = (count[e.status] || 0) + 1);
+  const order = st.view === "pipe" ? ["ok", "soft", "bad", "plain"] : ["ok", "soft", "bad", "miss"];
+  $("side-title").textContent = st.view === "pipe" ? "Đường nối pipeline vẽ" : "Chấm theo khối đáp án";
+  $("side-note").textContent = st.view === "pipe"
+    ? "Khối là khối pipeline chia; dòng nhỏ dưới tên là số file và khối đáp án tương ứng. Màu cho biết cạnh đó đúng hay sai khi quy về khối đáp án."
+    : "Khối là khối đáp án. Cạnh pipeline vẽ được quy về khối đáp án; cạnh nét đứt màu cam là cạnh đáp án có mà pipeline bỏ sót.";
+  $("legend").innerHTML = order.map(s => `<div><svg width="34" height="10"><line x1="1" y1="5" x2="33" y2="5" class="${""}" style="stroke:var(--${ {ok: "ok", bad: "bad", miss: "miss", soft: "soft", plain: "accent"}[s]});stroke-width:2.2${s === "miss" ? ";stroke-dasharray:6 4" : ""}"/></svg>${STATUS[s][0]}<span class="n">${count[s] || 0}</span></div>`).join("")
+    + `<div><svg width="34" height="10"><line x1="1" y1="5" x2="33" y2="5" style="stroke:var(--muted);stroke-width:2;stroke-dasharray:2 3"/></svg>Nét chấm: cạnh đi ngược lên tầng trên</div>`;
+}
+
+function quoteHtml(q) {
+  if (!q) return `<div class="empty">Không có trích dẫn.</div>`;
+  return `<div class="where">${esc(q.file)}:${q.line ?? "?"}</div><code class="code">${esc(q.text)}</code>`;
+}
+function nameOf(g, id) { const n = g.nodes.find(x => x.id === id); return n ? n.label : id; }
+function showEdge(e, g) {
+  $("detail").innerHTML = `<div class="lbl">${esc(STATUS[e.status][0])}</div>
+    <div><b>${esc(nameOf(g, e.s))}</b> → <b>${esc(nameOf(g, e.t))}</b></div>
+    ${st.view === "pipe" ? `<div class="note">Quy về đáp án: <code>${esc(e.judged[0])} → ${esc(e.judged[1])}</code></div>` : ""}
+    ${e.label ? `<div>${esc(e.label)}</div>` : ""}${quoteHtml(e.quote)}`;
+}
+function showNode(n, g) {
+  const i = n.info || {};
+  let body = "";
+  if (n.kind === "comp") body = `<div class="note">Tầng ${esc(LAYER_VI[i.layer])} · khối đáp án <code>${esc(DATA.open[st.repo].runs[st.run].mapping[i.id] || "?")}</code></div>
+    ${i.role ? `<div>${esc(i.role)}</div>` : ""}${i.role_quote ? quoteHtml(i.role_quote) : ""}
+    <div class="lbl">${i.files.length} file</div><ul class="files">${i.files.map(f => `<li>${esc(f)}</li>`).join("")}</ul>`;
+  else if (n.kind === "oracle") body = `<div class="note">Tầng ${esc(LAYER_VI[i.layer] || i.layer)}. Dòng chứng minh tầng trong đáp án:</div>${quoteHtml(i.evidence)}
+    <div class="lbl">Path</div><ul class="files">${(i.paths || []).map(f => `<li>${esc(f)}</li>`).join("")}</ul>`;
+  else body = (i.edges || []).length ? `<div class="lbl">Dòng mở kết nối</div>` + i.edges.map(e => quoteHtml(e.quote)).join("") : `<div class="note">Hệ thống ngoài.</div>`;
+  const deg = g.edges.filter(e => e.s === n.id || e.t === n.id).length;
+  $("detail").innerHTML = `<div><b>${esc(n.label)}</b> <span class="chip">${deg} đường nối</span></div>${body}`;
+}
+
+function stats() {
+  const run = DATA.open[st.repo].runs[st.run], s = run.score;
+  const items = [["P nội bộ", f2(s.internal.precision)], ["Pk nội bộ", f2(s.internal.precision_strict)], ["R nội bộ", f2(s.internal.recall)],
+    ["P / R ngoài", `${f2(s.external.precision)} / ${f2(s.external.recall)}`], ["Khối", run.components.length],
+    ["Token", (run.tokens ?? 0).toLocaleString("vi-VN")], ["Vấn đề ghi lại", run.issues.length]];
+  $("stats").innerHTML = items.map(([k, v]) => `<div class="stat"><span class="lbl">${k}</span><b>${v}</b></div>`).join("")
+    + `<div class="stat" style="flex:1;min-width:200px"><span class="lbl">Lần chạy</span><div style="font-size:13px">${esc(run.note)} · ${esc(run.model || "")}</div></div>`;
+}
+
+function buttons() {
+  $("repos").innerHTML = DATA.open.map((r, i) => `<button aria-pressed="${i === st.repo}" data-i="${i}">${esc(r.name)}</button>`).join("");
+  const runs = Object.keys(DATA.open[st.repo].runs);
+  if (!runs.includes(st.run)) st.run = runs[runs.length - 1];
+  $("runs").innerHTML = runs.map(r => `<button aria-pressed="${r === st.run}" data-r="${r}">${esc(r)}</button>`).join("");
+  $("repos").querySelectorAll("button").forEach(b => b.onclick = () => { st.repo = +b.dataset.i; st.sel = null; render(); });
+  $("runs").querySelectorAll("button").forEach(b => b.onclick = () => { st.run = b.dataset.r; st.sel = null; render(); });
+}
+$("v-pipe").onclick = () => { st.view = "pipe"; st.sel = null; render(); };
+$("v-oracle").onclick = () => { st.view = "oracle"; st.sel = null; render(); };
+
+function closedTable() {
+  const rows = DATA.closed;
+  $("closed").innerHTML = `<tr><th>Repo</th><th>Lần chạy</th><th>Model</th><th style="text-align:right">P</th><th style="text-align:right">Pk</th><th style="text-align:right">R</th><th style="text-align:right">P / R ngoài</th><th style="text-align:right">Khối</th><th style="text-align:right">Token</th></tr>`
+    + (rows.length ? rows.map(r => `<tr><td>${esc(r.repo)}</td><td>${esc(r.run)}</td><td>${esc(r.model || "")}</td><td class="num">${f2(r.score.internal.precision)}</td><td class="num">${f2(r.score.internal.precision_strict)}</td><td class="num">${f2(r.score.internal.recall)}</td><td class="num">${f2(r.score.external.precision)} / ${f2(r.score.external.recall)}</td><td class="num">${r.blocks}</td><td class="num">${(r.tokens ?? 0).toLocaleString("vi-VN")}</td></tr>`).join("")
+      : `<tr><td colspan="9" class="note">Chưa có lần chạy repo kín nào xong.</td></tr>`);
+}
+
+function render() {
+  buttons();
+  $("v-pipe").setAttribute("aria-pressed", st.view === "pipe");
+  $("v-oracle").setAttribute("aria-pressed", st.view === "oracle");
+  stats(); draw();
+  $("detail").innerHTML = `<div class="empty">Bấm vào một khối hoặc một đường nối để xem trích dẫn file:dòng. Rê chuột vào khối để làm nổi các đường của nó.</div>`;
+}
+render(); closedTable();
+</script>

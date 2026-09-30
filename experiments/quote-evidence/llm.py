@@ -1,4 +1,5 @@
 """Groq chat client over plain HTTP: budget ledger, token-per-minute pacing, response cache.
+Also OpenRouter (same request shape): no pacing, no request cap, its own ledger with the cost in USD.
 
 The key travels only in the Authorization header. It is never written to the ledger, cache or output.
 """
@@ -16,6 +17,8 @@ MODEL = "openai/gpt-oss-120b"
 TPM = 8_000                 # free-tier tokens per minute
 REQUEST_CAP = 7_000         # estimated prompt + max completion; above TPM the provider refuses
 STATE = Path(__file__).resolve().parents[2] / "evaluation" / "quote-evidence"
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
 class BudgetExceeded(RuntimeError):
@@ -56,21 +59,22 @@ def _parse_error(error: dict) -> str:
     return str(error.get("message", ""))[:200]
 
 
-def load_key(env_file: Path) -> str:
-    key = os.environ.get("GROQ_API_KEY", "")
+def load_key(env_file: Path, name: str = "GROQ_API_KEY") -> str:
+    key = os.environ.get(name, "")
     if not key and env_file.exists():
         for line in env_file.read_text(encoding="utf-8-sig").splitlines():
-            if line.strip().startswith("GROQ_API_KEY") and "=" in line:
+            if line.strip().startswith(name) and "=" in line:
                 key = line.split("=", 1)[1].strip().strip('"').strip("'")
     if not key:
-        raise ModelError("GROQ_API_KEY missing; no request sent")
+        raise ModelError(f"{name} missing; no request sent")
     return key
 
 
 class Groq:
-    def __init__(self, key: str, budget: int, state: Path = STATE):
-        self.key, self.budget = key, budget
-        self.cache, self.usage = state / "cache", state / "usage.jsonl"
+    def __init__(self, key: str, budget: int, state: Path = STATE, model: str = MODEL, url: str = GROQ_URL):
+        self.key, self.budget, self.model, self.url = key, budget, model, url
+        self.open = url == OPENROUTER_URL   # OpenRouter: no pacing, no request cap, its own ledger
+        self.cache, self.usage = state / "cache", state / ("usage-openrouter.jsonl" if self.open else "usage.jsonl")
         self.cache.mkdir(parents=True, exist_ok=True)
         self.window: list[tuple[float, int]] = []
         self.calls: list[dict] = []
@@ -89,7 +93,7 @@ class Groq:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
 
     def _pace(self, need: int) -> None:
-        while True:
+        while not self.open:
             now = time.time()
             self.window = [(t, n) for t, n in self.window if now - t < 60]
             if not self.window or sum(n for _, n in self.window) + need <= TPM:
@@ -98,12 +102,16 @@ class Groq:
 
     def json(self, system: str, user: str, schema: dict, *, step: str, max_tokens: int) -> dict:
         est = estimate(system + user) + max_tokens
-        if est > REQUEST_CAP:
+        if est > REQUEST_CAP and not self.open:
             raise BudgetExceeded(f"{step}: request estimated at {est} tokens, above cap {REQUEST_CAP}")
-        body = {"model": MODEL, "temperature": 0, "reasoning_effort": "medium", "max_completion_tokens": max_tokens,
+        body = {"model": self.model, "temperature": 0, "max_completion_tokens": max_tokens,
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
                 "response_format": {"type": "json_schema",
                                     "json_schema": {"name": "out", "strict": True, "schema": schema}}}
+        if "gpt-oss" in self.model:
+            body["reasoning_effort"] = "medium"
+        if self.open:              # only providers that honour the schema; report the cost
+            body.update(max_tokens=max_tokens, provider={"require_parameters": True}, usage={"include": True})
         digest = hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:24]
         cached = self.cache / f"{digest}.json"
         if cached.exists():
@@ -123,6 +131,7 @@ class Groq:
                           "estimated": est, "prompt_tokens": usage.get("prompt_tokens", 0),
                           "completion_tokens": usage.get("completion_tokens", 0),
                           "total_tokens": usage.get("total_tokens", 0), "error": str(error.get("message", ""))[:200],
+                          **({"model": self.model, "usd": usage.get("cost", 0)} if self.open else {}),
                           **({"mode": "resent with the parse error"} if resent else {})})
             if status == 400:
                 (self.cache / f"error-{digest}-{attempt}.json").write_text(json.dumps(data, ensure_ascii=False),
@@ -154,7 +163,7 @@ class Groq:
             if status == 429 and attempt < 3:
                 time.sleep(float(headers.get("retry-after", "20")) + 1)
                 continue
-            if status == 400 and "failed_generation" in error and not error["failed_generation"]                     and body["reasoning_effort"] != "low":
+            if status == 400 and "failed_generation" in error and not error["failed_generation"]                     and body.get("reasoning_effort") == "medium":
                 # Nothing was written: the reasoning used up the completion budget. Retry with less reasoning.
                 body = {**body, "reasoning_effort": "low"}
                 self.calls[-1]["note"] = "empty answer; retry with reasoning_effort=low"
@@ -170,16 +179,16 @@ class Groq:
                 if est > REQUEST_CAP + 1000 or self.spent() + est > self.budget:
                     raise BudgetExceeded(f"{step}: resent request ({est} tokens) exceeds a cap")
                 continue
-            raise ModelError(f"{step}: Groq HTTP {status}: {str(error.get('message', ''))[:200]}")
+            raise ModelError(f"{step}: HTTP {status}: {str(error.get('message', ''))[:200]}")
         raise ModelError(f"{step}: out of retries")
 
     def _post(self, body: dict) -> tuple[int, dict, dict]:
-        req = urllib.request.Request("https://api.groq.com/openai/v1/chat/completions",
+        req = urllib.request.Request(self.url,
                                      data=json.dumps(body).encode(),
                                      headers={"Authorization": f"Bearer {self.key}", "Content-Type": "application/json",
                                               "User-Agent": "l3gen-quote-evidence/1"})
         try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
+            with urllib.request.urlopen(req, timeout=300 if self.open else 120) as resp:
                 return resp.status, dict(resp.headers), json.load(resp)
         except urllib.error.HTTPError as exc:
             try:
