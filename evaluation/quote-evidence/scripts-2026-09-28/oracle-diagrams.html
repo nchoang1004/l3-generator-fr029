@@ -1,0 +1,865 @@
+<title>Sơ đồ đáp án 8 repo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --ink: #1c2230; --muted: #5b6475; --line: #dde1e8;
+  --accent: #2f54c9; --accent-soft: #e6ecfb; --test: #1f7a55; --test-soft: #e3f3ec; --tune: #8a5a12; --tune-soft: #f7eedd;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #11151c; --surface: #171c25; --ink: #e5e8ef; --muted: #9aa3b5; --line: #2a3140;
+    --accent: #8fa8f5; --accent-soft: #1e2944; --test: #6fcf9f; --test-soft: #16322a; --tune: #e6b865; --tune-soft: #352912;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #11151c; --surface: #171c25; --ink: #e5e8ef; --muted: #9aa3b5; --line: #2a3140;
+  --accent: #8fa8f5; --accent-soft: #1e2944; --test: #6fcf9f; --test-soft: #16322a; --tune: #e6b865; --tune-soft: #352912;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.6 "Be Vietnam Pro", system-ui, sans-serif; }
+code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .86em; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; }
+h1 { font-size: clamp(1.6rem, 3vw, 2.2rem); line-height: 1.2; margin: 0 0 8px; text-wrap: balance; letter-spacing: -.01em; }
+.lede { color: var(--muted); max-width: 70ch; margin: 0; }
+.guide { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 32px; margin: 24px 0 8px;
+  padding: 20px 0; border-block: 1px solid var(--line); }
+.guide h3 { font-size: .95rem; margin: 0 0 6px; }
+.guide p, .guide li { color: var(--muted); font-size: .92rem; margin: 0; }
+.guide ul { margin: 0; padding-left: 18px; }
+.legend { display: grid; gap: 6px; }
+.legend div { display: flex; gap: 10px; align-items: center; font-size: .92rem; color: var(--muted); }
+.legend svg { flex: none; }
+nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); display: flex; flex-wrap: wrap;
+  gap: 6px; padding-block: 12px; border-bottom: 1px solid var(--line); }
+nav a { text-decoration: none; color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+  padding: 4px 10px; border-radius: 8px; font-weight: 500; font-size: .9rem; display: inline-flex; gap: 6px; align-items: baseline; }
+nav a span { color: var(--muted); font-weight: 400; font-size: .78rem; }
+nav a:hover, nav a:focus-visible { border-color: var(--accent); outline: none; }
+.repo { padding-block: 36px 8px; scroll-margin-top: 64px; }
+.repo-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: end; }
+.repo h2 { font-size: 1.35rem; margin: 0; }
+.meta { margin: 4px 0 0; color: var(--muted); font-size: .88rem; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.group { font-weight: 600; font-size: .78rem; padding: 1px 8px; border-radius: 8px; }
+.group-test { color: var(--test); background: var(--test-soft); }
+.group-tune { color: var(--tune); background: var(--tune-soft); }
+.counts { display: flex; flex-wrap: wrap; gap: 18px; margin: 0; }
+.counts div { display: grid; }
+.counts dt { color: var(--muted); font-size: .76rem; }
+.counts dd { margin: 0; font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: .92rem; max-width: 80ch; margin: 10px 0 0; }
+.diagram { margin-top: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px;
+  overflow-x: auto; }
+.diagram pre { margin: 0; min-width: 640px; }
+.exts { margin: 10px 0 0; font-size: .9rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip { background: var(--accent-soft); color: var(--accent); padding: 0 8px; border-radius: 8px; font-size: .84rem; }
+.split { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+@media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+summary { cursor: pointer; font-weight: 600; font-size: .93rem; }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.scroll { overflow-x: auto; max-height: 460px; overflow-y: auto; margin-top: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+th, td { text-align: left; vertical-align: top; padding: 6px 8px; }
+thead th { color: var(--muted); font-weight: 500; font-size: .8rem; position: sticky; top: 0; background: var(--surface); }
+tbody tr + tr { border-top: 1px solid var(--line); }
+tbody th { font-weight: 600; white-space: nowrap; }
+.acc { margin-top: 12px; }
+.acc summary { font-weight: 500; color: var(--muted); }
+.standard { padding-block: 8px 20px; }
+.standard h2 { font-size: 1.2rem; margin: 8px 0; }
+.standard h3 { font-size: 1rem; margin: 20px 0 4px; }
+.standard ol { margin: 0; padding-left: 20px; max-width: 90ch; color: var(--muted); }
+.standard li + li { margin-top: 4px; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.hint { color: var(--muted); font-size: .84rem; margin: 6px 0 0; }
+.acc-list { font-size: .86rem; line-height: 2; margin: 8px 0 0; }
+</style>
+
+<div class="wrap">
+  <h1>Sơ đồ đáp án dùng để chấm P và R</h1>
+  <p class="lede"><b>Sơ đồ của cả 8 repo là bản vẽ tay từ đọc source (28/09/2026)</b>, bản gốc ở <code>oracle/ve-tay/</code>. Đáp án đang nâng từ bản 2 lên bản 3 (28/09/2026). Bản 3 xếp mỗi khối vào một tầng, chỉ vẽ cạnh đi xuống, và bỏ cạnh chỉ truyền session hoặc chỉ kiểm tra rồi quay về. Repo chưa nâng thì vẽ như bản 2. Bản cũ giữ ở <code>oracle/rev1/</code>, <code>oracle/rev2/</code>.
+  Sơ đồ chỉ vẽ luồng xử lý (request, tác vụ nền, lệnh CLI). Cạnh lắp ráp (container DI, khởi động, tắt) có thật nhưng không vẽ, liệt kê riêng dưới mỗi sơ đồ. Nhãn khối ghi số file, không phải một file đại diện.</p>
+
+  <div class="guide">
+    <div class="legend">
+      <h3>Cách đọc sơ đồ</h3>
+      <div><svg width="46" height="10" aria-hidden="true"><line x1="0" y1="5" x2="38" y2="5" stroke="currentColor" stroke-width="1.5"/><path d="M38 1 L46 5 L38 9 Z" fill="currentColor"/></svg>Cạnh bắt buộc, có import chứng minh</div>
+      <div><svg width="46" height="10" aria-hidden="true"><line x1="0" y1="5" x2="38" y2="5" stroke="currentColor" stroke-width="4"/><path d="M38 0 L46 5 L38 10 Z" fill="currentColor"/></svg>Cạnh bắt buộc không qua import (pipeline chỉ dựa import sẽ không thấy)</div>
+      <p>Hình trụ là hệ thống ngoài (cơ sở dữ liệu, Redis, SMTP...). Khung "Dùng chung" gồm cấu hình, log, lỗi, hằng số, helper: sơ đồ không vẽ cạnh tới chúng.</p>
+      <p>Bản 3: khung là tầng, từ trên xuống: Điểm vào, API, Nghiệp vụ, Dữ liệu, Hạ tầng, Hệ thống ngoài. Khối viền nét đứt không có cạnh luồng.</p>
+    </div>
+    <div>
+      <h3>Cách chấm</h3>
+      <ul>
+        <li>Mỗi khối AI tạo ra được coi là khối đáp án có nhiều file chung nhất với nó.</li>
+        <li>Cạnh AI vẽ trùng cạnh bắt buộc là <b>đúng</b>; trùng cạnh "chấp nhận được" thì <b>không tính</b>; còn lại là <b>sai</b>.</li>
+        <li>P = đúng / (đúng + sai). P khắt khe tính cả cạnh "chấp nhận được" là sai. R = đúng / số cạnh bắt buộc.</li>
+        <li>Tiêu chí đạt: P ≥ 0,8, R ≥ 0,6, trích dẫn hợp lệ ≥ 90%.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Hai nhóm repo</h3>
+      <p><b>Nhóm chỉnh</b> dùng để sửa prompt và code. <b>Nhóm kiểm</b> dùng để kết luận pipeline có tái lập được trên repo lạ không. Tất cả đều là FastAPI.</p>
+    </div>
+  </div>
+
+  <section class="standard">
+    <h2>Chuẩn đáp án bản 3</h2>
+    <ol>
+      <li>Giữ luồng chính (route, service, truy cập dữ liệu, DB và hệ thống ngoài) và cả luồng phụ (CLI, trang admin, worker, plugin). Chỉ bỏ phần không thuộc luồng nào, ví dụ file không ai dùng. Chỉ vẽ cạnh luồng xử lý; cạnh lắp ráp ghi riêng với nhãn wiring.</li>
+      <li>Khối không cần trùng thư mục. Gộp khối cùng tầng, cùng cơ chế: 6 plugin nạp chung một vòng lặp là một khối; application và domain của một tính năng là một khối service; crud và models là một khối dữ liệu.</li>
+      <li>Khối dùng chung ghi rõ trong trường <code>shared</code> và không có cạnh.</li>
+      <li>Mỗi cạnh bắt buộc có <code>file:dòng</code>. Cạnh không qua import chỉ giữ khi thuộc luồng chính và không có đường import thay thế.</li>
+      <li>Cạnh "chấp nhận được" do code sinh: mọi cạnh import thật giữa hai khối không dùng chung mà không nằm trong danh sách bắt buộc. Cạnh tới hệ thống ngoài phụ thì ghi tay.</li>
+      <li>Mỗi khối không dùng chung thuộc một tầng (Điểm vào, API, Nghiệp vụ, Dữ liệu, Hạ tầng), kèm một dòng code làm bằng chứng. Worker tác vụ nền ở tầng Nghiệp vụ.</li>
+      <li>Sơ đồ chỉ đi một chiều, từ tầng trên xuống. Không vẽ: cạnh đi lên (up), cạnh chỉ nhận hoặc mở session rồi truyền đi (pass), cạnh kiểm tra token, quyền, session rồi quay về (check). Các cạnh này liệt kê dưới sơ đồ.</li>
+    </ol>
+    <h3>Điểm các lần chạy cũ theo các bản đáp án</h3>
+    <p class="note">Cạnh nội bộ, cùng kết quả chạy, chỉ đổi đáp án. Ba repo nhóm chỉnh là lần chạy của phiên bản pipeline cũ. Cột bản 3 để trống khi repo chưa nâng.</p>
+    <div class="scroll"><table class="scores"><thead><tr><th>Repo</th><th>Nhóm</th><th>Lần chạy</th>
+      <th class=num>Bản 1 P</th><th class=num>Pk</th><th class=num>R</th><th class=num>Bản 2 P</th><th class=num>Pk</th><th class=num>R</th>
+      <th class=num>Bản 3 P</th><th class=num>Pk</th><th class=num>R</th></tr></thead>
+      <tbody><tr><th scope=row>rhoboro</th><td>kiểm</td><td><code>v4-rhoboro</code></td><td class=num>1,00</td><td class=num>1,00</td><td class=num>1,00</td><td class=num>1,00</td><td class=num>1,00</td><td class=num>1,00</td><td class=num>-</td><td class=num>-</td><td class=num>-</td></tr><tr><th scope=row>teamhide</th><td>kiểm</td><td><code>v3-teamhide</code></td><td class=num>0,64</td><td class=num>0,56</td><td class=num>0,39</td><td class=num>0,69</td><td class=num>0,69</td><td class=num>0,69</td><td class=num>-</td><td class=num>-</td><td class=num>-</td></tr><tr><th scope=row>boilerplate</th><td>kiểm</td><td><code>v3-boilerplate</code></td><td class=num>1,00</td><td class=num>0,88</td><td class=num>0,97</td><td class=num>1,00</td><td class=num>0,74</td><td class=num>1,00</td><td class=num>-</td><td class=num>-</td><td class=num>-</td></tr><tr><th scope=row>lnbits</th><td>kiểm</td><td><code>v5-lnbits</code></td><td class=num>0,35</td><td class=num>0,21</td><td class=num>0,48</td><td class=num>0,42</td><td class=num>0,26</td><td class=num>0,50</td><td class=num>-</td><td class=num>-</td><td class=num>-</td></tr><tr><th scope=row>fba</th><td>kiểm</td><td><code>v6-fba</code></td><td class=num>0,14</td><td class=num>0,12</td><td class=num>0,27</td><td class=num>0,36</td><td class=num>0,30</td><td class=num>0,43</td><td class=num>0,28</td><td class=num>0,22</td><td class=num>0,40</td></tr><tr><th scope=row>fullstack</th><td>chỉnh</td><td><code>fullstack-r4</code></td><td class=num>1,00</td><td class=num>0,62</td><td class=num>1,00</td><td class=num>1,00</td><td class=num>0,62</td><td class=num>1,00</td><td class=num>-</td><td class=num>-</td><td class=num>-</td></tr><tr><th scope=row>realworld</th><td>chỉnh</td><td><code>realworld-r1</code></td><td class=num>0,75</td><td class=num>0,50</td><td class=num>1,00</td><td class=num>0,79</td><td class=num>0,46</td><td class=num>1,00</td><td class=num>-</td><td class=num>-</td><td class=num>-</td></tr><tr><th scope=row>kibo</th><td>chỉnh</td><td><code>kibo-r3</code></td><td class=num>1,00</td><td class=num>0,48</td><td class=num>1,00</td><td class=num>1,00</td><td class=num>0,55</td><td class=num>1,00</td><td class=num>-</td><td class=num>-</td><td class=num>-</td></tr></tbody></table></div>
+  </section>
+
+  <nav aria-label="Chọn repo"><a href="#rhoboro">rhoboro<span>kiểm</span></a><a href="#teamhide">teamhide<span>kiểm</span></a><a href="#boilerplate">boilerplate<span>kiểm</span></a><a href="#lnbits">lnbits<span>kiểm</span></a><a href="#fba">fba<span>kiểm</span></a><a href="#fullstack">fullstack<span>chỉnh</span></a><a href="#realworld">realworld<span>chỉnh</span></a><a href="#kibo">kibo<span>chỉnh</span></a></nav>
+  
+<section id="rhoboro" class="repo">
+  <header class="repo-head">
+    <div>
+      <h2>rhoboro/async-fastapi-sqlalchemy</h2>
+      <p class="meta"><span class="group group-test">Nhóm kiểm</span>
+        <span>Bản 2</span> <code>commit 6c08827241e973</code>
+        · viết 26/09/2026 | rev 2 28/09/2026 (chuẩn đáp án bản 2) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)</p>
+    </div>
+    <dl class="counts">
+      <div><dt>Khối</dt><dd>7</dd></div>
+      <div><dt>Dùng chung</dt><dd>1</dd></div>
+      <div><dt>Hệ thống ngoài</dt><dd>1</dd></div>
+      <div><dt>Cạnh luồng</dt><dd>8</dd></div>
+      <div><dt>Lắp ráp (không vẽ)</dt><dd>0</dd></div>
+      <div><dt>Không qua import</dt><dd>0</dd></div>
+      <div><dt>Chấp nhận được</dt><dd>3</dd></div>
+    </dl>
+  </header>
+  
+  <p class="note"><b>Sơ đồ vẽ tay từ đọc source (28/09).</b> 5 cạnh, chỉ đi từ trên xuống. Các ô đếm và các bảng cuối mục là đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart TB
+  subgraph L_entry[&quot;Điểm vào&quot;]
+    app[&quot;&lt;b&gt;App&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/main.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_api[&quot;API&quot;]
+    routes[&quot;&lt;b&gt;API routes&lt;/b&gt;&lt;br/&gt;&lt;small&gt;api/main.py, notes/views.py, notebooks/views.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_service[&quot;Nghiệp vụ&quot;]
+    use_cases[&quot;&lt;b&gt;Use cases&lt;/b&gt;&lt;br/&gt;&lt;small&gt;notes/use_cases.py, notebooks/use_cases.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_data[&quot;Dữ liệu&quot;]
+    models[&quot;&lt;b&gt;Models&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/models: ORM và truy vấn&lt;/small&gt;&quot;]
+  end
+  subgraph L_infra[&quot;Hạ tầng&quot;]
+    db[&quot;&lt;b&gt;Session DB&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/db.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_ext[&quot;Hệ thống ngoài&quot;]
+    x_db[(&quot;PostgreSQL&quot;)]
+  end
+  subgraph shared[&quot;Dùng chung, không vẽ cạnh&quot;]
+    common[&quot;&lt;small&gt;app/settings.py&lt;/small&gt;&quot;]
+  end
+  L_entry ~~~ L_api
+  L_api ~~~ L_service
+  L_service ~~~ L_data
+  L_data ~~~ L_infra
+  L_infra ~~~ L_ext
+
+  app --&gt;|định tuyến| routes
+  routes --&gt;|gọi| use_cases
+  use_cases --&gt;|đọc, ghi| models
+  models --&gt;|truy vấn| db
+  db --&gt; x_db
+  </pre></div>
+  <div class="split">
+    <details open><summary>Cạnh của sơ đồ vẽ tay và bằng chứng (5)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng</th></tr></thead><tbody><tr><td>App</td><td>API routes</td><td><code>main.py:8 app.include_router(api_router, prefix=&quot;/api&quot;)</code></td></tr><tr><td>API routes</td><td>Use cases</td><td><code>api/notes/views.py:24 return await use_case.execute(data.notebook_id, data.title, data.content)</code></td></tr><tr><td>Use cases</td><td>Models</td><td><code>api/notes/use_cases.py:18 note = await Note.create(session, notebook.id, title, content)</code></td></tr><tr><td>Models</td><td>Session DB</td><td><code>models/notes.py:45 return await session.scalar(stmt.order_by(cls.id))</code></td></tr><tr><td>Session DB</td><td>PostgreSQL</td><td><code>db.py:12 async_engine = create_async_engine(</code></td></tr></tbody></table></div></details>
+    <details open><summary>Không vẽ, và vì sao</summary>
+      <div class="scroll"><table><tbody><tr><td>Use case nhận <code>async_sessionmaker</code> qua <code>Depends(get_session)</code>, tự mở <code>begin()</code> rồi truyền session cho model</td><td>Chỉ truyền đi (<code>pass</code>). Cạnh tới DB vẽ ở Models, nơi chạy truy vấn</td></tr><tr><td><code>schema.py</code> của từng tính năng, <code>models/schema.py</code></td><td>Chỉ dùng làm kiểu</td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Chỗ phải chọn khi vẽ</summary><ul><li><b>Gộp notes và notebooks</b> ở mỗi tầng: hai tính năng cùng tầng, cùng cơ chế. Thư mục <code>api/notes/</code> bị tách theo tầng: <code>views.py</code> ở API, <code>use_cases.py</code> ở Nghiệp vụ.</li><li><b>Models ở tầng Dữ liệu</b>, vì model tự chạy truy vấn (<code>Note.create</code>, <code>read_by_id</code>); repo không có lớp CRUD riêng.</li></ul></details>
+  <p class="note">Phần dưới: đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <p class="exts">Hệ thống ngoài: <span class="chip">database</span></p>
+  <div class="split">
+    <details open><summary>Cạnh bắt buộc và bằng chứng (8)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng trong code</th></tr></thead>
+      <tbody><tr><td><code>entry</code></td><td><code>api_router</code></td><td>main.py:8 app.include_router(api_router)</td></tr><tr><td><code>api_router</code></td><td><code>notes</code></td><td>api/main.py:7 include_router(notes_router)</td></tr><tr><td><code>api_router</code></td><td><code>notebooks</code></td><td>api/main.py:8 include_router(notebooks_router)</td></tr><tr><td><code>notes</code></td><td><code>db</code></td><td>notes/use_cases.py:10 session: AsyncSession (Depends(get_session))</td></tr><tr><td><code>notebooks</code></td><td><code>db</code></td><td>notebooks/use_cases.py:10 session: AsyncSession</td></tr><tr><td><code>notes</code></td><td><code>models</code></td><td>notes/use_cases.py:18 Note.create(session, ...) - model tự truy vấn</td></tr><tr><td><code>notebooks</code></td><td><code>models</code></td><td>notebooks/use_cases.py Notebook.read_by_id</td></tr><tr><td><code>db</code></td><td><code>ext:database</code></td><td>db.py:12 create_async_engine(settings.DB_URI)</td></tr></tbody></table></div></details>
+    <details><summary>Khối và thành viên (7)</summary>
+      <p class="hint">Đường dẫn là danh sách thành viên: thư mục nghĩa là mọi file trong đó. Cột số là số file có nội dung.</p>
+      <div class="scroll"><table><tbody><tr><th scope=row>entry</th><td class=num>1</td><td><code>app/main.py</code></td></tr><tr><th scope=row>api_router</th><td class=num>1</td><td><code>app/api/main.py</code></td></tr><tr><th scope=row>notes</th><td class=num>3</td><td><code>app/api/notes/</code></td></tr><tr><th scope=row>notebooks</th><td class=num>3</td><td><code>app/api/notebooks/</code></td></tr><tr><th scope=row>db</th><td class=num>1</td><td><code>app/db.py</code></td></tr><tr><th scope=row>settings</th><td class=num>1</td><td><code>app/settings.py</code></td></tr><tr><th scope=row>models</th><td class=num>5</td><td><code>app/models/</code></td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Cạnh lắp ráp, có thật nhưng không vẽ (0)</summary><div class="scroll"><table><tbody></tbody></table></div></details>
+  <details class="acc"><summary>Cạnh "chấp nhận được" (3): vẽ ra không bị trừ điểm P thường, bị tính sai ở P khắt khe</summary>
+    <p class="acc-list"><code>notes → ext:database</code>, <code>notebooks → ext:database</code>, <code>models → ext:database</code></p></details>
+</section>
+<section id="teamhide" class="repo">
+  <header class="repo-head">
+    <div>
+      <h2>teamhide/fastapi-boilerplate</h2>
+      <p class="meta"><span class="group group-test">Nhóm kiểm</span>
+        <span>Bản 2</span> <code>commit df4e6d4f817ec1</code>
+        · viết 28/09/2026 (rev 2, chuẩn đáp án bản 2; rev 1 ở oracle/rev1/) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)</p>
+    </div>
+    <dl class="counts">
+      <div><dt>Khối</dt><dd>15</dd></div>
+      <div><dt>Dùng chung</dt><dd>2</dd></div>
+      <div><dt>Hệ thống ngoài</dt><dd>3</dd></div>
+      <div><dt>Cạnh luồng</dt><dd>16</dd></div>
+      <div><dt>Lắp ráp (không vẽ)</dt><dd>8</dd></div>
+      <div><dt>Không qua import</dt><dd>0</dd></div>
+      <div><dt>Chấp nhận được</dt><dd>2</dd></div>
+    </dl>
+  </header>
+  <p class="note">Kiến trúc lục giác. Mỗi tính năng tách api / service (application + domain) / persistence. main.py chỉ chạy uvicorn với chuỗi &#x27;app.server:app&#x27; nên gộp vào server. core/repository (BaseRepo) không được dùng ở đâu nên để ngoài đáp án. Dependency Logging không làm gì nên cạnh tới web_deps từ server không bắt buộc.</p>
+  <p class="note"><b>Sơ đồ vẽ tay từ đọc source (28/09).</b> 11 cạnh, chỉ đi từ trên xuống. Các ô đếm và các bảng cuối mục là đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart TB
+  subgraph L_entry[&quot;Điểm vào&quot;]
+    app[&quot;&lt;b&gt;App, DI container&lt;/b&gt;&lt;br/&gt;&lt;small&gt;main.py, app/server.py, app/container.py&lt;/small&gt;&quot;]
+    mw[&quot;&lt;b&gt;Middleware&lt;/b&gt;&lt;br/&gt;&lt;small&gt;auth JWT, session SQLAlchemy, log&lt;/small&gt;&quot;]
+  end
+  subgraph L_api[&quot;API&quot;]
+    routes[&quot;&lt;b&gt;API routes&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/user, app/auth: adapter/input; core/fastapi/dependencies&lt;/small&gt;&quot;]
+  end
+  subgraph L_service[&quot;Nghiệp vụ&quot;]
+    user_svc[&quot;&lt;b&gt;User service&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/user: application, domain&lt;/small&gt;&quot;]
+    jwt_svc[&quot;&lt;b&gt;JWT service&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/auth: application, domain&lt;/small&gt;&quot;]
+  end
+  subgraph L_data[&quot;Dữ liệu&quot;]
+    persist[&quot;&lt;b&gt;User persistence&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/user/adapter/output&lt;/small&gt;&quot;]
+  end
+  subgraph L_infra[&quot;Hạ tầng&quot;]
+    db[&quot;&lt;b&gt;Session DB&lt;/b&gt;&lt;br/&gt;&lt;small&gt;core/db: engine ghi, đọc; Transactional&lt;/small&gt;&quot;]
+    cache[&quot;&lt;b&gt;Redis, cache&lt;/b&gt;&lt;br/&gt;&lt;small&gt;core/helpers/redis.py, cache; chưa luồng nào gọi&lt;/small&gt;&quot;]
+    celery[&quot;&lt;b&gt;Celery&lt;/b&gt;&lt;br/&gt;&lt;small&gt;celery_task; chưa có task&lt;/small&gt;&quot;]
+  end
+  subgraph L_ext[&quot;Hệ thống ngoài&quot;]
+    x_db[(&quot;MySQL ghi, đọc&quot;)]
+    x_redis[(&quot;Redis&quot;)]
+    x_broker[(&quot;Broker&quot;)]
+  end
+  subgraph shared[&quot;Dùng chung, không vẽ cạnh&quot;]
+    common[&quot;&lt;small&gt;core/config.py, core/exceptions, core/helpers/token.py&lt;/small&gt;&quot;]
+  end
+  L_entry ~~~ L_api
+  L_api ~~~ L_service
+  L_service ~~~ L_data
+  L_data ~~~ L_infra
+  L_infra ~~~ L_ext
+
+  app --&gt;|gắn middleware| mw
+  app --&gt;|định tuyến| routes
+  mw --&gt;|mở, đóng session theo request| db
+  routes --&gt;|gọi| user_svc
+  routes --&gt;|gọi| jwt_svc
+  user_svc --&gt;|đọc, ghi user| persist
+  user_svc --&gt;|commit giao dịch| db
+  persist --&gt;|truy vấn| db
+  db --&gt; x_db
+  cache --&gt; x_redis
+  celery --&gt; x_broker
+  </pre></div>
+  <div class="split">
+    <details open><summary>Cạnh của sơ đồ vẽ tay và bằng chứng (11)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng</th></tr></thead><tbody><tr><td>App</td><td>Middleware</td><td><code>app/server.py:66 Middleware(SQLAlchemyMiddleware),</code> (gắn ở <code>app/server.py:84 middleware=make_middleware(),</code>)</td></tr><tr><td>App</td><td>API routes</td><td><code>app/server.py:25 app_.include_router(user_router)</code></td></tr><tr><td>Middleware</td><td>Session DB</td><td><code>core/fastapi/middlewares/sqlalchemy.py:21 await session.remove()</code> (mở ở dòng 14 <code>set_session_context(...)</code>)</td></tr><tr><td>API routes</td><td>User service</td><td><code>app/user/adapter/input/api/v1/user.py:26 return await usecase.get_user_list(limit=limit, prev=prev)</code></td></tr><tr><td>API routes</td><td>JWT service</td><td><code>app/auth/adapter/input/api/v1/auth.py:24 token = await usecase.create_refresh_token(</code></td></tr><tr><td>User service</td><td>User persistence</td><td><code>app/user/application/service/user.py:26 return await self.repository.get_users(limit=limit, prev=prev)</code></td></tr><tr><td>User service</td><td>Session DB</td><td><code>app/user/application/service/user.py:28 @Transactional()</code> (commit ở <code>core/db/transactional.py:12 await session.commit()</code>)</td></tr><tr><td>User persistence</td><td>Session DB</td><td><code>app/user/adapter/output/persistence/sqlalchemy/user.py:25 result = await read_session.execute(query)</code></td></tr><tr><td>Session DB</td><td>MySQL</td><td><code>core/db/session.py:38 EngineType.WRITER: create_async_engine(config.WRITER_DB_URL, pool_recycle=3600),</code></td></tr><tr><td>Redis, cache</td><td>Redis</td><td><code>core/helpers/redis.py:5 redis_client = redis.from_url(url=f&quot;redis://{config.REDIS_HOST}&quot;, decode_responses=True)</code></td></tr><tr><td>Celery</td><td>Broker</td><td><code>celery_task/__init__.py:5 celery_app = Celery(</code> (dòng 8 <code>broker=config.CELERY_BROKER_URL</code>)</td></tr></tbody></table></div></details>
+    <details open><summary>Không vẽ, và vì sao</summary>
+      <div class="scroll"><table><tbody><tr><td>Container DI: <code>Factory(UserService, ...)</code>, <code>Singleton(UserSQLAlchemyRepo)</code>, <code>Provide[Container.user_service]</code></td><td>Lắp ráp (<code>wiring</code>)</td></tr><tr><td><code>Cache.init(backend=RedisBackend(), ...)</code> trong <code>create_app</code></td><td>Lắp ráp (<code>wiring</code>)</td></tr><tr><td>Middleware auth giải mã JWT; <code>PermissionDependency([IsAdmin])</code> gọi <code>usecase.is_admin</code></td><td>Kiểm rồi quay về (<code>check</code>)</td></tr><tr><td><code>ResponseLogMiddleware</code>, dependency <code>Logging</code> (không làm gì)</td><td>Log nội bộ</td></tr><tr><td>Service gọi <code>TokenHelper.encode</code>, <code>decode</code></td><td>Helper thuần, xếp dùng chung</td></tr><tr><td><code>core/repository/base.py</code> (<code>BaseRepo</code>)</td><td>Không ai dùng</td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Chỗ phải chọn khi vẽ</summary><ul><li><b>Container DI gộp vào App.</b> Container chỉ lắp service với repository. Người mới cần biết nó tồn tại, không cần thấy cạnh của nó.</li><li><b>Middleware có cạnh tới Session DB.</b> Repo này dùng session theo ngữ cảnh request: middleware mở và <code>remove()</code> session, service commit qua <code>@Transactional</code>. Không có cạnh này thì không hiểu session từ đâu ra.</li><li><b>User service và JWT service tách riêng.</b> Cùng tầng, nhưng chỉ User service chạm dữ liệu; JWT service chỉ ký và giải mã token.</li><li><b>Redis, cache và Celery vẫn vẽ</b>, kèm cạnh tới hệ thống ngoài, và ghi rõ &quot;chưa luồng nào gọi&quot;. Repo có cấu hình, nhưng không route hay service nào dùng cache hoặc gửi task.</li><li><b>Hai engine ghi và đọc</b> gộp một hệ thống ngoài &quot;MySQL ghi, đọc&quot;.</li></ul></details>
+  <p class="note">Phần dưới: đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <p class="exts">Hệ thống ngoài: <span class="chip">mysql</span> <span class="chip">redis</span> <span class="chip">broker</span></p>
+  <div class="split">
+    <details open><summary>Cạnh bắt buộc và bằng chứng (16)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng trong code</th></tr></thead>
+      <tbody><tr><td><code>server</code></td><td><code>user_api</code></td><td>app/server.py:25 app_.include_router(user_router)</td></tr><tr><td><code>server</code></td><td><code>auth_api</code></td><td>app/server.py:26 app_.include_router(auth_router)</td></tr><tr><td><code>server</code></td><td><code>middlewares</code></td><td>app/server.py:61-67 Middleware(AuthenticationMiddleware / SQLAlchemyMiddleware / ResponseLogMiddleware)</td></tr><tr><td><code>user_api</code></td><td><code>user_service</code></td><td>app/user/adapter/input/api/v1/user.py:26 await usecase.get_user_list(...)</td></tr><tr><td><code>user_api</code></td><td><code>web_deps</code></td><td>app/user/adapter/input/api/v1/user.py:18 Depends(PermissionDependency([IsAdmin]))</td></tr><tr><td><code>auth_api</code></td><td><code>auth_service</code></td><td>app/auth/adapter/input/api/v1/auth.py:24 await usecase.create_refresh_token(...)</td></tr><tr><td><code>web_deps</code></td><td><code>user_service</code></td><td>core/fastapi/dependencies/permission.py:43 usecase: UserUseCase (kiểm quyền admin)</td></tr><tr><td><code>user_service</code></td><td><code>user_persistence</code></td><td>app/user/application/service/user.py:17 repository: UserRepositoryAdapter</td></tr><tr><td><code>user_service</code></td><td><code>token</code></td><td>app/user/application/service/user.py:64 TokenHelper.encode(...)</td></tr><tr><td><code>user_service</code></td><td><code>db</code></td><td>app/user/application/service/user.py:28 @Transactional()</td></tr><tr><td><code>auth_service</code></td><td><code>token</code></td><td>app/auth/application/service/jwt.py:14 TokenHelper.decode(token=token)</td></tr><tr><td><code>user_persistence</code></td><td><code>db</code></td><td>app/user/adapter/output/persistence/sqlalchemy/user.py:24 session_factory()</td></tr><tr><td><code>middlewares</code></td><td><code>db</code></td><td>core/fastapi/middlewares/sqlalchemy.py:14 set_session_context(session_id=...)</td></tr><tr><td><code>db</code></td><td><code>ext:mysql</code></td><td>core/db/session.py:38 create_async_engine(config.WRITER_DB_URL)</td></tr><tr><td><code>cache</code></td><td><code>ext:redis</code></td><td>core/helpers/redis.py:5 redis.from_url(url=f&quot;redis://{config.REDIS_HOST}&quot;)</td></tr><tr><td><code>celery</code></td><td><code>ext:broker</code></td><td>celery_task/__init__.py:5 Celery(broker=config.CELERY_BROKER_URL)</td></tr></tbody></table></div></details>
+    <details><summary>Khối và thành viên (15)</summary>
+      <p class="hint">Đường dẫn là danh sách thành viên: thư mục nghĩa là mọi file trong đó. Cột số là số file có nội dung.</p>
+      <div class="scroll"><table><tbody><tr><th scope=row>server</th><td class=num>2</td><td><code>main.py</code><br><code>app/server.py</code></td></tr><tr><th scope=row>container</th><td class=num>2</td><td><code>app/container.py</code><br><code>app/user/container.py</code></td></tr><tr><th scope=row>auth_api</th><td class=num>4</td><td><code>app/auth/adapter/</code></td></tr><tr><th scope=row>auth_service</th><td class=num>4</td><td><code>app/auth/application/</code><br><code>app/auth/domain/</code></td></tr><tr><th scope=row>user_api</th><td class=num>4</td><td><code>app/user/adapter/input/</code></td></tr><tr><th scope=row>user_service</th><td class=num>8</td><td><code>app/user/application/</code><br><code>app/user/domain/</code></td></tr><tr><th scope=row>user_persistence</th><td class=num>2</td><td><code>app/user/adapter/output/</code></td></tr><tr><th scope=row>web_deps</th><td class=num>3</td><td><code>core/fastapi/dependencies/</code></td></tr><tr><th scope=row>middlewares</th><td class=num>4</td><td><code>core/fastapi/middlewares/</code></td></tr><tr><th scope=row>token</th><td class=num>1</td><td><code>core/helpers/token.py</code></td></tr><tr><th scope=row>db</th><td class=num>5</td><td><code>core/db/</code></td></tr><tr><th scope=row>cache</th><td class=num>9</td><td><code>core/helpers/cache/</code><br><code>core/helpers/redis.py</code></td></tr><tr><th scope=row>celery</th><td class=num>1</td><td><code>celery_task/</code></td></tr><tr><th scope=row>config</th><td class=num>1</td><td><code>core/config.py</code></td></tr><tr><th scope=row>exceptions</th><td class=num>2</td><td><code>core/exceptions/</code></td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Cạnh lắp ráp, có thật nhưng không vẽ (8)</summary><div class="scroll"><table><tbody><tr><td><code>server</code></td><td><code>container</code></td><td>app/server.py:22 container = Container()</td></tr><tr><td><code>server</code></td><td><code>cache</code></td><td>app/server.py:73 Cache.init(backend=RedisBackend(), key_maker=CustomKeyMaker())</td></tr><tr><td><code>user_api</code></td><td><code>container</code></td><td>app/user/adapter/input/api/v1/user.py:24 Depends(Provide[Container.user_service])</td></tr><tr><td><code>auth_api</code></td><td><code>container</code></td><td>app/auth/adapter/input/api/v1/auth.py:22 Depends(Provide[Container.jwt_service])</td></tr><tr><td><code>container</code></td><td><code>user_service</code></td><td>app/container.py:15 user_service = Factory(UserService, ...)</td></tr><tr><td><code>container</code></td><td><code>user_persistence</code></td><td>app/container.py:13-14 Singleton(UserSQLAlchemyRepo), Factory(UserRepositoryAdapter)</td></tr><tr><td><code>container</code></td><td><code>auth_service</code></td><td>app/container.py:17 jwt_service = Factory(JwtService)</td></tr><tr><td><code>web_deps</code></td><td><code>container</code></td><td>core/fastapi/dependencies/permission.py:43 Depends(Provide[Container.user_service])</td></tr></tbody></table></div></details>
+  <details class="acc"><summary>Cạnh "chấp nhận được" (2): vẽ ra không bị trừ điểm P thường, bị tính sai ở P khắt khe</summary>
+    <p class="acc-list"><code>server → web_deps</code>, <code>user_persistence → user_service</code></p></details>
+</section>
+<section id="boilerplate" class="repo">
+  <header class="repo-head">
+    <div>
+      <h2>igorbenav/FastAPI-boilerplate</h2>
+      <p class="meta"><span class="group group-test">Nhóm kiểm</span>
+        <span>Bản 2</span> <code>commit 765efecb466e34</code>
+        · viết 28/09/2026 (rev 2, chuẩn đáp án bản 2; rev 1 ở oracle/rev1/) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)</p>
+    </div>
+    <dl class="counts">
+      <div><dt>Khối</dt><dd>18</dd></div>
+      <div><dt>Dùng chung</dt><dd>3</dd></div>
+      <div><dt>Hệ thống ngoài</dt><dd>5</dd></div>
+      <div><dt>Cạnh luồng</dt><dd>34</dd></div>
+      <div><dt>Lắp ráp (không vẽ)</dt><dd>5</dd></div>
+      <div><dt>Không qua import</dt><dd>0</dd></div>
+      <div><dt>Chấp nhận được</dt><dd>7</dd></div>
+    </dl>
+  </header>
+  <p class="note">Luồng chính: interfaces/main.py dựng app qua app_factory (gộp làm entry) -&gt; api -&gt; 4 module nghiệp vụ -&gt; deps -&gt; auth/database. Luồng phụ giữ lại: trang admin (SQLAdmin), worker taskiq, kiểm bảo mật khi khởi động, cli. modules/api_keys là module đầy đủ (routes/service/crud, đăng ký /api-keys) nên là một khối. modules/__init__.py chỉ import model để SQLAlchemy đăng ký bảng, không thuộc luồng nào, để ngoài đáp án. cli import &#x27;infrastructure.*&#x27; theo đường dẫn khi đã cài package nên bộ phân giải import không thấy; cạnh cli -&gt; security ghi tay ở acceptable.</p>
+  <p class="note"><b>Sơ đồ vẽ tay từ đọc source (28/09).</b> 17 cạnh, chỉ đi từ trên xuống. Các ô đếm và các bảng cuối mục là đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart TB
+  subgraph L_entry[&quot;Điểm vào&quot;]
+    app[&quot;&lt;b&gt;App, middleware&lt;/b&gt;&lt;br/&gt;&lt;small&gt;interfaces/main.py, infrastructure/app_factory.py, middleware.py&lt;/small&gt;&quot;]
+    scripts[&quot;&lt;b&gt;Script tạo dữ liệu đầu&lt;/b&gt;&lt;br/&gt;&lt;small&gt;backend/scripts&lt;/small&gt;&quot;]
+  end
+  subgraph L_api[&quot;API&quot;]
+    routes[&quot;&lt;b&gt;API routes&lt;/b&gt;&lt;br/&gt;&lt;small&gt;interfaces/api, modules/*/routes.py, auth/routes.py&lt;/small&gt;&quot;]
+    admin[&quot;&lt;b&gt;Trang admin SQLAdmin&lt;/b&gt;&lt;br/&gt;&lt;small&gt;interfaces/admin&lt;/small&gt;&quot;]
+  end
+  subgraph L_service[&quot;Nghiệp vụ&quot;]
+    services[&quot;&lt;b&gt;Module services&lt;/b&gt;&lt;br/&gt;&lt;small&gt;user, tier, rate_limit, api_keys: service.py&lt;/small&gt;&quot;]
+    auth[&quot;&lt;b&gt;Auth CRUDAuth&lt;/b&gt;&lt;br/&gt;&lt;small&gt;infrastructure/auth: phiên, OAuth, giới hạn tần suất&lt;/small&gt;&quot;]
+  end
+  subgraph L_data[&quot;Dữ liệu&quot;]
+    crud[&quot;&lt;b&gt;Module CRUD, models&lt;/b&gt;&lt;br/&gt;&lt;small&gt;modules/*/crud.py, models.py (FastCRUD)&lt;/small&gt;&quot;]
+  end
+  subgraph L_infra[&quot;Hạ tầng&quot;]
+    db[&quot;&lt;b&gt;Session DB&lt;/b&gt;&lt;br/&gt;&lt;small&gt;infrastructure/database&lt;/small&gt;&quot;]
+    cache[&quot;&lt;b&gt;Redis, cache&lt;/b&gt;&lt;br/&gt;&lt;small&gt;infrastructure/redis.py, cache; chỉ giới hạn tần suất dùng&lt;/small&gt;&quot;]
+    taskiq[&quot;&lt;b&gt;Taskiq&lt;/b&gt;&lt;br/&gt;&lt;small&gt;infrastructure/taskiq; chưa có task&lt;/small&gt;&quot;]
+  end
+  subgraph L_ext[&quot;Hệ thống ngoài&quot;]
+    x_db[(&quot;PostgreSQL&quot;)]
+    x_redis[(&quot;Redis&quot;)]
+    x_mc[(&quot;Memcached&quot;)]
+    x_broker[(&quot;Broker: RabbitMQ / Redis&quot;)]
+    x_google[(&quot;Google OAuth&quot;)]
+  end
+  subgraph shared[&quot;Dùng chung, không vẽ cạnh&quot;]
+    common[&quot;&lt;small&gt;infrastructure/config, logging, security; modules/common&lt;/small&gt;&quot;]
+  end
+  L_entry ~~~ L_api
+  L_api ~~~ L_service
+  L_service ~~~ L_data
+  L_data ~~~ L_infra
+  L_infra ~~~ L_ext
+
+  app --&gt;|định tuyến| routes
+  app --&gt;|gắn trang admin| admin
+  scripts --&gt;|tạo superuser| services
+  scripts --&gt;|cập nhật thẳng| db
+  routes --&gt;|gọi| services
+  routes --&gt;|đăng nhập, đăng xuất| auth
+  admin --&gt;|gọi| services
+  admin --&gt;|CRUD bảng qua SQLAdmin| db
+  services --&gt;|đọc, ghi| crud
+  auth --&gt;|đọc user| db
+  auth --&gt;|lưu phiên| x_redis
+  auth --&gt;|đăng nhập Google| x_google
+  crud --&gt;|truy vấn| db
+  db --&gt; x_db
+  cache --&gt; x_redis
+  cache --&gt; x_mc
+  taskiq --&gt; x_broker
+  </pre></div>
+  <div class="split">
+    <details open><summary>Cạnh của sơ đồ vẽ tay và bằng chứng (17)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng</th></tr></thead><tbody><tr><td>App</td><td>API routes</td><td><code>src/infrastructure/app_factory.py:273 application.include_router(router)</code></td></tr><tr><td>App</td><td>Trang admin</td><td><code>src/interfaces/main.py:68 create_admin_interface(app)</code></td></tr><tr><td>Script tạo dữ liệu đầu</td><td>Module services</td><td><code>scripts/create_first_superuser.py:64 user = await user_service.create(user_data, session)</code></td></tr><tr><td>Script tạo dữ liệu đầu</td><td>Session DB</td><td><code>scripts/create_first_superuser.py:72 await session.execute(stmt)</code></td></tr><tr><td>API routes</td><td>Module services</td><td><code>src/modules/user/routes.py:52 return await user_service.create(user, db)</code></td></tr><tr><td>API routes</td><td>Auth</td><td><code>src/infrastructure/auth/routes.py:66 user = await crud_auth.authenticate_password(db, form_data.username, form_data.password, request=request)</code></td></tr><tr><td>Trang admin</td><td>Module services</td><td><code>src/interfaces/admin/views/users.py:72 await user_service.anonymize_user(user_id=int(pk), db=db)</code></td></tr><tr><td>Trang admin</td><td>Session DB</td><td><code>src/interfaces/admin/initialize.py:29 engine=get_engine(),</code></td></tr><tr><td>Module services</td><td>Module CRUD</td><td><code>src/modules/user/service.py:95 created_user = await crud_users.create(db=db, object=user_internal, schema_to_select=UserRead)</code></td></tr><tr><td>Auth</td><td>Session DB</td><td><code>src/infrastructure/auth/setup.py:82 session=async_session,</code> (dòng 83 <code>user_model=User</code>)</td></tr><tr><td>Auth</td><td>Redis</td><td><code>src/infrastructure/auth/setup.py:55 redis_url=settings.SESSION_REDIS_URL if use_redis else None,</code></td></tr><tr><td>Auth</td><td>Google OAuth</td><td><code>src/infrastructure/auth/setup.py:71 &quot;google&quot;: OAuthCredentials(</code></td></tr><tr><td>Module CRUD</td><td>Session DB</td><td><code>src/modules/user/crud.py:5 crud_users: FastCRUD = FastCRUD(User)</code> (FastCRUD chạy truy vấn trên session được truyền vào)</td></tr><tr><td>Session DB</td><td>PostgreSQL</td><td><code>src/infrastructure/database/session.py:28 return create_async_engine(settings.DATABASE_URL, **options)</code></td></tr><tr><td>Redis, cache</td><td>Redis</td><td><code>src/infrastructure/redis.py:11 return Redis(</code></td></tr><tr><td>Redis, cache</td><td>Memcached</td><td><code>src/infrastructure/cache/backends/memcached.py:59 self.client = aiomcache.Client(</code></td></tr><tr><td>Taskiq</td><td>Broker</td><td><code>src/infrastructure/taskiq/brokers.py:47 broker = AioPikaBroker(url=rabbitmq_url, queue_name=&quot;default&quot;)</code></td></tr></tbody></table></div></details>
+    <details open><summary>Không vẽ, và vì sao</summary>
+      <div class="scroll"><table><tbody><tr><td><code>api_rate_limit_dependency</code> trên các router; <code>get_current_user</code>, <code>get_current_superuser</code>; service gọi <code>auth.validate_password</code></td><td>Kiểm rồi quay về (<code>check</code>)</td></tr><tr><td>Service của module này gọi CRUD của module khác (<code>crud_tiers.exists</code>, <code>crud_rate_limits.exists</code>)</td><td>Nằm trong cùng khối sau khi gộp theo tầng; phần lớn là kiểm tồn tại</td></tr><tr><td>Route nhận <code>AsyncSessionDep</code> rồi truyền xuống service, CRUD</td><td>Chỉ truyền đi (<code>pass</code>)</td></tr><tr><td>Lifespan: <code>create_tables</code>, <code>initialize_cache</code>, <code>auth.initialize</code>, đóng Redis, <code>validate_production_security</code></td><td>Lắp ráp (<code>wiring</code>)</td></tr><tr><td>Middleware header (giới hạn tần suất, cache phía client, security header), <code>SessionMiddleware</code></td><td>Chỉ thêm header, không đọc ghi; gộp vào App</td></tr><tr><td>CLI <code>bp</code> (<code>cli/</code>: <code>deploy</code>, <code>env</code>)</td><td>Công cụ sinh file deploy, không thuộc luồng của app</td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Chỗ phải chọn khi vẽ</summary><ul><li><b>Gộp các module theo tầng.</b> <code>user</code>, <code>tier</code>, <code>rate_limit</code>, <code>api_keys</code> mỗi module có đủ routes, service, crud. Tôi tách theo tầng rồi gộp các module cùng tầng. Các lời gọi chéo giữa module (phần lớn là kiểm tồn tại) nằm trong khối, sơ đồ không còn lưới cạnh qua lại.</li><li><b>Auth là một khối Nghiệp vụ.</b> <code>CRUDAuth</code> tự đọc user qua <code>async_session</code> và <code>User</code>, tự lưu phiên trong Redis riêng (<code>SESSION_REDIS_URL</code>), không qua <code>redis.py</code>.</li><li><b>Trang admin có cạnh thẳng tới Session DB.</b> SQLAdmin nhận engine và tự CRUD các bảng.</li><li><b>Redis, cache và Taskiq vẫn vẽ</b>, kèm ghi chú. Redis client chỉ phục vụ giới hạn tần suất (kiểm); cache và Taskiq chưa có luồng nào gọi.</li><li><b>Script tạo dữ liệu đầu được vẽ</b>, như ở fullstack: đây là luồng phụ để dựng hệ thống.</li></ul></details>
+  <p class="note">Phần dưới: đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <p class="exts">Hệ thống ngoài: <span class="chip">postgres</span> <span class="chip">redis</span> <span class="chip">memcached</span> <span class="chip">broker</span> <span class="chip">google</span></p>
+  <div class="split">
+    <details open><summary>Cạnh bắt buộc và bằng chứng (34)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng trong code</th></tr></thead>
+      <tbody><tr><td><code>entry</code></td><td><code>api</code></td><td>backend/src/interfaces/main.py:29 router=router</td></tr><tr><td><code>entry</code></td><td><code>admin</code></td><td>backend/src/interfaces/main.py:68 create_admin_interface(app)</td></tr><tr><td><code>api</code></td><td><code>user</code></td><td>backend/src/interfaces/api/v1/__init__.py:12 include_router(users_router)</td></tr><tr><td><code>api</code></td><td><code>tier</code></td><td>backend/src/interfaces/api/v1/__init__.py:13 include_router(tiers_router)</td></tr><tr><td><code>api</code></td><td><code>rate_limit</code></td><td>backend/src/interfaces/api/v1/__init__.py:14 include_router(rate_limits_router)</td></tr><tr><td><code>api</code></td><td><code>auth</code></td><td>backend/src/interfaces/api/v1/__init__.py:15 include_router(auth_router)</td></tr><tr><td><code>api</code></td><td><code>api_keys</code></td><td>backend/src/interfaces/api/v1/__init__.py:16 include_router(api_keys_router)</td></tr><tr><td><code>admin</code></td><td><code>database</code></td><td>backend/src/interfaces/admin/initialize.py:29 engine=get_engine()</td></tr><tr><td><code>admin</code></td><td><code>user</code></td><td>backend/src/interfaces/admin/views/users.py:44 UserUpdate, UserService</td></tr><tr><td><code>admin</code></td><td><code>tier</code></td><td>backend/src/interfaces/admin/views/tiers.py:33 TierCreate, crud_tiers</td></tr><tr><td><code>admin</code></td><td><code>auth</code></td><td>backend/src/interfaces/admin/views/users.py:52 await auth.validate_password(...)</td></tr><tr><td><code>user</code></td><td><code>deps</code></td><td>backend/src/modules/user/routes.py:48 db: AsyncSessionDep, CurrentUserDep</td></tr><tr><td><code>tier</code></td><td><code>deps</code></td><td>backend/src/modules/tier/routes.py:20 db: AsyncSessionDep</td></tr><tr><td><code>rate_limit</code></td><td><code>deps</code></td><td>backend/src/modules/rate_limit/routes.py:39 db: AsyncSessionDep, CurrentSuperUserDep</td></tr><tr><td><code>api_keys</code></td><td><code>deps</code></td><td>backend/src/modules/api_keys/routes.py:47 current_user: CurrentUserDep</td></tr><tr><td><code>auth</code></td><td><code>deps</code></td><td>backend/src/infrastructure/auth/routes.py:52 form_data: OAuth2FormDep</td></tr><tr><td><code>deps</code></td><td><code>auth</code></td><td>backend/src/infrastructure/dependencies.py:14 Depends(get_current_user)</td></tr><tr><td><code>deps</code></td><td><code>database</code></td><td>backend/src/infrastructure/dependencies.py:11 Depends(async_session)</td></tr><tr><td><code>user</code></td><td><code>auth</code></td><td>backend/src/modules/user/service.py:81 await auth.validate_password(...)</td></tr><tr><td><code>user</code></td><td><code>tier</code></td><td>backend/src/modules/user/service.py:513 await crud_tiers.exists(...)</td></tr><tr><td><code>user</code></td><td><code>rate_limit</code></td><td>backend/src/modules/user/service.py:569 model=RateLimit (truy vấn giới hạn)</td></tr><tr><td><code>tier</code></td><td><code>user</code></td><td>backend/src/modules/tier/service.py:93 await crud_users.exists(...)</td></tr><tr><td><code>tier</code></td><td><code>rate_limit</code></td><td>backend/src/modules/tier/service.py:98 await crud_rate_limits.exists(...)</td></tr><tr><td><code>rate_limit</code></td><td><code>tier</code></td><td>backend/src/modules/rate_limit/service.py:31 await crud_tiers.exists(...)</td></tr><tr><td><code>auth</code></td><td><code>user</code></td><td>backend/src/infrastructure/auth/dependencies.py:62 await crud_users.get(...)</td></tr><tr><td><code>auth</code></td><td><code>rate_limit</code></td><td>backend/src/infrastructure/auth/setup.py:128 await crud_rate_limits.get(...)</td></tr><tr><td><code>auth</code></td><td><code>redis_clients</code></td><td>backend/src/infrastructure/auth/setup.py:41 redis_rate_limiter(client=rate_limiter_redis_client)</td></tr><tr><td><code>cache</code></td><td><code>redis_clients</code></td><td>backend/src/infrastructure/cache/initialize.py:52 RedisBackend(..., client=cache_redis_client)</td></tr><tr><td><code>taskiq</code></td><td><code>database</code></td><td>backend/src/infrastructure/taskiq/deps.py:20 build_engine(poolclass=NullPool)</td></tr><tr><td><code>database</code></td><td><code>ext:postgres</code></td><td>backend/src/infrastructure/database/session.py:28 create_async_engine(settings.DATABASE_URL)</td></tr><tr><td><code>redis_clients</code></td><td><code>ext:redis</code></td><td>backend/src/infrastructure/redis.py:11 Redis(...)</td></tr><tr><td><code>cache</code></td><td><code>ext:memcached</code></td><td>backend/src/infrastructure/cache/backends/memcached.py:59 aiomcache.Client(...)</td></tr><tr><td><code>taskiq</code></td><td><code>ext:broker</code></td><td>backend/src/infrastructure/taskiq/brokers.py:47 AioPikaBroker(url=rabbitmq_url)</td></tr><tr><td><code>auth</code></td><td><code>ext:google</code></td><td>backend/src/infrastructure/auth/setup.py:71 OAuthCredentials(client_id=settings.OAUTH_GOOGLE_CLIENT_ID)</td></tr></tbody></table></div></details>
+    <details><summary>Khối và thành viên (18)</summary>
+      <p class="hint">Đường dẫn là danh sách thành viên: thư mục nghĩa là mọi file trong đó. Cột số là số file có nội dung.</p>
+      <div class="scroll"><table><tbody><tr><th scope=row>entry</th><td class=num>4</td><td><code>backend/src/interfaces/main.py</code><br><code>backend/src/interfaces/__init__.py</code><br><code>backend/src/infrastructure/app_factory.py</code><br><code>backend/src/infrastructure/middleware.py</code><br><code>backend/src/infrastructure/__init__.py</code></td></tr><tr><th scope=row>api</th><td class=num>2</td><td><code>backend/src/interfaces/api/</code></td></tr><tr><th scope=row>admin</th><td class=num>6</td><td><code>backend/src/interfaces/admin/</code></td></tr><tr><th scope=row>deps</th><td class=num>1</td><td><code>backend/src/infrastructure/dependencies.py</code></td></tr><tr><th scope=row>auth</th><td class=num>6</td><td><code>backend/src/infrastructure/auth/</code></td></tr><tr><th scope=row>redis_clients</th><td class=num>1</td><td><code>backend/src/infrastructure/redis.py</code></td></tr><tr><th scope=row>cache</th><td class=num>10</td><td><code>backend/src/infrastructure/cache/</code></td></tr><tr><th scope=row>database</th><td class=num>4</td><td><code>backend/src/infrastructure/database/</code></td></tr><tr><th scope=row>security</th><td class=num>2</td><td><code>backend/src/infrastructure/security/</code></td></tr><tr><th scope=row>taskiq</th><td class=num>6</td><td><code>backend/src/infrastructure/taskiq/</code></td></tr><tr><th scope=row>user</th><td class=num>9</td><td><code>backend/src/modules/user/</code></td></tr><tr><th scope=row>tier</th><td class=num>7</td><td><code>backend/src/modules/tier/</code></td></tr><tr><th scope=row>rate_limit</th><td class=num>7</td><td><code>backend/src/modules/rate_limit/</code></td></tr><tr><th scope=row>api_keys</th><td class=num>8</td><td><code>backend/src/modules/api_keys/</code></td></tr><tr><th scope=row>cli</th><td class=num>12</td><td><code>cli/</code></td></tr><tr><th scope=row>config</th><td class=num>3</td><td><code>backend/src/infrastructure/config/</code></td></tr><tr><th scope=row>logging</th><td class=num>5</td><td><code>backend/src/infrastructure/logging/</code></td></tr><tr><th scope=row>common</th><td class=num>5</td><td><code>backend/src/modules/common/</code></td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Cạnh lắp ráp, có thật nhưng không vẽ (5)</summary><div class="scroll"><table><tbody><tr><td><code>entry</code></td><td><code>security</code></td><td>backend/src/interfaces/main.py:20 validate_production_security(settings)</td></tr><tr><td><code>entry</code></td><td><code>auth</code></td><td>backend/src/infrastructure/app_factory.py:74 await auth.initialize()</td></tr><tr><td><code>entry</code></td><td><code>cache</code></td><td>backend/src/infrastructure/app_factory.py:64 await initialize_cache()</td></tr><tr><td><code>entry</code></td><td><code>database</code></td><td>backend/src/infrastructure/app_factory.py:61 await create_tables()</td></tr><tr><td><code>entry</code></td><td><code>redis_clients</code></td><td>backend/src/infrastructure/app_factory.py:68 rate_limiter_redis_client.aclose (đóng khi tắt)</td></tr></tbody></table></div></details>
+  <details class="acc"><summary>Cạnh "chấp nhận được" (7): vẽ ra không bị trừ điểm P thường, bị tính sai ở P khắt khe</summary>
+    <p class="acc-list"><code>cli → security</code>, <code>taskiq → ext:redis</code>, <code>api_keys → database</code>, <code>auth → database</code>, <code>rate_limit → database</code>, <code>tier → database</code>, <code>user → database</code></p></details>
+</section>
+<section id="lnbits" class="repo">
+  <header class="repo-head">
+    <div>
+      <h2>lnbits/lnbits</h2>
+      <p class="meta"><span class="group group-test">Nhóm kiểm</span>
+        <span>Bản 2</span> <code>commit 958e4dab56564c</code>
+        · viết 28/09/2026 (rev 2, chuẩn đáp án bản 2; rev 1 ở oracle/rev1/) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)</p>
+    </div>
+    <dl class="counts">
+      <div><dt>Khối</dt><dd>17</dd></div>
+      <div><dt>Dùng chung</dt><dd>2</dd></div>
+      <div><dt>Hệ thống ngoài</dt><dd>13</dd></div>
+      <div><dt>Cạnh luồng</dt><dd>35</dd></div>
+      <div><dt>Lắp ráp (không vẽ)</dt><dd>4</dd></div>
+      <div><dt>Không qua import</dt><dd>0</dd></div>
+      <div><dt>Chấp nhận được</dt><dd>54</dd></div>
+    </dl>
+  </header>
+  <p class="note">Luồng chính: server/app (khởi động, gộp __main__, server, app, middleware, llms_txt) -&gt; core_init (gắn router, migration) -&gt; views -&gt; decorators (kiểm khóa API) -&gt; services -&gt; crud (gộp crud + models) -&gt; db -&gt; cơ sở dữ liệu; thanh toán: services -&gt; wallets -&gt; Lightning. Tác vụ nền gộp tasks.py, task_manager.py, core/tasks.py. Luồng phụ giữ lại: commands (CLI), wasm_ext (chạy extension WASM), fiat, nodes, tools. core/db.py chỉ tạo Database(&#x27;database&#x27;) nên gộp vào db. app.py:71 import migrate_databases qua commands nhưng hàm nằm ở core/helpers.py:89, nên luồng migration là app -&gt; core_init. Extension nạp động từ thư mục ngoài repo không tính.</p>
+  <p class="note"><b>Sơ đồ vẽ tay từ đọc source (28/09).</b> 23 cạnh, chỉ đi từ trên xuống. Các ô đếm và các bảng cuối mục là đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart TB
+  subgraph L_entry[&quot;Điểm vào&quot;]
+    app[&quot;&lt;b&gt;App, middleware&lt;/b&gt;&lt;br/&gt;&lt;small&gt;__main__.py, server.py, app.py, middleware.py&lt;/small&gt;&quot;]
+    cli[&quot;&lt;b&gt;CLI&lt;/b&gt;&lt;br/&gt;&lt;small&gt;commands.py&lt;/small&gt;&quot;]
+    jobs[&quot;&lt;b&gt;Tác vụ nền&lt;/b&gt;&lt;br/&gt;&lt;small&gt;task_manager.py, tasks.py, core/tasks.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_api[&quot;API&quot;]
+    routes[&quot;&lt;b&gt;API routes core&lt;/b&gt;&lt;br/&gt;&lt;small&gt;core/views, core/__init__.py, decorators.py&lt;/small&gt;&quot;]
+    wasm[&quot;&lt;b&gt;Extension WASM&lt;/b&gt;&lt;br/&gt;&lt;small&gt;core/wasm_ext&lt;/small&gt;&quot;]
+  end
+  subgraph L_service[&quot;Nghiệp vụ&quot;]
+    svc[&quot;&lt;b&gt;Core services&lt;/b&gt;&lt;br/&gt;&lt;small&gt;core/services: thanh toán, ví, user, LNURL, thông báo&lt;/small&gt;&quot;]
+    nodes[&quot;&lt;b&gt;Quản lý node&lt;/b&gt;&lt;br/&gt;&lt;small&gt;nodes/&lt;/small&gt;&quot;]
+  end
+  subgraph L_data[&quot;Dữ liệu&quot;]
+    crud[&quot;&lt;b&gt;CRUD, models, migration&lt;/b&gt;&lt;br/&gt;&lt;small&gt;core/crud, core/models, core/helpers.py, core/migrations.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_infra[&quot;Hạ tầng&quot;]
+    db[&quot;&lt;b&gt;Database&lt;/b&gt;&lt;br/&gt;&lt;small&gt;db.py, core/db.py&lt;/small&gt;&quot;]
+    wallets[&quot;&lt;b&gt;Ví Lightning, funding source&lt;/b&gt;&lt;br/&gt;&lt;small&gt;wallets/&lt;/small&gt;&quot;]
+    fiat[&quot;&lt;b&gt;Fiat providers&lt;/b&gt;&lt;br/&gt;&lt;small&gt;fiat/: Stripe, PayPal, Square, Revolut&lt;/small&gt;&quot;]
+    rates[&quot;&lt;b&gt;Tỷ giá, Electrum&lt;/b&gt;&lt;br/&gt;&lt;small&gt;utils/exchange_rates.py, utils/electrum.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_ext[&quot;Hệ thống ngoài&quot;]
+    x_db[(&quot;SQLite / PostgreSQL&quot;)]
+    x_ln[(&quot;Lightning node: LND, CLN, ...&quot;)]
+    x_fiat[(&quot;Cổng thanh toán fiat&quot;)]
+    x_rates[(&quot;API tỷ giá, Electrum&quot;)]
+    x_notify[(&quot;SMTP, Telegram, Nostr, Web Push&quot;)]
+  end
+  subgraph shared[&quot;Dùng chung, không vẽ cạnh&quot;]
+    common[&quot;&lt;small&gt;settings.py, helpers.py, bolt11.py, exceptions.py, utils: cache, crypto, nostr, logger&lt;/small&gt;&quot;]
+  end
+  L_entry ~~~ L_api
+  L_api ~~~ L_service
+  L_service ~~~ L_data
+  L_data ~~~ L_infra
+  L_infra ~~~ L_ext
+
+  app --&gt;|định tuyến| routes
+  app --&gt;|gắn route extension| wasm
+  cli --&gt;|migration, dọn tài khoản| crud
+  jobs --&gt;|kiểm số dư, thông báo| svc
+  jobs --&gt;|đọc thống kê| crud
+  jobs --&gt;|lấy giá BTC| rates
+  routes --&gt;|gọi| svc
+  routes --&gt;|đọc, ghi| crud
+  routes --&gt;|xem, điều khiển node| nodes
+  wasm --&gt;|tạo hóa đơn| svc
+  wasm --&gt;|đọc extension của user| crud
+  wasm --&gt;|kho dữ liệu extension| db
+  svc --&gt;|đọc, ghi| crud
+  svc --&gt;|tạo, trả hóa đơn| wallets
+  svc --&gt;|thanh toán fiat| fiat
+  svc --&gt;|quy đổi fiat| rates
+  svc --&gt;|gửi thông báo| x_notify
+  nodes --&gt;|dùng kết nối ví| wallets
+  crud --&gt;|truy vấn| db
+  db --&gt; x_db
+  wallets --&gt; x_ln
+  fiat --&gt; x_fiat
+  rates --&gt; x_rates
+  </pre></div>
+  <div class="split">
+    <details open><summary>Cạnh của sơ đồ vẽ tay và bằng chứng (23)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng</th></tr></thead><tbody><tr><td>App</td><td>API routes core</td><td><code>app.py:117 init_core_routers(app)</code> (gắn ở <code>core/__init__.py:31 app.include_router(core_app)</code>)</td></tr><tr><td>App</td><td>Extension WASM</td><td><code>app.py:562 register_wasm_extension(app, ext.code)</code></td></tr><tr><td>CLI</td><td>CRUD, migration</td><td><code>commands.py:309 await delete_accounts_no_wallets(delta, conn)</code> (migration: <code>commands.py:142 loop.run_until_complete(migrate_databases())</code>)</td></tr><tr><td>Tác vụ nền</td><td>Core services</td><td><code>core/tasks.py:42 status = await get_balance_delta()</code></td></tr><tr><td>Tác vụ nền</td><td>CRUD</td><td><code>core/tasks.py:39 accounts = await get_accounts(filters=Filters(limit=0))</code></td></tr><tr><td>Tác vụ nền</td><td>Tỷ giá</td><td><code>core/tasks.py:69 price = await btc_price_from_aggregator(currency)</code></td></tr><tr><td>API routes core</td><td>Core services</td><td><code>core/views/payment_api.py:302 payment = await pay_invoice(</code></td></tr><tr><td>API routes core</td><td>CRUD</td><td><code>core/views/admin_api.py:74 admin_settings = await get_admin_settings(account.is_super_user)</code></td></tr><tr><td>API routes core</td><td>Quản lý node</td><td><code>core/views/node_api.py:93 return await node.get_info()</code></td></tr><tr><td>Extension WASM</td><td>Core services</td><td><code>core/wasm_ext/api/host.py:350 payment = await create_payment_request(</code></td></tr><tr><td>Extension WASM</td><td>CRUD</td><td><code>core/wasm_ext/api/background_payments.py:58 user_extension = await get_user_extension(wallet.user, extension_id)</code></td></tr><tr><td>Extension WASM</td><td>Database</td><td><code>core/wasm_ext/storage/crud.py:35 async with Database(f&quot;ext_{ext_id}&quot;).connect() as conn:</code> (dòng 36 <code>await conn.fetchone(...)</code>)</td></tr><tr><td>Core services</td><td>CRUD</td><td><code>core/services/payments.py:399 payment = await create_payment(</code></td></tr><tr><td>Core services</td><td>Ví Lightning</td><td><code>core/services/payments.py:365 invoice_response = await funding_source.create_invoice(</code></td></tr><tr><td>Core services</td><td>Fiat providers</td><td><code>core/services/fiat_providers.py:55 fiat_provider = await get_fiat_provider(payment.fiat_provider)</code></td></tr><tr><td>Core services</td><td>Tỷ giá</td><td><code>core/services/payments.py:180 amount_sat = await fiat_amount_as_satoshis(invoice_data.amount, invoice_data.unit)</code></td></tr><tr><td>Core services</td><td>SMTP, Telegram, ...</td><td><code>core/services/notifications.py:230 with smtplib.SMTP(server, port) as smtp_server:</code> (Telegram: dòng 177 <code>httpx.AsyncClient()</code>; Web Push: dòng 411 <code>webpush(</code>)</td></tr><tr><td>Quản lý node</td><td>Ví Lightning</td><td><code>nodes/base.py:160 def __init__(self, wallet: Wallet):</code></td></tr><tr><td>CRUD</td><td>Database</td><td><code>core/crud/assets.py:72 await db.update(&quot;assets&quot;, asset)</code></td></tr><tr><td>Database</td><td>SQLite / PostgreSQL</td><td><code>db.py:317 self.engine: AsyncEngine = create_async_engine(</code></td></tr><tr><td>Ví Lightning</td><td>Lightning node</td><td><code>wallets/lndrest.py:110 self.client = httpx.AsyncClient(</code> (các ví khác tương tự)</td></tr><tr><td>Fiat providers</td><td>Cổng fiat</td><td><code>fiat/stripe.py:105 self.client = httpx.AsyncClient(base_url=self.endpoint, headers=self.headers)</code></td></tr><tr><td>Tỷ giá</td><td>API tỷ giá</td><td><code>utils/exchange_rates.py:263 async with httpx.AsyncClient(headers=headers) as client:</code></td></tr></tbody></table></div></details>
+    <details open><summary>Không vẽ, và vì sao</summary>
+      <div class="scroll"><table><tbody><tr><td><code>decorators.py</code> (<code>require_admin_key</code>, <code>check_user_exists</code>...), <code>InstalledExtensionMiddleware</code></td><td>Kiểm rồi quay về (<code>check</code>)</td></tr><tr><td>Service, CLI mở <code>db.connect()</code> rồi truyền <code>conn</code> cho CRUD</td><td>Chỉ truyền đi (<code>pass</code>)</td></tr><tr><td>Lúc khởi động: <code>migrate_databases</code>, <code>check_admin_settings</code>, <code>set_funding_source</code>, <code>register_async_tasks</code>, đăng ký extension</td><td>Lắp ráp (<code>wiring</code>)</td></tr><tr><td>Service đẩy hóa đơn nội bộ vào <code>task_manager.internal_invoice_queue</code></td><td>Cạnh đi lên (<code>up</code>): Nghiệp vụ lên Điểm vào</td></tr><tr><td><code>AuditMiddleware</code> đẩy nhật ký vào hàng đợi, tác vụ nền ghi <code>create_audit_entry</code></td><td>Log nội bộ</td></tr><tr><td><code>tools/codegen</code> (sinh SDK TypeScript cho extension); extension Python nạp từ thư mục ngoài repo</td><td>Công cụ phát triển; code ngoài repo</td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Chỗ phải chọn khi vẽ</summary><ul><li><b>Tác vụ nền ở Điểm vào</b>, như ở kibo. <code>task_manager</code> tự chạy các vòng định kỳ và vòng nghe hóa đơn từ lúc khởi động (<code>fundingsource_invoice_producer</code> đọc <code>funding_source.paid_invoices_stream()</code>). Service chỉ đẩy thêm hóa đơn nội bộ vào hàng đợi; cạnh đó đi lên nên không vẽ.</li><li><b><code>utils/</code> tách theo file.</b> <code>exchange_rates.py</code>, <code>electrum.py</code> gọi dịch vụ ngoài nên ở Hạ tầng; <code>cache</code>, <code>crypto</code>, <code>nostr</code>, <code>logger</code> là dùng chung.</li><li><b>Migration gộp vào khối Dữ liệu</b> (<code>core/helpers.py:89 migrate_databases</code>), vì nó sửa bảng. CLI gọi migration và các hàm dọn dữ liệu.</li><li><b>Gộp hệ thống ngoài theo loại</b>: hơn 10 dịch vụ ngoài (Telegram, Nostr, Web Push, Stripe, PayPal...) gộp thành 5 nút, để sơ đồ đọc được.</li><li><b>Thông báo không thành khối riêng.</b> Code gửi mail, Telegram, Web Push nằm trong <code>core/services/notifications.py</code>, nên cạnh đi thẳng từ Core services ra hệ thống ngoài.</li></ul></details>
+  <p class="note">Phần dưới: đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <p class="exts">Hệ thống ngoài: <span class="chip">database</span> <span class="chip">lightning</span> <span class="chip">fiat</span> <span class="chip">smtp</span> <span class="chip">exchange</span> <span class="chip">telegram</span> <span class="chip">nostr</span> <span class="chip">webpush</span> <span class="chip">extension_repo</span> <span class="chip">sso</span> <span class="chip">electrum</span> <span class="chip">explorer</span> <span class="chip">openai</span></p>
+  <div class="split">
+    <details open><summary>Cạnh bắt buộc và bằng chứng (35)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng trong code</th></tr></thead>
+      <tbody><tr><td><code>app</code></td><td><code>core_init</code></td><td>lnbits/app.py:117 init_core_routers(app); app.py:93 await migrate_databases() (hàm ở core/helpers.py:89)</td></tr><tr><td><code>app</code></td><td><code>wasm_ext</code></td><td>lnbits/app.py:461 register_wasm_extension(app, ext_id)</td></tr><tr><td><code>core_init</code></td><td><code>views</code></td><td>lnbits/core/__init__.py:31 app.include_router(core_app)</td></tr><tr><td><code>core_init</code></td><td><code>db</code></td><td>lnbits/core/helpers.py migration dùng core db</td></tr><tr><td><code>views</code></td><td><code>services</code></td><td>lnbits/core/views/admin_api.py:42 await get_balance_delta()</td></tr><tr><td><code>views</code></td><td><code>crud</code></td><td>lnbits/core/views/admin_api.py:74 await get_admin_settings(...)</td></tr><tr><td><code>views</code></td><td><code>decorators</code></td><td>lnbits/core/views/*.py Depends(check_admin / require_admin_key ...)</td></tr><tr><td><code>views</code></td><td><code>nodes</code></td><td>lnbits/core/views/node_api.py Node, NodeInfoResponse</td></tr><tr><td><code>views</code></td><td><code>fiat</code></td><td>lnbits/core/views/callback_api.py:201 StripeWallet...</td></tr><tr><td><code>decorators</code></td><td><code>crud</code></td><td>lnbits/decorators.py:124 await get_wallet_for_key(key_value, conn=conn)</td></tr><tr><td><code>decorators</code></td><td><code>db</code></td><td>lnbits/decorators.py:123 async with db.connect() as conn</td></tr><tr><td><code>services</code></td><td><code>crud</code></td><td>lnbits/core/services/assets.py:60 await get_user_assets_count(user_id)</td></tr><tr><td><code>services</code></td><td><code>db</code></td><td>lnbits/core/services/*.py Connection, db.connect()</td></tr><tr><td><code>services</code></td><td><code>wallets</code></td><td>lnbits/core/services/payments.py:329 get_funding_source()</td></tr><tr><td><code>services</code></td><td><code>fiat</code></td><td>lnbits/core/services/fiat_providers.py:15 get_fiat_provider</td></tr><tr><td><code>services</code></td><td><code>utils</code></td><td>lnbits/core/services/blockexplorer.py:24 ElectrumClient(...); tỷ giá</td></tr><tr><td><code>services</code></td><td><code>tasks</code></td><td>lnbits/core/services/fiat_providers.py:64 task_manager.internal_invoice_queue.put_nowait(payment)</td></tr><tr><td><code>crud</code></td><td><code>db</code></td><td>lnbits/core/crud/assets.py:72 await db.update(&quot;assets&quot;, asset)</td></tr><tr><td><code>tasks</code></td><td><code>services</code></td><td>lnbits/tasks.py:68 await get_standalone_payment(...); core/tasks.py:42 get_balance_delta()</td></tr><tr><td><code>tasks</code></td><td><code>crud</code></td><td>lnbits/core/tasks.py:30 await create_audit_entry(data)</td></tr><tr><td><code>tasks</code></td><td><code>utils</code></td><td>lnbits/core/tasks.py:69 await btc_price_from_aggregator(currency)</td></tr><tr><td><code>nodes</code></td><td><code>wallets</code></td><td>lnbits/nodes/base.py:160 def __init__(self, wallet: Wallet)</td></tr><tr><td><code>wasm_ext</code></td><td><code>services</code></td><td>lnbits/core/wasm_ext/api/host.py:350 await create_payment_request(...)</td></tr><tr><td><code>wasm_ext</code></td><td><code>crud</code></td><td>lnbits/core/wasm_ext/api/background_payments.py:58 await get_user_extension(...)</td></tr><tr><td><code>wasm_ext</code></td><td><code>db</code></td><td>lnbits/core/wasm_ext/storage/crud.py:35 Database(f&quot;ext_{ext_id}&quot;).connect()</td></tr><tr><td><code>wasm_ext</code></td><td><code>decorators</code></td><td>lnbits/core/wasm_ext/routes/ui.py:79 await check_account_exists(...)</td></tr><tr><td><code>commands</code></td><td><code>core_init</code></td><td>lnbits/commands.py:142 migrate_databases()</td></tr><tr><td><code>commands</code></td><td><code>db</code></td><td>lnbits/commands.py:134 async with core_db.connect() as conn</td></tr><tr><td><code>commands</code></td><td><code>crud</code></td><td>lnbits/commands.py delete_accounts_no_wallets, delete_unused_wallets</td></tr><tr><td><code>tools</code></td><td><code>wasm_ext</code></td><td>tools/codegen/extension_sdk_typescript.py:67 list_extension_api_methods(api_cls)</td></tr><tr><td><code>db</code></td><td><code>ext:database</code></td><td>lnbits/db.py:317 create_async_engine(...)</td></tr><tr><td><code>wallets</code></td><td><code>ext:lightning</code></td><td>lnbits/wallets/lndrest.py:110 httpx.AsyncClient(...) (và các ví khác)</td></tr><tr><td><code>fiat</code></td><td><code>ext:fiat</code></td><td>lnbits/fiat/stripe.py:105 httpx.AsyncClient(base_url=self.endpoint)</td></tr><tr><td><code>services</code></td><td><code>ext:smtp</code></td><td>lnbits/core/services/notifications.py:230 smtplib.SMTP(server, port)</td></tr><tr><td><code>utils</code></td><td><code>ext:exchange</code></td><td>lnbits/utils/exchange_rates.py:263 httpx.AsyncClient(headers=headers)</td></tr></tbody></table></div></details>
+    <details><summary>Khối và thành viên (17)</summary>
+      <p class="hint">Đường dẫn là danh sách thành viên: thư mục nghĩa là mọi file trong đó. Cột số là số file có nội dung.</p>
+      <div class="scroll"><table><tbody><tr><th scope=row>app</th><td class=num>5</td><td><code>lnbits/__main__.py</code><br><code>lnbits/server.py</code><br><code>lnbits/app.py</code><br><code>lnbits/middleware.py</code><br><code>lnbits/llms_txt.py</code></td></tr><tr><th scope=row>core_init</th><td class=num>3</td><td><code>lnbits/core/__init__.py</code><br><code>lnbits/core/helpers.py</code><br><code>lnbits/core/migrations.py</code></td></tr><tr><th scope=row>views</th><td class=num>19</td><td><code>lnbits/core/views/</code></td></tr><tr><th scope=row>decorators</th><td class=num>1</td><td><code>lnbits/decorators.py</code></td></tr><tr><th scope=row>services</th><td class=num>16</td><td><code>lnbits/core/services/</code></td></tr><tr><th scope=row>crud</th><td class=num>26</td><td><code>lnbits/core/crud/</code><br><code>lnbits/core/models/</code></td></tr><tr><th scope=row>db</th><td class=num>2</td><td><code>lnbits/db.py</code><br><code>lnbits/core/db.py</code></td></tr><tr><th scope=row>tasks</th><td class=num>3</td><td><code>lnbits/tasks.py</code><br><code>lnbits/task_manager.py</code><br><code>lnbits/core/tasks.py</code></td></tr><tr><th scope=row>wallets</th><td class=num>36</td><td><code>lnbits/wallets/</code></td></tr><tr><th scope=row>nodes</th><td class=num>4</td><td><code>lnbits/nodes/</code></td></tr><tr><th scope=row>fiat</th><td class=num>6</td><td><code>lnbits/fiat/</code></td></tr><tr><th scope=row>wasm_ext</th><td class=num>30</td><td><code>lnbits/core/wasm_ext/</code></td></tr><tr><th scope=row>utils</th><td class=num>7</td><td><code>lnbits/utils/</code></td></tr><tr><th scope=row>commands</th><td class=num>1</td><td><code>lnbits/commands.py</code></td></tr><tr><th scope=row>tools</th><td class=num>6</td><td><code>tools/</code></td></tr><tr><th scope=row>settings</th><td class=num>1</td><td><code>lnbits/settings.py</code></td></tr><tr><th scope=row>misc</th><td class=num>4</td><td><code>lnbits/helpers.py</code><br><code>lnbits/bolt11.py</code><br><code>lnbits/exceptions.py</code><br><code>lnbits/__init__.py</code></td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Cạnh lắp ráp, có thật nhưng không vẽ (4)</summary><div class="scroll"><table><tbody><tr><td><code>app</code></td><td><code>services</code></td><td>lnbits/app.py:96 await check_admin_settings()</td></tr><tr><td><code>app</code></td><td><code>wallets</code></td><td>lnbits/app.py:108 set_funding_source()</td></tr><tr><td><code>app</code></td><td><code>tasks</code></td><td>lnbits/app.py:576 task_manager.register_invoice_listener(...)</td></tr><tr><td><code>app</code></td><td><code>crud</code></td><td>lnbits/app.py:312 await get_installed_extensions()</td></tr></tbody></table></div></details>
+  <details class="acc"><summary>Cạnh "chấp nhận được" (54): vẽ ra không bị trừ điểm P thường, bị tính sai ở P khắt khe</summary>
+    <p class="acc-list"><code>services → ext:telegram</code>, <code>services → ext:nostr</code>, <code>utils → ext:nostr</code>, <code>services → ext:webpush</code>, <code>services → ext:extension_repo</code>, <code>views → ext:sso</code>, <code>crud → ext:sso</code>, <code>utils → ext:electrum</code>, <code>tasks → ext:electrum</code>, <code>services → ext:explorer</code>, <code>services → ext:lightning</code>, <code>nodes → ext:lightning</code>, <code>tools → ext:openai</code>, <code>tools → ext:database</code>, <code>commands → ext:database</code>, <code>services → ext:exchange</code>, <code>services → ext:electrum</code>, <code>app → commands</code>, <code>app → db</code>, <code>app → utils</code>, <code>commands → app</code>, <code>commands → services</code>, <code>commands → utils</code>, <code>commands → views</code>, <code>commands → wallets</code>, <code>core_init → crud</code>, <code>core_init → wasm_ext</code>, <code>crud → fiat</code>, <code>crud → services</code>, <code>crud → tasks</code>, <code>crud → utils</code>, <code>crud → wallets</code>, <code>db → crud</code>, <code>decorators → utils</code>, <code>fiat → crud</code>, <code>fiat → db</code>, <code>nodes → db</code>, <code>nodes → utils</code>, <code>services → core_init</code>, <code>services → decorators</code>, <code>services → wasm_ext</code>, <code>tasks → db</code>, <code>utils → services</code>, <code>views → app</code>, <code>views → core_init</code>, <code>views → db</code>, <code>views → tasks</code>, <code>views → utils</code>, <code>views → wallets</code>, <code>views → wasm_ext</code>, <code>wallets → crud</code>, <code>wallets → nodes</code>, <code>wallets → utils</code>, <code>wasm_ext → utils</code></p></details>
+</section>
+<section id="fba" class="repo">
+  <header class="repo-head">
+    <div>
+      <h2>fastapi-practices/fastapi_best_architecture</h2>
+      <p class="meta"><span class="group group-test">Nhóm kiểm</span>
+        <span>Bản 3</span> <code>commit 123a44a</code>
+        · viết 28/09/2026 bản 3: thêm layers, cạnh pass; sửa bổ sung: pass mở rộng, check, up, worker sang service |28/09/2026 (rev 2, chuẩn đáp án bản 2; rev 1 ở oracle/rev1/) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)</p>
+    </div>
+    <dl class="counts">
+      <div><dt>Khối</dt><dd>22</dd></div>
+      <div><dt>Dùng chung</dt><dd>3</dd></div>
+      <div><dt>Hệ thống ngoài</dt><dd>6</dd></div>
+      <div><dt>Cạnh luồng</dt><dd>44</dd></div>
+      <div><dt>Lắp ráp (không vẽ)</dt><dd>6</dd></div><div><dt>Chỉ truyền (không vẽ)</dt><dd>4</dd></div><div><dt>Kiểm tra (không vẽ)</dt><dd>3</dd></div><div><dt>Đi lên (không vẽ)</dt><dd>4</dd></div>
+      <div><dt>Không qua import</dt><dd>1</dd></div>
+      <div><dt>Chấp nhận được</dt><dd>23</dd></div>
+    </dl>
+  </header>
+  <p class="note">Luồng chính: main.py -&gt; registrar (register_app; app/router.py) -&gt; admin_api / task_api -&gt; service -&gt; data; registrar gắn middleware, db, redis, socketio, observability, cache, plugin_core. 6 plugin (code_generator, config, dict, email, notice, oauth2) gộp một khối: plugin/router.py:109-117 build_final_router() lặp qua mọi plugin và nạp theo tên (import_module_cached), nên plugin_core -&gt; plugins là cạnh không qua import duy nhất. task tách lớp như admin. utils là helper dùng chung. Bản 3, chỗ chọn tầng: registrar có FastAPI( (entry) và include_router (api) → entry. plugin_core có include_router (plugin/router.py:96, api) và RedisCli() (plugin/core.py:76, infra) → api. socketio có @sio.event (api) và AsyncRedisManager với URL Redis (common/socketio/server.py:18, infra) → api. cache không có route; pubsub.py:41 tự tạo RedisCli, decorator.py là lớp bọc Redis chung → infra, không xếp service. admin_service có admin/utils/cache.py:33 select(user_role...) (dấu hiệu data) nhưng chỉ để xóa cache user; khối được admin_api gọi và gọi admin_data → service. security không có dấu hiệu tầng nào → service. task_worker (Celery) → service theo mục 3, dù celery.py:61 tạo Celery với broker; bằng chứng là task_api gọi worker. Cạnh pass: admin_api -&gt; db, task_api -&gt; db (nhận CurrentSession rồi truyền db=db); middleware -&gt; db (opera_log_middleware.py:254), security -&gt; db (jwt.py:97) tự mở session rồi chỉ truyền cho service/dao. Giữ bắt buộc tới db: admin_service (auth_service.py:114 db.refresh), task_worker (utils/schedulers.py:104 db.execute), plugins (crud_code_gen.py:48 db.execute), cli (mở engine, connect). admin_data -&gt; db, task_data -&gt; db giữ nguyên như bản 2 (không bắt buộc), dù crud gọi db.execute trên session nhận qua tham số. Cạnh check: task_api, middleware, socketio -&gt; security (chỉ DependsJwtAuth/DependsRBAC hoặc jwt_authentication). Giữ bắt buộc: admin_api -&gt; security (monitor/online.py:118 revoke_token là thao tác, không chỉ kiểm), plugins -&gt; security (oauth2_service.py:97 create_access_token cấp token). Cạnh up (quy tắc 7): admin_service -&gt; plugin_core, admin_data -&gt; plugins, task_worker -&gt; socketio, security -&gt; socketio.</p>
+  <p class="note"><b>Sơ đồ vẽ tay từ đọc source (28/09).</b> 31 cạnh, chỉ đi từ trên xuống. Các ô đếm và các bảng cuối mục là đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart TB
+  subgraph L_entry[&quot;Điểm vào&quot;]
+    app[&quot;&lt;b&gt;App và định tuyến&lt;/b&gt;&lt;br/&gt;&lt;small&gt;main.py, core/registrar.py, app/router.py, plugin/router.py&lt;/small&gt;&quot;]
+    mw[&quot;&lt;b&gt;Middleware&lt;/b&gt;&lt;br/&gt;&lt;small&gt;JWT, log thao tác, i18n&lt;/small&gt;&quot;]
+    cli[&quot;&lt;b&gt;CLI fba&lt;/b&gt;&lt;br/&gt;&lt;small&gt;cli.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_api[&quot;API&quot;]
+    admin_api[&quot;&lt;b&gt;Admin API&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/admin/api&lt;/small&gt;&quot;]
+    task_api[&quot;&lt;b&gt;Task API&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/task/api&lt;/small&gt;&quot;]
+    plugin_admin[&quot;&lt;b&gt;Plugin mở rộng admin&lt;/b&gt;&lt;br/&gt;&lt;small&gt;config, dict, notice&lt;/small&gt;&quot;]
+    plugin_app[&quot;&lt;b&gt;Plugin ứng dụng&lt;/b&gt;&lt;br/&gt;&lt;small&gt;email, oauth2, code_generator&lt;/small&gt;&quot;]
+    sio[&quot;&lt;b&gt;Socket.IO&lt;/b&gt;&lt;br/&gt;&lt;small&gt;common/socketio&lt;/small&gt;&quot;]
+  end
+  subgraph L_service[&quot;Nghiệp vụ&quot;]
+    admin_svc[&quot;&lt;b&gt;Admin service&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/admin/service&lt;/small&gt;&quot;]
+    task_svc[&quot;&lt;b&gt;Task service&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/task/service&lt;/small&gt;&quot;]
+    celery[&quot;&lt;b&gt;Celery worker, beat&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/task/tasks, celery.py&lt;/small&gt;&quot;]
+    security[&quot;&lt;b&gt;Bảo mật&lt;/b&gt;&lt;br/&gt;&lt;small&gt;JWT, token, RBAC&lt;/small&gt;&quot;]
+    plugin_mgr[&quot;&lt;b&gt;Quản lý plugin&lt;/b&gt;&lt;br/&gt;&lt;small&gt;plugin/core.py, installer.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_data[&quot;Dữ liệu&quot;]
+    admin_data[&quot;&lt;b&gt;Admin CRUD, model&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/admin/crud, model&lt;/small&gt;&quot;]
+    task_data[&quot;&lt;b&gt;Task CRUD, model&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/task/crud, model&lt;/small&gt;&quot;]
+  end
+  subgraph L_infra[&quot;Hạ tầng&quot;]
+    db[&quot;&lt;b&gt;Session DB&lt;/b&gt;&lt;br/&gt;&lt;small&gt;database/db.py&lt;/small&gt;&quot;]
+    redis[&quot;&lt;b&gt;Redis client, cache&lt;/b&gt;&lt;br/&gt;&lt;small&gt;database/redis.py, common/cache&lt;/small&gt;&quot;]
+  end
+  subgraph L_ext[&quot;Hệ thống ngoài&quot;]
+    x_db[(&quot;PostgreSQL / MySQL&quot;)]
+    x_redis[(&quot;Redis&quot;)]
+    x_broker[(&quot;Broker: RabbitMQ / Redis&quot;)]
+    x_smtp[(&quot;SMTP&quot;)]
+    x_oauth[(&quot;GitHub, Google OAuth&quot;)]
+  end
+  subgraph shared[&quot;Dùng chung, không vẽ cạnh&quot;]
+    common[&quot;&lt;small&gt;core/conf, common/*, utils/&lt;/small&gt;&quot;]
+  end
+  L_entry ~~~ L_api
+  L_api ~~~ L_service
+  L_service ~~~ L_data
+  L_data ~~~ L_infra
+  L_infra ~~~ L_ext
+
+  app --&gt;|gắn middleware| mw
+  app --&gt;|định tuyến| admin_api
+  app --&gt;|định tuyến| task_api
+  app --&gt;|gắn vào nhánh admin| plugin_admin
+  app --&gt;|định tuyến| plugin_app
+  app --&gt;|mount /ws| sio
+  cli --&gt;|cài, gỡ plugin| plugin_mgr
+  cli --&gt;|tạo DB| db
+
+  admin_api --&gt; admin_svc
+  task_api --&gt; task_svc
+  plugin_admin --&gt;|truy vấn| db
+  plugin_app --&gt;|tìm user OAuth2| admin_data
+  plugin_app --&gt;|cấp token| security
+  plugin_app --&gt;|truy vấn| db
+  plugin_app --&gt;|gửi mail| x_smtp
+  plugin_app --&gt;|đăng nhập| x_oauth
+  sio --&gt;|phát tin| x_redis
+
+  admin_svc --&gt;|CRUD| admin_data
+  admin_svc --&gt;|tạo, thu hồi token| security
+  admin_svc --&gt;|cài plugin| plugin_mgr
+  task_svc --&gt;|CRUD| task_data
+  task_svc --&gt;|gửi việc| celery
+  celery --&gt;|dọn log| admin_svc
+  celery --&gt;|đọc lịch| task_data
+  celery --&gt;|qua broker| x_broker
+  security --&gt;|lưu token| redis
+  plugin_mgr --&gt;|trạng thái plugin| redis
+
+  admin_data --&gt;|truy vấn| db
+  task_data --&gt;|truy vấn| db
+  db --&gt; x_db
+  redis --&gt; x_redis
+  </pre></div>
+  <div class="split">
+    <details open><summary>Cạnh của sơ đồ vẽ tay và bằng chứng (31)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng</th></tr></thead><tbody><tr><td>App</td><td>Middleware</td><td><code>core/registrar.py:156 app.add_middleware(OperaLogMiddleware)</code></td></tr><tr><td>App</td><td>Admin API</td><td><code>app/router.py:8 router.include_router(admin_v1)</code></td></tr><tr><td>App</td><td>Task API</td><td><code>app/router.py:9 router.include_router(task_v1)</code></td></tr><tr><td>App</td><td>Plugin mở rộng admin</td><td><code>plugin/router.py:65 target_router.include_router(</code></td></tr><tr><td>App</td><td>Plugin ứng dụng</td><td><code>plugin/router.py:96 target_router.include_router(plugin_router, ...)</code></td></tr><tr><td>App</td><td>Socket.IO</td><td><code>core/registrar.py:242 app.mount(&#x27;/ws&#x27;, socket_app)</code></td></tr><tr><td>CLI</td><td>Quản lý plugin</td><td><code>cli.py:400 plugin_name = await install_zip_plugin(file=path)</code></td></tr><tr><td>CLI</td><td>Session DB</td><td><code>cli.py:211 async_init_engine = create_database_async_engine(...)</code></td></tr><tr><td>Admin API</td><td>Admin service</td><td><code>app/admin/api/v1/sys/user.py:36 data = await user_service.get_userinfo(db=db, pk=pk)</code></td></tr><tr><td>Task API</td><td>Task service</td><td><code>app/task/api/v1/scheduler.py:23 schedulers = await task_scheduler_service.get_all(db=db)</code></td></tr><tr><td>Plugin mở rộng admin</td><td>Session DB</td><td><code>plugin/dict/crud/crud_dict_data.py:24 return await self.select_model(db, pk, deleted=0)</code></td></tr><tr><td>Plugin ứng dụng</td><td>Admin CRUD</td><td><code>plugin/oauth2/service/oauth2_service.py:59 sys_user = await user_dao.get(db, user_social.user_id)</code></td></tr><tr><td>Plugin ứng dụng</td><td>Bảo mật</td><td><code>plugin/oauth2/service/oauth2_service.py:97 access_token_data = await create_access_token(</code></td></tr><tr><td>Plugin ứng dụng</td><td>Session DB</td><td><code>plugin/code_generator/crud/crud_code_gen.py:48 result = await db.execute(stmt)</code></td></tr><tr><td>Plugin ứng dụng</td><td>SMTP</td><td><code>plugin/email/utils/send.py:64 smtp_client = SMTP(</code></td></tr><tr><td>Plugin ứng dụng</td><td>OAuth</td><td><code>plugin/oauth2/api/v1/github.py:21 github_client = GitHubOAuth20(...)</code></td></tr><tr><td>Socket.IO</td><td>Redis</td><td><code>common/socketio/server.py:18 client_manager=socketio.AsyncRedisManager(</code></td></tr><tr><td>Admin service</td><td>Admin CRUD</td><td><code>app/admin/service/auth_service.py:49 user = await user_dao.get_by_username(db, username)</code></td></tr><tr><td>Admin service</td><td>Bảo mật</td><td><code>app/admin/service/auth_service.py:74 access_token_data = await create_access_token(</code></td></tr><tr><td>Admin service</td><td>Quản lý plugin</td><td><code>app/admin/service/plugin_service.py:66 return await install_zip_plugin(file)</code></td></tr><tr><td>Task service</td><td>Task CRUD</td><td><code>app/task/service/scheduler_service.py:33 task_scheduler = await task_scheduler_dao.get(db, pk)</code></td></tr><tr><td>Task service</td><td>Celery</td><td><code>app/task/service/scheduler_service.py:156 celery_app.send_task(name=task_scheduler.task, ...)</code></td></tr><tr><td>Celery</td><td>Admin service</td><td><code>app/task/tasks/db_log/tasks.py:12 await opera_log_service.delete_all(db=db)</code></td></tr><tr><td>Celery</td><td>Task CRUD</td><td><code>app/task/utils/schedulers.py:170 stmt = select(TaskScheduler).where(TaskScheduler.name == name, ...)</code></td></tr><tr><td>Celery</td><td>Broker</td><td><code>app/task/celery.py:61 app = celery.Celery(</code> (dòng 63 <code>broker_url=broker_url</code>)</td></tr><tr><td>Bảo mật</td><td>Redis client</td><td><code>common/security/token.py:149 async with redis_client.pipeline(transaction=False) as pipe:</code></td></tr><tr><td>Quản lý plugin</td><td>Redis client</td><td><code>plugin/core.py:81 plugin_info = run_await(current_redis_client.get)(...)</code></td></tr><tr><td>Admin CRUD</td><td>Session DB</td><td><code>app/admin/crud/crud_login_log.py:61 await db.execute(sa_delete(LoginLog))</code></td></tr><tr><td>Task CRUD</td><td>Session DB</td><td><code>app/task/crud/crud_result.py:19 return await self.select_model(db, pk)</code></td></tr><tr><td>Session DB</td><td>PostgreSQL / MySQL</td><td><code>database/db.py:59 return create_async_engine(</code></td></tr><tr><td>Redis client</td><td>Redis</td><td><code>database/redis.py:56 super().__init__(connection_pool=pool)</code></td></tr></tbody></table></div></details>
+    <details open><summary>Không vẽ, và vì sao</summary>
+      <div class="scroll"><table><tbody><tr><td>Kiểm token, quyền, session, captcha: middleware JWT, <code>DependsJwtAuth</code>, <code>DependsRBAC</code>, kiểm plugin bật (<code>PluginStatusChecker</code>), captcha trong Redis</td><td>Kiểm rồi quay về (<code>check</code>)</td></tr><tr><td>API nhận session qua <code>Depends</code> rồi truyền xuống service, CRUD</td><td>Chỉ truyền đi (<code>pass</code>). Cạnh tới DB vẽ ở nơi chạy truy vấn</td></tr><tr><td>Lúc khởi động và tắt: <code>create_tables</code>, <code>redis_client.init</code>, <code>init_otel</code>, listener cache pub/sub, hook plugin, lệnh CLI chạy worker, beat</td><td>Lắp ráp (<code>wiring</code>)</td></tr><tr><td>Log thao tác (middleware đẩy vào hàng đợi, rồi <code>opera_log_service</code> ghi DB); OTel, Prometheus</td><td>Ghi log, metrics nội bộ</td></tr><tr><td><code>@cached</code> trong plugin config, dict; cache thông tin user</td><td>Cache là helper</td></tr><tr><td>Worker báo trạng thái qua Socket.IO; admin CRUD xóa <code>user_social</code> của plugin oauth2; bảo mật ngắt socket khi thu hồi token</td><td>Cạnh đi lên (<code>up</code>)</td></tr><tr><td>Khóa Redis của Celery beat (<code>schedulers.py:450</code>)</td><td>Chi tiết, không phải luồng</td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Chỗ phải chọn khi vẽ</summary><ul><li><b>Plugin tách hai khối theo cách nạp.</b> <code>config</code>, <code>dict</code>, <code>notice</code> gắn vào router admin. <code>email</code>, <code>oauth2</code>, <code>code_generator</code> gắn vào router chính (<code>plugin/router.py:65</code> và <code>:96</code>).</li><li><b>App gộp</b> <code>main.py</code>, <code>run.py</code>, <code>core/registrar.py</code>, <code>app/router.py</code>, <code>plugin/router.py</code>: cùng việc dựng app và gắn route.</li><li><b>Celery worker và beat một khối, tầng Nghiệp vụ.</b> Beat đọc lịch từ bảng <code>task_scheduler</code>, worker chạy việc do Task service gửi.</li><li><b>Redis client và <code>common/cache</code> một khối</b> ở Hạ tầng.</li><li><b>Socket.IO nối thẳng Redis ngoài</b>, vì <code>AsyncRedisManager</code> tự tạo kết nối, không qua <code>database/redis.py</code>.</li><li><b>Observability</b> (OTel, Prometheus) không có trong sơ đồ: chỉ gắn lúc khởi động và gửi metrics.</li></ul></details>
+  <p class="note">Phần dưới: đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <p class="exts">Hệ thống ngoài: <span class="chip">database</span> <span class="chip">broker</span> <span class="chip">smtp</span> <span class="chip">oauth</span> <span class="chip">otel</span> <span class="chip">redis</span></p>
+  <div class="split">
+    <details open><summary>Cạnh bắt buộc và bằng chứng (44)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng trong code</th></tr></thead>
+      <tbody><tr><td><code>registrar</code></td><td><code>admin_api</code></td><td>backend/app/router.py:8 router.include_router(admin_v1)</td></tr><tr><td><code>registrar</code></td><td><code>task_api</code></td><td>backend/app/router.py:9 router.include_router(task_v1)</td></tr><tr><td><code>registrar</code></td><td><code>plugin_core</code></td><td>backend/core/registrar.py:209 build_final_router(); registrar.py:117 register_plugin_hooks(app)</td></tr><tr><td><code>registrar</code></td><td><code>middleware</code></td><td>backend/core/registrar.py:156 app.add_middleware(OperaLogMiddleware)</td></tr><tr><td><code>registrar</code></td><td><code>socketio</code></td><td>backend/core/registrar.py:237 socketio_server=sio</td></tr><tr><td><code>plugin_core</code></td><td><code>plugins</code></td><td>backend/plugin/router.py:109-117 for plugin in ordered_plugins: inject_extend_router / inject_app_router (import_module_cached, không qua import)</td></tr><tr><td><code>plugin_core</code></td><td><code>redis</code></td><td>backend/plugin/core.py:76 current_redis_client = RedisCli()</td></tr><tr><td><code>admin_api</code></td><td><code>admin_service</code></td><td>backend/app/admin/api/v1/auth/auth.py:23 await auth_service.swagger_login(...)</td></tr><tr><td><code>admin_api</code></td><td><code>security</code></td><td>backend/app/admin/api/v1/monitor/online.py:118 await revoke_token(pk, session_uuid)</td></tr><tr><td><code>admin_api</code></td><td><code>redis</code></td><td>backend/app/admin/api/v1/auth/captcha.py:28 await redis_client.set(...)</td></tr><tr><td><code>admin_service</code></td><td><code>admin_data</code></td><td>backend/app/admin/service/auth_service.py:49 await user_dao.get_by_username(...)</td></tr><tr><td><code>admin_service</code></td><td><code>security</code></td><td>backend/app/admin/service/auth_service.py:74 await create_access_token(...)</td></tr><tr><td><code>admin_service</code></td><td><code>redis</code></td><td>backend/app/admin/service/auth_service.py:105 await redis_client.get(captcha_key)</td></tr><tr><td><code>admin_service</code></td><td><code>db</code></td><td>backend/app/admin/service/auth_service.py:114 await db.refresh(user)</td></tr><tr><td><code>task_api</code></td><td><code>task_service</code></td><td>backend/app/task/api/v1/*.py *_service</td></tr><tr><td><code>task_api</code></td><td><code>task_worker</code></td><td>backend/app/task/api/v1/control.py:19 celery_app.control.inspect(...)</td></tr><tr><td><code>task_service</code></td><td><code>task_data</code></td><td>backend/app/task/service/*.py *_dao</td></tr><tr><td><code>task_service</code></td><td><code>task_worker</code></td><td>backend/app/task/service/scheduler_service.py celery_app</td></tr><tr><td><code>task_worker</code></td><td><code>db</code></td><td>backend/app/task/utils/schedulers.py:104 query = await db.execute(stmt)</td></tr><tr><td><code>task_worker</code></td><td><code>admin_service</code></td><td>backend/app/task/tasks/db_log/tasks.py:12 await opera_log_service.delete_all(db=db)</td></tr><tr><td><code>task_worker</code></td><td><code>redis</code></td><td>backend/app/task/utils/schedulers.py:450 redis_client.lock(...)</td></tr><tr><td><code>task_worker</code></td><td><code>task_data</code></td><td>backend/app/task/utils/schedulers.py:175 TaskScheduler(**temp)</td></tr><tr><td><code>task_data</code></td><td><code>redis</code></td><td>backend/app/task/model/scheduler.py:66 await redis_client.set(f&#x27;{settings.CELERY_REDIS_PREFIX}:last_update&#x27;, ...)</td></tr><tr><td><code>middleware</code></td><td><code>admin_service</code></td><td>backend/middleware/opera_log_middleware.py:255 await opera_log_service.bulk_create(...)</td></tr><tr><td><code>security</code></td><td><code>redis</code></td><td>backend/common/security/jwt.py:95 await redis_client.get(user_key)</td></tr><tr><td><code>security</code></td><td><code>admin_data</code></td><td>backend/common/security/jwt.py:71 await user_dao.get_join(db, user_id=pk)</td></tr><tr><td><code>socketio</code></td><td><code>redis</code></td><td>backend/common/socketio/server.py:77 await redis_client.set(sid_key, ...)</td></tr><tr><td><code>cache</code></td><td><code>redis</code></td><td>backend/common/cache/decorator.py:138 await redis_client.get(cache_key)</td></tr><tr><td><code>plugins</code></td><td><code>db</code></td><td>backend/plugin/code_generator/crud/crud_code_gen.py:48 result = await db.execute(stmt)</td></tr><tr><td><code>plugins</code></td><td><code>security</code></td><td>backend/plugin/oauth2/service/oauth2_service.py:97 access_token_data = await create_access_token(</td></tr><tr><td><code>plugins</code></td><td><code>redis</code></td><td>backend/plugin/email/api/v1/email.py:25 await redis_client.set(...)</td></tr><tr><td><code>plugins</code></td><td><code>cache</code></td><td>backend/plugin/config/service/config_service.py:23 @cached(...)</td></tr><tr><td><code>plugins</code></td><td><code>admin_data</code></td><td>backend/plugin/oauth2/service/oauth2_service.py:59 await user_dao.get(...)</td></tr><tr><td><code>plugins</code></td><td><code>admin_service</code></td><td>backend/plugin/oauth2/service/oauth2_service.py:117 login_log_service.create</td></tr><tr><td><code>cli</code></td><td><code>plugin_core</code></td><td>backend/cli.py:245 plugins = get_plugins()</td></tr><tr><td><code>cli</code></td><td><code>db</code></td><td>backend/cli.py:211 create_database_async_engine(get_database_url(...))</td></tr><tr><td><code>cli</code></td><td><code>redis</code></td><td>backend/cli.py:222 RedisCli(...)</td></tr><tr><td><code>cli</code></td><td><code>plugins</code></td><td>backend/cli.py:608 code_gen_service (nhập bảng cho code generator)</td></tr><tr><td><code>db</code></td><td><code>ext:database</code></td><td>backend/database/db.py:59 create_async_engine(...)</td></tr><tr><td><code>redis</code></td><td><code>ext:redis</code></td><td>backend/database/redis.py:56 super().__init__(connection_pool=pool) (RedisCli(Redis))</td></tr><tr><td><code>task_worker</code></td><td><code>ext:broker</code></td><td>backend/app/task/celery.py:61 celery.Celery(broker_url=...)</td></tr><tr><td><code>plugins</code></td><td><code>ext:smtp</code></td><td>backend/plugin/email/utils/send.py:64 SMTP(...)</td></tr><tr><td><code>plugins</code></td><td><code>ext:oauth</code></td><td>backend/plugin/oauth2/api/v1/github.py:21 GitHubOAuth20(...)</td></tr><tr><td><code>observability</code></td><td><code>ext:otel</code></td><td>backend/common/observability/otel.py:54 OTLPSpanExporter(endpoint=settings.GRAFANA_OTLP_GRPC_ENDPOINT)</td></tr></tbody></table></div></details>
+    <details><summary>Khối và thành viên (22)</summary>
+      <p class="hint">Đường dẫn là danh sách thành viên: thư mục nghĩa là mọi file trong đó. Cột số là số file có nội dung.</p>
+      <div class="scroll"><table><tbody><tr><th scope=row>entry</th><td>Điểm vào<br><small>backend/run.py:5 if __name__ == &#x27;__main__&#x27;:</small></td><td class=num>3</td><td><code>backend/main.py</code><br><code>backend/run.py</code><br><code>backend/__init__.py</code></td></tr><tr><th scope=row>cli</th><td>Điểm vào<br><small>backend/cli.py:698 @cappa.command(help=&#x27;初始化 fba 项目&#x27;, default_long=True)</small></td><td class=num>1</td><td><code>backend/cli.py</code></td></tr><tr><th scope=row>registrar</th><td>Điểm vào<br><small>backend/core/registrar.py:96 app = FastAPI(</small></td><td class=num>2</td><td><code>backend/core/registrar.py</code><br><code>backend/app/router.py</code></td></tr><tr><th scope=row>admin_api</th><td>API<br><small>backend/app/admin/api/v1/auth/auth.py:19 @router.post(&#x27;/login/swagger&#x27;, summary=&#x27;swagger 调试专用&#x27;, description=&#x27;用于快捷获取 token 进行 swagger 认证&#x27;)</small></td><td class=num>20</td><td><code>backend/app/admin/api/</code></td></tr><tr><th scope=row>admin_service</th><td>Nghiệp vụ<br><small>backend/app/admin/api/v1/auth/auth.py:23 token, user = await auth_service.swagger_login(db=db, obj=obj)</small></td><td class=num>13</td><td><code>backend/app/admin/service/</code><br><code>backend/app/admin/utils/</code></td></tr><tr><th scope=row>admin_data</th><td>Dữ liệu<br><small>backend/app/admin/model/user.py:12 class User(Base):</small></td><td class=num>32</td><td><code>backend/app/admin/crud/</code><br><code>backend/app/admin/model/</code><br><code>backend/app/admin/schema/</code></td></tr><tr><th scope=row>task_api</th><td>API<br><small>backend/app/task/api/v1/result.py:17 @router.get(&#x27;/{pk}&#x27;, summary=&#x27;获取任务结果详情&#x27;, dependencies=[DependsJwtAuth])</small></td><td class=num>4</td><td><code>backend/app/task/api/</code></td></tr><tr><th scope=row>task_service</th><td>Nghiệp vụ<br><small>backend/app/task/api/v1/result.py:22 result = await task_result_service.get(db=db, pk=pk)</small></td><td class=num>2</td><td><code>backend/app/task/service/</code></td></tr><tr><th scope=row>task_data</th><td>Dữ liệu<br><small>backend/app/task/model/scheduler.py:19 class TaskScheduler(Base):</small></td><td class=num>9</td><td><code>backend/app/task/crud/</code><br><code>backend/app/task/model/</code><br><code>backend/app/task/schema/</code><br><code>backend/app/task/enums.py</code></td></tr><tr><th scope=row>task_worker</th><td>Nghiệp vụ<br><small>backend/app/task/api/v1/control.py:19 inspector = celery_app.control.inspect(timeout=0.5)</small></td><td class=num>11</td><td><code>backend/app/task/</code></td></tr><tr><th scope=row>plugin_core</th><td>API<br><small>backend/plugin/router.py:96 target_router.include_router(plugin_router, dependencies=[Depends(PluginStatusChecker(plugin.name))])</small></td><td class=num>11</td><td><code>backend/plugin/</code></td></tr><tr><th scope=row>plugins</th><td>API<br><small>backend/plugin/code_generator/api/v1/business.py:23 @router.get(&#x27;/all&#x27;, summary=&#x27;获取所有代码生成业务&#x27;, dependencies=[DependsJwtAuth])</small></td><td class=num>61</td><td><code>backend/plugin/code_generator/</code><br><code>backend/plugin/config/</code><br><code>backend/plugin/dict/</code><br><code>backend/plugin/email/</code><br><code>backend/plugin/notice/</code><br><code>backend/plugin/oauth2/</code></td></tr><tr><th scope=row>security</th><td>Nghiệp vụ<br><small>backend/middleware/jwt_auth_middleware.py:94 user = await jwt_authentication(token)</small></td><td class=num>4</td><td><code>backend/common/security/</code></td></tr><tr><th scope=row>cache</th><td>Hạ tầng<br><small>backend/common/cache/pubsub.py:41 pubsub_client = RedisCli(max_connections=1)</small></td><td class=num>3</td><td><code>backend/common/cache/</code></td></tr><tr><th scope=row>socketio</th><td>API<br><small>backend/common/socketio/server.py:32 @sio.event(namespace=&#x27;*&#x27;)</small></td><td class=num>3</td><td><code>backend/common/socketio/</code></td></tr><tr><th scope=row>observability</th><td>Hạ tầng<br><small>backend/common/observability/otel.py:54 exporter = OTLPSpanExporter(endpoint=settings.GRAFANA_OTLP_GRPC_ENDPOINT, insecure=True)</small></td><td class=num>4</td><td><code>backend/common/observability/</code></td></tr><tr><th scope=row>db</th><td>Hạ tầng<br><small>backend/database/db.py:59 return create_async_engine(</small></td><td class=num>1</td><td><code>backend/database/db.py</code><br><code>backend/database/__init__.py</code></td></tr><tr><th scope=row>redis</th><td>Hạ tầng<br><small>backend/database/redis.py:43 pool = BlockingConnectionPool(</small></td><td class=num>1</td><td><code>backend/database/redis.py</code></td></tr><tr><th scope=row>middleware</th><td>Điểm vào<br><small>backend/middleware/opera_log_middleware.py:25 class OperaLogMiddleware(BaseHTTPMiddleware):</small></td><td class=num>5</td><td><code>backend/middleware/</code></td></tr><tr><th scope=row>config</th><td>dùng chung</td><td class=num>2</td><td><code>backend/core/conf.py</code><br><code>backend/core/path_conf.py</code><br><code>backend/core/__init__.py</code></td></tr><tr><th scope=row>common</th><td>dùng chung</td><td class=num>14</td><td><code>backend/common/</code></td></tr><tr><th scope=row>utils</th><td>dùng chung</td><td class=num>20</td><td><code>backend/utils/</code></td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Cạnh lắp ráp, có thật nhưng không vẽ (6)</summary><div class="scroll"><table><tbody><tr><td><code>entry</code></td><td><code>registrar</code></td><td>backend/main.py:46 app = register_app()</td></tr><tr><td><code>entry</code></td><td><code>plugin_core</code></td><td>backend/main.py:22 check_required_plugins()</td></tr><tr><td><code>registrar</code></td><td><code>db</code></td><td>backend/core/registrar.py:53 await create_tables()</td></tr><tr><td><code>registrar</code></td><td><code>redis</code></td><td>backend/core/registrar.py:56 await redis_client.init()</td></tr><tr><td><code>registrar</code></td><td><code>observability</code></td><td>backend/core/registrar.py:255 init_otel(app)</td></tr><tr><td><code>registrar</code></td><td><code>cache</code></td><td>backend/core/registrar.py:66 cache_pubsub_manager.start_listener()</td></tr></tbody></table></div></details><details class="acc"><summary>Cạnh chỉ nhận hoặc tự mở session, client rồi truyền đi, không vẽ (4)</summary><div class="scroll"><table><tbody><tr><td><code>admin_api</code></td><td><code>db</code></td><td>backend/app/admin/api/v1/auth/auth.py:21 db: CurrentSessionTransaction, obj: Annotated[HTTPBasicCredentials, Depends()]</td></tr><tr><td><code>task_api</code></td><td><code>db</code></td><td>backend/app/task/api/v1/result.py:19 db: CurrentSession,</td></tr><tr><td><code>middleware</code></td><td><code>db</code></td><td>backend/middleware/opera_log_middleware.py:254 async with async_db_session.begin() as db:</td></tr><tr><td><code>security</code></td><td><code>db</code></td><td>backend/common/security/jwt.py:97 async with async_db_session() as db:</td></tr></tbody></table></div></details><details class="acc"><summary>Cạnh kiểm tra rồi quay về (token, quyền, session), không vẽ (3)</summary><div class="scroll"><table><tbody><tr><td><code>task_api</code></td><td><code>security</code></td><td>backend/app/task/api/v1/control.py:17 @router.get(&#x27;/registered&#x27;, summary=&#x27;获取已注册的任务&#x27;, dependencies=[DependsJwtAuth])</td></tr><tr><td><code>middleware</code></td><td><code>security</code></td><td>backend/middleware/jwt_auth_middleware.py:94 user = await jwt_authentication(token)</td></tr><tr><td><code>socketio</code></td><td><code>security</code></td><td>backend/common/socketio/server.py:63 await jwt_authentication(token)</td></tr></tbody></table></div></details><details class="acc"><summary>Cạnh đi ngược lên tầng trên, không vẽ (4)</summary><div class="scroll"><table><tbody><tr><td><code>admin_service</code></td><td><code>plugin_core</code></td><td>backend/app/admin/service/plugin_service.py:66 return await install_zip_plugin(file)</td></tr><tr><td><code>admin_data</code></td><td><code>plugins</code></td><td>backend/app/admin/crud/crud_user.py:330 await user_social_dao.delete_by_user_id(db, user_id)</td></tr><tr><td><code>task_worker</code></td><td><code>socketio</code></td><td>backend/app/task/actions.py:11 await sio.emit(&#x27;task_worker_status&#x27;, worker, sid)</td></tr><tr><td><code>security</code></td><td><code>socketio</code></td><td>backend/common/security/token.py:294 task = sio.start_background_task(sio.disconnect, sid, namespace=namespace)</td></tr></tbody></table></div></details>
+  <details class="acc"><summary>Cạnh "chấp nhận được" (23): vẽ ra không bị trừ điểm P thường, bị tính sai ở P khắt khe</summary>
+    <p class="acc-list"><code>socketio → ext:redis</code>, <code>cache → ext:redis</code>, <code>task_worker → ext:redis</code>, <code>task_worker → ext:database</code>, <code>cli → ext:database</code>, <code>cli → ext:redis</code>, <code>admin_api → admin_data</code>, <code>admin_data → admin_service</code>, <code>admin_data → db</code>, <code>admin_data → plugin_core</code>, <code>cli → entry</code>, <code>db → observability</code>, <code>entry → cli</code>, <code>middleware → admin_data</code>, <code>middleware → observability</code>, <code>observability → db</code>, <code>observability → entry</code>, <code>observability → redis</code>, <code>plugin_core → registrar</code>, <code>registrar → entry</code>, <code>task_api → task_data</code>, <code>task_data → task_worker</code>, <code>task_worker → observability</code></p></details>
+</section>
+<section id="fullstack" class="repo">
+  <header class="repo-head">
+    <div>
+      <h2>full-stack-fastapi-template</h2>
+      <p class="meta"><span class="group group-tune">Nhóm chỉnh</span>
+        <span>Bản 2</span> <code>https://github.com/fa</code>
+        · viết 26/09/2026, viết tay trước lần chạy AI đầu tiên | rev 2 28/09/2026 (chuẩn đáp án bản 2) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)</p>
+    </div>
+    <dl class="counts">
+      <div><dt>Khối</dt><dd>11</dd></div>
+      <div><dt>Dùng chung</dt><dd>1</dd></div>
+      <div><dt>Hệ thống ngoài</dt><dd>3</dd></div>
+      <div><dt>Cạnh luồng</dt><dd>13</dd></div>
+      <div><dt>Lắp ráp (không vẽ)</dt><dd>0</dd></div>
+      <div><dt>Không qua import</dt><dd>0</dd></div>
+      <div><dt>Chấp nhận được</dt><dd>10</dd></div>
+    </dl>
+  </header>
+  
+  <p class="note"><b>Sơ đồ vẽ tay từ đọc source (28/09).</b> 8 cạnh, chỉ đi từ trên xuống. Các ô đếm và các bảng cuối mục là đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart TB
+  subgraph L_entry[&quot;Điểm vào&quot;]
+    app[&quot;&lt;b&gt;App&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/main.py&lt;/small&gt;&quot;]
+    seed[&quot;&lt;b&gt;Script tạo dữ liệu đầu&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/initial_data.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_api[&quot;API&quot;]
+    routes[&quot;&lt;b&gt;API routes, deps&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/api: login, users, items, utils, private&lt;/small&gt;&quot;]
+  end
+  subgraph L_data[&quot;Dữ liệu&quot;]
+    crud[&quot;&lt;b&gt;CRUD, models&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/crud.py, app/models.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_infra[&quot;Hạ tầng&quot;]
+    db[&quot;&lt;b&gt;Engine DB&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/core/db.py&lt;/small&gt;&quot;]
+    email[&quot;&lt;b&gt;Email&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/utils.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_ext[&quot;Hệ thống ngoài&quot;]
+    x_db[(&quot;PostgreSQL&quot;)]
+    x_smtp[(&quot;SMTP&quot;)]
+  end
+  subgraph shared[&quot;Dùng chung, không vẽ cạnh&quot;]
+    common[&quot;&lt;small&gt;core/config.py, core/security.py&lt;/small&gt;&quot;]
+  end
+  L_entry ~~~ L_api
+  L_api ~~~ L_data
+  L_data ~~~ L_infra
+  L_infra ~~~ L_ext
+
+  app --&gt;|định tuyến| routes
+  seed --&gt;|tạo user đầu tiên| db
+  routes --&gt;|gửi mail| email
+  routes --&gt;|gọi CRUD| crud
+  routes --&gt;|truy vấn thẳng| db
+  email --&gt;|gửi| x_smtp
+  crud --&gt;|truy vấn| db
+  db --&gt; x_db
+  </pre></div>
+  <div class="split">
+    <details open><summary>Cạnh của sơ đồ vẽ tay và bằng chứng (8)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng</th></tr></thead><tbody><tr><td>App</td><td>API routes</td><td><code>main.py:35 app.include_router(api_router, prefix=settings.API_V1_STR)</code></td></tr><tr><td>Script tạo dữ liệu đầu</td><td>Engine DB</td><td><code>initial_data.py:13 init_db(session)</code></td></tr><tr><td>API routes</td><td>Email</td><td><code>api/routes/users.py:73 send_email(</code></td></tr><tr><td>API routes</td><td>CRUD, models</td><td><code>api/routes/users.py:68 user = crud.create_user(session=session, user_create=user_in)</code></td></tr><tr><td>API routes</td><td>Engine DB</td><td><code>api/routes/users.py:43 count = session.exec(count_statement).one()</code> (session mở ở <code>api/deps.py:22 with Session(engine) as session:</code>)</td></tr><tr><td>Email</td><td>SMTP</td><td><code>utils.py:56 response = message.send(to=email_to, smtp=smtp_options)</code></td></tr><tr><td>CRUD, models</td><td>Engine DB</td><td><code>crud.py:15 session.commit()</code></td></tr><tr><td>Engine DB</td><td>PostgreSQL</td><td><code>core/db.py:7 engine = create_engine(str(settings.DATABASE_URL), pool_pre_ping=True)</code></td></tr></tbody></table></div></details>
+    <details open><summary>Không vẽ, và vì sao</summary>
+      <div class="scroll"><table><tbody><tr><td><code>deps.get_current_user</code>, <code>get_current_active_superuser</code>: giải mã JWT, kiểm user</td><td>Kiểm rồi quay về (<code>check</code>)</td></tr><tr><td><code>init_db</code> trong <code>core/db.py</code> gọi <code>crud.create_user</code> (<code>core/db.py:33</code>)</td><td>Cạnh đi lên (<code>up</code>), từ Hạ tầng lên Dữ liệu</td></tr><tr><td><code>sentry_sdk.init(dsn=...)</code> trong <code>main.py</code>; <code>CORSMiddleware</code>; phục vụ frontend tĩnh</td><td>Giám sát lỗi, lắp ráp lúc khởi động</td></tr><tr><td>Gọi <code>get_password_hash</code>, <code>verify_password</code>, <code>create_access_token</code></td><td><code>core/security.py</code> là helper thuần (băm, ký JWT), không đọc ghi ngoài; xếp dùng chung</td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Chỗ phải chọn khi vẽ</summary><ul><li><b><code>api/deps.py</code> gộp vào API routes</b>: mọi cạnh ra của nó là mở session (<code>pass</code>) hoặc kiểm quyền (<code>check</code>), đứng riêng sẽ là khối không có cạnh.</li><li><b><code>core/security.py</code> là dùng chung</b>: không có IO. Khác fba, nơi bảo mật lưu token trong Redis.</li><li><b>Routes có cả cạnh tới CRUD và tới DB</b>, vì một số route tự chạy <code>session.exec</code> (<code>users.py:43</code>) thay vì qua <code>crud.py</code>.</li><li><b>Sentry không vẽ</b>, giống OTel ở fba: chỉ gửi lỗi đi, không thuộc luồng xử lý.</li><li><b>Email ở Hạ tầng.</b> <code>utils.py</code> dựng nội dung mail và gửi qua SMTP; dấu hiệu tầng là dòng gửi SMTP. Repo không có tầng Nghiệp vụ riêng: route gọi thẳng CRUD và Email, nên sơ đồ không có khung Nghiệp vụ.</li></ul></details>
+  <p class="note">Phần dưới: đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <p class="exts">Hệ thống ngoài: <span class="chip">postgres</span> <span class="chip">smtp</span> <span class="chip">sentry</span></p>
+  <div class="split">
+    <details open><summary>Cạnh bắt buộc và bằng chứng (13)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng trong code</th></tr></thead>
+      <tbody><tr><td><code>entry</code></td><td><code>api_router</code></td><td>main.py:35 app.include_router(api_router)</td></tr><tr><td><code>entry</code></td><td><code>ext:sentry</code></td><td>main.py:19 sentry_sdk.init(dsn=...)</td></tr><tr><td><code>api_router</code></td><td><code>routes</code></td><td>api/main.py:7 api_router.include_router(login.router)</td></tr><tr><td><code>routes</code></td><td><code>api_deps</code></td><td>routes/items.py:7 SessionDep, CurrentUser</td></tr><tr><td><code>routes</code></td><td><code>crud</code></td><td>routes/login.py, users.py gọi crud.*</td></tr><tr><td><code>routes</code></td><td><code>security</code></td><td>routes/users.py:14 get_password_hash, verify_password</td></tr><tr><td><code>routes</code></td><td><code>email_utils</code></td><td>routes/users.py:27 send_email</td></tr><tr><td><code>api_deps</code></td><td><code>db</code></td><td>api/deps.py:22 Session(engine)</td></tr><tr><td><code>crud</code></td><td><code>security</code></td><td>crud.py:6 get_password_hash, verify_password</td></tr><tr><td><code>db</code></td><td><code>crud</code></td><td>core/db.py:3 crud.create_user trong init_db</td></tr><tr><td><code>db</code></td><td><code>ext:postgres</code></td><td>core/db.py:7 create_engine(DATABASE_URL)</td></tr><tr><td><code>bootstrap</code></td><td><code>db</code></td><td>initial_data.py:5 init_db, engine</td></tr><tr><td><code>email_utils</code></td><td><code>ext:smtp</code></td><td>utils.py:56 message.send(smtp=...)</td></tr></tbody></table></div></details>
+    <details><summary>Khối và thành viên (11)</summary>
+      <p class="hint">Đường dẫn là danh sách thành viên: thư mục nghĩa là mọi file trong đó. Cột số là số file có nội dung.</p>
+      <div class="scroll"><table><tbody><tr><th scope=row>entry</th><td class=num>1</td><td><code>backend/app/main.py</code></td></tr><tr><th scope=row>api_router</th><td class=num>1</td><td><code>backend/app/api/main.py</code></td></tr><tr><th scope=row>api_deps</th><td class=num>1</td><td><code>backend/app/api/deps.py</code></td></tr><tr><th scope=row>routes</th><td class=num>5</td><td><code>backend/app/api/routes/</code></td></tr><tr><th scope=row>crud</th><td class=num>1</td><td><code>backend/app/crud.py</code></td></tr><tr><th scope=row>models</th><td class=num>1</td><td><code>backend/app/models.py</code></td></tr><tr><th scope=row>config</th><td class=num>1</td><td><code>backend/app/core/config.py</code></td></tr><tr><th scope=row>db</th><td class=num>1</td><td><code>backend/app/core/db.py</code></td></tr><tr><th scope=row>security</th><td class=num>1</td><td><code>backend/app/core/security.py</code></td></tr><tr><th scope=row>bootstrap</th><td class=num>1</td><td><code>backend/app/initial_data.py</code></td></tr><tr><th scope=row>email_utils</th><td class=num>1</td><td><code>backend/app/utils.py</code></td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Cạnh lắp ráp, có thật nhưng không vẽ (0)</summary><div class="scroll"><table><tbody></tbody></table></div></details>
+  <details class="acc"><summary>Cạnh "chấp nhận được" (10): vẽ ra không bị trừ điểm P thường, bị tính sai ở P khắt khe</summary>
+    <p class="acc-list"><code>routes → ext:postgres</code>, <code>crud → ext:postgres</code>, <code>api_deps → ext:postgres</code>, <code>bootstrap → ext:postgres</code>, <code>api_deps → models</code>, <code>api_deps → security</code>, <code>crud → models</code>, <code>db → models</code>, <code>email_utils → security</code>, <code>routes → models</code></p></details>
+</section>
+<section id="realworld" class="repo">
+  <header class="repo-head">
+    <div>
+      <h2>fastapi-realworld-example-app</h2>
+      <p class="meta"><span class="group group-tune">Nhóm chỉnh</span>
+        <span>Bản 2</span> <code>https://github.com/ns</code>
+        · viết 26/09/2026, viết tay trước lần chạy AI đầu tiên | rev 2 28/09/2026 (chuẩn đáp án bản 2) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)</p>
+    </div>
+    <dl class="counts">
+      <div><dt>Khối</dt><dd>15</dd></div>
+      <div><dt>Dùng chung</dt><dd>4</dd></div>
+      <div><dt>Hệ thống ngoài</dt><dd>1</dd></div>
+      <div><dt>Cạnh luồng</dt><dd>12</dd></div>
+      <div><dt>Lắp ráp (không vẽ)</dt><dd>2</dd></div>
+      <div><dt>Không qua import</dt><dd>1</dd></div>
+      <div><dt>Chấp nhận được</dt><dd>10</dd></div>
+    </dl>
+  </header>
+  
+  <p class="note"><b>Sơ đồ vẽ tay từ đọc source (28/09).</b> 4 cạnh, chỉ đi từ trên xuống. Các ô đếm và các bảng cuối mục là đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart TB
+  subgraph L_entry[&quot;Điểm vào&quot;]
+    app[&quot;&lt;b&gt;App&lt;/b&gt;&lt;br/&gt;&lt;small&gt;main.py, core/events.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_api[&quot;API&quot;]
+    routes[&quot;&lt;b&gt;API routes, deps, xử lý lỗi&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/api&lt;/small&gt;&quot;]
+  end
+  subgraph L_service[&quot;Nghiệp vụ&quot;]
+    services[&quot;&lt;b&gt;Services&lt;/b&gt;&lt;br/&gt;&lt;small&gt;hàm kiểm, JWT, băm mật khẩu&lt;/small&gt;&quot;]:::idle
+  end
+  subgraph L_data[&quot;Dữ liệu&quot;]
+    repos[&quot;&lt;b&gt;Repositories, SQL&lt;/b&gt;&lt;br/&gt;&lt;small&gt;db/repositories, db/queries (aiosql)&lt;/small&gt;&quot;]
+  end
+  subgraph L_infra[&quot;Hạ tầng&quot;]
+    pool[&quot;&lt;b&gt;DB pool&lt;/b&gt;&lt;br/&gt;&lt;small&gt;db/events.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_ext[&quot;Hệ thống ngoài&quot;]
+    x_db[(&quot;PostgreSQL&quot;)]
+  end
+  subgraph shared[&quot;Dùng chung, không vẽ cạnh&quot;]
+    common[&quot;&lt;small&gt;core/config, core/settings, core/logging, models/domain, models/schemas, resources, db/errors.py&lt;/small&gt;&quot;]
+  end
+  L_entry ~~~ L_api
+  L_api ~~~ L_service
+  L_service ~~~ L_data
+  L_data ~~~ L_infra
+  L_infra ~~~ L_ext
+  classDef idle stroke-dasharray: 4 3
+
+  app --&gt;|định tuyến| routes
+  routes --&gt;|đọc, ghi| repos
+  repos --&gt;|chạy SQL| pool
+  pool --&gt; x_db
+  </pre></div>
+  <div class="split">
+    <details open><summary>Cạnh của sơ đồ vẽ tay và bằng chứng (4)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng</th></tr></thead><tbody><tr><td>App</td><td>API routes</td><td><code>main.py:40 application.include_router(api_router, prefix=settings.api_prefix)</code> (lỗi: <code>main.py:37 application.add_exception_handler(...)</code>)</td></tr><tr><td>API routes</td><td>Repositories</td><td><code>api/routes/articles/articles_resource.py:71 article = await articles_repo.create_article(</code></td></tr><tr><td>Repositories</td><td>DB pool</td><td><code>db/repositories/users.py:11 user_row = await queries.get_user_by_email(self.connection, email=email)</code>. Kết nối lấy từ pool ở <code>api/dependencies/database.py:12 return request.app.state.pool</code>, không qua import</td></tr><tr><td>DB pool</td><td>PostgreSQL</td><td><code>db/events.py:11 app.state.pool = await asyncpg.create_pool(</code></td></tr></tbody></table></div></details>
+    <details open><summary>Không vẽ, và vì sao</summary>
+      <div class="scroll"><table><tbody><tr><td>Route gọi <code>check_email_is_taken</code>, <code>check_article_exists</code>, <code>check_article_modification_permissions</code>; deps <code>get_current_user_authorizer</code></td><td>Kiểm rồi quay về (<code>check</code>)</td></tr><tr><td>Route gọi <code>jwt.create_access_token_for_user</code>, <code>get_slug_for_article</code>; model gọi <code>security.verify_password</code></td><td>Helper thuần, không đọc ghi ngoài</td></tr><tr><td><code>get_repository</code> lấy kết nối từ pool rồi tạo repository</td><td>Chỉ truyền đi (<code>pass</code>)</td></tr><tr><td><code>add_event_handler(&quot;startup&quot;, ...)</code> gọi <code>connect_to_db</code>; đóng pool khi tắt</td><td>Lắp ráp (<code>wiring</code>)</td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Chỗ phải chọn khi vẽ</summary><ul><li><b>Services để trống cạnh.</b> Mọi hàm trong <code>services/</code> là hàm kiểm hoặc helper thuần. Giữ khối ở tầng Nghiệp vụ, viền nét đứt, để người mới thấy repo này không có lớp nghiệp vụ thật: route gọi thẳng repository.</li><li><b>Repositories và <code>db/queries</code> một khối.</b> Repository chỉ gọi hàm SQL do aiosql sinh từ file <code>.sql</code>.</li><li><b>Cạnh Repositories → DB pool không qua import.</b> Pool được gắn vào <code>app.state</code> lúc khởi động và lấy ra theo request. Đây là luồng chính, không có đường import thay thế (quy tắc 4).</li><li><b><code>api/dependencies</code> và <code>api/errors</code> gộp vào API routes.</b> Deps nạp bài viết, user cho route; handler lỗi được gắn cùng lúc gắn router.</li><li><b>Models là dùng chung.</b> <code>models/domain</code>, <code>models/schemas</code> là kiểu Pydantic, không đọc ghi gì.</li></ul></details>
+  <p class="note">Phần dưới: đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <p class="exts">Hệ thống ngoài: <span class="chip">postgres</span></p>
+  <div class="split">
+    <details open><summary>Cạnh bắt buộc và bằng chứng (12)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng trong code</th></tr></thead>
+      <tbody><tr><td><code>entry</code></td><td><code>routes</code></td><td>main.py:40 include_router(api_router)</td></tr><tr><td><code>entry</code></td><td><code>api_errors</code></td><td>main.py:37 add_exception_handler(HTTPException, http_error_handler)</td></tr><tr><td><code>db_events</code></td><td><code>ext:postgres</code></td><td>db/events.py:11 asyncpg.create_pool</td></tr><tr><td><code>routes</code></td><td><code>dependencies</code></td><td>routes/*.py get_repository, get_current_user_authorizer</td></tr><tr><td><code>routes</code></td><td><code>repositories</code></td><td>routes/*.py gọi method của *Repository</td></tr><tr><td><code>routes</code></td><td><code>services</code></td><td>routes/authentication.py:17 check_email_is_taken; jwt</td></tr><tr><td><code>dependencies</code></td><td><code>repositories</code></td><td>dependencies/authentication.py:13 UsersRepository</td></tr><tr><td><code>dependencies</code></td><td><code>services</code></td><td>dependencies/authentication.py:16 jwt</td></tr><tr><td><code>services</code></td><td><code>repositories</code></td><td>services/authentication.py:2 UsersRepository</td></tr><tr><td><code>repositories</code></td><td><code>queries</code></td><td>repositories/users.py:4 queries.*</td></tr><tr><td><code>domain_models</code></td><td><code>services</code></td><td>models/domain/users.py:20 security.verify_password</td></tr><tr><td><code>dependencies</code></td><td><code>db_events</code></td><td>app/api/dependencies/database.py:12 return request.app.state.pool (pool tạo ở app/db/events.py:11 asyncpg.create_pool); không qua import</td></tr></tbody></table></div></details>
+    <details><summary>Khối và thành viên (15)</summary>
+      <p class="hint">Đường dẫn là danh sách thành viên: thư mục nghĩa là mọi file trong đó. Cột số là số file có nội dung.</p>
+      <div class="scroll"><table><tbody><tr><th scope=row>entry</th><td class=num>1</td><td><code>app/main.py</code></td></tr><tr><th scope=row>routes</th><td class=num>9</td><td><code>app/api/routes/</code></td></tr><tr><th scope=row>dependencies</th><td class=num>5</td><td><code>app/api/dependencies/</code></td></tr><tr><th scope=row>api_errors</th><td class=num>2</td><td><code>app/api/errors/</code></td></tr><tr><th scope=row>services</th><td class=num>5</td><td><code>app/services/</code></td></tr><tr><th scope=row>repositories</th><td class=num>6</td><td><code>app/db/repositories/</code></td></tr><tr><th scope=row>queries</th><td class=num>2</td><td><code>app/db/queries/</code></td></tr><tr><th scope=row>db_events</th><td class=num>1</td><td><code>app/db/events.py</code></td></tr><tr><th scope=row>db_errors</th><td class=num>1</td><td><code>app/db/errors.py</code></td></tr><tr><th scope=row>domain_models</th><td class=num>6</td><td><code>app/models/domain/</code><br><code>app/models/common.py</code></td></tr><tr><th scope=row>schemas</th><td class=num>7</td><td><code>app/models/schemas/</code></td></tr><tr><th scope=row>config</th><td class=num>6</td><td><code>app/core/config.py</code><br><code>app/core/settings/</code></td></tr><tr><th scope=row>logging</th><td class=num>1</td><td><code>app/core/logging.py</code></td></tr><tr><th scope=row>lifecycle</th><td class=num>1</td><td><code>app/core/events.py</code></td></tr><tr><th scope=row>resources</th><td class=num>1</td><td><code>app/resources/</code></td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Cạnh lắp ráp, có thật nhưng không vẽ (2)</summary><div class="scroll"><table><tbody><tr><td><code>entry</code></td><td><code>lifecycle</code></td><td>main.py:28 add_event_handler(create_start_app_handler)</td></tr><tr><td><code>lifecycle</code></td><td><code>db_events</code></td><td>core/events.py:7 connect_to_db, close_db_connection</td></tr></tbody></table></div></details>
+  <details class="acc"><summary>Cạnh "chấp nhận được" (10): vẽ ra không bị trừ điểm P thường, bị tính sai ở P khắt khe</summary>
+    <p class="acc-list"><code>repositories → ext:postgres</code>, <code>queries → ext:postgres</code>, <code>dependencies → domain_models</code>, <code>dependencies → schemas</code>, <code>repositories → domain_models</code>, <code>routes → domain_models</code>, <code>routes → schemas</code>, <code>schemas → domain_models</code>, <code>services → domain_models</code>, <code>services → schemas</code></p></details>
+</section>
+<section id="kibo" class="repo">
+  <header class="repo-head">
+    <div>
+      <h2>KIBO-Agenda/kibo-backend</h2>
+      <p class="meta"><span class="group group-tune">Nhóm chỉnh</span>
+        <span>Bản 2</span> <code>commit 89eb3bb6d84e64</code>
+        · viết 26/09/2026, viết tay trước lần chạy AI đầu tiên | rev 2 28/09/2026 (chuẩn đáp án bản 2) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)</p>
+    </div>
+    <dl class="counts">
+      <div><dt>Khối</dt><dd>14</dd></div>
+      <div><dt>Dùng chung</dt><dd>2</dd></div>
+      <div><dt>Hệ thống ngoài</dt><dd>3</dd></div>
+      <div><dt>Cạnh luồng</dt><dd>19</dd></div>
+      <div><dt>Lắp ráp (không vẽ)</dt><dd>2</dd></div>
+      <div><dt>Không qua import</dt><dd>0</dd></div>
+      <div><dt>Chấp nhận được</dt><dd>13</dd></div>
+    </dl>
+  </header>
+  
+  <p class="note"><b>Sơ đồ vẽ tay từ đọc source (28/09).</b> 16 cạnh, chỉ đi từ trên xuống. Các ô đếm và các bảng cuối mục là đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart TB
+  subgraph L_entry[&quot;Điểm vào&quot;]
+    app[&quot;&lt;b&gt;App&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/main.py&lt;/small&gt;&quot;]
+    jobs[&quot;&lt;b&gt;Tác vụ nền&lt;/b&gt;&lt;br/&gt;&lt;small&gt;vòng outbox WhatsApp, APScheduler nhắc lịch&lt;/small&gt;&quot;]
+    scripts[&quot;&lt;b&gt;Scripts, seeds&lt;/b&gt;&lt;br/&gt;&lt;small&gt;scripts/send_tomorrow_reminders.py, seeds&lt;/small&gt;&quot;]
+  end
+  subgraph L_api[&quot;API&quot;]
+    routes[&quot;&lt;b&gt;API routes&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/api/v1, core/dependencies.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_service[&quot;Nghiệp vụ&quot;]
+    svc[&quot;&lt;b&gt;Services nghiệp vụ&lt;/b&gt;&lt;br/&gt;&lt;small&gt;appointments, auth, clients, services, tenant, users, waitlists, super_admin&lt;/small&gt;&quot;]
+    wa[&quot;&lt;b&gt;WhatsApp, nhắc lịch&lt;/b&gt;&lt;br/&gt;&lt;small&gt;services/whatsapp, scheduler/reminder_scheduler.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_data[&quot;Dữ liệu&quot;]
+    repos[&quot;&lt;b&gt;Repositories, models&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/repositories, app/models&lt;/small&gt;&quot;]
+  end
+  subgraph L_infra[&quot;Hạ tầng&quot;]
+    db[&quot;&lt;b&gt;Session DB&lt;/b&gt;&lt;br/&gt;&lt;small&gt;app/db/session.py&lt;/small&gt;&quot;]
+    evo[&quot;&lt;b&gt;Evolution client&lt;/b&gt;&lt;br/&gt;&lt;small&gt;services/whatsapp/evolution_client.py&lt;/small&gt;&quot;]
+    email[&quot;&lt;b&gt;Email&lt;/b&gt;&lt;br/&gt;&lt;small&gt;core/email.py&lt;/small&gt;&quot;]
+  end
+  subgraph L_ext[&quot;Hệ thống ngoài&quot;]
+    x_db[(&quot;PostgreSQL&quot;)]
+    x_evo[(&quot;Evolution API: WhatsApp&quot;)]
+    x_smtp[(&quot;SMTP&quot;)]
+  end
+  subgraph shared[&quot;Dùng chung, không vẽ cạnh&quot;]
+    common[&quot;&lt;small&gt;core/config, core/security, core/timezone, app/schemas, db/schemas.py&lt;/small&gt;&quot;]
+  end
+  L_entry ~~~ L_api
+  L_api ~~~ L_service
+  L_service ~~~ L_data
+  L_data ~~~ L_infra
+  L_infra ~~~ L_ext
+
+  app --&gt;|định tuyến| routes
+  jobs --&gt;|gửi outbox, nhắc lịch| wa
+  scripts --&gt;|gửi nhắc lịch ngày mai| wa
+  scripts --&gt;|tạo user thử| db
+  routes --&gt;|gọi| svc
+  routes --&gt;|kết nối, thống kê WhatsApp| wa
+  routes --&gt;|route test đọc thẳng| repos
+  svc --&gt;|đọc, ghi| repos
+  svc --&gt;|gửi mail đặt lại mật khẩu| email
+  wa --&gt;|đọc, ghi outbox| repos
+  wa --&gt;|gửi tin| evo
+  wa --&gt;|truy vấn lịch hẹn| db
+  repos --&gt;|truy vấn| db
+  db --&gt; x_db
+  evo --&gt; x_evo
+  email --&gt; x_smtp
+  </pre></div>
+  <div class="split">
+    <details open><summary>Cạnh của sơ đồ vẽ tay và bằng chứng (16)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng</th></tr></thead><tbody><tr><td>App</td><td>API routes</td><td><code>main.py:60 app.include_router(auth_router, prefix=settings.API_V1_PREFIX)</code></td></tr><tr><td>Tác vụ nền</td><td>WhatsApp, nhắc lịch</td><td><code>services/whatsapp/worker.py:21 processed = await service.process_pending_messages(</code> (lịch: <code>services/scheduler/worker.py:30 reminder_scheduler.process_24h_reminders,</code>)</td></tr><tr><td>Scripts, seeds</td><td>WhatsApp, nhắc lịch</td><td><code>scripts/send_tomorrow_reminders.py:37 result = await scheduler.process_tomorrow_reminders(</code></td></tr><tr><td>Scripts, seeds</td><td>Session DB</td><td><code>seeds/create_frontend_test_users.py:37 db.add(entity)</code></td></tr><tr><td>API routes</td><td>Services nghiệp vụ</td><td><code>api/v1/appointments/router.py:32 entity = service.create_appointment(</code></td></tr><tr><td>API routes</td><td>WhatsApp, nhắc lịch</td><td><code>api/v1/whatsapp/router.py:298 stats = service.get_stats(business_id=owner_user.tenant_id)</code></td></tr><tr><td>API routes</td><td>Repositories</td><td><code>api/v1/test.py:52 appointment_repo = AppointmentRepository(db)</code></td></tr><tr><td>Services nghiệp vụ</td><td>Repositories</td><td><code>services/appointments/appointment_service.py:223 occupied = self.appointment_repo.list_active_by_user_on_date(</code></td></tr><tr><td>Services nghiệp vụ</td><td>Email</td><td><code>services/auth/auth_service.py:200 send_password_reset_email(normalized_email, reset_link)</code></td></tr><tr><td>WhatsApp, nhắc lịch</td><td>Repositories</td><td><code>services/whatsapp/outbox_service.py:55 return self.outbox_repo.create(</code></td></tr><tr><td>WhatsApp, nhắc lịch</td><td>Evolution client</td><td><code>services/whatsapp/outbox_service.py:125 payload = await self.evolution_client.send_text(</code></td></tr><tr><td>WhatsApp, nhắc lịch</td><td>Session DB</td><td><code>services/scheduler/reminder_scheduler.py:53 all_tenants = db.query(Tenant).all()</code></td></tr><tr><td>Repositories</td><td>Session DB</td><td><code>repositories/appointments/appointment_repository.py:60 self.db.commit()</code></td></tr><tr><td>Session DB</td><td>PostgreSQL</td><td><code>db/session.py:10 engine = create_engine(settings.DATABASE_URL, future=True, pool_pre_ping=True)</code></td></tr><tr><td>Evolution client</td><td>Evolution API</td><td><code>services/whatsapp/evolution_client.py:35 return httpx.AsyncClient(base_url=base_url.rstrip(&quot;/&quot;), headers=headers, timeout=20.0)</code></td></tr><tr><td>Email</td><td>SMTP</td><td><code>core/email.py:29 with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:</code></td></tr></tbody></table></div></details>
+    <details open><summary>Không vẽ, và vì sao</summary>
+      <div class="scroll"><table><tbody><tr><td><code>get_current_tenant_user</code>, <code>require_owner</code>, <code>has_min_plan_tier</code> (cả trong outbox service)</td><td>Kiểm rồi quay về (<code>check</code>)</td></tr><tr><td>Route nhận <code>db</code> qua <code>Depends(get_db)</code> rồi tạo service; worker <code>SessionLocal()</code> rồi truyền cho service</td><td>Chỉ truyền đi (<code>pass</code>)</td></tr><tr><td>Lifespan tạo task <code>run_outbox_worker</code>, <code>run_scheduler_lifecycle</code></td><td>Lắp ráp (<code>wiring</code>)</td></tr><tr><td><code>scripts/test_whatsapp_connection.py</code> gọi thẳng Evolution API bằng httpx</td><td>Script thử kết nối thủ công</td></tr><tr><td>Gọi <code>get_password_hash</code>, template engine, variable resolver</td><td>Helper thuần; template engine nằm trong khối WhatsApp</td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Chỗ phải chọn khi vẽ</summary><ul><li><b>Tác vụ nền ở Điểm vào, không ở Nghiệp vụ.</b> Chuẩn xếp worker vào Nghiệp vụ vì service gửi việc cho worker (như Celery ở fba). Ở kibo không ai gửi việc: vòng outbox và APScheduler tự chạy từ lúc khởi động. Chúng là điểm bắt đầu của luồng nền. Cần làm rõ luật này trong chuẩn.</li><li><b>Tách file trong <code>services/scheduler</code>.</b> <code>worker.py</code> (khởi động APScheduler) ở Điểm vào; <code>reminder_scheduler.py</code> (logic nhắc lịch) ở Nghiệp vụ, gộp với WhatsApp vì cùng gửi tin qua Evolution.</li><li><b><code>evolution_client.py</code> tách ra Hạ tầng</b>, dù nằm trong <code>services/whatsapp</code>: nó chỉ tạo client HTTP tới Evolution API.</li><li><b>Gộp 8 service nghiệp vụ một khối</b>, vì cùng tầng, cùng cách gọi repository.</li><li><b>Vẽ route test</b> (<code>api/v1/test.py</code>), vì router này được gắn vào app trong <code>main.py</code>.</li></ul></details>
+  <p class="note">Phần dưới: đáp án JSON dùng để chấm, chưa đồng bộ với sơ đồ vẽ tay.</p>
+  <p class="exts">Hệ thống ngoài: <span class="chip">postgres</span> <span class="chip">smtp</span> <span class="chip">evolution</span></p>
+  <div class="split">
+    <details open><summary>Cạnh bắt buộc và bằng chứng (19)</summary>
+      <div class="scroll"><table><thead><tr><th>Từ</th><th>Tới</th><th>Bằng chứng trong code</th></tr></thead>
+      <tbody><tr><td><code>entry</code></td><td><code>api</code></td><td>main.py:57 app.include_router(auth_router)</td></tr><tr><td><code>api</code></td><td><code>core_deps</code></td><td>api/v1/*/router.py require_owner, get_tenant_id_from_token</td></tr><tr><td><code>api</code></td><td><code>services</code></td><td>api/v1/tenant/payments_router.py:10 PaymentService</td></tr><tr><td><code>api</code></td><td><code>whatsapp</code></td><td>api/v1/whatsapp/router.py:25 WhatsAppConnectionService...</td></tr><tr><td><code>core_deps</code></td><td><code>security</code></td><td>core/dependencies.py decode token</td></tr><tr><td><code>core_deps</code></td><td><code>repositories</code></td><td>core/dependencies.py tenant repository</td></tr><tr><td><code>services</code></td><td><code>repositories</code></td><td>services/*/ gọi *Repository</td></tr><tr><td><code>services</code></td><td><code>security</code></td><td>services/auth, users, super_admin băm mật khẩu/tạo token</td></tr><tr><td><code>services</code></td><td><code>email</code></td><td>services/auth/auth_service.py:200 send_password_reset_email</td></tr><tr><td><code>whatsapp</code></td><td><code>repositories</code></td><td>services/whatsapp/*.py gọi repository outbox, tenant...</td></tr><tr><td><code>whatsapp</code></td><td><code>ext:evolution</code></td><td>evolution_client.py:35 httpx.AsyncClient(base_url=EVOLUTION_API_BASE_URL)</td></tr><tr><td><code>scheduler</code></td><td><code>whatsapp</code></td><td>reminder_scheduler.py:27 EvolutionClient()</td></tr><tr><td><code>scheduler</code></td><td><code>repositories</code></td><td>reminder_scheduler.py:13 ClientRepository</td></tr><tr><td><code>db</code></td><td><code>ext:postgres</code></td><td>db/session.py:10 create_engine(DATABASE_URL)</td></tr><tr><td><code>email</code></td><td><code>ext:smtp</code></td><td>core/email.py:29 smtplib.SMTP</td></tr><tr><td><code>api</code></td><td><code>db</code></td><td>app/api/v1/appointments/router.py:28 db: Annotated[Session, Depends(get_db)]</td></tr><tr><td><code>core_deps</code></td><td><code>db</code></td><td>app/core/dependencies.py:110 db: Session = Depends(get_db)</td></tr><tr><td><code>whatsapp</code></td><td><code>db</code></td><td>app/services/whatsapp/worker.py:18 db = SessionLocal()</td></tr><tr><td><code>scheduler</code></td><td><code>db</code></td><td>app/services/scheduler/worker.py:25 db_sessionmaker = get_db_sessionmaker()</td></tr></tbody></table></div></details>
+    <details><summary>Khối và thành viên (14)</summary>
+      <p class="hint">Đường dẫn là danh sách thành viên: thư mục nghĩa là mọi file trong đó. Cột số là số file có nội dung.</p>
+      <div class="scroll"><table><tbody><tr><th scope=row>entry</th><td class=num>1</td><td><code>app/main.py</code></td></tr><tr><th scope=row>api</th><td class=num>20</td><td><code>app/api/</code></td></tr><tr><th scope=row>core_deps</th><td class=num>1</td><td><code>app/core/dependencies.py</code></td></tr><tr><th scope=row>security</th><td class=num>1</td><td><code>app/core/security.py</code></td></tr><tr><th scope=row>email</th><td class=num>1</td><td><code>app/core/email.py</code></td></tr><tr><th scope=row>config</th><td class=num>1</td><td><code>app/core/config.py</code></td></tr><tr><th scope=row>timezone</th><td class=num>1</td><td><code>app/core/timezone.py</code></td></tr><tr><th scope=row>db</th><td class=num>3</td><td><code>app/db/</code></td></tr><tr><th scope=row>models</th><td class=num>25</td><td><code>app/models/</code></td></tr><tr><th scope=row>schemas</th><td class=num>19</td><td><code>app/schemas/</code></td></tr><tr><th scope=row>repositories</th><td class=num>24</td><td><code>app/repositories/</code></td></tr><tr><th scope=row>services</th><td class=num>17</td><td><code>app/services/</code></td></tr><tr><th scope=row>whatsapp</th><td class=num>8</td><td><code>app/services/whatsapp/</code></td></tr><tr><th scope=row>scheduler</th><td class=num>2</td><td><code>app/services/scheduler/</code></td></tr></tbody></table></div></details>
+  </div>
+  <details class="acc"><summary>Cạnh lắp ráp, có thật nhưng không vẽ (2)</summary><div class="scroll"><table><tbody><tr><td><code>entry</code></td><td><code>whatsapp</code></td><td>main.py:33 run_outbox_worker</td></tr><tr><td><code>entry</code></td><td><code>scheduler</code></td><td>main.py:36 run_scheduler_lifecycle</td></tr></tbody></table></div></details>
+  <details class="acc"><summary>Cạnh "chấp nhận được" (13): vẽ ra không bị trừ điểm P thường, bị tính sai ở P khắt khe</summary>
+    <p class="acc-list"><code>repositories → ext:postgres</code>, <code>api → models</code>, <code>api → repositories</code>, <code>api → schemas</code>, <code>core_deps → models</code>, <code>models → db</code>, <code>repositories → models</code>, <code>scheduler → models</code>, <code>schemas → models</code>, <code>services → models</code>, <code>services → schemas</code>, <code>whatsapp → core_deps</code>, <code>whatsapp → models</code></p></details>
+</section>
+</div>

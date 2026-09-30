@@ -1,0 +1,27 @@
+flowchart LR
+  C2["Điểm vào ứng dụng"]
+  C3["Kết nối cơ sở dữ liệu"]
+  C4["Router API chính"]
+  C5["Schema notebook"]
+  C6["Service notebook"]
+  C7["Router sổ ghi chú"]
+  C8["Schema ghi chú"]
+  C9["Service ghi chú"]
+  C10["Router ghi chú API"]
+  C11["Model dữ liệu"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C1["Cấu hình ứng dụng"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["uvicorn"])
+    X2[("database")]
+  end
+  C10 -->|"tiêm phụ thuộc service"| C9
+  C2 -->|"đăng ký router API"| C4
+  C4 -->|"đăng ký router notes"| C10
+  C4 -->|"đăng ký router notebooks"| C7
+  C6 -->|"gọi phương thức model"| C11
+  C6 -->|"tiêm AsyncSession"| C3
+  C7 -->|"tiêm phụ thuộc service"| C6
+  C2 -.->|"chạy server"| X1
+  C3 -.->|"tạo engine DB"| X2

@@ -1,0 +1,26 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Router API tổng hợp"]
+  C3["API quản lý notebook"]
+  C4["API quản lý note"]
+  C5["Dịch vụ nghiệp vụ note"]
+  C6["Quản lý sổ ghi chép"]
+  C7["Định nghĩa mô hình dữ liệu"]
+  C8["Kết nối cơ sở dữ liệu"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C9["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+  end
+  C2 -->|"gọi router notebook"| C3
+  C2 -->|"gọi router note"| C4
+  C1 -->|"gọi router API"| C2
+  C7 -->|"gọi stream DB"| C8
+  C5 -->|"gọi DB"| C8
+  C5 -->|"gọi mô hình"| C7
+  C6 -->|"gọi refresh DB"| C8
+  C6 -->|"gọi tạo và đọc model"| C7
+  C3 -->|"gọi dịch vụ notebook"| C6
+  C4 -->|"gọi dịch vụ note"| C5
+  C8 -.->|"truy vấn"| X1

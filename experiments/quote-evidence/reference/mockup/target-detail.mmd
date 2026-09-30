@@ -1,0 +1,57 @@
+---
+title: "HÌNH MẪU (không phải output pipeline) — FastAPI-boilerplate @765efec, góc nhìn chi tiết. Component, tên và hệ thống ngoài lấy từ r6; phân loại cạnh làm tay theo SPEC"
+---
+flowchart LR
+  subgraph g_interfaces["interfaces"]
+    c_interfaces["API Entrypoint<br/><small>entrypoint · 1 endpoint</small>"]
+    c_interfaces_admin["Admin Interface<br/><small>admin_ui</small>"]
+  end
+  subgraph g_modules["modules — nghiệp vụ"]
+    c_modules_user["Quản lý người dùng<br/><small>api · 11 endpoint · 1 bảng</small>"]
+    c_modules_tier["Quản lý cấp độ người dùng<br/><small>api · 2 endpoint · 1 bảng</small>"]
+    c_modules_rate_limit["Quản lý giới hạn tốc độ<br/><small>api · 4 endpoint · 1 bảng</small>"]
+    c_modules_api_keys["API Key Management<br/><small>api · 8 endpoint · 3 bảng</small>"]
+  end
+  subgraph g_infrastructure["infrastructure"]
+    c_infrastructure["Quản lý hạ tầng ứng dụng<br/><small>infrastructure · 3 endpoint · dùng chung bởi 6</small>"]
+    c_infrastructure_auth["Xác thực hạ tầng<br/><small>security · 5 endpoint</small>"]
+    c_infrastructure_security["Security Validation<br/><small>security</small>"]
+    c_infrastructure_database["Cơ sở dữ liệu hạ tầng<br/><small>data_access · dùng chung bởi 4</small>"]
+    c_infrastructure_cache["Cache hạ tầng<br/><small>cache</small>"]
+    c_infrastructure_taskiq["TaskIQ Worker Infrastructure<br/><small>worker</small>"]
+  end
+  subgraph g_shared["Dùng chung — không vẽ cạnh tới"]
+    c_infrastructure_config["Cấu hình hạ tầng<br/><small>config · dùng chung bởi 9</small>"]
+    c_infrastructure_logging["Logging Infrastructure<br/><small>utility · dùng chung bởi 6</small>"]
+    c_modules_common["Common Utilities<br/><small>utility · dùng chung bởi 5</small>"]
+  end
+  subgraph g_external["Hệ thống ngoài"]
+    db_postgres[("PostgreSQL<br/><small>database</small>")]
+    cache_redis[("Redis<br/><small>cache</small>")]
+    broker_taskiq[/"TaskIQ broker<br/><small>queue_broker</small>"/]
+    idp_google(["Google OAuth<br/><small>identity_provider</small>"])
+  end
+  c_interfaces -->|"đăng ký router người dùng"| c_modules_user
+  c_interfaces -->|"đăng ký router tier"| c_modules_tier
+  c_interfaces -->|"đăng ký router rate limit"| c_modules_rate_limit
+  c_interfaces -->|"đăng ký router API key"| c_modules_api_keys
+  c_interfaces -->|"gắn xác thực và giới hạn tốc độ"| c_infrastructure_auth
+  c_interfaces -->|"kiểm cấu hình bảo mật khi khởi động"| c_infrastructure_security
+  c_interfaces -->|"dựng ứng dụng FastAPI"| c_infrastructure
+  c_interfaces -->|"mở trang quản trị"| c_interfaces_admin
+  c_interfaces_admin -->|"quản trị người dùng"| c_modules_user
+  c_interfaces_admin -->|"quản trị tier"| c_modules_tier
+  c_infrastructure_auth -->|"tra người dùng khi đăng nhập"| c_modules_user
+  c_infrastructure_auth -->|"đọc hạn mức theo endpoint"| c_modules_rate_limit
+  c_modules_user -->|"gán tier cho người dùng"| c_modules_tier
+  c_modules_user -->|"băm và kiểm mật khẩu"| c_infrastructure_auth
+  c_modules_tier -->|"đếm người dùng theo tier"| c_modules_user
+  c_modules_tier -->|"lấy rate limit của tier"| c_modules_rate_limit
+  c_modules_rate_limit -->|"kiểm tier tồn tại"| c_modules_tier
+  c_infrastructure -->|"mở/đóng kết nối DB"| c_infrastructure_database
+  c_infrastructure -->|"khởi tạo cache"| c_infrastructure_cache
+  c_infrastructure_taskiq -->|"tạo engine cho worker"| c_infrastructure_database
+  c_infrastructure_database -->|"create_async_engine"| db_postgres
+  c_infrastructure_cache -->|"Redis, aiomcache.Client"| cache_redis
+  c_infrastructure_taskiq -->|"AioPikaBroker, ListQueueBroker"| broker_taskiq
+  c_infrastructure_auth -.->|"OAuth: OAUTH_GOOGLE_CLIENT_ID"| idp_google

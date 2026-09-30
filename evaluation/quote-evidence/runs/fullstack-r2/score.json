@@ -1,0 +1,121 @@
+{
+  "precision": 1.0,
+  "recall": 0.308,
+  "quote_validity": 1.0,
+  "grouping_agreement": 1.0,
+  "components": 12,
+  "hits": [
+    [
+      "api_deps",
+      "db"
+    ],
+    [
+      "api_router",
+      "routes"
+    ],
+    [
+      "entry",
+      "api_router"
+    ],
+    [
+      "entry",
+      "ext:sentry"
+    ]
+  ],
+  "wrong": [],
+  "missed": [
+    [
+      "bootstrap",
+      "db"
+    ],
+    [
+      "crud",
+      "security"
+    ],
+    [
+      "db",
+      "crud"
+    ],
+    [
+      "db",
+      "ext:postgres"
+    ],
+    [
+      "email_utils",
+      "ext:smtp"
+    ],
+    [
+      "routes",
+      "api_deps"
+    ],
+    [
+      "routes",
+      "crud"
+    ],
+    [
+      "routes",
+      "email_utils"
+    ],
+    [
+      "routes",
+      "security"
+    ]
+  ],
+  "not_counted": [
+    [
+      "api_deps",
+      "security"
+    ]
+  ],
+  "mapping": {
+    "C1": [
+      "điểm vào ứng dụng",
+      "entry"
+    ],
+    "C2": [
+      "định nghĩa router API",
+      "api_router"
+    ],
+    "C3": [
+      "các phụ thuộc yêu cầu",
+      "api_deps"
+    ],
+    "C4": [
+      "http_routes",
+      "routes"
+    ],
+    "C5": [
+      "user_service",
+      "crud"
+    ],
+    "C6": [
+      "email_service",
+      "email_utils"
+    ],
+    "C7": [
+      "data_models",
+      "models"
+    ],
+    "C8": [
+      "initial_data",
+      "bootstrap"
+    ],
+    "C9": [
+      "config",
+      "config"
+    ],
+    "C10": [
+      "db_connection",
+      "db"
+    ],
+    "C11": [
+      "security",
+      "security"
+    ],
+    "C12": [
+      "project_hooks",
+      "hooks"
+    ]
+  },
+  "files_outside_oracle": []
+}

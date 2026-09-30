@@ -1,0 +1,45 @@
+{
+ "repo": "full-stack-fastapi-template",
+ "source": "https://github.com/fastapi/full-stack-fastapi-template/tree/cb740b656d7a0a6c5e12c7bf8e50343ec94ee9c7",
+ "local_dir": "sample-repos/full-stack-fastapi-template-cb740b6",
+ "rev": 4,
+ "written": "28/09/2026 bản 4: đồng bộ theo oracle/ve-tay/fullstack.md (bản 3 cũ ở oracle/rev3/) | 26/09/2026, viết tay trước lần chạy AI đầu tiên | rev 2 28/09/2026 (chuẩn đáp án bản 2) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)",
+ "note": "Theo ve-tay/fullstack.md. Luồng: main.py -> api (routes + deps) -> crud.py/models.py và utils.py (email) -> core/db.py -> PostgreSQL; utils.py -> SMTP. Luồng phụ: initial_data.py tạo user đầu tiên qua init_db. Không có tầng Nghiệp vụ: route gọi thẳng CRUD và Email. api/deps.py gộp vào routes (chỉ mở session và kiểm quyền). core/security.py là dùng chung (băm, ký JWT, không IO). Sentry không vẽ (giám sát): app -> sentry ghi wiring. hooks/post_gen_project.py (sinh template) ngoài đáp án. Cạnh crud -> db không qua import: session truyền qua tham số.",
+ "components": {
+  "app": ["backend/app/main.py"],
+  "seed": ["backend/app/initial_data.py"],
+  "routes": ["backend/app/api/"],
+  "crud": ["backend/app/crud.py", "backend/app/models.py"],
+  "db": ["backend/app/core/db.py"],
+  "email": ["backend/app/utils.py"],
+  "common": ["backend/app/core/config.py", "backend/app/core/security.py"]
+ },
+ "shared": ["common"],
+ "layers": {
+  "app": ["entry", "backend/app/main.py:21 app = FastAPI("],
+  "seed": ["entry", "backend/app/initial_data.py:22 if __name__ == \"__main__\":"],
+  "routes": ["api", "backend/app/api/routes/users.py:29 router = APIRouter(prefix=\"/users\", tags=[\"users\"])"],
+  "crud": ["data", "backend/app/models.py:52 class User(UserBase, table=True):"],
+  "db": ["infra", "backend/app/core/db.py:7 engine = create_engine(str(settings.DATABASE_URL), pool_pre_ping=True)"],
+  "email": ["infra", "backend/app/utils.py:56 response = message.send(to=email_to, smtp=smtp_options)"]
+ },
+ "externals": {
+  "postgres": ["postgres", "cơ sở dữ liệu", "database", "csdl"],
+  "smtp": ["smtp", "email", "mail", "thư"],
+  "sentry": ["sentry"]
+ },
+ "required": [
+  ["app", "routes", "backend/app/main.py:35 app.include_router(api_router, prefix=settings.API_V1_STR)"],
+  ["seed", "db", "backend/app/initial_data.py:13 init_db(session)"],
+  ["routes", "email", "backend/app/api/routes/users.py:73 send_email("],
+  ["routes", "crud", "backend/app/api/routes/users.py:68 user = crud.create_user(session=session, user_create=user_in)"],
+  ["routes", "db", "backend/app/api/routes/users.py:43 count = session.exec(count_statement).one()"],
+  ["email", "ext:smtp", "backend/app/utils.py:56 response = message.send(to=email_to, smtp=smtp_options)"],
+  ["crud", "db", "backend/app/crud.py:15 session.commit()"],
+  ["db", "ext:postgres", "backend/app/core/db.py:7 engine = create_engine(str(settings.DATABASE_URL), pool_pre_ping=True)"]
+ ],
+ "acceptable": [
+  ["db", "crud", "up", "backend/app/core/db.py:33 user = crud.create_user(session=session, user_create=user_in)"],
+  ["app", "ext:sentry", "wiring", "backend/app/main.py:19 sentry_sdk.init(dsn=str(settings.SENTRY_DSN), enable_tracing=True)"]
+ ]
+}

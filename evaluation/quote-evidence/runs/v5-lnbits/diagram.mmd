@@ -1,0 +1,153 @@
+flowchart LR
+  C1["Điểm vào ứng dụng"]
+  C3["Máy chủ HTTP"]
+  C4["Quản lý tác vụ nền"]
+  C5["Mô hình dữ liệu core"]
+  C6["CRUD dữ liệu core"]
+  C7["Dịch vụ nghiệp vụ core"]
+  C8["Router API giao diện"]
+  C9["API mở rộng wasm"]
+  C10["Client HTTP mở rộng"]
+  C11["Định tuyến mở rộng wasm"]
+  C12["Cung cấp dịch vụ fiat"]
+  C13["Khách hàng nút blockchain"]
+  C14["Khách hàng ví"]
+  C18["Trình trang trí API"]
+  C20["Tiện ích không chia sẻ"]
+  C21["Công cụ dòng lệnh"]
+  C22["Khởi tạo mở rộng wasm"]
+  C23["Quản lý lưu trữ mở rộng"]
+  C24["Xử lý mở rộng wasm"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C17["Cài đặt cấu hình"]
+    C19["Tiện ích chia sẻ chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["GitHub"])
+    X2(["PayPal"])
+    X3(["SMTP Server"])
+    X4[("Database")]
+    X5(["Revolut"])
+    X6(["Square"])
+    X7(["Stripe"])
+    X8(["WalletProviderAPI"])
+    X9(["ExchangeRateProvider"])
+    X10[("SQLite")]
+    X11[("PostgreSQL")]
+  end
+  C1 -->|"gọi register_wasm_extension, unregister_wasm_extension"| C11
+  C1 -->|"gọi get_funding_source, set_funding_source"| C14
+  C1 -->|"gọi version_parse, path_segments"| C18
+  C1 -->|"gọi dispatch_wasm_invoice_paid, is_wasm_extension_dir"| C24
+  C1 -->|"gọi add_first_install_middleware, add_ip_block_middleware"| C3
+  C1 -->|"gọi migrate_extension_database, init_core_routers"| C4
+  C1 -->|"gọi Extension, ExtensionMeta"| C5
+  C1 -->|"gọi get_db_version, get_installed_extensions"| C6
+  C1 -->|"gọi deactivate_extension, get_valid_extensions"| C7
+  C1 -->|"gọi api_install_extension, api_uninstall_extension"| C8
+  C10 -->|"gọi get_installed_extension, get_user_active_extensions_ids"| C6
+  C10 -->|"gọi HttpResponse"| C9
+  C11 -->|"gọi check_account_exists, template_renderer"| C18
+  C11 -->|"gọi storage_get_row_owner_id"| C23
+  C11 -->|"gọi invoke_wasm_extension_export, warm_wasm_extension"| C24
+  C11 -->|"gọi core_app_extra"| C4
+  C11 -->|"dùng kiểu Account"| C5
+  C11 -->|"gọi get_installed_extension, get_user_from_account"| C6
+  C11 -->|"gọi get_wasm_runtime_limits_for_extension"| C7
+  C12 -->|"gọi normalize_endpoint, urlsafe_short_hash"| C18
+  C12 -->|"dùng PaymentFilters"| C5
+  C12 -->|"gọi get_payments"| C6
+  C13 -->|"dùng kiểu Wallet, CoreLightningWallet"| C14
+  C13 -->|"gọi Filters, Page"| C18
+  C14 -->|"gọi bolt11_lib"| C1
+  C14 -->|"dùng CoreLightningNode, LndRestNode"| C13
+  C14 -->|"gọi normalize_endpoint, sha256s"| C18
+  C14 -->|"gọi decrypt_content, encrypt_content"| C20
+  C14 -->|"gọi set_settings_field"| C6
+  C18 -->|"gọi currencies"| C20
+  C18 -->|"gọi db"| C4
+  C18 -->|"gọi AccessTokenPayload, SimpleStatus"| C5
+  C18 -->|"gọi get_account, get_account_by_email"| C6
+  C21 -->|"gọi get_extension_api_method, list_extension_api_methods"| C9
+  C23 -->|"gọi Database"| C18
+  C23 -->|"gọi core_db"| C4
+  C23 -->|"dùng kiểu DbVersion, InstallableExtension"| C5
+  C23 -->|"gọi update_migration_version"| C6
+  C24 -->|"gọi sha256s"| C18
+  C24 -->|"gọi storage_get_row_owner_id"| C23
+  C24 -->|"gọi core_app_extra"| C4
+  C24 -->|"gọi ExtensionWalletPaymentsWatchGrant"| C5
+  C24 -->|"gọi get_installed_extension, get_user_extensions"| C6
+  C24 -->|"gọi finish_wasm_invocation, get_wasm_invocation_stop_reason"| C7
+  C24 -->|"gọi list_extension_api_methods, ExtensionAPIHost"| C9
+  C3 -->|"gọi normalize_path, template_renderer"| C18
+  C3 -->|"gọi core_app_extra"| C4
+  C3 -->|"gọi AuditEntry"| C5
+  C4 -->|"gọi bolt11"| C1
+  C4 -->|"gọi Database, Filters"| C18
+  C4 -->|"gọi btc_price_from_aggregator, btc_rates"| C20
+  C4 -->|"gọi migrate_wasm_extension_database"| C23
+  C4 -->|"gọi is_wasm_extension_id"| C24
+  C4 -->|"gọi CoreAppExtra, DbVersion"| C5
+  C4 -->|"gọi get_db_versions, get_installed_extensions"| C6
+  C4 -->|"gọi get_balance_delta, enqueue_admin_notification"| C7
+  C4 -->|"dùng admin_router, api_router"| C8
+  C5 -->|"dùng kiểu FiatPaymentStatus"| C12
+  C5 -->|"dùng kiểu PaymentStatus"| C14
+  C5 -->|"gọi file_hash, is_lnbits_version_ok"| C18
+  C5 -->|"gọi allowed_currencies"| C20
+  C5 -->|"gọi task_manager"| C4
+  C5 -->|"gọi check_payment_status, check_fiat_status"| C7
+  C6 -->|"gọi Filters, Page"| C18
+  C6 -->|"gọi db"| C4
+  C6 -->|"gọi WasmInvocationStats, Payment"| C5
+  C7 -->|"ném PaymentError, InvoiceError"| C1
+  C7 -->|"gọi get_fiat_provider, FiatPaymentFailedStatus"| C12
+  C7 -->|"gọi get_funding_source, set_funding_source"| C14
+  C7 -->|"gọi dict_to_model, camel_to_snake"| C18
+  C7 -->|"gọi AddressResponse, Balance"| C20
+  C7 -->|"gọi is_wasm_extension_id"| C24
+  C7 -->|"gọi core_app_extra, migrate_extension_database"| C4
+  C7 -->|"gọi Asset, Extension"| C5
+  C7 -->|"gọi create_asset, get_user_assets_count"| C6
+  C7 -->|"gọi validate_wasm_extension_permissions"| C9
+  C8 -->|"gọi bolt11"| C1
+  C8 -->|"gọi get_fiat_provider, FiatSubscriptionPaymentOptions"| C12
+  C8 -->|"gọi ChannelPoint"| C13
+  C8 -->|"gọi get_funding_source"| C14
+  C8 -->|"gọi check_user_exists, Filters"| C18
+  C8 -->|"gọi allowed_currencies, fiat_amount_as_satoshis"| C20
+  C8 -->|"gọi server_restart"| C3
+  C8 -->|"gọi task_manager, core_app_extra"| C4
+  C8 -->|"gọi Account, SimpleStatus"| C5
+  C8 -->|"gọi get_admin_settings, reset_core_settings"| C6
+  C8 -->|"gọi enqueue_admin_notification, get_balance_delta"| C7
+  C8 -->|"gọi validate_extension_permissions, validate_wasm_extension_permissions"| C9
+  C9 -->|"gọi bolt11"| C1
+  C9 -->|"gọi send_extension_api_request, send_extension_http_request"| C10
+  C9 -->|"gọi sha256s"| C18
+  C9 -->|"gọi allowed_currencies, fiat_amount_as_satoshis"| C20
+  C9 -->|"gọi storage_append_public_row, storage_count_rows"| C23
+  C9 -->|"gọi parse_wasm_extension_config"| C24
+  C9 -->|"gọi ExtensionBackgroundPaymentGrant, CreateInvoice"| C5
+  C9 -->|"gọi get_user_extension, check_internal"| C6
+  C9 -->|"gọi create_payment_request, pay_invoice"| C7
+  C1 -.->|"License file"| X1
+  C7 -.->|"PayPal API"| X2
+  C12 -.->|"PayPal API client"| X2
+  C7 -.->|"SMTP email server"| X3
+  C8 -.->|"database_url"| X4
+  C18 -.->|"LNbits database"| X4
+  C23 -.->|"ext_{ext_id}"| X4
+  C23 -.->|"ext_{ext_id}"| X4
+  C12 -.->|"Revolut API endpoint"| X5
+  C12 -.->|"Square API client"| X6
+  C12 -.->|"Stripe API client"| X7
+  C14 -.->|"wallet provider"| X8
+  C14 -.->|"wallet provider"| X8
+  C14 -.->|"wallet provider"| X8
+  C14 -.->|"wallet provider"| X8
+  C14 -.->|"wallet provider"| X8
+  C20 -.->|"exchange rate API"| X9
+  C21 -.->|"local SQLite"| X10
+  C21 -.->|"PostgreSQL"| X11

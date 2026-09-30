@@ -1,0 +1,36 @@
+flowchart LR
+  C1["điểm vào ứng dụng"]
+  C2["router API"]
+  C3["phụ thuộc yêu cầu"]
+  C4["định nghĩa các route HTTP"]
+  C5["xử lý nghiệp vụ người dùng"]
+  C6["gửi email và tạo nội dung"]
+  C7["định nghĩa mô hình dữ liệu"]
+  C8["khởi tạo dữ liệu ban đầu"]
+  C10["kết nối cơ sở dữ liệu"]
+  C11["bảo mật và mã hoá mật khẩu"]
+  C12["hook dự án sau tạo"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C9["cấu hình ứng dụng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("PostgreSQL")]
+  end
+  C1 -->|"đăng ký router API"| C2
+  C2 -->|"bao gồm các route"| C4
+  C3 -->|"tạo session DB"| C10
+  C3 -->|"xác thực token"| C11
+  C3 -->|"truy xuất mô hình người dùng"| C7
+  C4 -->|"gọi hàm bảo mật"| C11
+  C4 -->|"tiêm phụ thuộc yêu cầu"| C3
+  C4 -->|"gọi dịch vụ người dùng"| C5
+  C4 -->|"gửi email đặt lại mật khẩu"| C6
+  C4 -->|"chuyển đổi mô hình dữ liệu"| C7
+  C5 -->|"sử dụng hàm bảo mật"| C11
+  C5 -->|"truy cập mô hình dữ liệu"| C7
+  C6 -->|"sử dụng cấu hình bảo mật"| C11
+  C8 -->|"sử dụng engine và init_db"| C10
+  C10 -->|"gọi crud tạo người dùng"| C5
+  C10 -->|"sử dụng mô hình User và UserCreate"| C7
+  C3 -.->|"kết nối cơ sở dữ liệu"| X1
+  C10 -.->|"kết nối cơ sở dữ liệu"| X1

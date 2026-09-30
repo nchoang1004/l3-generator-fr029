@@ -1,0 +1,194 @@
+{
+ "A": {
+  "score": {
+   "precision": 1.0,
+   "precision_strict": 1.0,
+   "recall": 1.0,
+   "drawn": 7,
+   "components": 11,
+   "grouping_agreement": 1.0
+  },
+  "flagged": {},
+  "review": [],
+  "notes": [],
+  "issues": [],
+  "tokens": 0,
+  "requests": 0,
+  "seconds": 0.0,
+  "grouping": {
+   "components": [
+    {
+     "key": "config",
+     "members": [
+      "app/settings.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "entrypoint",
+     "members": [
+      "app/main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "db",
+     "members": [
+      "app/db.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_router",
+     "members": [
+      "app/api/main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "notebooks_schema",
+     "members": [
+      "app/api/notebooks/schema.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "notebooks_service",
+     "members": [
+      "app/api/notebooks/use_cases.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "notebooks_routes",
+     "members": [
+      "app/api/notebooks/views.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "notes_schema",
+     "members": [
+      "app/api/notes/schema.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "notes_service",
+     "members": [
+      "app/api/notes/use_cases.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "notes_routes",
+     "members": [
+      "app/api/notes/views.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "data_models",
+     "members": [
+      "app/models/"
+     ],
+     "shared": false
+    }
+   ]
+  }
+ },
+ "C": {
+  "score": {
+   "precision": 1.0,
+   "precision_strict": 1.0,
+   "recall": 1.0,
+   "drawn": 7,
+   "components": 7,
+   "grouping_agreement": 1.0
+  },
+  "flagged": {},
+  "review": [],
+  "notes": [
+   "D1 -> config, db_connection, app_entry: split entrypoint directory into configuration, database connection and FastAPI app starter",
+   "D2 -> api_root: merge single router aggregator directory into one component",
+   "D3 -> notebooks_api: merge notebooks feature API directory into one component",
+   "D4 -> notes_api: merge notes feature API directory into one component",
+   "D5 -> data_models: merge data‑model package into a single component"
+  ],
+  "issues": [],
+  "tokens": 2016,
+  "requests": 1,
+  "seconds": 3.0,
+  "grouping": {
+   "components": [
+    {
+     "key": "config",
+     "members": [
+      "app/settings.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "db_connection",
+     "members": [
+      "app/db.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_entry",
+     "members": [
+      "app/main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_root",
+     "members": [
+      "app/api/main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "notebooks_api",
+     "members": [
+      "app/api/notebooks/schema.py",
+      "app/api/notebooks/use_cases.py",
+      "app/api/notebooks/views.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "notes_api",
+     "members": [
+      "app/api/notes/schema.py",
+      "app/api/notes/use_cases.py",
+      "app/api/notes/views.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "data_models",
+     "members": [
+      "app/models/__init__.py",
+      "app/models/base.py",
+      "app/models/notebooks.py",
+      "app/models/notes.py",
+      "app/models/schema.py"
+     ],
+     "shared": false
+    }
+   ]
+  }
+ },
+ "no_ai": {
+  "score": {
+   "precision": 0.857,
+   "precision_strict": 0.857,
+   "recall": 0.857,
+   "drawn": 7,
+   "components": 5,
+   "grouping_agreement": 0.867
+  }
+ }
+}

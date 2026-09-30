@@ -1,0 +1,15 @@
+flowchart LR
+  C1["entrypoint"]
+  C2["api_router"]
+  C3["request_dependencies"]
+  C4["routes"]
+  C5["data_access"]
+  C6["data_models"]
+  C7["email_service"]
+  C8["initial_data"]
+  C12["project_hook"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C9["config"]
+    C10["db"]
+    C11["security"]
+  end

@@ -1,0 +1,16 @@
+flowchart LR
+  C1["App_entry"]
+  C2["Api"]
+  C3["Models"]
+  C4["App_infra"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C5["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+  end
+  C2 -->|"gọi begin, async_session"| C4
+  C2 -->|"gọi model_validate, create"| C3
+  C1 -->|"gọi api_router"| C2
+  C3 -->|"gọi"| C4
+  C4 -.->|"truy vấn"| X1

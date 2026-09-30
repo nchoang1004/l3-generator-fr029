@@ -1,0 +1,40 @@
+flowchart LR
+  C1["Điểm vào ứng dụng"]
+  C2["Cấu hình hạ tầng ứng dụng"]
+  C3["Router API xác thực"]
+  C4["Dịch vụ xác thực JWT"]
+  C5["Router API người dùng"]
+  C6["Dịch vụ người dùng"]
+  C7["User_repository"]
+  C8["Celery_tasks"]
+  C10["Core_db"]
+  C13["Core_fastapi_middlewares"]
+  C15["Core_token_helper"]
+  C18["Dir:core/db"]
+  C19["Dir:core/db/mixins"]
+  C20["Dir:core/exceptions"]
+  C21["Dir:core/fastapi/dependencies"]
+  C22["Dir:core/fastapi/middlewares"]
+  C23["Dir:core/helpers/cache"]
+  C24["Dir:core/helpers/cache/base"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C9["Core_config"]
+    C11["Core_exceptions"]
+    C12["Core_fastapi_dependencies"]
+    C14["Core_redis_helper"]
+    C16["Core_cache"]
+    C17["Core_repository"]
+  end
+  C2 -->|"đăng ký middleware"| C13
+  C2 -->|"đăng ký router auth"| C3
+  C2 -->|"tiêm JwtService"| C4
+  C2 -->|"đăng ký router user"| C5
+  C2 -->|"tiêm UserService"| C6
+  C2 -->|"tiêm repository"| C7
+  C3 -->|"tiêm Container"| C2
+  C4 -->|"gọi TokenHelper.decode"| C15
+  C5 -->|"tiêm Container"| C2
+  C5 -->|"gọi CreateUserCommand"| C6
+  C6 -->|"đánh dấu phương thức với Transactional"| C10
+  C6 -->|"gọi TokenHelper.encode"| C15
+  C6 -->|"gọi User.create"| C7

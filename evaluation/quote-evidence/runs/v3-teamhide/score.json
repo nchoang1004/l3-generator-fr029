@@ -1,0 +1,426 @@
+{
+  "all": {
+    "precision": 0.688,
+    "precision_strict": 0.611,
+    "recall": 0.423,
+    "drawn": 18,
+    "hits": [
+      [
+        "auth_api",
+        "auth_app"
+      ],
+      [
+        "auth_app",
+        "token"
+      ],
+      [
+        "celery",
+        "ext:broker"
+      ],
+      [
+        "db",
+        "ext:mysql"
+      ],
+      [
+        "middlewares",
+        "db"
+      ],
+      [
+        "server",
+        "auth_api"
+      ],
+      [
+        "server",
+        "middlewares"
+      ],
+      [
+        "server",
+        "user_api"
+      ],
+      [
+        "user_api",
+        "user_app"
+      ],
+      [
+        "user_app",
+        "db"
+      ],
+      [
+        "user_app",
+        "token"
+      ]
+    ],
+    "wrong": [
+      [
+        "auth_api",
+        "server"
+      ],
+      [
+        "server",
+        "auth_app"
+      ],
+      [
+        "server",
+        "user_app"
+      ],
+      [
+        "server",
+        "user_domain"
+      ],
+      [
+        "user_api",
+        "server"
+      ]
+    ],
+    "not_counted": [
+      [
+        "user_app",
+        "user_domain"
+      ],
+      [
+        "user_domain",
+        "db"
+      ]
+    ],
+    "missed": [
+      [
+        "auth_api",
+        "auth_domain"
+      ],
+      [
+        "auth_api",
+        "container"
+      ],
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "container",
+        "auth_app"
+      ],
+      [
+        "container",
+        "user_app"
+      ],
+      [
+        "container",
+        "user_persistence"
+      ],
+      [
+        "entry",
+        "server"
+      ],
+      [
+        "server",
+        "cache"
+      ],
+      [
+        "user_api",
+        "container"
+      ],
+      [
+        "user_api",
+        "user_domain"
+      ],
+      [
+        "user_api",
+        "web_deps"
+      ],
+      [
+        "user_app",
+        "user_persistence"
+      ],
+      [
+        "user_persistence",
+        "db"
+      ],
+      [
+        "web_deps",
+        "container"
+      ],
+      [
+        "web_deps",
+        "user_domain"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.643,
+    "precision_strict": 0.562,
+    "recall": 0.391,
+    "drawn": 16,
+    "hits": [
+      [
+        "auth_api",
+        "auth_app"
+      ],
+      [
+        "auth_app",
+        "token"
+      ],
+      [
+        "middlewares",
+        "db"
+      ],
+      [
+        "server",
+        "auth_api"
+      ],
+      [
+        "server",
+        "middlewares"
+      ],
+      [
+        "server",
+        "user_api"
+      ],
+      [
+        "user_api",
+        "user_app"
+      ],
+      [
+        "user_app",
+        "db"
+      ],
+      [
+        "user_app",
+        "token"
+      ]
+    ],
+    "wrong": [
+      [
+        "auth_api",
+        "server"
+      ],
+      [
+        "server",
+        "auth_app"
+      ],
+      [
+        "server",
+        "user_app"
+      ],
+      [
+        "server",
+        "user_domain"
+      ],
+      [
+        "user_api",
+        "server"
+      ]
+    ],
+    "not_counted": [
+      [
+        "user_app",
+        "user_domain"
+      ],
+      [
+        "user_domain",
+        "db"
+      ]
+    ],
+    "missed": [
+      [
+        "auth_api",
+        "auth_domain"
+      ],
+      [
+        "auth_api",
+        "container"
+      ],
+      [
+        "container",
+        "auth_app"
+      ],
+      [
+        "container",
+        "user_app"
+      ],
+      [
+        "container",
+        "user_persistence"
+      ],
+      [
+        "entry",
+        "server"
+      ],
+      [
+        "server",
+        "cache"
+      ],
+      [
+        "user_api",
+        "container"
+      ],
+      [
+        "user_api",
+        "user_domain"
+      ],
+      [
+        "user_api",
+        "web_deps"
+      ],
+      [
+        "user_app",
+        "user_persistence"
+      ],
+      [
+        "user_persistence",
+        "db"
+      ],
+      [
+        "web_deps",
+        "container"
+      ],
+      [
+        "web_deps",
+        "user_domain"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 0.667,
+    "drawn": 2,
+    "hits": [
+      [
+        "celery",
+        "ext:broker"
+      ],
+      [
+        "db",
+        "ext:mysql"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": [
+      [
+        "cache",
+        "ext:redis"
+      ]
+    ]
+  },
+  "quote_validity": 0.977,
+  "grouping_agreement": 0.87,
+  "components": 24,
+  "mapping": {
+    "C1": [
+      "Điểm vào ứng dụng",
+      "entry"
+    ],
+    "C2": [
+      "Cấu hình hạ tầng ứng dụng",
+      "server"
+    ],
+    "C3": [
+      "Router API xác thực",
+      "auth_api"
+    ],
+    "C4": [
+      "Dịch vụ xác thực JWT",
+      "auth_app"
+    ],
+    "C5": [
+      "Router API người dùng",
+      "user_api"
+    ],
+    "C6": [
+      "Dịch vụ người dùng",
+      "user_app"
+    ],
+    "C7": [
+      "Repo người dùng",
+      "user_domain"
+    ],
+    "C8": [
+      "Khởi tạo Celery",
+      "celery"
+    ],
+    "C9": [
+      "Cấu hình ứng dụng",
+      "config"
+    ],
+    "C10": [
+      "Quản lý cơ sở dữ liệu",
+      "db"
+    ],
+    "C11": [
+      "Định nghĩa ngoại lệ",
+      "exceptions"
+    ],
+    "C12": [
+      "Phụ thuộc FastAPI",
+      "web_deps"
+    ],
+    "C13": [
+      "Middleware FastAPI xác thực",
+      "middlewares"
+    ],
+    "C14": [
+      "Helper Redis",
+      "cache"
+    ],
+    "C15": [
+      "Helper token JWT",
+      "token"
+    ],
+    "C16": [
+      "Quản lý bộ nhớ đệm",
+      "cache"
+    ],
+    "C17": [
+      "Kho lưu trữ dữ liệu",
+      "repository_base"
+    ],
+    "C18": [
+      "Khởi tạo mô-đun DB",
+      "db"
+    ],
+    "C19": [
+      "Hỗ trợ mixin cơ sở dữ liệu",
+      "db"
+    ],
+    "C20": [
+      "Exceptions core",
+      "exceptions"
+    ],
+    "C21": [
+      "Dependencies FastAPI",
+      "web_deps"
+    ],
+    "C22": [
+      "Middlewares FastAPI",
+      "middlewares"
+    ],
+    "C23": [
+      "Helpers cache",
+      "cache"
+    ],
+    "C24": [
+      "Helpers cache base",
+      "cache"
+    ]
+  },
+  "files_outside_oracle": [],
+  "comparisons": {
+    "rule_edges": {
+      "precision": 0.643,
+      "precision_strict": 0.562,
+      "recall": 0.391,
+      "drawn": 16,
+      "components": 24,
+      "grouping_agreement": 0.87
+    },
+    "no_ai": {
+      "precision": 0.5,
+      "precision_strict": 0.395,
+      "recall": 0.739,
+      "drawn": 43,
+      "components": 36,
+      "grouping_agreement": 0.963
+    }
+  }
+}

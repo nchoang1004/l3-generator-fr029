@@ -1,0 +1,402 @@
+{
+  "meta": {
+    "repo": "full-stack-fastapi-template-cb740b6",
+    "status": "complete",
+    "files": 16,
+    "issues": [],
+    "model": "openai/gpt-oss-120b",
+    "tokens": 2484,
+    "requests": 2,
+    "cached": 0,
+    "calls": [
+      {
+        "at": "2026-09-26T10:57:33",
+        "step": "group",
+        "status": 200,
+        "seconds": 4.24,
+        "estimated": 3776,
+        "prompt_tokens": 745,
+        "completion_tokens": 1739,
+        "total_tokens": 2484,
+        "error": ""
+      },
+      {
+        "at": "2026-09-26T10:58:43",
+        "step": "describe-1",
+        "status": 400,
+        "seconds": 8.19,
+        "estimated": 6708,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "error": "max completion tokens reached before generating a valid document: the output was truncated to fit max_completion_tokens and is missing required content. Increase max_completion_tokens. See 'failed_gen",
+        "salvaged": true
+      }
+    ],
+    "candidate_edges": 23,
+    "grouping": {
+      "components": [
+        {
+          "key": "app_entrypoint",
+          "members": [
+            "backend/app/main.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "api_router",
+          "members": [
+            "backend/app/api/main.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "request_dependencies",
+          "members": [
+            "backend/app/api/deps.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "http_routes",
+          "members": [
+            "backend/app/api/routes/"
+          ],
+          "shared": false
+        },
+        {
+          "key": "user_service",
+          "members": [
+            "backend/app/crud.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "email_service",
+          "members": [
+            "backend/app/utils.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "data_models",
+          "members": [
+            "backend/app/models.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "initial_data",
+          "members": [
+            "backend/app/initial_data.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "config",
+          "members": [
+            "backend/app/core/config.py"
+          ],
+          "shared": true
+        },
+        {
+          "key": "db_connection",
+          "members": [
+            "backend/app/core/db.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "security",
+          "members": [
+            "backend/app/core/security.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "project_hooks",
+          "members": [
+            "hooks/post_gen_project.py"
+          ],
+          "shared": false
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "id": "C1",
+      "key": "app_entrypoint",
+      "shared": false,
+      "files": [
+        "backend/app/main.py"
+      ],
+      "name": "điểm vào ứng dụng",
+      "role": "Khởi tạo FastAPI, middleware, router và Sentry.",
+      "role_quote": {
+        "file": "backend/app/main.py",
+        "line": 19,
+        "text": "sentry_sdk.init(dsn=str(settings.SENTRY_DSN), enable_tracing=True)"
+      },
+      "described": true
+    },
+    {
+      "id": "C2",
+      "key": "api_router",
+      "shared": false,
+      "files": [
+        "backend/app/api/main.py"
+      ],
+      "name": "định nghĩa router API",
+      "role": "Tạo router chính và gắn các router con.",
+      "role_quote": {
+        "file": "backend/app/api/main.py",
+        "line": 6,
+        "text": "api_router = APIRouter()"
+      },
+      "described": true
+    },
+    {
+      "id": "C3",
+      "key": "request_dependencies",
+      "shared": false,
+      "files": [
+        "backend/app/api/deps.py"
+      ],
+      "name": "các phụ thuộc yêu cầu",
+      "role": "Cung cấp phụ thuộc cho các endpoint, bao gồm DB session và bảo mật.",
+      "role_quote": {
+        "file": "backend/app/api/deps.py",
+        "line": 16,
+        "text": "reusable_oauth2 = OAuth2PasswordBearer("
+      },
+      "described": true
+    },
+    {
+      "id": "C4",
+      "key": "http_routes",
+      "shared": false,
+      "files": [
+        "backend/app/api/routes/items.py",
+        "backend/app/api/routes/login.py",
+        "backend/app/api/routes/private.py",
+        "backend/app/api/routes/users.py",
+        "backend/app/api/routes/utils.py"
+      ],
+      "name": "http_routes",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C5",
+      "key": "user_service",
+      "shared": false,
+      "files": [
+        "backend/app/crud.py"
+      ],
+      "name": "user_service",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C6",
+      "key": "email_service",
+      "shared": false,
+      "files": [
+        "backend/app/utils.py"
+      ],
+      "name": "email_service",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C7",
+      "key": "data_models",
+      "shared": false,
+      "files": [
+        "backend/app/models.py"
+      ],
+      "name": "data_models",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C8",
+      "key": "initial_data",
+      "shared": false,
+      "files": [
+        "backend/app/initial_data.py"
+      ],
+      "name": "initial_data",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C9",
+      "key": "config",
+      "shared": true,
+      "files": [
+        "backend/app/core/config.py"
+      ],
+      "name": "config",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C10",
+      "key": "db_connection",
+      "shared": false,
+      "files": [
+        "backend/app/core/db.py"
+      ],
+      "name": "db_connection",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C11",
+      "key": "security",
+      "shared": false,
+      "files": [
+        "backend/app/core/security.py"
+      ],
+      "name": "security",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C12",
+      "key": "project_hooks",
+      "shared": false,
+      "files": [
+        "hooks/post_gen_project.py"
+      ],
+      "name": "project_hooks",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "E1",
+      "source": "C1",
+      "target": "C2",
+      "label": "đăng ký router API",
+      "quote": {
+        "file": "backend/app/main.py",
+        "line": 35,
+        "text": "app.include_router(api_router, prefix=settings.API_V1_STR)"
+      }
+    },
+    {
+      "id": "E7",
+      "source": "C2",
+      "target": "C4",
+      "label": "gắn router con",
+      "quote": {
+        "file": "backend/app/api/main.py",
+        "line": 7,
+        "text": "api_router.include_router(login.router)"
+      }
+    },
+    {
+      "id": "E9",
+      "source": "C3",
+      "target": "C10",
+      "label": "sử dụng engine",
+      "quote": {
+        "file": "backend/app/api/deps.py",
+        "line": 22,
+        "text": "with Session(engine) as session:"
+      }
+    },
+    {
+      "id": "E10",
+      "source": "C3",
+      "target": "C11",
+      "label": "sử dụng security",
+      "quote": {
+        "file": "backend/app/api/deps.py",
+        "line": 33,
+        "text": "token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]"
+      }
+    }
+  ],
+  "externals": [
+    {
+      "id": "X1",
+      "name": "Sentry",
+      "kind": "monitoring",
+      "edges": [
+        {
+          "source": "C1",
+          "label": "khởi tạo Sentry",
+          "quote": {
+            "file": "backend/app/main.py",
+            "line": 19,
+            "text": "sentry_sdk.init(dsn=str(settings.SENTRY_DSN), enable_tracing=True)"
+          }
+        }
+      ]
+    }
+  ],
+  "rejected": [],
+  "quotes": {
+    "returned": 8,
+    "valid": 8
+  },
+  "file_lines": {
+    "backend/app/api/deps.py": 57,
+    "backend/app/api/main.py": 14,
+    "backend/app/api/routes/items.py": 113,
+    "backend/app/api/routes/login.py": 123,
+    "backend/app/api/routes/private.py": 38,
+    "backend/app/api/routes/users.py": 232,
+    "backend/app/api/routes/utils.py": 31,
+    "backend/app/core/config.py": 91,
+    "backend/app/core/db.py": 33,
+    "backend/app/core/security.py": 36,
+    "backend/app/crud.py": 68,
+    "backend/app/initial_data.py": 23,
+    "backend/app/main.py": 36,
+    "backend/app/models.py": 133,
+    "backend/app/utils.py": 125,
+    "hooks/post_gen_project.py": 8
+  },
+  "snapshot": {
+    "backend/app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/api/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/api/deps.py": "84c30966b3b862c643009c14146d1924dec50be5b0efb9f56798e2fda5189daa",
+    "backend/app/api/main.py": "9e9d533bea7c8616a1d9dd3d7e7cdfefa36726fb221bb289fd102654b7e93b3f",
+    "backend/app/api/routes/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/api/routes/items.py": "7f0fa55d1f7b02188c4abd4f88aa6db92fe03de38258b765ed050ec72032b410",
+    "backend/app/api/routes/login.py": "3c7f7c395b74cea54e505a16052679614b4fd92325d88b761385df8d952af642",
+    "backend/app/api/routes/private.py": "f5df74cc276f0d8d83337922fb8e05e69ecbc885d466d90d2e3de54ba5e4c8f4",
+    "backend/app/api/routes/users.py": "566f253330d75bdbf04f2fd59b380dd2c51041d931bd7af6b2064ee66ea96e6d",
+    "backend/app/api/routes/utils.py": "5e77b59fab0bfcb1cef581938dcc8a47afb7518664a497763d4c50711898e925",
+    "backend/app/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/core/config.py": "ef306f8b68c64f1864269891d353c23807d5685d62e514066598b33ee099ca08",
+    "backend/app/core/db.py": "22b8642606ae619a1ea07b5e3c3bee49c2fc0ded5d0e583e810fba6e7ffadfc9",
+    "backend/app/core/security.py": "adb90882929ab33c238e2e9fa81b03fa0364c1a8cce0e9e70b98c68c321f468f",
+    "backend/app/crud.py": "f69d79e858ee22cee7792494b0df0370afaed20439ed16bbf6f70767926254d1",
+    "backend/app/initial_data.py": "29b51ebdd3c8cb9fde80a426f9c10af08c606ad0ffcec39a23fddc6587ab812c",
+    "backend/app/main.py": "e8b28b639d86c76dcf60348185c91125a789951ff085a5289d9f5add0854dfda",
+    "backend/app/models.py": "1b7384d0dc779cca9ebc9d2b05ccd1864988c2043a3692384ff7a731819050f0",
+    "backend/app/utils.py": "61fbc8476b1c1247b80e2220d28f89e33370434e2eb172f325ed0a6643e433b3",
+    "hooks/post_gen_project.py": "ea8320797206afea47fbb6b243e7e71d849977ce762c8ec630c0512f12ce3799"
+  },
+  "excluded": {
+    "dir:alembic": 6,
+    "dir:tests": 15,
+    "dir:scripts": 2
+  }
+}

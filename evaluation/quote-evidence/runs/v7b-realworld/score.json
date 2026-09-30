@@ -1,0 +1,152 @@
+{
+  "all": {
+    "precision": 0.5,
+    "precision_strict": 0.4,
+    "recall": 0.5,
+    "drawn": 5,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "routes",
+        "repos"
+      ]
+    ],
+    "wrong": [
+      [
+        "repos",
+        "routes"
+      ],
+      [
+        "routes",
+        "ext:postgres"
+      ]
+    ],
+    "not_counted": [
+      [
+        "services",
+        "repos"
+      ]
+    ],
+    "missed": [
+      [
+        "pool",
+        "ext:postgres"
+      ],
+      [
+        "repos",
+        "pool"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.667,
+    "precision_strict": 0.5,
+    "recall": 0.667,
+    "drawn": 4,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "routes",
+        "repos"
+      ]
+    ],
+    "wrong": [
+      [
+        "repos",
+        "routes"
+      ]
+    ],
+    "not_counted": [
+      [
+        "services",
+        "repos"
+      ]
+    ],
+    "missed": [
+      [
+        "repos",
+        "pool"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 0.0,
+    "precision_strict": 0.0,
+    "recall": 0.0,
+    "drawn": 1,
+    "hits": [],
+    "wrong": [
+      [
+        "routes",
+        "ext:postgres"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "pool",
+        "ext:postgres"
+      ]
+    ]
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.815,
+  "components": 12,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "Định nghĩa router API",
+      "routes"
+    ],
+    "C3": [
+      "Xử lý API bài viết",
+      "routes"
+    ],
+    "C4": [
+      "Xử lý API xác thực",
+      "routes"
+    ],
+    "C5": [
+      "Xử lý API bình luận",
+      "routes"
+    ],
+    "C6": [
+      "Hồ sơ thẻ người dùng API",
+      "routes"
+    ],
+    "C7": [
+      "Phụ thuộc API dịch vụ",
+      "routes"
+    ],
+    "C8": [
+      "Repository dịch vụ dữ liệu",
+      "repos"
+    ],
+    "C9": [
+      "Service nghiệp vụ ứng dụng",
+      "services"
+    ],
+    "C10": [
+      "Truy vấn dữ liệu",
+      "repos"
+    ],
+    "C11": [
+      "Quản lý kết nối DB",
+      "routes"
+    ],
+    "C12": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": []
+}

@@ -1,0 +1,39 @@
+{
+ "repo": "rhoboro/async-fastapi-sqlalchemy",
+ "source": "commit 6c08827241e9737487905c62d8834edc2a0da8e7",
+ "local_dir": "sample-repos/rhoboro_async-fastapi-sqlalchemy-6c08827",
+ "set": "held-out: written before any AI run on this repo; prompts frozen before running",
+ "rev": 4,
+ "written": "28/09/2026 bản 4: đồng bộ theo oracle/ve-tay/rhoboro.md (bản 3 cũ ở oracle/rev3/) | 26/09/2026 | rev 2 28/09/2026 (chuẩn đáp án bản 2) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)",
+ "note": "Theo ve-tay/rhoboro.md. Luồng: app/main.py -> api/main.py + views -> use_cases -> models (tự chạy truy vấn) -> db.py -> PostgreSQL. Notes và notebooks gộp theo tầng; thư mục api/notes/ tách: views.py ở API, use_cases.py ở Nghiệp vụ. File chỉ khai báo dạng dữ liệu mà bản vẽ không nhắc (api/*/schema.py) ngoài đáp án, bỏ qua khi chấm (Khiêm 30/09: không chấm khắt khe tới từng file); models/schema.py theo thư mục vào models. Cạnh models -> db không qua import: session do use_cases mở rồi truyền qua tham số.",
+ "components": {
+  "app": ["app/main.py"],
+  "routes": ["app/api/main.py", "app/api/notes/views.py", "app/api/notebooks/views.py"],
+  "use_cases": ["app/api/notes/use_cases.py", "app/api/notebooks/use_cases.py"],
+  "models": ["app/models/"],
+  "db": ["app/db.py"],
+  "common": ["app/settings.py"]
+ },
+ "shared": ["common"],
+ "layers": {
+  "app": ["entry", "app/main.py:6 app = FastAPI(title=\"async-fastapi-sqlalchemy\")"],
+  "routes": ["api", "app/api/notes/views.py:18 @router.post(\"\", response_model=CreateNoteResponse)"],
+  "use_cases": ["service", "app/api/notes/views.py:24 return await use_case.execute(data.notebook_id, data.title, data.content)"],
+  "models": ["data", "app/models/notes.py:16 class Note(Base):"],
+  "db": ["infra", "app/db.py:12 async_engine = create_async_engine("]
+ },
+ "externals": {
+  "database": ["postgres", "database", "cơ sở dữ liệu", "csdl", "sql"]
+ },
+ "required": [
+  ["app", "routes", "app/main.py:8 app.include_router(api_router, prefix=\"/api\")"],
+  ["routes", "use_cases", "app/api/notes/views.py:24 return await use_case.execute(data.notebook_id, data.title, data.content)"],
+  ["use_cases", "models", "app/api/notes/use_cases.py:18 note = await Note.create(session, notebook.id, title, content)"],
+  ["models", "db", "app/models/notes.py:45 return await session.scalar(stmt.order_by(cls.id))"],
+  ["db", "ext:database", "app/db.py:12 async_engine = create_async_engine("]
+ ],
+ "acceptable": [
+  ["use_cases", "db", "pass", "app/api/notes/use_cases.py:14 async with self.async_session.begin() as session:"],
+  ["routes", "models"]
+ ]
+}

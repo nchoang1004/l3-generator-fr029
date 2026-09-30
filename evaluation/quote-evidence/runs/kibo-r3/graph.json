@@ -1,0 +1,1276 @@
+{
+  "meta": {
+    "repo": "kibo-backend-89eb3bb",
+    "status": "complete",
+    "files": 124,
+    "issues": [],
+    "model": "openai/gpt-oss-120b",
+    "tokens": 27763,
+    "requests": 7,
+    "cached": 0,
+    "calls": [
+      {
+        "at": "2026-09-26T11:19:56",
+        "step": "group",
+        "status": 200,
+        "seconds": 7.07,
+        "estimated": 6915,
+        "prompt_tokens": 2082,
+        "completion_tokens": 3047,
+        "total_tokens": 5129,
+        "error": ""
+      },
+      {
+        "at": "2026-09-26T11:21:06",
+        "step": "describe-1",
+        "status": 200,
+        "seconds": 8.35,
+        "estimated": 6488,
+        "prompt_tokens": 2618,
+        "completion_tokens": 3181,
+        "total_tokens": 5799,
+        "error": ""
+      },
+      {
+        "at": "2026-09-26T11:22:10",
+        "step": "describe-2",
+        "status": 200,
+        "seconds": 3.69,
+        "estimated": 4803,
+        "prompt_tokens": 1267,
+        "completion_tokens": 1557,
+        "total_tokens": 2824,
+        "error": ""
+      },
+      {
+        "at": "2026-09-26T11:22:13",
+        "step": "describe-3",
+        "status": 200,
+        "seconds": 3.22,
+        "estimated": 5155,
+        "prompt_tokens": 1510,
+        "completion_tokens": 1238,
+        "total_tokens": 2748,
+        "error": ""
+      },
+      {
+        "at": "2026-09-26T11:23:17",
+        "step": "describe-4",
+        "status": 200,
+        "seconds": 2.3,
+        "estimated": 5749,
+        "prompt_tokens": 1924,
+        "completion_tokens": 806,
+        "total_tokens": 2730,
+        "error": ""
+      },
+      {
+        "at": "2026-09-26T11:24:24",
+        "step": "describe-5",
+        "status": 200,
+        "seconds": 6.36,
+        "estimated": 5979,
+        "prompt_tokens": 2085,
+        "completion_tokens": 2770,
+        "total_tokens": 4855,
+        "error": ""
+      },
+      {
+        "at": "2026-09-26T11:25:30",
+        "step": "describe-6",
+        "status": 200,
+        "seconds": 4.79,
+        "estimated": 5475,
+        "prompt_tokens": 1735,
+        "completion_tokens": 1943,
+        "total_tokens": 3678,
+        "error": ""
+      }
+    ],
+    "candidate_edges": 45,
+    "grouping": {
+      "components": [
+        {
+          "key": "app_entrypoint",
+          "members": [
+            "app/main.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "api_routes",
+          "members": [
+            "app/api/v1/appointments/__init__.py",
+            "app/api/v1/appointments/router.py",
+            "app/api/v1/auth/__init__.py",
+            "app/api/v1/auth/router.py",
+            "app/api/v1/clients/__init__.py",
+            "app/api/v1/clients/router.py",
+            "app/api/v1/services/__init__.py",
+            "app/api/v1/services/router.py",
+            "app/api/v1/super_admin/__init__.py",
+            "app/api/v1/super_admin/router.py",
+            "app/api/v1/tenant/__init__.py",
+            "app/api/v1/tenant/router.py",
+            "app/api/v1/tenant/payments_router.py",
+            "app/api/v1/users/__init__.py",
+            "app/api/v1/users/router.py",
+            "app/api/v1/waitlists/__init__.py",
+            "app/api/v1/waitlists/router.py",
+            "app/api/v1/whatsapp/__init__.py",
+            "app/api/v1/whatsapp/router.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "api_test",
+          "members": [
+            "app/api/v1/test.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "config",
+          "members": [
+            "app/core/config.py"
+          ],
+          "shared": true
+        },
+        {
+          "key": "timezone",
+          "members": [
+            "app/core/timezone.py"
+          ],
+          "shared": true
+        },
+        {
+          "key": "dependencies",
+          "members": [
+            "app/core/dependencies.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "email_client",
+          "members": [
+            "app/core/email.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "security",
+          "members": [
+            "app/core/security.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "data_models",
+          "members": [
+            "app/models/"
+          ],
+          "shared": false
+        },
+        {
+          "key": "data_access",
+          "members": [
+            "app/repositories/"
+          ],
+          "shared": false
+        },
+        {
+          "key": "api_schemas",
+          "members": [
+            "app/schemas/"
+          ],
+          "shared": false
+        },
+        {
+          "key": "business_services",
+          "members": [
+            "app/services/appointments/",
+            "app/services/auth/",
+            "app/services/clients/",
+            "app/services/services/",
+            "app/services/super_admin/",
+            "app/services/tenant/",
+            "app/services/users/",
+            "app/services/waitlists/"
+          ],
+          "shared": false
+        },
+        {
+          "key": "background_jobs",
+          "members": [
+            "app/services/scheduler/"
+          ],
+          "shared": false
+        },
+        {
+          "key": "whatsapp_client",
+          "members": [
+            "app/services/whatsapp/"
+          ],
+          "shared": false
+        },
+        {
+          "key": "db_connection",
+          "members": [
+            "app/db/base.py",
+            "app/db/session.py",
+            "app/db/schemas.py"
+          ],
+          "shared": false
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "id": "C1",
+      "key": "app_entrypoint",
+      "shared": false,
+      "files": [
+        "app/main.py"
+      ],
+      "name": "Điểm vào ứng dụng",
+      "role": "Khởi tạo FastAPI, đăng ký middleware và router.",
+      "role_quote": {
+        "file": "app/main.py",
+        "line": 50,
+        "text": "app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)"
+      },
+      "described": true
+    },
+    {
+      "id": "C2",
+      "key": "api_routes",
+      "shared": false,
+      "files": [
+        "app/api/v1/appointments/__init__.py",
+        "app/api/v1/appointments/router.py",
+        "app/api/v1/auth/__init__.py",
+        "app/api/v1/auth/router.py",
+        "app/api/v1/clients/__init__.py",
+        "app/api/v1/clients/router.py",
+        "app/api/v1/services/__init__.py",
+        "app/api/v1/services/router.py",
+        "app/api/v1/super_admin/__init__.py",
+        "app/api/v1/super_admin/router.py",
+        "app/api/v1/tenant/__init__.py",
+        "app/api/v1/tenant/payments_router.py",
+        "app/api/v1/tenant/router.py",
+        "app/api/v1/users/__init__.py",
+        "app/api/v1/users/router.py",
+        "app/api/v1/waitlists/__init__.py",
+        "app/api/v1/waitlists/router.py",
+        "app/api/v1/whatsapp/__init__.py",
+        "app/api/v1/whatsapp/router.py"
+      ],
+      "name": "Định nghĩa router API",
+      "role": "Xây dựng các router cho các tài nguyên và kết nối tới service, schema và DB.",
+      "role_quote": {
+        "file": "app/api/v1/appointments/router.py",
+        "line": 22,
+        "text": "router = APIRouter(prefix=\"/appointments\", tags=[\"appointments\"])"
+      },
+      "described": true
+    },
+    {
+      "id": "C3",
+      "key": "api_test",
+      "shared": false,
+      "files": [
+        "app/api/v1/test.py"
+      ],
+      "name": "Router kiểm thử API",
+      "role": "Cung cấp các endpoint để kiểm tra thủ công các luồng nghiệp vụ.",
+      "role_quote": {
+        "file": "app/api/v1/test.py",
+        "line": 21,
+        "text": "router = APIRouter(prefix=\"/test\", tags=[\"test\"])"
+      },
+      "described": true
+    },
+    {
+      "id": "C4",
+      "key": "config",
+      "shared": true,
+      "files": [
+        "app/core/config.py"
+      ],
+      "name": "Cấu hình ứng dụng",
+      "role": "Tải biến môi trường và cung cấp cấu hình được cache.",
+      "role_quote": {
+        "file": "app/core/config.py",
+        "line": 7,
+        "text": "load_dotenv()"
+      },
+      "described": true
+    },
+    {
+      "id": "C5",
+      "key": "timezone",
+      "shared": true,
+      "files": [
+        "app/core/timezone.py"
+      ],
+      "name": "Múi giờ ứng dụng",
+      "role": "Định nghĩa hằng số múi giờ Bogota.",
+      "role_quote": {
+        "file": "app/core/timezone.py",
+        "line": 6,
+        "text": "BOGOTA_TZ = \"America/Bogota\""
+      },
+      "described": true
+    },
+    {
+      "id": "C6",
+      "key": "dependencies",
+      "shared": false,
+      "files": [
+        "app/core/dependencies.py"
+      ],
+      "name": "Các phụ thuộc",
+      "role": "Khởi tạo các repository, kết nối DB và xác thực token.",
+      "role_quote": {
+        "file": "app/core/dependencies.py",
+        "line": 110,
+        "text": "db: Session = Depends(get_db)"
+      },
+      "described": true
+    },
+    {
+      "id": "C7",
+      "key": "email_client",
+      "shared": false,
+      "files": [
+        "app/core/email.py"
+      ],
+      "name": "Khách hàng email",
+      "role": "Gửi email qua SMTP",
+      "role_quote": {
+        "file": "app/core/email.py",
+        "line": 29,
+        "text": "with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:"
+      },
+      "described": true
+    },
+    {
+      "id": "C8",
+      "key": "security",
+      "shared": false,
+      "files": [
+        "app/core/security.py"
+      ],
+      "name": "Bảo mật ứng dụng",
+      "role": "Cấu hình hàm băm mật khẩu và tải cài đặt",
+      "role_quote": {
+        "file": "app/core/security.py",
+        "line": 9,
+        "text": "password_hash = PasswordHash.recommended()"
+      },
+      "described": true
+    },
+    {
+      "id": "C9",
+      "key": "data_models",
+      "shared": false,
+      "files": [
+        "app/models/__init__.py",
+        "app/models/appointments/__init__.py",
+        "app/models/appointments/appointment.py",
+        "app/models/auth/__init__.py",
+        "app/models/auth/user.py",
+        "app/models/clients/__init__.py",
+        "app/models/clients/client.py",
+        "app/models/conversation_contexts/__init__.py",
+        "app/models/conversation_contexts/conversation_context.py",
+        "app/models/services/__init__.py",
+        "app/models/services/service.py",
+        "app/models/super_admin/__init__.py",
+        "app/models/super_admin/super_admin.py",
+        "app/models/tenant/__init__.py",
+        "app/models/tenant/tenant.py",
+        "app/models/tenant/tenant_config.py",
+        "app/models/tenant/tenant_payment.py",
+        "app/models/waitlists/__init__.py",
+        "app/models/waitlists/waitlist.py",
+        "app/models/whatsapp_events/__init__.py",
+        "app/models/whatsapp_events/processed_webhook.py",
+        "app/models/whatsapp_outbox/__init__.py",
+        "app/models/whatsapp_outbox/whatsapp_outbox.py",
+        "app/models/whatsapp_sessions/__init__.py",
+        "app/models/whatsapp_sessions/whatsapp_session.py"
+      ],
+      "name": "Mô hình dữ liệu",
+      "role": "Định nghĩa các mô hình ORM và enum",
+      "role_quote": {
+        "file": "app/models/appointments/appointment.py",
+        "line": 14,
+        "text": "class AppointmentStatus(str, Enum):"
+      },
+      "described": true
+    },
+    {
+      "id": "C10",
+      "key": "data_access",
+      "shared": false,
+      "files": [
+        "app/repositories/appointments/__init__.py",
+        "app/repositories/appointments/appointment_repository.py",
+        "app/repositories/auth/__init__.py",
+        "app/repositories/auth/auth_repository.py",
+        "app/repositories/clients/__init__.py",
+        "app/repositories/clients/client_repository.py",
+        "app/repositories/services/__init__.py",
+        "app/repositories/services/service_repository.py",
+        "app/repositories/super_admin/__init__.py",
+        "app/repositories/super_admin/super_admin_repository.py",
+        "app/repositories/tenant/__init__.py",
+        "app/repositories/tenant/tenant_config_repository.py",
+        "app/repositories/tenant/tenant_payment_repository.py",
+        "app/repositories/tenant/tenant_repository.py",
+        "app/repositories/users/__init__.py",
+        "app/repositories/users/user_repository.py",
+        "app/repositories/waitlists/__init__.py",
+        "app/repositories/waitlists/waitlist_repository.py",
+        "app/repositories/whatsapp_events/__init__.py",
+        "app/repositories/whatsapp_events/processed_webhook_repository.py",
+        "app/repositories/whatsapp_outbox/__init__.py",
+        "app/repositories/whatsapp_outbox/whatsapp_outbox_repository.py",
+        "app/repositories/whatsapp_sessions/__init__.py",
+        "app/repositories/whatsapp_sessions/whatsapp_session_repository.py"
+      ],
+      "name": "Truy cập dữ liệu repository",
+      "role": "Thực hiện các thao tác CRUD qua repository",
+      "role_quote": {
+        "file": "app/repositories/appointments/appointment_repository.py",
+        "line": 32,
+        "text": "class AppointmentRepository:"
+      },
+      "described": true
+    },
+    {
+      "id": "C11",
+      "key": "api_schemas",
+      "shared": false,
+      "files": [
+        "app/schemas/appointments/__init__.py",
+        "app/schemas/appointments/appointment.py",
+        "app/schemas/auth/__init__.py",
+        "app/schemas/auth/auth.py",
+        "app/schemas/clients/__init__.py",
+        "app/schemas/clients/client.py",
+        "app/schemas/services/__init__.py",
+        "app/schemas/services/service.py",
+        "app/schemas/super_admin/__init__.py",
+        "app/schemas/super_admin/super_admin.py",
+        "app/schemas/tenant/__init__.py",
+        "app/schemas/tenant/tenant.py",
+        "app/schemas/tenant/tenant_payment.py",
+        "app/schemas/users/__init__.py",
+        "app/schemas/users/user.py",
+        "app/schemas/waitlists/__init__.py",
+        "app/schemas/waitlists/waitlist.py",
+        "app/schemas/whatsapp/__init__.py",
+        "app/schemas/whatsapp/whatsapp.py"
+      ],
+      "name": "Định nghĩa schema API",
+      "role": "Mô tả cấu trúc dữ liệu đầu vào/đầu ra API",
+      "role_quote": {
+        "file": "app/schemas/appointments/appointment.py",
+        "line": 9,
+        "text": "class AppointmentCreate(BaseModel):"
+      },
+      "described": true
+    },
+    {
+      "id": "C12",
+      "key": "business_services",
+      "shared": false,
+      "files": [
+        "app/services/appointments/__init__.py",
+        "app/services/appointments/appointment_service.py",
+        "app/services/auth/__init__.py",
+        "app/services/auth/auth_service.py",
+        "app/services/clients/__init__.py",
+        "app/services/clients/client_service.py",
+        "app/services/services/__init__.py",
+        "app/services/services/service_service.py",
+        "app/services/super_admin/__init__.py",
+        "app/services/super_admin/super_admin_service.py",
+        "app/services/tenant/__init__.py",
+        "app/services/tenant/tenant_payment_service.py",
+        "app/services/tenant/tenant_service.py",
+        "app/services/users/__init__.py",
+        "app/services/users/user_service.py",
+        "app/services/waitlists/__init__.py",
+        "app/services/waitlists/waitlist_service.py"
+      ],
+      "name": "Dịch vụ kinh doanh",
+      "role": "Cung cấp các dịch vụ nghiệp vụ cho ứng dụng.",
+      "role_quote": {
+        "file": "app/services/appointments/appointment_service.py",
+        "line": 18,
+        "text": "class AppointmentService:"
+      },
+      "described": true
+    },
+    {
+      "id": "C13",
+      "key": "background_jobs",
+      "shared": false,
+      "files": [
+        "app/services/scheduler/reminder_scheduler.py",
+        "app/services/scheduler/worker.py"
+      ],
+      "name": "Công việc nền",
+      "role": "Quản lý và thực thi các công việc nền định kỳ.",
+      "role_quote": {
+        "file": "app/services/scheduler/reminder_scheduler.py",
+        "line": 22,
+        "text": "class ReminderScheduler:"
+      },
+      "described": true
+    },
+    {
+      "id": "C14",
+      "key": "whatsapp_client",
+      "shared": false,
+      "files": [
+        "app/services/whatsapp/__init__.py",
+        "app/services/whatsapp/connection_service.py",
+        "app/services/whatsapp/evolution_client.py",
+        "app/services/whatsapp/outbox_service.py",
+        "app/services/whatsapp/template_engine.py",
+        "app/services/whatsapp/variable_resolver.py",
+        "app/services/whatsapp/webhook_service.py",
+        "app/services/whatsapp/worker.py"
+      ],
+      "name": "Khách hàng WhatsApp",
+      "role": "cung cấp dịch vụ gửi và nhận tin WhatsApp",
+      "role_quote": {
+        "file": "app/services/whatsapp/outbox_service.py",
+        "line": 23,
+        "text": "class WhatsAppOutboxService:"
+      },
+      "described": true
+    },
+    {
+      "id": "C15",
+      "key": "db_connection",
+      "shared": false,
+      "files": [
+        "app/db/base.py",
+        "app/db/schemas.py",
+        "app/db/session.py"
+      ],
+      "name": "Kết nối cơ sở dữ liệu",
+      "role": "tạo engine và session cho SQLAlchemy",
+      "role_quote": {
+        "file": "app/db/session.py",
+        "line": 10,
+        "text": "engine = create_engine(settings.DATABASE_URL, future=True, pool_pre_ping=True)"
+      },
+      "described": true
+    }
+  ],
+  "edges": [
+    {
+      "id": "E1",
+      "source": "C1",
+      "target": "C13",
+      "label": "chạy scheduler nền",
+      "quote": {
+        "file": "app/main.py",
+        "line": 37,
+        "text": "scheduler_task = asyncio.create_task(run_scheduler_lifecycle(scheduler_stop_event))"
+      }
+    },
+    {
+      "id": "E2",
+      "source": "C1",
+      "target": "C14",
+      "label": "chạy worker WhatsApp",
+      "quote": {
+        "file": "app/main.py",
+        "line": 34,
+        "text": "worker_task = asyncio.create_task(run_outbox_worker(worker_stop_event))"
+      }
+    },
+    {
+      "id": "E3",
+      "source": "C1",
+      "target": "C2",
+      "label": "đăng ký router API",
+      "quote": {
+        "file": "app/main.py",
+        "line": 60,
+        "text": "app.include_router(auth_router, prefix=settings.API_V1_PREFIX)"
+      }
+    },
+    {
+      "id": "E4",
+      "source": "C1",
+      "target": "C3",
+      "label": "đăng ký router test",
+      "quote": {
+        "file": "app/main.py",
+        "line": 70,
+        "text": "app.include_router(test_router, prefix=settings.API_V1_PREFIX)"
+      }
+    },
+    {
+      "id": "E29",
+      "source": "C2",
+      "target": "C11",
+      "label": "chuyển đổi sang schema",
+      "quote": {
+        "file": "app/api/v1/appointments/router.py",
+        "line": 44,
+        "text": "return AppointmentResponse.model_validate(entity)"
+      }
+    },
+    {
+      "id": "E30",
+      "source": "C2",
+      "target": "C12",
+      "label": "khởi tạo service nghiệp vụ",
+      "quote": {
+        "file": "app/api/v1/appointments/router.py",
+        "line": 31,
+        "text": "service = AppointmentService(db)"
+      }
+    },
+    {
+      "id": "E31",
+      "source": "C2",
+      "target": "C14",
+      "label": "khởi tạo service WhatsApp",
+      "quote": {
+        "file": "app/api/v1/whatsapp/router.py",
+        "line": 297,
+        "text": "service = WhatsAppOutboxService(db)"
+      }
+    },
+    {
+      "id": "E32",
+      "source": "C2",
+      "target": "C15",
+      "label": "cung cấp DB qua phụ thuộc",
+      "quote": {
+        "file": "app/api/v1/appointments/router.py",
+        "line": 28,
+        "text": "db: Annotated[Session, Depends(get_db)],"
+      }
+    },
+    {
+      "id": "E33",
+      "source": "C2",
+      "target": "C6",
+      "label": "kiểm tra quyền và gói",
+      "quote": {
+        "file": "app/api/v1/tenant/router.py",
+        "line": 52,
+        "text": "if payload.message_templates is not None and not has_min_plan_tier(tenant.plan_tier, PlanTier.PRO):"
+      }
+    },
+    {
+      "id": "E34",
+      "source": "C2",
+      "target": "C9",
+      "label": "sử dụng mô hình dữ liệu",
+      "quote": {
+        "file": "app/api/v1/appointments/router.py",
+        "line": 29,
+        "text": "current_user: Annotated[User, Depends(get_current_tenant_user)],"
+      }
+    },
+    {
+      "id": "E35",
+      "source": "C3",
+      "target": "C10",
+      "label": "truy cập repository dữ liệu",
+      "quote": {
+        "file": "app/api/v1/test.py",
+        "line": 51,
+        "text": "tenant_repo = TenantRepository(db)"
+      }
+    },
+    {
+      "id": "E36",
+      "source": "C3",
+      "target": "C14",
+      "label": "gọi client WhatsApp",
+      "quote": {
+        "file": "app/api/v1/test.py",
+        "line": 54,
+        "text": "evolution_client = EvolutionClient()"
+      }
+    },
+    {
+      "id": "E37",
+      "source": "C3",
+      "target": "C15",
+      "label": "cung cấp DB qua phụ thuộc",
+      "quote": {
+        "file": "app/api/v1/test.py",
+        "line": 27,
+        "text": "db: Annotated[Session, Depends(get_db)],"
+      }
+    },
+    {
+      "id": "E38",
+      "source": "C3",
+      "target": "C9",
+      "label": "truy vấn mô hình Appointment",
+      "quote": {
+        "file": "app/api/v1/test.py",
+        "line": 57,
+        "text": "appointment = db.query(Appointment).filter(Appointment.id == appointment_id).first()"
+      }
+    },
+    {
+      "id": "E39",
+      "source": "C6",
+      "target": "C10",
+      "label": "khởi tạo repository tenant và payment",
+      "quote": {
+        "file": "app/core/dependencies.py",
+        "line": 32,
+        "text": "tenant_repo = TenantRepository(db)"
+      }
+    },
+    {
+      "id": "E40",
+      "source": "C6",
+      "target": "C15",
+      "label": "lấy kết nối cơ sở dữ liệu",
+      "quote": {
+        "file": "app/core/dependencies.py",
+        "line": 110,
+        "text": "db: Session = Depends(get_db)"
+      }
+    },
+    {
+      "id": "E41",
+      "source": "C6",
+      "target": "C8",
+      "label": "giải mã token xác thực",
+      "quote": {
+        "file": "app/core/dependencies.py",
+        "line": 66,
+        "text": "payload = decode_token(token)"
+      }
+    },
+    {
+      "id": "E42",
+      "source": "C6",
+      "target": "C9",
+      "label": "truy vấn người dùng trong DB",
+      "quote": {
+        "file": "app/core/dependencies.py",
+        "line": 151,
+        "text": "user = db.query(User).filter(User.id == user_id, User.tenant_id == tenant_id, User.is_active.is_(True)).first()"
+      }
+    },
+    {
+      "id": "E45",
+      "source": "C9",
+      "target": "C15",
+      "label": "sử dụng schema WhatsApp",
+      "quote": {
+        "file": "app/models/conversation_contexts/conversation_context.py",
+        "line": 18,
+        "text": "{\"schema\": WHATSAPP_SCHEMA},"
+      }
+    },
+    {
+      "id": "E7",
+      "source": "C10",
+      "target": "C9",
+      "label": "sử dụng các mô hình dữ liệu",
+      "quote": {
+        "file": "app/repositories/appointments/appointment_repository.py",
+        "line": 48,
+        "text": "entity = Appointment("
+      }
+    },
+    {
+      "id": "E8",
+      "source": "C11",
+      "target": "C9",
+      "label": "sử dụng các mô hình dữ liệu",
+      "quote": {
+        "file": "app/schemas/tenant/tenant.py",
+        "line": 14,
+        "text": "plan_tier: PlanTier = PlanTier.STARTER"
+      }
+    },
+    {
+      "id": "E9",
+      "source": "C12",
+      "target": "C10",
+      "label": "tạo repository",
+      "quote": {
+        "file": "app/services/appointments/appointment_service.py",
+        "line": 20,
+        "text": "self.appointment_repo = AppointmentRepository(db)"
+      }
+    },
+    {
+      "id": "E13",
+      "source": "C12",
+      "target": "C7",
+      "label": "gửi email đặt lại mật khẩu",
+      "quote": {
+        "file": "app/services/auth/auth_service.py",
+        "line": 200,
+        "text": "send_password_reset_email(normalized_email, reset_link)"
+      }
+    },
+    {
+      "id": "E14",
+      "source": "C12",
+      "target": "C8",
+      "label": "xác thực và tạo token",
+      "quote": {
+        "file": "app/services/auth/auth_service.py",
+        "line": 48,
+        "text": "password_hash = get_password_hash(password)"
+      }
+    },
+    {
+      "id": "E15",
+      "source": "C12",
+      "target": "C9",
+      "label": "tạo thực thể dữ liệu",
+      "quote": {
+        "file": "app/services/auth/auth_service.py",
+        "line": 50,
+        "text": "tenant = Tenant("
+      }
+    },
+    {
+      "id": "E16",
+      "source": "C13",
+      "target": "C10",
+      "label": "tạo repository khách hàng",
+      "quote": {
+        "file": "app/services/scheduler/reminder_scheduler.py",
+        "line": 49,
+        "text": "client_repo = ClientRepository(db)"
+      }
+    },
+    {
+      "id": "E17",
+      "source": "C13",
+      "target": "C14",
+      "label": "khởi tạo client WhatsApp",
+      "quote": {
+        "file": "app/services/scheduler/reminder_scheduler.py",
+        "line": 27,
+        "text": "self.evolution_client = EvolutionClient()"
+      }
+    },
+    {
+      "id": "E18",
+      "source": "C13",
+      "target": "C15",
+      "label": "lấy session DB",
+      "quote": {
+        "file": "app/services/scheduler/worker.py",
+        "line": 25,
+        "text": "db_sessionmaker = get_db_sessionmaker()"
+      }
+    },
+    {
+      "id": "E21",
+      "source": "C13",
+      "target": "C9",
+      "label": "truy vấn mô hình Appointment",
+      "quote": {
+        "file": "app/services/scheduler/reminder_scheduler.py",
+        "line": 76,
+        "text": "query = query.filter(Appointment.reminder_24h_sent.is_(False))"
+      }
+    },
+    {
+      "id": "E22",
+      "source": "C14",
+      "target": "C10",
+      "label": "sử dụng kho dữ liệu",
+      "quote": {
+        "file": "app/services/whatsapp/connection_service.py",
+        "line": 82,
+        "text": "self.tenant_repo = TenantRepository(db)"
+      }
+    },
+    {
+      "id": "E23",
+      "source": "C14",
+      "target": "C15",
+      "label": "tạo phiên DB",
+      "quote": {
+        "file": "app/services/whatsapp/worker.py",
+        "line": 18,
+        "text": "db = SessionLocal()"
+      }
+    },
+    {
+      "id": "E26",
+      "source": "C14",
+      "target": "C6",
+      "label": "kiểm tra gói dịch vụ",
+      "quote": {
+        "file": "app/services/whatsapp/outbox_service.py",
+        "line": 49,
+        "text": "if not has_min_plan_tier(tenant.plan_tier, PlanTier.PRO):"
+      }
+    },
+    {
+      "id": "E27",
+      "source": "C14",
+      "target": "C9",
+      "label": "truy cập mô hình dữ liệu",
+      "quote": {
+        "file": "app/services/whatsapp/variable_resolver.py",
+        "line": 84,
+        "text": "if item.is_active and item.role in {UserRole.OWNER, UserRole.STAFF}"
+      }
+    }
+  ],
+  "externals": [
+    {
+      "id": "X1",
+      "name": "SMTP",
+      "kind": "email",
+      "edges": [
+        {
+          "source": "C7",
+          "label": "SMTP server",
+          "quote": {
+            "file": "app/core/email.py",
+            "line": 29,
+            "text": "with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=20) as server:"
+          }
+        },
+        {
+          "source": "C12",
+          "label": "gửi email đặt lại mật khẩu",
+          "quote": {
+            "file": "app/services/auth/auth_service.py",
+            "line": 200,
+            "text": "send_password_reset_email(normalized_email, reset_link)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X2",
+      "name": "Evolution API",
+      "kind": "http_api",
+      "edges": [
+        {
+          "source": "C14",
+          "label": "gửi yêu cầu tới Evolution",
+          "quote": {
+            "file": "app/services/whatsapp/evolution_client.py",
+            "line": 35,
+            "text": "return httpx.AsyncClient(base_url=base_url.rstrip(\"/\"), headers=headers, timeout=20.0)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X3",
+      "name": "PostgreSQL",
+      "kind": "database",
+      "edges": [
+        {
+          "source": "C15",
+          "label": "kết nối tới cơ sở dữ liệu",
+          "quote": {
+            "file": "app/db/session.py",
+            "line": 10,
+            "text": "engine = create_engine(settings.DATABASE_URL, future=True, pool_pre_ping=True)"
+          }
+        }
+      ]
+    }
+  ],
+  "rejected": [],
+  "quotes": {
+    "returned": 52,
+    "valid": 52
+  },
+  "file_lines": {
+    "app/api/v1/appointments/__init__.py": 3,
+    "app/api/v1/appointments/router.py": 188,
+    "app/api/v1/auth/__init__.py": 3,
+    "app/api/v1/auth/router.py": 113,
+    "app/api/v1/clients/__init__.py": 3,
+    "app/api/v1/clients/router.py": 79,
+    "app/api/v1/services/__init__.py": 3,
+    "app/api/v1/services/router.py": 78,
+    "app/api/v1/super_admin/__init__.py": 3,
+    "app/api/v1/super_admin/router.py": 29,
+    "app/api/v1/tenant/__init__.py": 4,
+    "app/api/v1/tenant/payments_router.py": 44,
+    "app/api/v1/tenant/router.py": 169,
+    "app/api/v1/test.py": 288,
+    "app/api/v1/users/__init__.py": 3,
+    "app/api/v1/users/router.py": 125,
+    "app/api/v1/waitlists/__init__.py": 3,
+    "app/api/v1/waitlists/router.py": 55,
+    "app/api/v1/whatsapp/__init__.py": 3,
+    "app/api/v1/whatsapp/router.py": 549,
+    "app/core/config.py": 74,
+    "app/core/dependencies.py": 220,
+    "app/core/email.py": 33,
+    "app/core/security.py": 46,
+    "app/core/timezone.py": 26,
+    "app/db/base.py": 5,
+    "app/db/schemas.py": 10,
+    "app/db/session.py": 25,
+    "app/main.py": 75,
+    "app/models/__init__.py": 30,
+    "app/models/appointments/__init__.py": 3,
+    "app/models/appointments/appointment.py": 63,
+    "app/models/auth/__init__.py": 3,
+    "app/models/auth/user.py": 40,
+    "app/models/clients/__init__.py": 3,
+    "app/models/clients/client.py": 28,
+    "app/models/conversation_contexts/__init__.py": 3,
+    "app/models/conversation_contexts/conversation_context.py": 32,
+    "app/models/services/__init__.py": 3,
+    "app/models/services/service.py": 22,
+    "app/models/super_admin/__init__.py": 3,
+    "app/models/super_admin/super_admin.py": 18,
+    "app/models/tenant/__init__.py": 12,
+    "app/models/tenant/tenant.py": 133,
+    "app/models/tenant/tenant_config.py": 17,
+    "app/models/tenant/tenant_payment.py": 22,
+    "app/models/waitlists/__init__.py": 3,
+    "app/models/waitlists/waitlist.py": 26,
+    "app/models/whatsapp_events/__init__.py": 3,
+    "app/models/whatsapp_events/processed_webhook.py": 22,
+    "app/models/whatsapp_outbox/__init__.py": 3,
+    "app/models/whatsapp_outbox/whatsapp_outbox.py": 59,
+    "app/models/whatsapp_sessions/__init__.py": 3,
+    "app/models/whatsapp_sessions/whatsapp_session.py": 30,
+    "app/repositories/appointments/__init__.py": 3,
+    "app/repositories/appointments/appointment_repository.py": 772,
+    "app/repositories/auth/__init__.py": 3,
+    "app/repositories/auth/auth_repository.py": 26,
+    "app/repositories/clients/__init__.py": 3,
+    "app/repositories/clients/client_repository.py": 122,
+    "app/repositories/services/__init__.py": 3,
+    "app/repositories/services/service_repository.py": 61,
+    "app/repositories/super_admin/__init__.py": 3,
+    "app/repositories/super_admin/super_admin_repository.py": 37,
+    "app/repositories/tenant/__init__.py": 5,
+    "app/repositories/tenant/tenant_config_repository.py": 21,
+    "app/repositories/tenant/tenant_payment_repository.py": 57,
+    "app/repositories/tenant/tenant_repository.py": 156,
+    "app/repositories/users/__init__.py": 3,
+    "app/repositories/users/user_repository.py": 106,
+    "app/repositories/waitlists/__init__.py": 3,
+    "app/repositories/waitlists/waitlist_repository.py": 170,
+    "app/repositories/whatsapp_events/__init__.py": 3,
+    "app/repositories/whatsapp_events/processed_webhook_repository.py": 71,
+    "app/repositories/whatsapp_outbox/__init__.py": 3,
+    "app/repositories/whatsapp_outbox/whatsapp_outbox_repository.py": 186,
+    "app/repositories/whatsapp_sessions/__init__.py": 3,
+    "app/repositories/whatsapp_sessions/whatsapp_session_repository.py": 70,
+    "app/schemas/appointments/__init__.py": 29,
+    "app/schemas/appointments/appointment.py": 112,
+    "app/schemas/auth/__init__.py": 29,
+    "app/schemas/auth/auth.py": 86,
+    "app/schemas/clients/__init__.py": 3,
+    "app/schemas/clients/client.py": 29,
+    "app/schemas/services/__init__.py": 3,
+    "app/schemas/services/service.py": 29,
+    "app/schemas/super_admin/__init__.py": 3,
+    "app/schemas/super_admin/super_admin.py": 19,
+    "app/schemas/tenant/__init__.py": 20,
+    "app/schemas/tenant/tenant.py": 196,
+    "app/schemas/tenant/tenant_payment.py": 22,
+    "app/schemas/users/__init__.py": 15,
+    "app/schemas/users/user.py": 48,
+    "app/schemas/waitlists/__init__.py": 3,
+    "app/schemas/waitlists/waitlist.py": 26,
+    "app/schemas/whatsapp/__init__.py": 25,
+    "app/schemas/whatsapp/whatsapp.py": 82,
+    "app/services/appointments/__init__.py": 3,
+    "app/services/appointments/appointment_service.py": 673,
+    "app/services/auth/__init__.py": 3,
+    "app/services/auth/auth_service.py": 337,
+    "app/services/clients/__init__.py": 3,
+    "app/services/clients/client_service.py": 64,
+    "app/services/scheduler/reminder_scheduler.py": 336,
+    "app/services/scheduler/worker.py": 68,
+    "app/services/services/__init__.py": 3,
+    "app/services/services/service_service.py": 53,
+    "app/services/super_admin/__init__.py": 3,
+    "app/services/super_admin/super_admin_service.py": 28,
+    "app/services/tenant/__init__.py": 4,
+    "app/services/tenant/tenant_payment_service.py": 61,
+    "app/services/tenant/tenant_service.py": 161,
+    "app/services/users/__init__.py": 3,
+    "app/services/users/user_service.py": 191,
+    "app/services/waitlists/__init__.py": 3,
+    "app/services/waitlists/waitlist_service.py": 40,
+    "app/services/whatsapp/__init__.py": 20,
+    "app/services/whatsapp/connection_service.py": 353,
+    "app/services/whatsapp/evolution_client.py": 286,
+    "app/services/whatsapp/outbox_service.py": 182,
+    "app/services/whatsapp/template_engine.py": 60,
+    "app/services/whatsapp/variable_resolver.py": 128,
+    "app/services/whatsapp/webhook_service.py": 1033,
+    "app/services/whatsapp/worker.py": 41
+  },
+  "snapshot": {
+    "app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/api/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/api/v1/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/api/v1/appointments/__init__.py": "12b6a5eac3579afd744d6f09d91c34d48303724e24c352aaf1d5cf803e59cc3c",
+    "app/api/v1/appointments/router.py": "a01de6aa2b71a5d9a8844777f35f5d865d639930b35e925ffe7fc32e234cb744",
+    "app/api/v1/auth/__init__.py": "5b8b94486f90cc8574202f34e2b4cfedb4a47fd42df560f006bd87492307eb5f",
+    "app/api/v1/auth/router.py": "34665bb192b4fe8ef8dda74ce3b3844c6f28a84face6fdc3af37bcf417297207",
+    "app/api/v1/clients/__init__.py": "9cfceccc3462aa83648c2f9e64b15ae8a91a85734239e1f040728d19796ced1b",
+    "app/api/v1/clients/router.py": "81814154c39d469d72738e0cf4bcfc92a588035e61a4e3ff7699546a980f41a1",
+    "app/api/v1/services/__init__.py": "dbe379f6e1e578c4ce89eb5359e7455b69b2a824a02d0d1288c34c8a81760714",
+    "app/api/v1/services/router.py": "2d9cc589e0a5b77b1f63d1239ec575df2e78b65de16050e5104dba260250310e",
+    "app/api/v1/super_admin/__init__.py": "6a87c2757a65007041732735b0958ec1f41ebbc32f3bf43aab5a8d15f97e8104",
+    "app/api/v1/super_admin/router.py": "09c58fd033c36c41ec3f5772f3f8e1910d4cb711bb461b0fbe10e611f95f7838",
+    "app/api/v1/tenant/__init__.py": "64cf8e456204da04acf1b39cb7e0854c792b6807e2b1884096a034c2661fef73",
+    "app/api/v1/tenant/payments_router.py": "6aa27fda2bf11c815c05582a75af208c0678e47a4d8730d1e2a1db4608af3b95",
+    "app/api/v1/tenant/router.py": "408281b6e233ac2f1fbb8dff86b0c2f64bb6cc4e7bab009d028a8f30c85ae001",
+    "app/api/v1/test.py": "7a09fc9cb5805b542ca1cc901cecc0255964614a97b3bf27553c4f6e96ae30af",
+    "app/api/v1/users/__init__.py": "8301bbea719bea00cef9c94607f50ad46e6ee2de04650097531d392ba91c3f97",
+    "app/api/v1/users/router.py": "fb64e8dcd984931e7c1e6afd223074f5564d124dcad9c33507680410f5453e76",
+    "app/api/v1/waitlists/__init__.py": "6002e19f91482162ebea05ca9b3fd5a98bbfdc40650227d9a9fcb9349d23db7e",
+    "app/api/v1/waitlists/router.py": "8bb6e0d3a18b276d2d939fafc53ac97c8b95d92dedc7c1a1f20c3563d71df04e",
+    "app/api/v1/whatsapp/__init__.py": "c293db1c68db9c67f5fc263b26eeb7d351f663d41147c36961cd4063e7d65e3f",
+    "app/api/v1/whatsapp/router.py": "6eea34c80df62d3b64b39cc5ed27c822f26e497f682df8ac45791116933575a7",
+    "app/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/core/config.py": "faa1f14a2a6ba128243c5da913840aeba41bf65232d1759992b1268f0b838b3d",
+    "app/core/dependencies.py": "8e7c5056086ff72e03fced13acfbb7560e4cf134f26a3c06408f75adc9a5fe39",
+    "app/core/email.py": "b3e7a6746a8f6fc9bcb1fca783148c8fecc81471ec4d856c1fcfa48deb5d1e73",
+    "app/core/security.py": "57f6a8441a06d92682cf89834d7845641252f98a5121939c231f351f72e05ed2",
+    "app/core/timezone.py": "73ba8f038316a5bfa1eeacf9f014f15a6a797bd7da6f50c8868ca771414ef73a",
+    "app/db/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/db/base.py": "d0b5d2d1694baf52801c6667838e92994c096a6f26d80c550c1a8ad58cf0c7cc",
+    "app/db/schemas.py": "7cb6fe1d1e916bd3fad23231a2b4952b68ca1caed5e82f48c14a2734e9d69b8f",
+    "app/db/session.py": "0b8b5a0322e285e143cdfa1ac7cf765f0bf41b69db05b2f7a052fd4674b3c787",
+    "app/main.py": "a9d30933eb8037e362abfbaa0a30cc1cff6f87d47d44cdb28191f0a5b931f7f7",
+    "app/models/__init__.py": "9576428f1309f624c59ec496ea994ebcb57b63fc50eea0163ddc68edeffa7dc6",
+    "app/models/appointments/__init__.py": "718284e738e8b635ce51324b6e415203ca33f183b1c38a2368c2a5033b9bdc90",
+    "app/models/appointments/appointment.py": "74231f32138337f8a1031fb1d6721b67869eed5cd6c9a8d3e630fdb0c8560a63",
+    "app/models/auth/__init__.py": "4671318498edcdcf6720b6265bd1869f093f56cbf1481895949fdb7be8124c4a",
+    "app/models/auth/user.py": "80c981d0e2066a15cc7f5ff0b10c239ac492351b6350d5a81e088dbb25e016e3",
+    "app/models/clients/__init__.py": "9c356357ead8337f668fe9e0c7645004a2cc5d35d3e1d713d43a124f82a989a2",
+    "app/models/clients/client.py": "3f74c548c7ad325c5312e746d0404c45bc2fb45a2c51a0ae063458e74e6b67a5",
+    "app/models/conversation_contexts/__init__.py": "7d0305a868d1d688ca178de27ce86f5533e427090c22e39d1cb353f164bb821d",
+    "app/models/conversation_contexts/conversation_context.py": "bc29e1c0eab970881d115d26efe361c8cf321438f0a1682b05e7eb416264943d",
+    "app/models/services/__init__.py": "3f32e45a06757e27e0483da76b09190d0d443353576c69dbc19bc5d41fa8394d",
+    "app/models/services/service.py": "e05380bc7bd130a05600b132ab27ec11a5dd4d585484bcb7ffacca4536b3ea04",
+    "app/models/super_admin/__init__.py": "76b5e836bcb7fb2b0d52c551bf84cb480c7738cb9135f18f7b6d9350d41cc89b",
+    "app/models/super_admin/super_admin.py": "ad858678a930953176a4db1ebbd8e8f3b39457bb0045949d50e45f422d68e0a2",
+    "app/models/tenant/__init__.py": "1914c95ae59c7a99aa364f9a759bb9623103bbddd4b20786a10dcd91de285a2f",
+    "app/models/tenant/tenant.py": "4ab3d31c6978bf8b5c1fade94337af46929e78378bcb41febb2f4a237f1cd3d3",
+    "app/models/tenant/tenant_config.py": "966e59bbe72496e3d1d3f11153ddfdc76b7b5d10187100548b754a4ac3ed4a61",
+    "app/models/tenant/tenant_payment.py": "245c1ee29c4cdeb95865799295dffb97a70ffe0438601bc635b73f98591cb53b",
+    "app/models/users/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/models/waitlists/__init__.py": "1b52d8f5f2bd73ed7a7ad73c6293fe27ccc011ce321e677faf6cd5a3c765bee8",
+    "app/models/waitlists/waitlist.py": "446d197a9a6c5acf813e8da005b648c642ba22e03f8d7d966ef33fb8a7b4f36e",
+    "app/models/whatsapp_events/__init__.py": "6e439b6bf5f9f760d1ecb48a3b2f59d6d29c2526da5c6bc59c0ac3b80cec4db4",
+    "app/models/whatsapp_events/processed_webhook.py": "bdf1f1866cc46381a6bd18c33329abc56cb751652200eb19c745e8724a62c362",
+    "app/models/whatsapp_outbox/__init__.py": "cb1966508dd094623a03318822f06dc689b86696f61543732fdee68e384e72b9",
+    "app/models/whatsapp_outbox/whatsapp_outbox.py": "4e702c6cca7059d96110193245b607a922eba74a45603c43b6252d59abfff355",
+    "app/models/whatsapp_sessions/__init__.py": "c375c6d7940709f7eb62896722ca8d686c65934a82cbcf32483f070b1edd4426",
+    "app/models/whatsapp_sessions/whatsapp_session.py": "44b09ae623f11a49d419f54e66819d8daa0211ed0f661459afe9aee4fc63f29b",
+    "app/repositories/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/repositories/appointments/__init__.py": "7f50c33320210303f454b9a7f82cbbf85bfd5d890c755a9b60b39569bd76224a",
+    "app/repositories/appointments/appointment_repository.py": "1b9fdc8e4104b1d7b37b8dd282c9c706958a96ebc5dfe2cc4d3a278f7ed672b0",
+    "app/repositories/auth/__init__.py": "f149ea0ad64c35a7a46e1b4d01dd15cdca4b5cbfc5004da791541c3358dad8d2",
+    "app/repositories/auth/auth_repository.py": "2bb73545d859b96e25d032d1f6ee85e1a7324fbf308d9b484f1f6201a9b0c5c3",
+    "app/repositories/clients/__init__.py": "6c20fc6fdce9173dcffa5180a8628385e56eca517ca01e552a952a7aacad7d93",
+    "app/repositories/clients/client_repository.py": "c971ce6d54c7a1372518c27ca7ab3f1085c030d05204e97de4a955884f9a615c",
+    "app/repositories/services/__init__.py": "d32f329a68b216b3701d1c51b64f3696497a37f3d860a43d3022fe1b5caf324a",
+    "app/repositories/services/service_repository.py": "bbf2aedb33845893f10255988ea303e62b0a4458ddeee709b27a15b11ac2de9c",
+    "app/repositories/super_admin/__init__.py": "24d2df74ba1585c91e13725d59e8b4e3af9ccb4c5aa3ee27a779877a68dc77cc",
+    "app/repositories/super_admin/super_admin_repository.py": "61728867e7c9c8ef9d85969cb667074667a5bf320faea6ed6c050ad091a7c9d5",
+    "app/repositories/tenant/__init__.py": "1f9e16991cba16f725aa6de23979885347a00fb6727d0ccd48a39897329fd057",
+    "app/repositories/tenant/tenant_config_repository.py": "4a5792e957cbbe7394653bd519d626e16ecaf120c00ba11762f4730eabf975d7",
+    "app/repositories/tenant/tenant_payment_repository.py": "9361a07669ce7dc5cf78891ee865c6d120b003e1b253272dd30728c800d08571",
+    "app/repositories/tenant/tenant_repository.py": "fa88c245aa14c2d9ec6f237833d09f8cceb55302038756ebd07751fb670783f6",
+    "app/repositories/users/__init__.py": "d5867fb372d8e04aeb4e2c288c4cdeb256a7473c1a174c25a5fb4231784bfa4e",
+    "app/repositories/users/user_repository.py": "41e545ac21632013034c0692dfee7fe58a6e1b7a3172d3722928ee0728eff19a",
+    "app/repositories/waitlists/__init__.py": "22492faa86d36e3c31a65dc7ed2604228d40c9fde2a5e6dffb95ed92f212d17e",
+    "app/repositories/waitlists/waitlist_repository.py": "3e78cf54c403465b627a0a20fd0f609f216de7c4ef69261afa0b88729606417d",
+    "app/repositories/whatsapp_events/__init__.py": "11b0d2614efc20dca1243540fde370435a70aad972d2e763edf56f30f7d79698",
+    "app/repositories/whatsapp_events/processed_webhook_repository.py": "2f66f9419bd6fbe10cb872716a4881b834920b547fcf2b1281529171dcc6e469",
+    "app/repositories/whatsapp_outbox/__init__.py": "08244d3a5c5261b71adc380bc9ca3cadd3194857ab421d5fe9f8deecc1ca9530",
+    "app/repositories/whatsapp_outbox/whatsapp_outbox_repository.py": "6ac4ea2484cb9cfb2401a8d0ca1604137230b5ca57f3dc7b2b32a22e4544663c",
+    "app/repositories/whatsapp_sessions/__init__.py": "d06332ec3e6b64b54695957172af3701549225711fd685a77f5c7776822e5cad",
+    "app/repositories/whatsapp_sessions/whatsapp_session_repository.py": "0dabb36c663dd62ce9691f8f431749e590eddc2ecec07cfa13009f2950e092d4",
+    "app/schemas/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/schemas/appointments/__init__.py": "29f04da32bfc3040c3ff3f1a328f72766cde09e13545de35c072b36a96a6c87d",
+    "app/schemas/appointments/appointment.py": "1f3ce934ff18f7e668926f74b9b872a5ef915e5d04d777b213dc1544c8fc4a3a",
+    "app/schemas/auth/__init__.py": "998501d1240f05465050c2f2335c8323c7075dc54f992e44f47536660427d4fa",
+    "app/schemas/auth/auth.py": "607dbe9aaa632e7cc29a727ce9c276cc1127bc3db24776ae47055f5a468e9474",
+    "app/schemas/clients/__init__.py": "b1c70f62e50cb90ced6417b53e3b72befd9098a0a9d4c7591189a9e21e055b5b",
+    "app/schemas/clients/client.py": "107ab4f0afb11864a9c459d5b50af296c3e66cf5c1025488224c2a51ebce9a4b",
+    "app/schemas/services/__init__.py": "bec2dfb5018becca94ed21bac80d3d562450a83cd1b710ceec026e92731ca111",
+    "app/schemas/services/service.py": "aed64ea8cec6e8c8da6567876460a7b1a6433727db80a977a0cf823236f43e3d",
+    "app/schemas/super_admin/__init__.py": "4f7d614d420fffc60fcd066031a3b2efc5ff254ffc6d97931a5bd4ab6f00bf7f",
+    "app/schemas/super_admin/super_admin.py": "5c932a3b0d9ecced6947678532582b3e53fbe53517b88e7331390af345b5a22e",
+    "app/schemas/tenant/__init__.py": "54b403f4aa1f9342844793195e695e357666ca9bd0dd48e41eb8cb5d60d30d75",
+    "app/schemas/tenant/tenant.py": "24b1bd46bd5213f1cbe88d8a28557aeb5e61d4c2ec4dc5437abbb8b341ce06e5",
+    "app/schemas/tenant/tenant_payment.py": "9060384600c720cc576454082ef6b2eee3c6b2c05e18077bbdf0dd2ab90fe097",
+    "app/schemas/users/__init__.py": "17f8e1aeaa8bae054bdff6173da2b0b91bbc40c546b0a33d21664a2643d0b585",
+    "app/schemas/users/user.py": "d25e21347741e3aa97fadd97b073a6d27a1b7b986c51825b0f9090de7ef23717",
+    "app/schemas/waitlists/__init__.py": "e4fe77e4c8954af8ce5ec3083779c7eef699e2e829b589e2967ae1aaf96bea52",
+    "app/schemas/waitlists/waitlist.py": "d40022b9e572f08944e6801b3d90397ad1405879b35edb0fe6d2fef40529ea6a",
+    "app/schemas/whatsapp/__init__.py": "e6eda4ef0191755c2b3ec3c9944dca930ec0b6dc2637e572a8d872cdcfd830a9",
+    "app/schemas/whatsapp/whatsapp.py": "8867e1e89c046bd27721b653a76a1e1c332de66be8d778a4e18ed349dd3977bc",
+    "app/services/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/services/appointments/__init__.py": "a10224e3e813691b4165e3df4a0a8fd2172990550a3b28d589ad25865bbf677b",
+    "app/services/appointments/appointment_service.py": "66ec90d57cdaafa131cc5a3f9a04781d0f765b0b3b270654d659e02ada774ead",
+    "app/services/auth/__init__.py": "63b4b68c8cddbcf6212dc153af1996fd8b0ed20dc066721e97f77b7f9dcc11f3",
+    "app/services/auth/auth_service.py": "1ec5010ad50d7f694306a205b8f5fc66aa84c5649bfd1a12450e735f6854eb6b",
+    "app/services/clients/__init__.py": "3c6fcc980f5e69e888122c8c7cff150d395218a9d65264c776963b43e2e8d82f",
+    "app/services/clients/client_service.py": "97ec87412aef5c4f040dbd8c7430d2c0e78f59e57dfd2d4864170018130aed42",
+    "app/services/scheduler/__init__.py": "8784d7e6268e3f943d979bc9427336c42e1a017ae98afb6967cfe51390f9b2e8",
+    "app/services/scheduler/reminder_scheduler.py": "6f168c56c3353e2de01352baf3342f4916832b60d7e2adf7eb1c9ff068ce50e5",
+    "app/services/scheduler/worker.py": "8f9c9ebe40d5d9e7baa97a0f2497b9d8176aec8bad97b9ccfd25635a6bdeaeda",
+    "app/services/services/__init__.py": "23445deb0797a82e57f2adc234170703867330eb3c6d0954dfa1376adeb0ec2f",
+    "app/services/services/service_service.py": "baba125e8c7d48c1159247ac39c98359e585a83942b40089d2240158aae174df",
+    "app/services/super_admin/__init__.py": "a2ba946434eb5e72fe18ae1cb5c6320290b0ba3a6feafe22eb7816310e6eecef",
+    "app/services/super_admin/super_admin_service.py": "83ba0d82354883191e564335885e6d8c73341b32f23b11fc34d832257a3c9297",
+    "app/services/tenant/__init__.py": "1193e40bc8c8956a6260b8b399390216b730b0681ebb8944d0296be0d0db776d",
+    "app/services/tenant/tenant_payment_service.py": "01e1631317d75b1481f41574c6a910ef9bed0a964074252cd01cb775c8547a02",
+    "app/services/tenant/tenant_service.py": "81bfb02b257611679742f0d8723156d87c39ae081cb5988aebedd213911d9efe",
+    "app/services/users/__init__.py": "bbd0317f231f3bb7e2fd8a3229100c24398e8334bcae7a56557cbd2f81a3a49f",
+    "app/services/users/user_service.py": "e1102f4d1197fdd89bfab623c4dfe0b7211d7b2f916419b80e0031708feb8896",
+    "app/services/waitlists/__init__.py": "0e6cc51f1fe38829183352e5c54c8e4ca0e78fadfdd65ebcf0efe0c69380bc91",
+    "app/services/waitlists/waitlist_service.py": "4a35cbeaed3ebece78a0d03b6dca2681499aa1b5f5a77c692046a10b568e65f0",
+    "app/services/whatsapp/__init__.py": "70e90462df429dad2255702ed942d1f22b2cf8c76f75692416c5acd7de801bb4",
+    "app/services/whatsapp/connection_service.py": "73eefaae54433dff1447a71603563095ccdb42a36fb97691907d99953e3fbdcf",
+    "app/services/whatsapp/evolution_client.py": "7b339ad3d94061ffe1feac0c5049919a59034456c78e1a4b91d950c57297af61",
+    "app/services/whatsapp/outbox_service.py": "18d74d731d0053c4e93efe35283f2bcf8ffc272b9be6e6c50e43497f74577215",
+    "app/services/whatsapp/template_engine.py": "0ddcb929c2d378316a1be4093e84733c179096dc5a8f7538ad7079ec0d944ed1",
+    "app/services/whatsapp/variable_resolver.py": "056e750b0ed7bf1e9c0444ed9090cd661817f692916a60a188b7460a69ccd5f4",
+    "app/services/whatsapp/webhook_service.py": "e6cb3876af47adc9536265062c6d28276037e2029968fe4c29a268b52baa539b",
+    "app/services/whatsapp/worker.py": "9403ee9301d5dbc5f6cd7ec0a1c91b1844f5afcd17fdfe967bbd49b7db1f4895"
+  },
+  "excluded": {
+    "dir:alembic": 20,
+    "dir:scripts": 2,
+    "dir:seeds": 2,
+    "dir:tests": 12
+  }
+}

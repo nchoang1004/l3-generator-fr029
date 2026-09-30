@@ -1,0 +1,60 @@
+flowchart LR
+  C1["Điểm vào ứng dụng"]
+  C2["Định nghĩa router API"]
+  C3["Router kiểm thử API"]
+  C6["Các phụ thuộc"]
+  C7["Khách hàng email"]
+  C8["Bảo mật ứng dụng"]
+  C9["Mô hình dữ liệu"]
+  C10["Truy cập dữ liệu repository"]
+  C11["Định nghĩa schema API"]
+  C12["Dịch vụ kinh doanh"]
+  C13["Công việc nền"]
+  C14["Khách hàng WhatsApp"]
+  C15["Kết nối cơ sở dữ liệu"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C4["Cấu hình ứng dụng"]
+    C5["Múi giờ ứng dụng"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["SMTP"])
+    X2(["Evolution API"])
+    X3[("PostgreSQL")]
+  end
+  C1 -->|"chạy scheduler nền"| C13
+  C1 -->|"chạy worker WhatsApp"| C14
+  C1 -->|"đăng ký router API"| C2
+  C1 -->|"đăng ký router test"| C3
+  C2 -->|"chuyển đổi sang schema"| C11
+  C2 -->|"khởi tạo service nghiệp vụ"| C12
+  C2 -->|"khởi tạo service WhatsApp"| C14
+  C2 -->|"cung cấp DB qua phụ thuộc"| C15
+  C2 -->|"kiểm tra quyền và gói"| C6
+  C2 -->|"sử dụng mô hình dữ liệu"| C9
+  C3 -->|"truy cập repository dữ liệu"| C10
+  C3 -->|"gọi client WhatsApp"| C14
+  C3 -->|"cung cấp DB qua phụ thuộc"| C15
+  C3 -->|"truy vấn mô hình Appointment"| C9
+  C6 -->|"khởi tạo repository tenant và payment"| C10
+  C6 -->|"lấy kết nối cơ sở dữ liệu"| C15
+  C6 -->|"giải mã token xác thực"| C8
+  C6 -->|"truy vấn người dùng trong DB"| C9
+  C9 -->|"sử dụng schema WhatsApp"| C15
+  C10 -->|"sử dụng các mô hình dữ liệu"| C9
+  C11 -->|"sử dụng các mô hình dữ liệu"| C9
+  C12 -->|"tạo repository"| C10
+  C12 -->|"gửi email đặt lại mật khẩu"| C7
+  C12 -->|"xác thực và tạo token"| C8
+  C12 -->|"tạo thực thể dữ liệu"| C9
+  C13 -->|"tạo repository khách hàng"| C10
+  C13 -->|"khởi tạo client WhatsApp"| C14
+  C13 -->|"lấy session DB"| C15
+  C13 -->|"truy vấn mô hình Appointment"| C9
+  C14 -->|"sử dụng kho dữ liệu"| C10
+  C14 -->|"tạo phiên DB"| C15
+  C14 -->|"kiểm tra gói dịch vụ"| C6
+  C14 -->|"truy cập mô hình dữ liệu"| C9
+  C7 -.->|"SMTP server"| X1
+  C12 -.->|"gửi email đặt lại mật khẩu"| X1
+  C14 -.->|"gửi yêu cầu tới Evolution"| X2
+  C15 -.->|"kết nối tới cơ sở dữ liệu"| X3

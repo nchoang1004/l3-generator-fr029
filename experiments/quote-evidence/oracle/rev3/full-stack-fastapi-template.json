@@ -1,0 +1,53 @@
+{
+ "repo": "full-stack-fastapi-template",
+ "source": "https://github.com/fastapi/full-stack-fastapi-template/tree/cb740b656d7a0a6c5e12c7bf8e50343ec94ee9c7",
+ "local_dir": "sample-repos/full-stack-fastapi-template-cb740b6",
+ "rev": 2,
+ "written": "26/09/2026, viết tay trước lần chạy AI đầu tiên | rev 2 28/09/2026 (chuẩn đáp án bản 2) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)",
+ "components": {
+  "entry": ["backend/app/main.py"],
+  "api_router": ["backend/app/api/main.py"],
+  "api_deps": ["backend/app/api/deps.py"],
+  "routes": ["backend/app/api/routes/"],
+  "crud": ["backend/app/crud.py"],
+  "models": ["backend/app/models.py"],
+  "config": ["backend/app/core/config.py"],
+  "db": ["backend/app/core/db.py"],
+  "security": ["backend/app/core/security.py"],
+  "bootstrap": ["backend/app/initial_data.py"],
+  "email_utils": ["backend/app/utils.py"]
+ },
+ "shared": ["config"],
+ "externals": {
+  "postgres": ["postgres", "cơ sở dữ liệu", "database", "csdl"],
+  "smtp": ["smtp", "email", "mail", "thư"],
+  "sentry": ["sentry"]
+ },
+ "required": [
+  ["entry", "api_router", "main.py:35 app.include_router(api_router)"],
+  ["entry", "ext:sentry", "main.py:19 sentry_sdk.init(dsn=...)"],
+  ["api_router", "routes", "api/main.py:7 api_router.include_router(login.router)"],
+  ["routes", "api_deps", "routes/items.py:7 SessionDep, CurrentUser"],
+  ["routes", "crud", "routes/login.py, users.py gọi crud.*"],
+  ["routes", "security", "routes/users.py:14 get_password_hash, verify_password"],
+  ["routes", "email_utils", "routes/users.py:27 send_email"],
+  ["api_deps", "db", "api/deps.py:22 Session(engine)"],
+  ["crud", "security", "crud.py:6 get_password_hash, verify_password"],
+  ["db", "crud", "core/db.py:3 crud.create_user trong init_db"],
+  ["db", "ext:postgres", "core/db.py:7 create_engine(DATABASE_URL)"],
+  ["bootstrap", "db", "initial_data.py:5 init_db, engine"],
+  ["email_utils", "ext:smtp", "utils.py:56 message.send(smtp=...)"]
+ ],
+ "acceptable": [
+  ["routes", "ext:postgres", "hand"],
+  ["crud", "ext:postgres", "hand"],
+  ["api_deps", "ext:postgres", "hand"],
+  ["bootstrap", "ext:postgres", "hand"],
+  ["api_deps", "models"],
+  ["api_deps", "security"],
+  ["crud", "models"],
+  ["db", "models"],
+  ["email_utils", "security"],
+  ["routes", "models"]
+ ]
+}

@@ -1,0 +1,142 @@
+flowchart LR
+  C1["Factory ứng dụng FastAPI"]
+  C2["Định nghĩa phụ thuộc hạ tầng"]
+  C3["Middleware cache và bảo mật"]
+  C4["Redis client"]
+  C5["Router xác thực"]
+  C6["Auth dependencies"]
+  C7["Cài đặt xác thực"]
+  C8["Cốt lõi bộ nhớ đệm"]
+  C9["Backend cache"]
+  C12["Phiên làm việc DB"]
+  C13["Định nghĩa mô hình dữ liệu"]
+  C15["Kiểm tra bảo mật môi trường"]
+  C16["Worker xử lý taskiq"]
+  C17["Cấu hình broker taskiq"]
+  C18["Phụ thuộc taskiq"]
+  C19["Đăng ký task"]
+  C20["Điểm vào API"]
+  C21["Giao diện admin"]
+  C22["Giao diện admin"]
+  C23["Router API"]
+  C24["Router API v1"]
+  C25["Module quản lý API Key"]
+  C28["Module giới hạn tần suất"]
+  C29["Module cấp bậc"]
+  C30["Module người dùng"]
+  C31["Ứng dụng CLI"]
+  C32["Lệnh deploy CLI"]
+  C33["Lệnh môi trường CLI"]
+  C34["Tính năng CLI"]
+  C35["Triển khai tính năng CLI"]
+  C36["Thư viện CLI"]
+  C37["Cơ sở hạ tầng"]
+  C38["Cơ sở hạ tầng xác thực"]
+  C39["Kiểm tra Memcached"]
+  C40["Định nghĩa xuất khẩu backend"]
+  C41["Xuất khẩu cấu hình"]
+  C42["Khởi tạo database service"]
+  C43["Cấu hình logging"]
+  C44["Bảo mật production"]
+  C45["Cung cấp broker taskiq"]
+  C46["Đăng ký mô-đun API keys"]
+  C47["Cung cấp CRUD và model cho API keys"]
+  C48["Module giới hạn tốc độ"]
+  C49["Module cấp độ"]
+  C50["Module người dùng"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C10["Cài đặt cấu hình"]
+    C11["Enum cấu hình"]
+    C14["Cấu hình hệ thống ghi log"]
+    C26["Thư viện chung"]
+    C27["Tiện ích chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Redis")]
+    X2[("Memcached")]
+    X3[("Database")]
+    X4[/"RabbitMQ"/]
+  end
+  C1 -->|"khởi tạo và đóng DB"| C12
+  C1 -->|"đăng ký middleware"| C3
+  C1 -->|"đóng kết nối Redis"| C4
+  C1 -->|"tiêm phụ thuộc auth"| C6
+  C1 -->|"khởi tạo auth"| C7
+  C1 -->|"khởi tạo và đóng cache"| C8
+  C16 -->|"đọc broker mặc định"| C17
+  C16 -->|"gọi hàm giải phóng engine"| C18
+  C18 -->|"gọi hàm tạo engine"| C12
+  C2 -->|"tiêm session DB"| C12
+  C2 -->|"tiêm phụ thuộc auth"| C6
+  C20 -->|"tạo ứng dụng FastAPI"| C1
+  C20 -->|"kiểm tra bảo mật production"| C15
+  C20 -->|"khởi tạo giao diện admin"| C21
+  C20 -->|"cung cấp router API"| C23
+  C21 -->|"lấy engine DB"| C12
+  C21 -->|"đăng ký view admin"| C22
+  C22 -->|"tạo session DB"| C12
+  C22 -->|"kế thừa DataclassModelMixin"| C21
+  C22 -->|"gọi CRUD tier"| C29
+  C22 -->|"khởi tạo UserService"| C30
+  C22 -->|"xác thực mật khẩu"| C7
+  C23 -->|"đăng ký router v1"| C24
+  C23 -->|"đọc cấu hình auth"| C7
+  C24 -->|"đăng ký router api-keys"| C25
+  C24 -->|"đăng ký router rate-limits"| C28
+  C24 -->|"đăng ký router tiers"| C29
+  C24 -->|"đăng ký router users"| C30
+  C24 -->|"đăng ký router auth"| C5
+  C24 -->|"sử dụng phụ thuộc api_rate_limit_dependency"| C7
+  C25 -->|"kế thừa lớp Base"| C12
+  C25 -->|"kế thừa TimestampMixin"| C13
+  C25 -->|"tiêm phụ thuộc AsyncSessionDep và CurrentUserDep"| C2
+  C28 -->|"kế thừa Base"| C12
+  C28 -->|"kế thừa mixin"| C13
+  C28 -->|"tiêm phụ thuộc DB"| C2
+  C28 -->|"gọi CRUD tiers"| C29
+  C29 -->|"kế thừa Base"| C12
+  C29 -->|"kế thừa mixin"| C13
+  C29 -->|"tiêm phụ thuộc DB"| C2
+  C29 -->|"dùng crud_rate_limits"| C28
+  C29 -->|"dùng User, crud_users"| C30
+  C30 -->|"kế thừa Base"| C12
+  C30 -->|"kế thừa mixin"| C13
+  C30 -->|"tiêm phụ thuộc"| C2
+  C30 -->|"sử dụng lớp"| C28
+  C30 -->|"gọi hàm"| C29
+  C30 -->|"sử dụng kiểu"| C38
+  C30 -->|"gọi hàm xác thực"| C7
+  C31 -->|"đăng ký lệnh"| C32
+  C31 -->|"đăng ký lệnh"| C33
+  C31 -->|"kiểm tra kiểu"| C34
+  C32 -->|"gọi hàm tính năng"| C34
+  C32 -->|"gọi hàm thư viện"| C36
+  C33 -->|"gọi hàm thông báo"| C36
+  C34 -->|"gọi plugin để đăng ký"| C31
+  C34 -->|"tạo đối tượng DeployFeature"| C35
+  C34 -->|"gọi hàm và khởi tạo đối tượng"| C36
+  C35 -->|"kế thừa và sử dụng kiểu"| C34
+  C35 -->|"sử dụng kiểu ProjectContext"| C36
+  C42 -->|"gọi hàm engine"| C12
+  C5 -->|"tiêm phụ thuộc AsyncSessionDep và OAuth2FormDep"| C2
+  C5 -->|"gọi crud_users"| C30
+  C5 -->|"tiêm phụ thuộc get_current_principal và get_optional_principal"| C6
+  C5 -->|"gọi crud_auth và session_transport"| C7
+  C6 -->|"tiêm async_session"| C12
+  C6 -->|"gọi crud_users"| C30
+  C6 -->|"tiêm auth"| C7
+  C7 -->|"cung cấp session DB"| C12
+  C7 -->|"gọi CRUD giới hạn"| C28
+  C7 -->|"sử dụng mô hình người dùng"| C30
+  C7 -->|"cung cấp chính sách mật khẩu"| C38
+  C7 -->|"cung cấp client Redis cho rate limiter"| C4
+  C8 -->|"kiểm tra cài đặt cache"| C39
+  C8 -->|"đóng kết nối Redis cache"| C4
+  C8 -->|"dùng MemcachedPatternMatchingNotSupportedError, MemcachedBackend"| C9
+  C9 -->|"kế thừa lớp cơ sở cache"| C8
+  C4 -.->|"kết nối Redis"| X1
+  C9 -.->|"client Redis"| X1
+  C17 -.->|"kết nối Redis"| X1
+  C9 -.->|"client Memcached"| X2
+  C12 -.->|"Database server"| X3
+  C17 -.->|"kết nối RabbitMQ"| X4

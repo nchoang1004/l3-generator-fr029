@@ -1,0 +1,115 @@
+{
+  "precision": null,
+  "recall": 0.0,
+  "quote_validity": null,
+  "grouping_agreement": 1.0,
+  "components": 12,
+  "hits": [],
+  "wrong": [],
+  "missed": [
+    [
+      "api_deps",
+      "db"
+    ],
+    [
+      "api_router",
+      "routes"
+    ],
+    [
+      "bootstrap",
+      "db"
+    ],
+    [
+      "crud",
+      "security"
+    ],
+    [
+      "db",
+      "crud"
+    ],
+    [
+      "db",
+      "ext:postgres"
+    ],
+    [
+      "email_utils",
+      "ext:smtp"
+    ],
+    [
+      "entry",
+      "api_router"
+    ],
+    [
+      "entry",
+      "ext:sentry"
+    ],
+    [
+      "routes",
+      "api_deps"
+    ],
+    [
+      "routes",
+      "crud"
+    ],
+    [
+      "routes",
+      "email_utils"
+    ],
+    [
+      "routes",
+      "security"
+    ]
+  ],
+  "not_counted": [],
+  "mapping": {
+    "C1": [
+      "entrypoint",
+      "entry"
+    ],
+    "C2": [
+      "api_router",
+      "api_router"
+    ],
+    "C3": [
+      "request_dependencies",
+      "api_deps"
+    ],
+    "C4": [
+      "routes",
+      "routes"
+    ],
+    "C5": [
+      "data_access",
+      "crud"
+    ],
+    "C6": [
+      "data_models",
+      "models"
+    ],
+    "C7": [
+      "email_service",
+      "email_utils"
+    ],
+    "C8": [
+      "initial_data",
+      "bootstrap"
+    ],
+    "C9": [
+      "config",
+      "config"
+    ],
+    "C10": [
+      "db",
+      "db"
+    ],
+    "C11": [
+      "security",
+      "security"
+    ],
+    "C12": [
+      "project_hook",
+      "hooks"
+    ]
+  },
+  "files_outside_oracle": []
+}

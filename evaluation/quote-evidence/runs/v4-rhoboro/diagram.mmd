@@ -1,0 +1,33 @@
+flowchart LR
+  C2["Entrypoint FastAPI"]
+  C3["Kết nối cơ sở dữ liệu"]
+  C4["Router API chính"]
+  C5["Schema notebook"]
+  C6["Service notebook"]
+  C7["Định tuyến notebooks"]
+  C8["Định nghĩa schema notes"]
+  C9["Xử lý nghiệp vụ notes"]
+  C10["Router ghi chú"]
+  C11["Model dữ liệu"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C1["Cấu hình ứng dụng"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+  end
+  C10 -->|"dùng kiểu NoteSchema"| C11
+  C10 -->|"gọi ReadAllNoteResponse"| C8
+  C10 -->|"dùng CreateNote, DeleteNote"| C9
+  C2 -->|"dùng api_router"| C4
+  C4 -->|"dùng notes_router"| C10
+  C4 -->|"dùng notebooks_router"| C7
+  C5 -->|"dùng kiểu NotebookSchema"| C11
+  C6 -->|"gọi Note, Notebook"| C11
+  C6 -->|"dùng kiểu AsyncSession"| C3
+  C7 -->|"dùng kiểu NotebookSchema"| C11
+  C7 -->|"gọi ReadAllNotebookResponse"| C5
+  C7 -->|"dùng CreateNotebook, DeleteNotebook"| C6
+  C8 -->|"dùng kiểu NoteSchema"| C11
+  C9 -->|"gọi Note, Notebook"| C11
+  C9 -->|"dùng kiểu AsyncSession"| C3
+  C3 -.->|"async_engine"| X1

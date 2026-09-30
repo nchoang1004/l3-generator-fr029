@@ -1,0 +1,27 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["API bài viết"]
+  C3["API định tuyến routes"]
+  C4["Service phụ thuộc API"]
+  C5["Quản lý kho dữ liệu"]
+  C6["Kiểm tra dịch vụ bài viết"]
+  C7["Truy vấn dữ liệu DB"]
+  C8["Kết nối cơ sở dữ liệu"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C9["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+  end
+  C1 -->|"đăng ký router API"| C3
+  C2 -->|"gọi service phụ"| C4
+  C2 -->|"gọi repository"| C5
+  C4 -->|"gọi repository bài viết"| C5
+  C7 -->|"tạo truy vấn"| C8
+  C5 -->|"gọi fetch truy vấn"| C8
+  C5 -->|"gọi hàm truy vấn"| C7
+  C3 -->|"gọi router articles"| C2
+  C3 -->|"gọi hàm phụ thuộc"| C4
+  C3 -->|"gọi repository người dùng"| C5
+  C6 -->|"gọi repository"| C5
+  C8 -.->|"truy vấn"| X1

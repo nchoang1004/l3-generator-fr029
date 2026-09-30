@@ -1,0 +1,23 @@
+---
+title: "HÌNH MẪU (không phải output pipeline) — góc nhìn tổng quan. Số trên cạnh = số cạnh nghiệp vụ gộp lại từ góc nhìn chi tiết"
+---
+flowchart LR
+  g_interfaces["interfaces<br/><small>2 component · điểm vào HTTP và trang quản trị</small>"]
+  g_modules["modules<br/><small>4 component nghiệp vụ · 25 endpoint · 6 bảng</small>"]
+  g_infrastructure["infrastructure<br/><small>6 component</small>"]
+  g_shared["dùng chung<br/><small>cấu hình · logging · lỗi chung</small>"]
+  subgraph g_external["Hệ thống ngoài"]
+    db_postgres[("PostgreSQL")]
+    cache_redis[("Redis")]
+    broker_taskiq[/"TaskIQ broker"/]
+    idp_google(["Google OAuth"])
+  end
+  g_interfaces -->|"6"| g_modules
+  g_interfaces -->|"3"| g_infrastructure
+  g_infrastructure -->|"2"| g_modules
+  g_modules -->|"1"| g_infrastructure
+  g_infrastructure --> db_postgres
+  g_infrastructure --> cache_redis
+  g_infrastructure --> broker_taskiq
+  g_infrastructure -.-> idp_google
+  g_shared ~~~ g_infrastructure

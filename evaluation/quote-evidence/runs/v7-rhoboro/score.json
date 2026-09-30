@@ -1,0 +1,130 @@
+{
+  "all": {
+    "precision": 1.0,
+    "precision_strict": 0.833,
+    "recall": 1.0,
+    "drawn": 6,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "models",
+        "db"
+      ],
+      [
+        "routes",
+        "use_cases"
+      ],
+      [
+        "use_cases",
+        "models"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "use_cases",
+        "db"
+      ]
+    ],
+    "missed": []
+  },
+  "internal": {
+    "precision": 1.0,
+    "precision_strict": 0.8,
+    "recall": 1.0,
+    "drawn": 5,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "models",
+        "db"
+      ],
+      [
+        "routes",
+        "use_cases"
+      ],
+      [
+        "use_cases",
+        "models"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "use_cases",
+        "db"
+      ]
+    ],
+    "missed": []
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 1.0,
+    "drawn": 1,
+    "hits": [
+      [
+        "db",
+        "ext:database"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": []
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.923,
+  "components": 9,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "Router API chính",
+      "routes"
+    ],
+    "C3": [
+      "Endpoint notebook",
+      "routes"
+    ],
+    "C4": [
+      "Endpoint note",
+      "routes"
+    ],
+    "C5": [
+      "Nghiệp vụ notebook",
+      "use_cases"
+    ],
+    "C6": [
+      "Quản lý ghi chú service",
+      "use_cases"
+    ],
+    "C7": [
+      "Mô hình dữ liệu",
+      "models"
+    ],
+    "C8": [
+      "Cấu hình hạ tầng",
+      "db"
+    ],
+    "C9": [
+      "Dùng chung",
+      "models"
+    ]
+  },
+  "files_outside_oracle": [
+    "app/api/notebooks/schema.py",
+    "app/api/notes/schema.py"
+  ]
+}

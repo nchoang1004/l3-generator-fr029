@@ -1,0 +1,177 @@
+{
+  "all": {
+    "precision": 0.889,
+    "precision_strict": 0.889,
+    "recall": 1.0,
+    "drawn": 9,
+    "hits": [
+      [
+        "api_router",
+        "notebooks"
+      ],
+      [
+        "api_router",
+        "notes"
+      ],
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "entry",
+        "api_router"
+      ],
+      [
+        "notebooks",
+        "db"
+      ],
+      [
+        "notebooks",
+        "models"
+      ],
+      [
+        "notes",
+        "db"
+      ],
+      [
+        "notes",
+        "models"
+      ]
+    ],
+    "wrong": [
+      [
+        "entry",
+        "ext?:uvicorn"
+      ]
+    ],
+    "not_counted": [],
+    "missed": []
+  },
+  "internal": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 1.0,
+    "drawn": 7,
+    "hits": [
+      [
+        "api_router",
+        "notebooks"
+      ],
+      [
+        "api_router",
+        "notes"
+      ],
+      [
+        "entry",
+        "api_router"
+      ],
+      [
+        "notebooks",
+        "db"
+      ],
+      [
+        "notebooks",
+        "models"
+      ],
+      [
+        "notes",
+        "db"
+      ],
+      [
+        "notes",
+        "models"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": []
+  },
+  "external": {
+    "precision": 0.5,
+    "precision_strict": 0.5,
+    "recall": 1.0,
+    "drawn": 2,
+    "hits": [
+      [
+        "db",
+        "ext:database"
+      ]
+    ],
+    "wrong": [
+      [
+        "entry",
+        "ext?:uvicorn"
+      ]
+    ],
+    "not_counted": [],
+    "missed": []
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 1.0,
+  "components": 11,
+  "mapping": {
+    "C1": [
+      "Cấu hình ứng dụng",
+      "settings"
+    ],
+    "C2": [
+      "Điểm vào ứng dụng",
+      "entry"
+    ],
+    "C3": [
+      "Kết nối cơ sở dữ liệu",
+      "db"
+    ],
+    "C4": [
+      "Router API chính",
+      "api_router"
+    ],
+    "C5": [
+      "Schema notebook",
+      "notebooks"
+    ],
+    "C6": [
+      "Service notebook",
+      "notebooks"
+    ],
+    "C7": [
+      "Router sổ ghi chú",
+      "notebooks"
+    ],
+    "C8": [
+      "Schema ghi chú",
+      "notes"
+    ],
+    "C9": [
+      "Service ghi chú",
+      "notes"
+    ],
+    "C10": [
+      "Router ghi chú API",
+      "notes"
+    ],
+    "C11": [
+      "Model dữ liệu",
+      "models"
+    ]
+  },
+  "files_outside_oracle": [],
+  "comparisons": {
+    "rule_edges": {
+      "precision": 1.0,
+      "precision_strict": 1.0,
+      "recall": 1.0,
+      "drawn": 7,
+      "components": 11,
+      "grouping_agreement": 1.0
+    },
+    "no_ai": {
+      "precision": 0.857,
+      "precision_strict": 0.857,
+      "recall": 0.857,
+      "drawn": 7,
+      "components": 5,
+      "grouping_agreement": 0.867
+    }
+  }
+}

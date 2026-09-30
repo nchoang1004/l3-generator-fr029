@@ -1,0 +1,340 @@
+{
+  "meta": {
+    "repo": "full-stack-fastapi-template-cb740b6",
+    "status": "partial",
+    "files": 16,
+    "issues": [
+      "describe-1 failed for C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11,C12: describe-1: Groq HTTP 400: Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details."
+    ],
+    "model": "openai/gpt-oss-120b",
+    "tokens": 1924,
+    "requests": 3,
+    "cached": 0,
+    "calls": [
+      {
+        "at": "2026-09-26T10:53:55",
+        "step": "group",
+        "status": 200,
+        "seconds": 3.47,
+        "estimated": 3720,
+        "prompt_tokens": 713,
+        "completion_tokens": 1211,
+        "total_tokens": 1924,
+        "error": ""
+      },
+      {
+        "at": "2026-09-26T10:55:03",
+        "step": "describe-1",
+        "status": 400,
+        "seconds": 7.36,
+        "estimated": 6104,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "error": "Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details."
+      },
+      {
+        "at": "2026-09-26T10:56:13",
+        "step": "describe-1",
+        "status": 400,
+        "seconds": 8.23,
+        "estimated": 6104,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "error": "Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details."
+      }
+    ],
+    "candidate_edges": 23,
+    "grouping": {
+      "components": [
+        {
+          "key": "entrypoint",
+          "members": [
+            "backend/app/main.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "api_router",
+          "members": [
+            "backend/app/api/main.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "request_dependencies",
+          "members": [
+            "backend/app/api/deps.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "routes",
+          "members": [
+            "backend/app/api/routes/"
+          ],
+          "shared": false
+        },
+        {
+          "key": "data_access",
+          "members": [
+            "backend/app/crud.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "data_models",
+          "members": [
+            "backend/app/models.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "email_service",
+          "members": [
+            "backend/app/utils.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "initial_data",
+          "members": [
+            "backend/app/initial_data.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "config",
+          "members": [
+            "backend/app/core/config.py"
+          ],
+          "shared": true
+        },
+        {
+          "key": "db",
+          "members": [
+            "backend/app/core/db.py"
+          ],
+          "shared": true
+        },
+        {
+          "key": "security",
+          "members": [
+            "backend/app/core/security.py"
+          ],
+          "shared": true
+        },
+        {
+          "key": "project_hook",
+          "members": [
+            "hooks/post_gen_project.py"
+          ],
+          "shared": false
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "id": "C1",
+      "key": "entrypoint",
+      "shared": false,
+      "files": [
+        "backend/app/main.py"
+      ],
+      "name": "entrypoint",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C2",
+      "key": "api_router",
+      "shared": false,
+      "files": [
+        "backend/app/api/main.py"
+      ],
+      "name": "api_router",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C3",
+      "key": "request_dependencies",
+      "shared": false,
+      "files": [
+        "backend/app/api/deps.py"
+      ],
+      "name": "request_dependencies",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C4",
+      "key": "routes",
+      "shared": false,
+      "files": [
+        "backend/app/api/routes/items.py",
+        "backend/app/api/routes/login.py",
+        "backend/app/api/routes/private.py",
+        "backend/app/api/routes/users.py",
+        "backend/app/api/routes/utils.py"
+      ],
+      "name": "routes",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C5",
+      "key": "data_access",
+      "shared": false,
+      "files": [
+        "backend/app/crud.py"
+      ],
+      "name": "data_access",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C6",
+      "key": "data_models",
+      "shared": false,
+      "files": [
+        "backend/app/models.py"
+      ],
+      "name": "data_models",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C7",
+      "key": "email_service",
+      "shared": false,
+      "files": [
+        "backend/app/utils.py"
+      ],
+      "name": "email_service",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C8",
+      "key": "initial_data",
+      "shared": false,
+      "files": [
+        "backend/app/initial_data.py"
+      ],
+      "name": "initial_data",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C9",
+      "key": "config",
+      "shared": true,
+      "files": [
+        "backend/app/core/config.py"
+      ],
+      "name": "config",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C10",
+      "key": "db",
+      "shared": true,
+      "files": [
+        "backend/app/core/db.py"
+      ],
+      "name": "db",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C11",
+      "key": "security",
+      "shared": true,
+      "files": [
+        "backend/app/core/security.py"
+      ],
+      "name": "security",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    },
+    {
+      "id": "C12",
+      "key": "project_hook",
+      "shared": false,
+      "files": [
+        "hooks/post_gen_project.py"
+      ],
+      "name": "project_hook",
+      "role": "",
+      "role_quote": null,
+      "described": false
+    }
+  ],
+  "edges": [],
+  "externals": [],
+  "rejected": [],
+  "quotes": {
+    "returned": 0,
+    "valid": 0
+  },
+  "file_lines": {
+    "backend/app/api/deps.py": 57,
+    "backend/app/api/main.py": 14,
+    "backend/app/api/routes/items.py": 113,
+    "backend/app/api/routes/login.py": 123,
+    "backend/app/api/routes/private.py": 38,
+    "backend/app/api/routes/users.py": 232,
+    "backend/app/api/routes/utils.py": 31,
+    "backend/app/core/config.py": 91,
+    "backend/app/core/db.py": 33,
+    "backend/app/core/security.py": 36,
+    "backend/app/crud.py": 68,
+    "backend/app/initial_data.py": 23,
+    "backend/app/main.py": 36,
+    "backend/app/models.py": 133,
+    "backend/app/utils.py": 125,
+    "hooks/post_gen_project.py": 8
+  },
+  "snapshot": {
+    "backend/app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/api/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/api/deps.py": "84c30966b3b862c643009c14146d1924dec50be5b0efb9f56798e2fda5189daa",
+    "backend/app/api/main.py": "9e9d533bea7c8616a1d9dd3d7e7cdfefa36726fb221bb289fd102654b7e93b3f",
+    "backend/app/api/routes/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/api/routes/items.py": "7f0fa55d1f7b02188c4abd4f88aa6db92fe03de38258b765ed050ec72032b410",
+    "backend/app/api/routes/login.py": "3c7f7c395b74cea54e505a16052679614b4fd92325d88b761385df8d952af642",
+    "backend/app/api/routes/private.py": "f5df74cc276f0d8d83337922fb8e05e69ecbc885d466d90d2e3de54ba5e4c8f4",
+    "backend/app/api/routes/users.py": "566f253330d75bdbf04f2fd59b380dd2c51041d931bd7af6b2064ee66ea96e6d",
+    "backend/app/api/routes/utils.py": "5e77b59fab0bfcb1cef581938dcc8a47afb7518664a497763d4c50711898e925",
+    "backend/app/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/core/config.py": "ef306f8b68c64f1864269891d353c23807d5685d62e514066598b33ee099ca08",
+    "backend/app/core/db.py": "22b8642606ae619a1ea07b5e3c3bee49c2fc0ded5d0e583e810fba6e7ffadfc9",
+    "backend/app/core/security.py": "adb90882929ab33c238e2e9fa81b03fa0364c1a8cce0e9e70b98c68c321f468f",
+    "backend/app/crud.py": "f69d79e858ee22cee7792494b0df0370afaed20439ed16bbf6f70767926254d1",
+    "backend/app/initial_data.py": "29b51ebdd3c8cb9fde80a426f9c10af08c606ad0ffcec39a23fddc6587ab812c",
+    "backend/app/main.py": "e8b28b639d86c76dcf60348185c91125a789951ff085a5289d9f5add0854dfda",
+    "backend/app/models.py": "1b7384d0dc779cca9ebc9d2b05ccd1864988c2043a3692384ff7a731819050f0",
+    "backend/app/utils.py": "61fbc8476b1c1247b80e2220d28f89e33370434e2eb172f325ed0a6643e433b3",
+    "hooks/post_gen_project.py": "ea8320797206afea47fbb6b243e7e71d849977ce762c8ec630c0512f12ce3799"
+  },
+  "excluded": {
+    "dir:alembic": 6,
+    "dir:tests": 15,
+    "dir:scripts": 2
+  }
+}

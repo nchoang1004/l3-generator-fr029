@@ -1,0 +1,220 @@
+{
+ "A": {
+  "score": {
+   "precision": 1.0,
+   "precision_strict": 0.625,
+   "recall": 1.0,
+   "drawn": 16,
+   "components": 12,
+   "grouping_agreement": 1.0
+  },
+  "flagged": {},
+  "review": [],
+  "notes": [],
+  "issues": [],
+  "tokens": 2842,
+  "requests": 1,
+  "seconds": 63.8,
+  "grouping": {
+   "components": [
+    {
+     "key": "entrypoint",
+     "members": [
+      "backend/app/main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_router",
+     "members": [
+      "backend/app/api/main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "request_deps",
+     "members": [
+      "backend/app/api/deps.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "http_routes",
+     "members": [
+      "backend/app/api/routes/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "crud_service",
+     "members": [
+      "backend/app/crud.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "data_models",
+     "members": [
+      "backend/app/models.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "email_client",
+     "members": [
+      "backend/app/utils.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "initial_data_loader",
+     "members": [
+      "backend/app/initial_data.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "config",
+     "members": [
+      "backend/app/core/config.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "db_connection",
+     "members": [
+      "backend/app/core/db.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "security",
+     "members": [
+      "backend/app/core/security.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "project_hook",
+     "members": [
+      "hooks/post_gen_project.py"
+     ],
+     "shared": false
+    }
+   ]
+  }
+ },
+ "C": {
+  "score": {
+   "precision": 0.8,
+   "precision_strict": 0.5,
+   "recall": 0.8,
+   "drawn": 16,
+   "components": 10,
+   "grouping_agreement": 0.875
+  },
+  "flagged": {},
+  "review": [],
+  "notes": [
+   "D1 -> crud_service, models, email_utils, app_entry: split directory with mixed responsibilities into separate components",
+   "D4 -> config, db, security: split core directory into config, db, and security components",
+   "D3 -> api_routes: merge route files into a single API routes component",
+   "D2 -> api_deps: keep API dependency directory as a single component",
+   "D5 -> hooks: keep hooks directory as a single component"
+  ],
+  "issues": [],
+  "tokens": 2292,
+  "requests": 1,
+  "seconds": 4.4,
+  "grouping": {
+   "components": [
+    {
+     "key": "crud_service",
+     "members": [
+      "backend/app/crud.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "models",
+     "members": [
+      "backend/app/models.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "email_utils",
+     "members": [
+      "backend/app/utils.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_entry",
+     "members": [
+      "backend/app/initial_data.py",
+      "backend/app/main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_deps",
+     "members": [
+      "backend/app/api/deps.py",
+      "backend/app/api/main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_routes",
+     "members": [
+      "backend/app/api/routes/items.py",
+      "backend/app/api/routes/login.py",
+      "backend/app/api/routes/private.py",
+      "backend/app/api/routes/users.py",
+      "backend/app/api/routes/utils.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "config",
+     "members": [
+      "backend/app/core/config.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "db",
+     "members": [
+      "backend/app/core/db.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "security",
+     "members": [
+      "backend/app/core/security.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "hooks",
+     "members": [
+      "hooks/post_gen_project.py"
+     ],
+     "shared": false
+    }
+   ]
+  }
+ },
+ "no_ai": {
+  "score": {
+   "precision": 0.111,
+   "precision_strict": 0.111,
+   "recall": 0.1,
+   "drawn": 9,
+   "components": 5,
+   "grouping_agreement": 0.562
+  }
+ }
+}

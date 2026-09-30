@@ -1,0 +1,864 @@
+{
+  "all": {
+    "precision": 0.348,
+    "precision_strict": 0.219,
+    "recall": 0.5,
+    "drawn": 73,
+    "hits": [
+      [
+        "app",
+        "core_init"
+      ],
+      [
+        "core_init",
+        "views"
+      ],
+      [
+        "fiat",
+        "ext:fiat"
+      ],
+      [
+        "nodes",
+        "wallets"
+      ],
+      [
+        "services",
+        "crud"
+      ],
+      [
+        "services",
+        "ext:smtp"
+      ],
+      [
+        "services",
+        "fiat"
+      ],
+      [
+        "services",
+        "utils"
+      ],
+      [
+        "services",
+        "wallets"
+      ],
+      [
+        "utils",
+        "ext:exchange"
+      ],
+      [
+        "views",
+        "crud"
+      ],
+      [
+        "views",
+        "fiat"
+      ],
+      [
+        "views",
+        "nodes"
+      ],
+      [
+        "views",
+        "services"
+      ],
+      [
+        "wasm_ext",
+        "crud"
+      ],
+      [
+        "wasm_ext",
+        "services"
+      ]
+    ],
+    "wrong": [
+      [
+        "core_init",
+        "misc"
+      ],
+      [
+        "core_init",
+        "models"
+      ],
+      [
+        "core_init",
+        "utils"
+      ],
+      [
+        "crud",
+        "core_init"
+      ],
+      [
+        "crud",
+        "misc"
+      ],
+      [
+        "fiat",
+        "misc"
+      ],
+      [
+        "misc",
+        "app"
+      ],
+      [
+        "misc",
+        "core_init"
+      ],
+      [
+        "misc",
+        "crud"
+      ],
+      [
+        "misc",
+        "ext:database"
+      ],
+      [
+        "misc",
+        "ext:sso"
+      ],
+      [
+        "misc",
+        "models"
+      ],
+      [
+        "misc",
+        "services"
+      ],
+      [
+        "misc",
+        "utils"
+      ],
+      [
+        "misc",
+        "views"
+      ],
+      [
+        "misc",
+        "wallets"
+      ],
+      [
+        "misc",
+        "wasm_ext"
+      ],
+      [
+        "models",
+        "core_init"
+      ],
+      [
+        "models",
+        "misc"
+      ],
+      [
+        "nodes",
+        "misc"
+      ],
+      [
+        "services",
+        "core_init"
+      ],
+      [
+        "services",
+        "ext:fiat"
+      ],
+      [
+        "views",
+        "app"
+      ],
+      [
+        "views",
+        "core_init"
+      ],
+      [
+        "views",
+        "ext:database"
+      ],
+      [
+        "wallets",
+        "ext?:WalletProviderAPI"
+      ],
+      [
+        "wallets",
+        "misc"
+      ],
+      [
+        "wasm_ext",
+        "core_init"
+      ],
+      [
+        "wasm_ext",
+        "ext:database"
+      ],
+      [
+        "wasm_ext",
+        "misc"
+      ]
+    ],
+    "not_counted": [
+      [
+        "app",
+        "misc"
+      ],
+      [
+        "app",
+        "models"
+      ],
+      [
+        "core_init",
+        "crud"
+      ],
+      [
+        "core_init",
+        "services"
+      ],
+      [
+        "core_init",
+        "wasm_ext"
+      ],
+      [
+        "crud",
+        "models"
+      ],
+      [
+        "fiat",
+        "crud"
+      ],
+      [
+        "fiat",
+        "models"
+      ],
+      [
+        "models",
+        "fiat"
+      ],
+      [
+        "models",
+        "services"
+      ],
+      [
+        "models",
+        "utils"
+      ],
+      [
+        "models",
+        "wallets"
+      ],
+      [
+        "services",
+        "misc"
+      ],
+      [
+        "services",
+        "models"
+      ],
+      [
+        "services",
+        "wasm_ext"
+      ],
+      [
+        "tools",
+        "ext:database"
+      ],
+      [
+        "tools",
+        "wasm_ext"
+      ],
+      [
+        "views",
+        "misc"
+      ],
+      [
+        "views",
+        "models"
+      ],
+      [
+        "views",
+        "utils"
+      ],
+      [
+        "views",
+        "wallets"
+      ],
+      [
+        "views",
+        "wasm_ext"
+      ],
+      [
+        "wallets",
+        "crud"
+      ],
+      [
+        "wallets",
+        "nodes"
+      ],
+      [
+        "wallets",
+        "utils"
+      ],
+      [
+        "wasm_ext",
+        "models"
+      ],
+      [
+        "wasm_ext",
+        "utils"
+      ]
+    ],
+    "missed": [
+      [
+        "app",
+        "commands"
+      ],
+      [
+        "app",
+        "core_tasks"
+      ],
+      [
+        "app",
+        "crud"
+      ],
+      [
+        "app",
+        "services"
+      ],
+      [
+        "app",
+        "tasks"
+      ],
+      [
+        "app",
+        "wallets"
+      ],
+      [
+        "app",
+        "wasm_ext"
+      ],
+      [
+        "core_tasks",
+        "crud"
+      ],
+      [
+        "core_tasks",
+        "services"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "decorators",
+        "crud"
+      ],
+      [
+        "entry",
+        "app"
+      ],
+      [
+        "tasks",
+        "services"
+      ],
+      [
+        "views",
+        "decorators"
+      ],
+      [
+        "wallets",
+        "ext:lightning"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.351,
+    "precision_strict": 0.206,
+    "recall": 0.481,
+    "drawn": 63,
+    "hits": [
+      [
+        "app",
+        "core_init"
+      ],
+      [
+        "core_init",
+        "views"
+      ],
+      [
+        "nodes",
+        "wallets"
+      ],
+      [
+        "services",
+        "crud"
+      ],
+      [
+        "services",
+        "fiat"
+      ],
+      [
+        "services",
+        "utils"
+      ],
+      [
+        "services",
+        "wallets"
+      ],
+      [
+        "views",
+        "crud"
+      ],
+      [
+        "views",
+        "fiat"
+      ],
+      [
+        "views",
+        "nodes"
+      ],
+      [
+        "views",
+        "services"
+      ],
+      [
+        "wasm_ext",
+        "crud"
+      ],
+      [
+        "wasm_ext",
+        "services"
+      ]
+    ],
+    "wrong": [
+      [
+        "core_init",
+        "misc"
+      ],
+      [
+        "core_init",
+        "models"
+      ],
+      [
+        "core_init",
+        "utils"
+      ],
+      [
+        "crud",
+        "core_init"
+      ],
+      [
+        "crud",
+        "misc"
+      ],
+      [
+        "fiat",
+        "misc"
+      ],
+      [
+        "misc",
+        "app"
+      ],
+      [
+        "misc",
+        "core_init"
+      ],
+      [
+        "misc",
+        "crud"
+      ],
+      [
+        "misc",
+        "models"
+      ],
+      [
+        "misc",
+        "services"
+      ],
+      [
+        "misc",
+        "utils"
+      ],
+      [
+        "misc",
+        "views"
+      ],
+      [
+        "misc",
+        "wallets"
+      ],
+      [
+        "misc",
+        "wasm_ext"
+      ],
+      [
+        "models",
+        "core_init"
+      ],
+      [
+        "models",
+        "misc"
+      ],
+      [
+        "nodes",
+        "misc"
+      ],
+      [
+        "services",
+        "core_init"
+      ],
+      [
+        "views",
+        "app"
+      ],
+      [
+        "views",
+        "core_init"
+      ],
+      [
+        "wallets",
+        "misc"
+      ],
+      [
+        "wasm_ext",
+        "core_init"
+      ],
+      [
+        "wasm_ext",
+        "misc"
+      ]
+    ],
+    "not_counted": [
+      [
+        "app",
+        "misc"
+      ],
+      [
+        "app",
+        "models"
+      ],
+      [
+        "core_init",
+        "crud"
+      ],
+      [
+        "core_init",
+        "services"
+      ],
+      [
+        "core_init",
+        "wasm_ext"
+      ],
+      [
+        "crud",
+        "models"
+      ],
+      [
+        "fiat",
+        "crud"
+      ],
+      [
+        "fiat",
+        "models"
+      ],
+      [
+        "models",
+        "fiat"
+      ],
+      [
+        "models",
+        "services"
+      ],
+      [
+        "models",
+        "utils"
+      ],
+      [
+        "models",
+        "wallets"
+      ],
+      [
+        "services",
+        "misc"
+      ],
+      [
+        "services",
+        "models"
+      ],
+      [
+        "services",
+        "wasm_ext"
+      ],
+      [
+        "tools",
+        "wasm_ext"
+      ],
+      [
+        "views",
+        "misc"
+      ],
+      [
+        "views",
+        "models"
+      ],
+      [
+        "views",
+        "utils"
+      ],
+      [
+        "views",
+        "wallets"
+      ],
+      [
+        "views",
+        "wasm_ext"
+      ],
+      [
+        "wallets",
+        "crud"
+      ],
+      [
+        "wallets",
+        "nodes"
+      ],
+      [
+        "wallets",
+        "utils"
+      ],
+      [
+        "wasm_ext",
+        "models"
+      ],
+      [
+        "wasm_ext",
+        "utils"
+      ]
+    ],
+    "missed": [
+      [
+        "app",
+        "commands"
+      ],
+      [
+        "app",
+        "core_tasks"
+      ],
+      [
+        "app",
+        "crud"
+      ],
+      [
+        "app",
+        "services"
+      ],
+      [
+        "app",
+        "tasks"
+      ],
+      [
+        "app",
+        "wallets"
+      ],
+      [
+        "app",
+        "wasm_ext"
+      ],
+      [
+        "core_tasks",
+        "crud"
+      ],
+      [
+        "core_tasks",
+        "services"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "decorators",
+        "crud"
+      ],
+      [
+        "entry",
+        "app"
+      ],
+      [
+        "tasks",
+        "services"
+      ],
+      [
+        "views",
+        "decorators"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 0.333,
+    "precision_strict": 0.3,
+    "recall": 0.6,
+    "drawn": 10,
+    "hits": [
+      [
+        "fiat",
+        "ext:fiat"
+      ],
+      [
+        "services",
+        "ext:smtp"
+      ],
+      [
+        "utils",
+        "ext:exchange"
+      ]
+    ],
+    "wrong": [
+      [
+        "misc",
+        "ext:database"
+      ],
+      [
+        "misc",
+        "ext:sso"
+      ],
+      [
+        "services",
+        "ext:fiat"
+      ],
+      [
+        "views",
+        "ext:database"
+      ],
+      [
+        "wallets",
+        "ext?:WalletProviderAPI"
+      ],
+      [
+        "wasm_ext",
+        "ext:database"
+      ]
+    ],
+    "not_counted": [
+      [
+        "tools",
+        "ext:database"
+      ]
+    ],
+    "missed": [
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "wallets",
+        "ext:lightning"
+      ]
+    ]
+  },
+  "quote_validity": 0.976,
+  "grouping_agreement": 0.947,
+  "components": 21,
+  "mapping": {
+    "C1": [
+      "Điểm vào ứng dụng",
+      "misc"
+    ],
+    "C3": [
+      "Máy chủ HTTP",
+      "app"
+    ],
+    "C4": [
+      "Quản lý tác vụ nền",
+      "core_init"
+    ],
+    "C5": [
+      "Mô hình dữ liệu core",
+      "models"
+    ],
+    "C6": [
+      "CRUD dữ liệu core",
+      "crud"
+    ],
+    "C7": [
+      "Dịch vụ nghiệp vụ core",
+      "services"
+    ],
+    "C8": [
+      "Router API giao diện",
+      "views"
+    ],
+    "C9": [
+      "API mở rộng wasm",
+      "wasm_ext"
+    ],
+    "C10": [
+      "Client HTTP mở rộng",
+      "wasm_ext"
+    ],
+    "C11": [
+      "Định tuyến mở rộng wasm",
+      "wasm_ext"
+    ],
+    "C12": [
+      "Cung cấp dịch vụ fiat",
+      "fiat"
+    ],
+    "C13": [
+      "Khách hàng nút blockchain",
+      "nodes"
+    ],
+    "C14": [
+      "Khách hàng ví",
+      "wallets"
+    ],
+    "C17": [
+      "Cài đặt cấu hình",
+      "settings"
+    ],
+    "C18": [
+      "Trình trang trí API",
+      "misc"
+    ],
+    "C19": [
+      "Tiện ích chia sẻ chung",
+      "utils"
+    ],
+    "C20": [
+      "Tiện ích không chia sẻ",
+      "utils"
+    ],
+    "C21": [
+      "Công cụ dòng lệnh",
+      "tools"
+    ],
+    "C22": [
+      "Khởi tạo mở rộng wasm",
+      "wasm_ext"
+    ],
+    "C23": [
+      "Quản lý lưu trữ mở rộng",
+      "wasm_ext"
+    ],
+    "C24": [
+      "Xử lý mở rộng wasm",
+      "wasm_ext"
+    ]
+  },
+  "files_outside_oracle": [],
+  "comparisons": {
+    "rule_edges": {
+      "precision": 0.351,
+      "precision_strict": 0.206,
+      "recall": 0.481,
+      "drawn": 63,
+      "components": 21,
+      "grouping_agreement": 0.947
+    },
+    "no_ai": {
+      "precision": 0.333,
+      "precision_strict": 0.194,
+      "recall": 0.444,
+      "drawn": 62,
+      "components": 22,
+      "grouping_agreement": 0.935
+    }
+  }
+}

@@ -1,0 +1,42 @@
+flowchart LR
+  C1["CLI khởi động ứng dụng"]
+  C2["Middleware cấu hình FastAPI"]
+  C3["Web server FastAPI"]
+  C4["Auth API router"]
+  C5["User API router"]
+  C6["Xử lý JWT"]
+  C7["Cache Service"]
+  C8["Quản lý giao dịch DB"]
+  C9["Dịch vụ người dùng"]
+  C10["Usecase người dùng"]
+  C11["Quản lý kho dữ liệu"]
+  C12["Repo người dùng"]
+  C13["Thực thể người dùng"]
+  C14["Công việc nền Celery"]
+  C15["Cơ sở hạ tầng DB"]
+  C16["Redis client helper"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C17["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Message broker"])
+    X2[("Database")]
+    X3(["Redis"])
+  end
+  C4 -->|"tạo token"| C6
+  C7 -->|"lấy và lưu cache"| C16
+  C1 -->|"khởi chạy web"| C3
+  C8 -->|"cam kết giao dịch"| C15
+  C2 -->|"đặt lại session"| C15
+  C11 -->|"gọi truy vấn DB"| C15
+  C5 -->|"gọi usecase"| C10
+  C12 -->|"thực thi truy vấn DB"| C15
+  C9 -->|"bắt đầu giao dịch"| C8
+  C9 -->|"xác thực mô hình"| C13
+  C3 -->|"đăng ký router"| C4
+  C3 -->|"truy cập cache"| C7
+  C3 -->|"cài middleware"| C2
+  C3 -->|"đăng ký router"| C5
+  C14 -.->|"gửi tác vụ"| X1
+  C15 -.->|"truy vấn"| X2
+  C16 -.->|"đọc ghi"| X3

@@ -1,0 +1,23 @@
+flowchart LR
+  C1["điểm vào ứng dụng"]
+  C2["định nghĩa router API"]
+  C3["các phụ thuộc yêu cầu"]
+  C4["http_routes"]
+  C5["user_service"]
+  C6["email_service"]
+  C7["data_models"]
+  C8["initial_data"]
+  C10["db_connection"]
+  C11["security"]
+  C12["project_hooks"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C9["config"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Sentry"])
+  end
+  C1 -->|"đăng ký router API"| C2
+  C2 -->|"gắn router con"| C4
+  C3 -->|"sử dụng engine"| C10
+  C3 -->|"sử dụng security"| C11
+  C1 -.->|"khởi tạo Sentry"| X1

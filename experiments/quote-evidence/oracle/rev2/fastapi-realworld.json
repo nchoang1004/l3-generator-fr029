@@ -1,0 +1,56 @@
+{
+ "repo": "fastapi-realworld-example-app",
+ "source": "https://github.com/nsidnev/fastapi-realworld-example-app/tree/029eb7781c60d5f563ee8990a0cbfb79b244538c",
+ "local_dir": "sample-repos/fastapi-realworld-diagram",
+ "rev": 2,
+ "written": "26/09/2026, viết tay trước lần chạy AI đầu tiên | rev 2 28/09/2026 (chuẩn đáp án bản 2) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)",
+ "components": {
+  "entry": ["app/main.py"],
+  "routes": ["app/api/routes/"],
+  "dependencies": ["app/api/dependencies/"],
+  "api_errors": ["app/api/errors/"],
+  "services": ["app/services/"],
+  "repositories": ["app/db/repositories/"],
+  "queries": ["app/db/queries/"],
+  "db_events": ["app/db/events.py"],
+  "db_errors": ["app/db/errors.py"],
+  "domain_models": ["app/models/domain/", "app/models/common.py"],
+  "schemas": ["app/models/schemas/"],
+  "config": ["app/core/config.py", "app/core/settings/"],
+  "logging": ["app/core/logging.py"],
+  "lifecycle": ["app/core/events.py"],
+  "resources": ["app/resources/"]
+ },
+ "shared": ["config", "logging", "resources", "db_errors"],
+ "externals": {
+  "postgres": ["postgres", "cơ sở dữ liệu", "database", "csdl"]
+ },
+ "required": [
+  ["entry", "routes", "main.py:40 include_router(api_router)"],
+  ["entry", "api_errors", "main.py:37 add_exception_handler(HTTPException, http_error_handler)"],
+  ["db_events", "ext:postgres", "db/events.py:11 asyncpg.create_pool"],
+  ["routes", "dependencies", "routes/*.py get_repository, get_current_user_authorizer"],
+  ["routes", "repositories", "routes/*.py gọi method của *Repository"],
+  ["routes", "services", "routes/authentication.py:17 check_email_is_taken; jwt"],
+  ["dependencies", "repositories", "dependencies/authentication.py:13 UsersRepository"],
+  ["dependencies", "services", "dependencies/authentication.py:16 jwt"],
+  ["services", "repositories", "services/authentication.py:2 UsersRepository"],
+  ["repositories", "queries", "repositories/users.py:4 queries.*"],
+  ["domain_models", "services", "models/domain/users.py:20 security.verify_password"],
+  ["dependencies", "db_events", "app/api/dependencies/database.py:12 return request.app.state.pool (pool tạo ở app/db/events.py:11 asyncpg.create_pool); không qua import"]
+ ],
+ "acceptable": [
+  ["repositories", "ext:postgres", "hand"],
+  ["queries", "ext:postgres", "hand"],
+  ["entry", "lifecycle", "wiring", "main.py:28 add_event_handler(create_start_app_handler)"],
+  ["lifecycle", "db_events", "wiring", "core/events.py:7 connect_to_db, close_db_connection"],
+  ["dependencies", "domain_models"],
+  ["dependencies", "schemas"],
+  ["repositories", "domain_models"],
+  ["routes", "domain_models"],
+  ["routes", "schemas"],
+  ["schemas", "domain_models"],
+  ["services", "domain_models"],
+  ["services", "schemas"]
+ ]
+}

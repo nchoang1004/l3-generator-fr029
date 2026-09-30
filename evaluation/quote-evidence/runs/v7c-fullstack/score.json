@@ -1,0 +1,136 @@
+{
+  "all": {
+    "precision": 0.8,
+    "precision_strict": 0.8,
+    "recall": 0.5,
+    "drawn": 5,
+    "hits": [
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "db"
+      ]
+    ],
+    "wrong": [
+      [
+        "routes",
+        "ext:smtp"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "email",
+        "ext:smtp"
+      ],
+      [
+        "routes",
+        "email"
+      ],
+      [
+        "seed",
+        "db"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 0.5,
+    "drawn": 3,
+    "hits": [
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "db"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "routes",
+        "email"
+      ],
+      [
+        "seed",
+        "db"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 0.5,
+    "precision_strict": 0.5,
+    "recall": 0.5,
+    "drawn": 2,
+    "hits": [
+      [
+        "db",
+        "ext:postgres"
+      ]
+    ],
+    "wrong": [
+      [
+        "routes",
+        "ext:smtp"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "email",
+        "ext:smtp"
+      ]
+    ]
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.8,
+  "components": 4,
+  "mapping": {
+    "C1": [
+      "API Router Định Tuyến",
+      "routes"
+    ],
+    "C2": [
+      "Data Access CRUD",
+      "crud"
+    ],
+    "C3": [
+      "Core Infra Database",
+      "db"
+    ],
+    "C4": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [
+    "hooks/post_gen_project.py"
+  ]
+}

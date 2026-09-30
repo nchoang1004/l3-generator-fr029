@@ -1,0 +1,27 @@
+flowchart LR
+  C1["Khởi tạo ứng dụng"]
+  C2["Router API"]
+  C3["Các route API"]
+  C4["Dependency service"]
+  C5["Mô hình dữ liệu"]
+  C6["Xử lý dữ liệu email"]
+  C7["Kết nối cơ sở dữ liệu"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C8["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+    X2(["SMTP"])
+  end
+  C2 -->|"gọi router"| C3
+  C4 -->|"truyền token"| C5
+  C4 -->|"truy cập DB"| C7
+  C5 -->|"thêm bản ghi"| C7
+  C1 -->|"đăng ký router"| C2
+  C1 -->|"khởi tạo DB"| C7
+  C3 -->|"gọi service"| C4
+  C3 -->|"chuyển model"| C5
+  C3 -->|"gửi email"| C6
+  C3 -->|"đếm bản ghi"| C7
+  C7 -.->|"truy vấn"| X1
+  C6 -.->|"gửi email"| X2

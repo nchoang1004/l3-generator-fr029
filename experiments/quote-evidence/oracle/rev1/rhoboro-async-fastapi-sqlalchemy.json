@@ -1,0 +1,32 @@
+{
+  "repo": "rhoboro/async-fastapi-sqlalchemy",
+  "source": "commit 6c08827241e9737487905c62d8834edc2a0da8e7",
+  "local_dir": "sample-repos/rhoboro_async-fastapi-sqlalchemy-6c08827",
+  "set": "held-out: written before any AI run on this repo; prompts frozen before running",
+  "written": "26/09/2026",
+  "components": {
+    "entry": ["app/main.py"],
+    "api_router": ["app/api/main.py"],
+    "notes": ["app/api/notes/"],
+    "notebooks": ["app/api/notebooks/"],
+    "db": ["app/db.py"],
+    "settings": ["app/settings.py"],
+    "models": ["app/models/"]
+  },
+  "externals": {
+    "database": ["postgres", "database", "cơ sở dữ liệu", "csdl", "sql"]
+  },
+  "required": [
+    ["entry", "api_router", "main.py:8 app.include_router(api_router)"],
+    ["api_router", "notes", "api/main.py:7 include_router(notes_router)"],
+    ["api_router", "notebooks", "api/main.py:8 include_router(notebooks_router)"],
+    ["notes", "db", "notes/use_cases.py:10 session: AsyncSession (Depends(get_session))"],
+    ["notebooks", "db", "notebooks/use_cases.py:10 session: AsyncSession"],
+    ["notes", "models", "notes/use_cases.py:18 Note.create(session, ...) — model tự truy vấn"],
+    ["notebooks", "models", "notebooks/use_cases.py Notebook.read_by_id"],
+    ["db", "ext:database", "db.py:12 create_async_engine(settings.DB_URI)"]
+  ],
+  "acceptable": [
+    ["notes", "ext:database"], ["notebooks", "ext:database"], ["models", "ext:database"]
+  ]
+}

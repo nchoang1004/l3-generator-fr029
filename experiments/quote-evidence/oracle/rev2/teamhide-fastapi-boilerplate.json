@@ -1,0 +1,62 @@
+{
+ "repo": "teamhide/fastapi-boilerplate",
+ "source": "commit df4e6d4f817ec187eeaf2d1c5a877b27c06bb77b",
+ "local_dir": "sample-repos/teamhide_fastapi-boilerplate-df4e6d4",
+ "set": "held-out",
+ "rev": 2,
+ "written": "28/09/2026 (rev 2, chuẩn đáp án bản 2; rev 1 ở oracle/rev1/) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)",
+ "note": "Kiến trúc lục giác. Mỗi tính năng tách api / service (application + domain) / persistence. main.py chỉ chạy uvicorn với chuỗi 'app.server:app' nên gộp vào server. core/repository (BaseRepo) không được dùng ở đâu nên để ngoài đáp án. Dependency Logging không làm gì nên cạnh tới web_deps từ server không bắt buộc.",
+ "components": {
+  "server": ["main.py", "app/server.py"],
+  "container": ["app/container.py", "app/user/container.py"],
+  "auth_api": ["app/auth/adapter/"],
+  "auth_service": ["app/auth/application/", "app/auth/domain/"],
+  "user_api": ["app/user/adapter/input/"],
+  "user_service": ["app/user/application/", "app/user/domain/"],
+  "user_persistence": ["app/user/adapter/output/"],
+  "web_deps": ["core/fastapi/dependencies/"],
+  "middlewares": ["core/fastapi/middlewares/"],
+  "token": ["core/helpers/token.py"],
+  "db": ["core/db/"],
+  "cache": ["core/helpers/cache/", "core/helpers/redis.py"],
+  "celery": ["celery_task/"],
+  "config": ["core/config.py"],
+  "exceptions": ["core/exceptions/"]
+ },
+ "shared": ["config", "exceptions"],
+ "externals": {
+  "mysql": ["mysql", "database", "cơ sở dữ liệu", "csdl"],
+  "redis": ["redis", "cache", "bộ nhớ đệm"],
+  "broker": ["rabbitmq", "amqp", "broker", "celery", "queue", "hàng đợi"]
+ },
+ "required": [
+  ["server", "user_api", "app/server.py:25 app_.include_router(user_router)"],
+  ["server", "auth_api", "app/server.py:26 app_.include_router(auth_router)"],
+  ["server", "middlewares", "app/server.py:61-67 Middleware(AuthenticationMiddleware / SQLAlchemyMiddleware / ResponseLogMiddleware)"],
+  ["user_api", "user_service", "app/user/adapter/input/api/v1/user.py:26 await usecase.get_user_list(...)"],
+  ["user_api", "web_deps", "app/user/adapter/input/api/v1/user.py:18 Depends(PermissionDependency([IsAdmin]))"],
+  ["auth_api", "auth_service", "app/auth/adapter/input/api/v1/auth.py:24 await usecase.create_refresh_token(...)"],
+  ["web_deps", "user_service", "core/fastapi/dependencies/permission.py:43 usecase: UserUseCase (kiểm quyền admin)"],
+  ["user_service", "user_persistence", "app/user/application/service/user.py:17 repository: UserRepositoryAdapter"],
+  ["user_service", "token", "app/user/application/service/user.py:64 TokenHelper.encode(...)"],
+  ["user_service", "db", "app/user/application/service/user.py:28 @Transactional()"],
+  ["auth_service", "token", "app/auth/application/service/jwt.py:14 TokenHelper.decode(token=token)"],
+  ["user_persistence", "db", "app/user/adapter/output/persistence/sqlalchemy/user.py:24 session_factory()"],
+  ["middlewares", "db", "core/fastapi/middlewares/sqlalchemy.py:14 set_session_context(session_id=...)"],
+  ["db", "ext:mysql", "core/db/session.py:38 create_async_engine(config.WRITER_DB_URL)"],
+  ["cache", "ext:redis", "core/helpers/redis.py:5 redis.from_url(url=f\"redis://{config.REDIS_HOST}\")"],
+  ["celery", "ext:broker", "celery_task/__init__.py:5 Celery(broker=config.CELERY_BROKER_URL)"]
+ ],
+ "acceptable": [
+  ["server", "container", "wiring", "app/server.py:22 container = Container()"],
+  ["server", "cache", "wiring", "app/server.py:73 Cache.init(backend=RedisBackend(), key_maker=CustomKeyMaker())"],
+  ["user_api", "container", "wiring", "app/user/adapter/input/api/v1/user.py:24 Depends(Provide[Container.user_service])"],
+  ["auth_api", "container", "wiring", "app/auth/adapter/input/api/v1/auth.py:22 Depends(Provide[Container.jwt_service])"],
+  ["container", "user_service", "wiring", "app/container.py:15 user_service = Factory(UserService, ...)"],
+  ["container", "user_persistence", "wiring", "app/container.py:13-14 Singleton(UserSQLAlchemyRepo), Factory(UserRepositoryAdapter)"],
+  ["container", "auth_service", "wiring", "app/container.py:17 jwt_service = Factory(JwtService)"],
+  ["web_deps", "container", "wiring", "core/fastapi/dependencies/permission.py:43 Depends(Provide[Container.user_service])"],
+  ["server", "web_deps"],
+  ["user_persistence", "user_service"]
+ ]
+}

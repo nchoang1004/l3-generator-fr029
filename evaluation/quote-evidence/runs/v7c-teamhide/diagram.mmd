@@ -1,0 +1,38 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Xử lý middleware FastAPI"]
+  C3["Điểm vào ứng dụng"]
+  C4["API router Auth và User"]
+  C5["Cache service Redis"]
+  C6["Quản lý giao dịch DB"]
+  C7["Adapter lưu trữ người dùng"]
+  C8["Xử lý nghiệp vụ người dùng"]
+  C9["Định nghĩa thực thể người dùng"]
+  C10["Cơ sở lớp repository"]
+  C11["Repo SQLAlchemy"]
+  C12["Celery task manager"]
+  C13["Engine DB async"]
+  C14["Redis client helper"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C15["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Message broker"])
+    X2[("Database")]
+    X3(["Redis"])
+  end
+  C1 -->|"đăng ký router"| C4
+  C1 -->|"cài đặt middleware"| C2
+  C5 -->|"thao tác cache"| C14
+  C6 -->|"gọi commit rollback"| C13
+  C2 -->|"quản lý session"| C13
+  C7 -->|"gọi model_validate"| C9
+  C10 -->|"gọi DB infra"| C13
+  C3 -->|"khởi chạy app"| C1
+  C8 -->|"gọi Transactional"| C6
+  C8 -->|"tạo thực thể"| C9
+  C8 -->|"gọi repository"| C7
+  C11 -->|"gọi DB infra"| C13
+  C12 -.->|"gửi tác vụ"| X1
+  C13 -.->|"truy vấn"| X2
+  C14 -.->|"đọc ghi"| X3

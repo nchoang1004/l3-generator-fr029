@@ -1,0 +1,119 @@
+{
+  "all": {
+    "precision": 1.0,
+    "precision_strict": 0.8,
+    "recall": 1.0,
+    "drawn": 5,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "pool",
+        "ext:postgres"
+      ],
+      [
+        "repos",
+        "pool"
+      ],
+      [
+        "routes",
+        "repos"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "services",
+        "repos"
+      ]
+    ],
+    "missed": []
+  },
+  "internal": {
+    "precision": 1.0,
+    "precision_strict": 0.75,
+    "recall": 1.0,
+    "drawn": 4,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "repos",
+        "pool"
+      ],
+      [
+        "routes",
+        "repos"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "services",
+        "repos"
+      ]
+    ],
+    "missed": []
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 1.0,
+    "drawn": 1,
+    "hits": [
+      [
+        "pool",
+        "ext:postgres"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": []
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.796,
+  "components": 9,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "API bài viết",
+      "routes"
+    ],
+    "C3": [
+      "API định tuyến routes",
+      "routes"
+    ],
+    "C4": [
+      "Service phụ thuộc API",
+      "routes"
+    ],
+    "C5": [
+      "Quản lý kho dữ liệu",
+      "repos"
+    ],
+    "C6": [
+      "Kiểm tra dịch vụ bài viết",
+      "services"
+    ],
+    "C7": [
+      "Truy vấn dữ liệu DB",
+      "repos"
+    ],
+    "C8": [
+      "Kết nối cơ sở dữ liệu",
+      "pool"
+    ],
+    "C9": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": []
+}

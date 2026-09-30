@@ -1,0 +1,649 @@
+{
+  "all": {
+    "precision": 1.0,
+    "precision_strict": 0.848,
+    "recall": 0.951,
+    "drawn": 46,
+    "hits": [
+      [
+        "admin",
+        "auth"
+      ],
+      [
+        "admin",
+        "database"
+      ],
+      [
+        "admin",
+        "tier"
+      ],
+      [
+        "admin",
+        "user"
+      ],
+      [
+        "api",
+        "api_keys"
+      ],
+      [
+        "api",
+        "auth"
+      ],
+      [
+        "api",
+        "rate_limit"
+      ],
+      [
+        "api",
+        "tier"
+      ],
+      [
+        "api",
+        "user"
+      ],
+      [
+        "api_keys",
+        "deps"
+      ],
+      [
+        "app_factory",
+        "auth"
+      ],
+      [
+        "app_factory",
+        "cache"
+      ],
+      [
+        "app_factory",
+        "database"
+      ],
+      [
+        "app_factory",
+        "redis_clients"
+      ],
+      [
+        "auth",
+        "deps"
+      ],
+      [
+        "auth",
+        "rate_limit"
+      ],
+      [
+        "auth",
+        "redis_clients"
+      ],
+      [
+        "auth",
+        "user"
+      ],
+      [
+        "cache",
+        "ext:memcached"
+      ],
+      [
+        "cache",
+        "redis_clients"
+      ],
+      [
+        "database",
+        "ext:postgres"
+      ],
+      [
+        "deps",
+        "auth"
+      ],
+      [
+        "deps",
+        "database"
+      ],
+      [
+        "entry",
+        "admin"
+      ],
+      [
+        "entry",
+        "api"
+      ],
+      [
+        "entry",
+        "app_factory"
+      ],
+      [
+        "entry",
+        "security"
+      ],
+      [
+        "rate_limit",
+        "deps"
+      ],
+      [
+        "rate_limit",
+        "tier"
+      ],
+      [
+        "redis_clients",
+        "ext:redis"
+      ],
+      [
+        "taskiq",
+        "database"
+      ],
+      [
+        "taskiq",
+        "ext:broker"
+      ],
+      [
+        "tier",
+        "deps"
+      ],
+      [
+        "tier",
+        "rate_limit"
+      ],
+      [
+        "tier",
+        "user"
+      ],
+      [
+        "user",
+        "auth"
+      ],
+      [
+        "user",
+        "deps"
+      ],
+      [
+        "user",
+        "rate_limit"
+      ],
+      [
+        "user",
+        "tier"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "api_keys",
+        "database"
+      ],
+      [
+        "auth",
+        "database"
+      ],
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "rate_limit",
+        "database"
+      ],
+      [
+        "taskiq",
+        "ext:redis"
+      ],
+      [
+        "tier",
+        "database"
+      ],
+      [
+        "user",
+        "database"
+      ]
+    ],
+    "missed": [
+      [
+        "auth",
+        "ext:google"
+      ],
+      [
+        "cli",
+        "security"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 1.0,
+    "precision_strict": 0.875,
+    "recall": 0.972,
+    "drawn": 40,
+    "hits": [
+      [
+        "admin",
+        "auth"
+      ],
+      [
+        "admin",
+        "database"
+      ],
+      [
+        "admin",
+        "tier"
+      ],
+      [
+        "admin",
+        "user"
+      ],
+      [
+        "api",
+        "api_keys"
+      ],
+      [
+        "api",
+        "auth"
+      ],
+      [
+        "api",
+        "rate_limit"
+      ],
+      [
+        "api",
+        "tier"
+      ],
+      [
+        "api",
+        "user"
+      ],
+      [
+        "api_keys",
+        "deps"
+      ],
+      [
+        "app_factory",
+        "auth"
+      ],
+      [
+        "app_factory",
+        "cache"
+      ],
+      [
+        "app_factory",
+        "database"
+      ],
+      [
+        "app_factory",
+        "redis_clients"
+      ],
+      [
+        "auth",
+        "deps"
+      ],
+      [
+        "auth",
+        "rate_limit"
+      ],
+      [
+        "auth",
+        "redis_clients"
+      ],
+      [
+        "auth",
+        "user"
+      ],
+      [
+        "cache",
+        "redis_clients"
+      ],
+      [
+        "deps",
+        "auth"
+      ],
+      [
+        "deps",
+        "database"
+      ],
+      [
+        "entry",
+        "admin"
+      ],
+      [
+        "entry",
+        "api"
+      ],
+      [
+        "entry",
+        "app_factory"
+      ],
+      [
+        "entry",
+        "security"
+      ],
+      [
+        "rate_limit",
+        "deps"
+      ],
+      [
+        "rate_limit",
+        "tier"
+      ],
+      [
+        "taskiq",
+        "database"
+      ],
+      [
+        "tier",
+        "deps"
+      ],
+      [
+        "tier",
+        "rate_limit"
+      ],
+      [
+        "tier",
+        "user"
+      ],
+      [
+        "user",
+        "auth"
+      ],
+      [
+        "user",
+        "deps"
+      ],
+      [
+        "user",
+        "rate_limit"
+      ],
+      [
+        "user",
+        "tier"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "api_keys",
+        "database"
+      ],
+      [
+        "auth",
+        "database"
+      ],
+      [
+        "rate_limit",
+        "database"
+      ],
+      [
+        "tier",
+        "database"
+      ],
+      [
+        "user",
+        "database"
+      ]
+    ],
+    "missed": [
+      [
+        "cli",
+        "security"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 0.667,
+    "recall": 0.8,
+    "drawn": 6,
+    "hits": [
+      [
+        "cache",
+        "ext:memcached"
+      ],
+      [
+        "database",
+        "ext:postgres"
+      ],
+      [
+        "redis_clients",
+        "ext:redis"
+      ],
+      [
+        "taskiq",
+        "ext:broker"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "taskiq",
+        "ext:redis"
+      ]
+    ],
+    "missed": [
+      [
+        "auth",
+        "ext:google"
+      ]
+    ]
+  },
+  "quote_validity": 0.977,
+  "grouping_agreement": 1.0,
+  "components": 50,
+  "mapping": {
+    "C1": [
+      "Factory ứng dụng FastAPI",
+      "app_factory"
+    ],
+    "C2": [
+      "Định nghĩa phụ thuộc hạ tầng",
+      "deps"
+    ],
+    "C3": [
+      "Middleware cache và bảo mật",
+      "app_factory"
+    ],
+    "C4": [
+      "Redis client",
+      "redis_clients"
+    ],
+    "C5": [
+      "Router xác thực",
+      "auth"
+    ],
+    "C6": [
+      "Auth dependencies",
+      "auth"
+    ],
+    "C7": [
+      "Cài đặt xác thực",
+      "auth"
+    ],
+    "C8": [
+      "Cốt lõi bộ nhớ đệm",
+      "cache"
+    ],
+    "C9": [
+      "Backend cache",
+      "cache"
+    ],
+    "C10": [
+      "Cài đặt cấu hình",
+      "config"
+    ],
+    "C11": [
+      "Enum cấu hình",
+      "config"
+    ],
+    "C12": [
+      "Phiên làm việc DB",
+      "database"
+    ],
+    "C13": [
+      "Định nghĩa mô hình dữ liệu",
+      "database"
+    ],
+    "C14": [
+      "Cấu hình hệ thống ghi log",
+      "logging"
+    ],
+    "C15": [
+      "Kiểm tra bảo mật môi trường",
+      "security"
+    ],
+    "C16": [
+      "Worker xử lý taskiq",
+      "taskiq"
+    ],
+    "C17": [
+      "Cấu hình broker taskiq",
+      "taskiq"
+    ],
+    "C18": [
+      "Phụ thuộc taskiq",
+      "taskiq"
+    ],
+    "C19": [
+      "Đăng ký task",
+      "taskiq"
+    ],
+    "C20": [
+      "Điểm vào API",
+      "entry"
+    ],
+    "C21": [
+      "Giao diện admin",
+      "admin"
+    ],
+    "C22": [
+      "Giao diện admin",
+      "admin"
+    ],
+    "C23": [
+      "Router API",
+      "api"
+    ],
+    "C24": [
+      "Router API v1",
+      "api"
+    ],
+    "C25": [
+      "Module quản lý API Key",
+      "api_keys"
+    ],
+    "C26": [
+      "Thư viện chung",
+      "common"
+    ],
+    "C27": [
+      "Tiện ích chung",
+      "common"
+    ],
+    "C28": [
+      "Module giới hạn tần suất",
+      "rate_limit"
+    ],
+    "C29": [
+      "Module cấp bậc",
+      "tier"
+    ],
+    "C30": [
+      "Module người dùng",
+      "user"
+    ],
+    "C31": [
+      "Ứng dụng CLI",
+      "cli"
+    ],
+    "C32": [
+      "Lệnh deploy CLI",
+      "cli"
+    ],
+    "C33": [
+      "Lệnh môi trường CLI",
+      "cli"
+    ],
+    "C34": [
+      "Tính năng CLI",
+      "cli"
+    ],
+    "C35": [
+      "Triển khai tính năng CLI",
+      "cli"
+    ],
+    "C36": [
+      "Thư viện CLI",
+      "cli"
+    ],
+    "C37": [
+      "Cơ sở hạ tầng",
+      "app_factory"
+    ],
+    "C38": [
+      "Cơ sở hạ tầng xác thực",
+      "auth"
+    ],
+    "C39": [
+      "Kiểm tra Memcached",
+      "cache"
+    ],
+    "C40": [
+      "Định nghĩa xuất khẩu backend",
+      "cache"
+    ],
+    "C41": [
+      "Xuất khẩu cấu hình",
+      "config"
+    ],
+    "C42": [
+      "Khởi tạo database service",
+      "database"
+    ],
+    "C43": [
+      "Cấu hình logging",
+      "logging"
+    ],
+    "C44": [
+      "Bảo mật production",
+      "security"
+    ],
+    "C45": [
+      "Cung cấp broker taskiq",
+      "taskiq"
+    ],
+    "C46": [
+      "Đăng ký mô-đun API keys",
+      "modules_index"
+    ],
+    "C47": [
+      "Cung cấp CRUD và model cho API keys",
+      "api_keys"
+    ],
+    "C48": [
+      "Module giới hạn tốc độ",
+      "rate_limit"
+    ],
+    "C49": [
+      "Module cấp độ",
+      "tier"
+    ],
+    "C50": [
+      "Module người dùng",
+      "user"
+    ]
+  },
+  "files_outside_oracle": [],
+  "comparisons": {
+    "rule_edges": {
+      "precision": 1.0,
+      "precision_strict": 0.875,
+      "recall": 0.972,
+      "drawn": 40,
+      "components": 50,
+      "grouping_agreement": 1.0
+    },
+    "no_ai": {
+      "precision": 0.49,
+      "precision_strict": 0.439,
+      "recall": 0.694,
+      "drawn": 57,
+      "components": 26,
+      "grouping_agreement": 0.98
+    }
+  }
+}

@@ -1,0 +1,16 @@
+flowchart LR
+  C1["API Router Định Tuyến"]
+  C2["Data Access CRUD"]
+  C3["Core Infra Database"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C4["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+    X2(["SMTP"])
+  end
+  C1 -->|"lấy người dùng"| C3
+  C1 -->|"xác thực token"| C2
+  C2 -->|"thêm bản ghi"| C3
+  C3 -.->|"truy vấn"| X1
+  C1 -.->|"gửi email"| X2

@@ -1,0 +1,126 @@
+{
+  "all": {
+    "precision": 0.75,
+    "precision_strict": 0.6,
+    "recall": 0.6,
+    "drawn": 5,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "models",
+        "db"
+      ]
+    ],
+    "wrong": [
+      [
+        "routes",
+        "db"
+      ]
+    ],
+    "not_counted": [
+      [
+        "routes",
+        "models"
+      ]
+    ],
+    "missed": [
+      [
+        "routes",
+        "use_cases"
+      ],
+      [
+        "use_cases",
+        "models"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.667,
+    "precision_strict": 0.5,
+    "recall": 0.5,
+    "drawn": 4,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "models",
+        "db"
+      ]
+    ],
+    "wrong": [
+      [
+        "routes",
+        "db"
+      ]
+    ],
+    "not_counted": [
+      [
+        "routes",
+        "models"
+      ]
+    ],
+    "missed": [
+      [
+        "routes",
+        "use_cases"
+      ],
+      [
+        "use_cases",
+        "models"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 1.0,
+    "drawn": 1,
+    "hits": [
+      [
+        "db",
+        "ext:database"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": []
+  },
+  "quote_validity": null,
+  "grouping_agreement": 0.846,
+  "components": 5,
+  "mapping": {
+    "C1": [
+      "App_entry",
+      "app"
+    ],
+    "C2": [
+      "Api",
+      "routes"
+    ],
+    "C3": [
+      "Models",
+      "models"
+    ],
+    "C4": [
+      "App_infra",
+      "db"
+    ],
+    "C5": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [
+    "app/api/notebooks/schema.py",
+    "app/api/notes/schema.py"
+  ]
+}

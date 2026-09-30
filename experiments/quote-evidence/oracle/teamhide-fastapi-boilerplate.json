@@ -1,0 +1,59 @@
+{
+ "repo": "teamhide/fastapi-boilerplate",
+ "source": "commit df4e6d4f817ec187eeaf2d1c5a877b27c06bb77b",
+ "local_dir": "sample-repos/teamhide_fastapi-boilerplate-df4e6d4",
+ "set": "held-out",
+ "rev": 4,
+ "written": "28/09/2026 bản 4: đồng bộ theo oracle/ve-tay/teamhide.md (bản 3 cũ ở oracle/rev3/) | 30/09: domain/entity/ sang khối persist (model ORM là tầng Dữ liệu) | 28/09/2026 (rev 2, chuẩn đáp án bản 2; rev 1 ở oracle/rev1/) | 28/09: chỉ giữ cạnh luồng xử lý, cạnh lắp ráp sang acceptable (wiring)",
+ "note": "Theo ve-tay/teamhide.md. Kiến trúc lục giác. Luồng: main.py (uvicorn 'app.server:app') + server.py -> middleware (session theo request) và routes (adapter/input + core/fastapi/dependencies) -> User service / JWT service (application + domain) -> User persistence (adapter/output) -> core/db -> MySQL ghi, đọc. Container DI (app/container.py, app/user/container.py) gộp vào app; cạnh của container là wiring. Redis/cache và Celery có cấu hình nhưng chưa luồng nào gọi: vẫn là khối Hạ tầng, có cạnh ra hệ thống ngoài. Entity ORM (domain/entity/user.py, có __tablename__) thuộc User persistence ở tầng Dữ liệu (sửa 30/09: bản vẽ cũ để theo thư mục domain, trái chuẩn). core/repository/ (BaseRepo) không ai dùng: ngoài đáp án. Cạnh persist -> db qua import session; cạnh user_svc -> db qua decorator @Transactional.",
+ "components": {
+  "app": ["main.py", "app/server.py", "app/container.py", "app/user/container.py"],
+  "mw": ["core/fastapi/middlewares/"],
+  "routes": ["app/user/adapter/input/", "app/auth/adapter/input/", "core/fastapi/dependencies/"],
+  "user_svc": ["app/user/application/", "app/user/domain/"],
+  "jwt_svc": ["app/auth/application/", "app/auth/domain/"],
+  "persist": ["app/user/adapter/output/", "app/user/domain/entity/"],
+  "db": ["core/db/"],
+  "cache": ["core/helpers/redis.py", "core/helpers/cache/"],
+  "celery": ["celery_task/"],
+  "common": ["core/config.py", "core/exceptions/", "core/helpers/token.py"]
+ },
+ "shared": ["common"],
+ "layers": {
+  "app": ["entry", "app/server.py:77 app_ = FastAPI("],
+  "mw": ["entry", "core/fastapi/middlewares/sqlalchemy.py:8 class SQLAlchemyMiddleware:"],
+  "routes": ["api", "app/user/adapter/input/api/v1/user.py:12 user_router = APIRouter()"],
+  "user_svc": ["service", "app/user/adapter/input/api/v1/user.py:26 return await usecase.get_user_list(limit=limit, prev=prev)"],
+  "jwt_svc": ["service", "app/auth/adapter/input/api/v1/auth.py:24 token = await usecase.create_refresh_token("],
+  "persist": ["data", "app/user/adapter/output/persistence/sqlalchemy/user.py:15 query = select(User)"],
+  "db": ["infra", "core/db/session.py:38 EngineType.WRITER: create_async_engine(config.WRITER_DB_URL, pool_recycle=3600),"],
+  "cache": ["infra", "core/helpers/redis.py:5 redis_client = redis.from_url(url=f\"redis://{config.REDIS_HOST}\", decode_responses=True)"],
+  "celery": ["infra", "celery_task/__init__.py:5 celery_app = Celery("]
+ },
+ "externals": {
+  "mysql": ["mysql", "database", "cơ sở dữ liệu", "csdl"],
+  "redis": ["redis", "cache", "bộ nhớ đệm"],
+  "broker": ["rabbitmq", "amqp", "broker", "celery", "queue", "hàng đợi"]
+ },
+ "required": [
+  ["app", "mw", "app/server.py:66 Middleware(SQLAlchemyMiddleware),"],
+  ["app", "routes", "app/server.py:25 app_.include_router(user_router)"],
+  ["mw", "db", "core/fastapi/middlewares/sqlalchemy.py:21 await session.remove()"],
+  ["routes", "user_svc", "app/user/adapter/input/api/v1/user.py:26 return await usecase.get_user_list(limit=limit, prev=prev)"],
+  ["routes", "jwt_svc", "app/auth/adapter/input/api/v1/auth.py:24 token = await usecase.create_refresh_token("],
+  ["user_svc", "persist", "app/user/application/service/user.py:26 return await self.repository.get_users(limit=limit, prev=prev)"],
+  ["user_svc", "db", "app/user/application/service/user.py:28 @Transactional()"],
+  ["persist", "db", "app/user/adapter/output/persistence/sqlalchemy/user.py:25 result = await read_session.execute(query)"],
+  ["db", "ext:mysql", "core/db/session.py:38 EngineType.WRITER: create_async_engine(config.WRITER_DB_URL, pool_recycle=3600),"],
+  ["cache", "ext:redis", "core/helpers/redis.py:5 redis_client = redis.from_url(url=f\"redis://{config.REDIS_HOST}\", decode_responses=True)"],
+  ["celery", "ext:broker", "celery_task/__init__.py:5 celery_app = Celery("]
+ ],
+ "acceptable": [
+  ["app", "user_svc", "wiring", "app/container.py:15 user_service = Factory(UserService, repository=user_repo_adapter)"],
+  ["app", "persist", "wiring", "app/container.py:13 user_repo = Singleton(UserSQLAlchemyRepo)"],
+  ["app", "jwt_svc", "wiring", "app/container.py:17 jwt_service = Factory(JwtService)"],
+  ["routes", "app", "wiring", "app/user/adapter/input/api/v1/user.py:24 usecase: UserUseCase = Depends(Provide[Container.user_service]),"],
+  ["app", "cache", "wiring", "app/server.py:73 Cache.init(backend=RedisBackend(), key_maker=CustomKeyMaker())"],
+  ["persist", "user_svc"]
+ ]
+}

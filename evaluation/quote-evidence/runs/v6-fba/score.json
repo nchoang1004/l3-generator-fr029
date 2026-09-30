@@ -1,0 +1,1244 @@
+{
+  "all": {
+    "precision": 0.191,
+    "precision_strict": 0.151,
+    "recall": 0.342,
+    "drawn": 86,
+    "hits": [
+      [
+        "admin_api",
+        "admin_service"
+      ],
+      [
+        "admin_api",
+        "db"
+      ],
+      [
+        "admin_service",
+        "admin_data"
+      ],
+      [
+        "admin_service",
+        "plugin_core"
+      ],
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "entry",
+        "plugin_core"
+      ],
+      [
+        "middleware",
+        "admin_service"
+      ],
+      [
+        "plugin_email",
+        "ext:smtp"
+      ],
+      [
+        "plugin_oauth2",
+        "ext:oauth"
+      ],
+      [
+        "task_api",
+        "db"
+      ],
+      [
+        "task_api",
+        "task_worker"
+      ],
+      [
+        "task_worker",
+        "db"
+      ],
+      [
+        "task_worker",
+        "ext:broker"
+      ]
+    ],
+    "wrong": [
+      [
+        "admin_api",
+        "common"
+      ],
+      [
+        "admin_api",
+        "task_api"
+      ],
+      [
+        "admin_api",
+        "utils"
+      ],
+      [
+        "admin_data",
+        "admin_service"
+      ],
+      [
+        "admin_data",
+        "common"
+      ],
+      [
+        "admin_data",
+        "plugin_core"
+      ],
+      [
+        "admin_data",
+        "utils"
+      ],
+      [
+        "admin_service",
+        "common"
+      ],
+      [
+        "admin_service",
+        "utils"
+      ],
+      [
+        "cache",
+        "common"
+      ],
+      [
+        "cache",
+        "db"
+      ],
+      [
+        "cache",
+        "utils"
+      ],
+      [
+        "common",
+        "observability"
+      ],
+      [
+        "common",
+        "utils"
+      ],
+      [
+        "db",
+        "common"
+      ],
+      [
+        "db",
+        "ext:redis"
+      ],
+      [
+        "db",
+        "observability"
+      ],
+      [
+        "entry",
+        "common"
+      ],
+      [
+        "entry",
+        "db"
+      ],
+      [
+        "entry",
+        "plugin_codegen"
+      ],
+      [
+        "entry",
+        "utils"
+      ],
+      [
+        "middleware",
+        "common"
+      ],
+      [
+        "middleware",
+        "db"
+      ],
+      [
+        "middleware",
+        "utils"
+      ],
+      [
+        "plugin_codegen",
+        "common"
+      ],
+      [
+        "plugin_codegen",
+        "utils"
+      ],
+      [
+        "plugin_config",
+        "cache"
+      ],
+      [
+        "plugin_config",
+        "common"
+      ],
+      [
+        "plugin_config",
+        "utils"
+      ],
+      [
+        "plugin_core",
+        "admin_api"
+      ],
+      [
+        "plugin_core",
+        "common"
+      ],
+      [
+        "plugin_core",
+        "utils"
+      ],
+      [
+        "plugin_dict",
+        "cache"
+      ],
+      [
+        "plugin_dict",
+        "common"
+      ],
+      [
+        "plugin_dict",
+        "utils"
+      ],
+      [
+        "plugin_email",
+        "common"
+      ],
+      [
+        "plugin_email",
+        "db"
+      ],
+      [
+        "plugin_email",
+        "utils"
+      ],
+      [
+        "plugin_notice",
+        "common"
+      ],
+      [
+        "plugin_notice",
+        "utils"
+      ],
+      [
+        "plugin_oauth2",
+        "common"
+      ],
+      [
+        "plugin_oauth2",
+        "utils"
+      ],
+      [
+        "socketio",
+        "common"
+      ],
+      [
+        "socketio",
+        "db"
+      ],
+      [
+        "socketio",
+        "utils"
+      ],
+      [
+        "task_api",
+        "common"
+      ],
+      [
+        "task_api",
+        "ext:broker"
+      ],
+      [
+        "task_api",
+        "utils"
+      ],
+      [
+        "task_worker",
+        "admin_service"
+      ],
+      [
+        "task_worker",
+        "task_api"
+      ],
+      [
+        "task_worker",
+        "utils"
+      ],
+      [
+        "utils",
+        "common"
+      ],
+      [
+        "utils",
+        "db"
+      ],
+      [
+        "utils",
+        "plugin_config"
+      ],
+      [
+        "utils",
+        "plugin_core"
+      ]
+    ],
+    "not_counted": [
+      [
+        "admin_api",
+        "admin_data"
+      ],
+      [
+        "admin_data",
+        "db"
+      ],
+      [
+        "admin_data",
+        "plugin_oauth2"
+      ],
+      [
+        "admin_service",
+        "db"
+      ],
+      [
+        "middleware",
+        "admin_data"
+      ],
+      [
+        "middleware",
+        "observability"
+      ],
+      [
+        "plugin_codegen",
+        "db"
+      ],
+      [
+        "plugin_config",
+        "db"
+      ],
+      [
+        "plugin_core",
+        "db"
+      ],
+      [
+        "plugin_dict",
+        "db"
+      ],
+      [
+        "plugin_notice",
+        "db"
+      ],
+      [
+        "plugin_oauth2",
+        "admin_data"
+      ],
+      [
+        "plugin_oauth2",
+        "admin_service"
+      ],
+      [
+        "plugin_oauth2",
+        "db"
+      ],
+      [
+        "socketio",
+        "ext:redis"
+      ],
+      [
+        "task_worker",
+        "ext:database"
+      ],
+      [
+        "task_worker",
+        "ext:redis"
+      ],
+      [
+        "task_worker",
+        "socketio"
+      ]
+    ],
+    "missed": [
+      [
+        "admin_api",
+        "security"
+      ],
+      [
+        "admin_service",
+        "redis"
+      ],
+      [
+        "admin_service",
+        "security"
+      ],
+      [
+        "entry",
+        "registrar"
+      ],
+      [
+        "middleware",
+        "security"
+      ],
+      [
+        "plugin_core",
+        "plugin_codegen"
+      ],
+      [
+        "plugin_core",
+        "plugin_config"
+      ],
+      [
+        "plugin_core",
+        "plugin_dict"
+      ],
+      [
+        "plugin_core",
+        "plugin_email"
+      ],
+      [
+        "plugin_core",
+        "plugin_notice"
+      ],
+      [
+        "plugin_core",
+        "plugin_oauth2"
+      ],
+      [
+        "plugin_core",
+        "redis"
+      ],
+      [
+        "redis",
+        "ext:redis"
+      ],
+      [
+        "registrar",
+        "admin_api"
+      ],
+      [
+        "registrar",
+        "cache"
+      ],
+      [
+        "registrar",
+        "db"
+      ],
+      [
+        "registrar",
+        "middleware"
+      ],
+      [
+        "registrar",
+        "observability"
+      ],
+      [
+        "registrar",
+        "plugin_core"
+      ],
+      [
+        "registrar",
+        "redis"
+      ],
+      [
+        "registrar",
+        "socketio"
+      ],
+      [
+        "registrar",
+        "task_api"
+      ],
+      [
+        "security",
+        "db"
+      ],
+      [
+        "security",
+        "redis"
+      ],
+      [
+        "task_api",
+        "security"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.145,
+    "precision_strict": 0.117,
+    "recall": 0.273,
+    "drawn": 77,
+    "hits": [
+      [
+        "admin_api",
+        "admin_service"
+      ],
+      [
+        "admin_api",
+        "db"
+      ],
+      [
+        "admin_service",
+        "admin_data"
+      ],
+      [
+        "admin_service",
+        "plugin_core"
+      ],
+      [
+        "entry",
+        "plugin_core"
+      ],
+      [
+        "middleware",
+        "admin_service"
+      ],
+      [
+        "task_api",
+        "db"
+      ],
+      [
+        "task_api",
+        "task_worker"
+      ],
+      [
+        "task_worker",
+        "db"
+      ]
+    ],
+    "wrong": [
+      [
+        "admin_api",
+        "common"
+      ],
+      [
+        "admin_api",
+        "task_api"
+      ],
+      [
+        "admin_api",
+        "utils"
+      ],
+      [
+        "admin_data",
+        "admin_service"
+      ],
+      [
+        "admin_data",
+        "common"
+      ],
+      [
+        "admin_data",
+        "plugin_core"
+      ],
+      [
+        "admin_data",
+        "utils"
+      ],
+      [
+        "admin_service",
+        "common"
+      ],
+      [
+        "admin_service",
+        "utils"
+      ],
+      [
+        "cache",
+        "common"
+      ],
+      [
+        "cache",
+        "db"
+      ],
+      [
+        "cache",
+        "utils"
+      ],
+      [
+        "common",
+        "observability"
+      ],
+      [
+        "common",
+        "utils"
+      ],
+      [
+        "db",
+        "common"
+      ],
+      [
+        "db",
+        "observability"
+      ],
+      [
+        "entry",
+        "common"
+      ],
+      [
+        "entry",
+        "db"
+      ],
+      [
+        "entry",
+        "plugin_codegen"
+      ],
+      [
+        "entry",
+        "utils"
+      ],
+      [
+        "middleware",
+        "common"
+      ],
+      [
+        "middleware",
+        "db"
+      ],
+      [
+        "middleware",
+        "utils"
+      ],
+      [
+        "plugin_codegen",
+        "common"
+      ],
+      [
+        "plugin_codegen",
+        "utils"
+      ],
+      [
+        "plugin_config",
+        "cache"
+      ],
+      [
+        "plugin_config",
+        "common"
+      ],
+      [
+        "plugin_config",
+        "utils"
+      ],
+      [
+        "plugin_core",
+        "admin_api"
+      ],
+      [
+        "plugin_core",
+        "common"
+      ],
+      [
+        "plugin_core",
+        "utils"
+      ],
+      [
+        "plugin_dict",
+        "cache"
+      ],
+      [
+        "plugin_dict",
+        "common"
+      ],
+      [
+        "plugin_dict",
+        "utils"
+      ],
+      [
+        "plugin_email",
+        "common"
+      ],
+      [
+        "plugin_email",
+        "db"
+      ],
+      [
+        "plugin_email",
+        "utils"
+      ],
+      [
+        "plugin_notice",
+        "common"
+      ],
+      [
+        "plugin_notice",
+        "utils"
+      ],
+      [
+        "plugin_oauth2",
+        "common"
+      ],
+      [
+        "plugin_oauth2",
+        "utils"
+      ],
+      [
+        "socketio",
+        "common"
+      ],
+      [
+        "socketio",
+        "db"
+      ],
+      [
+        "socketio",
+        "utils"
+      ],
+      [
+        "task_api",
+        "common"
+      ],
+      [
+        "task_api",
+        "utils"
+      ],
+      [
+        "task_worker",
+        "admin_service"
+      ],
+      [
+        "task_worker",
+        "task_api"
+      ],
+      [
+        "task_worker",
+        "utils"
+      ],
+      [
+        "utils",
+        "common"
+      ],
+      [
+        "utils",
+        "db"
+      ],
+      [
+        "utils",
+        "plugin_config"
+      ],
+      [
+        "utils",
+        "plugin_core"
+      ]
+    ],
+    "not_counted": [
+      [
+        "admin_api",
+        "admin_data"
+      ],
+      [
+        "admin_data",
+        "db"
+      ],
+      [
+        "admin_data",
+        "plugin_oauth2"
+      ],
+      [
+        "admin_service",
+        "db"
+      ],
+      [
+        "middleware",
+        "admin_data"
+      ],
+      [
+        "middleware",
+        "observability"
+      ],
+      [
+        "plugin_codegen",
+        "db"
+      ],
+      [
+        "plugin_config",
+        "db"
+      ],
+      [
+        "plugin_core",
+        "db"
+      ],
+      [
+        "plugin_dict",
+        "db"
+      ],
+      [
+        "plugin_notice",
+        "db"
+      ],
+      [
+        "plugin_oauth2",
+        "admin_data"
+      ],
+      [
+        "plugin_oauth2",
+        "admin_service"
+      ],
+      [
+        "plugin_oauth2",
+        "db"
+      ],
+      [
+        "task_worker",
+        "socketio"
+      ]
+    ],
+    "missed": [
+      [
+        "admin_api",
+        "security"
+      ],
+      [
+        "admin_service",
+        "redis"
+      ],
+      [
+        "admin_service",
+        "security"
+      ],
+      [
+        "entry",
+        "registrar"
+      ],
+      [
+        "middleware",
+        "security"
+      ],
+      [
+        "plugin_core",
+        "plugin_codegen"
+      ],
+      [
+        "plugin_core",
+        "plugin_config"
+      ],
+      [
+        "plugin_core",
+        "plugin_dict"
+      ],
+      [
+        "plugin_core",
+        "plugin_email"
+      ],
+      [
+        "plugin_core",
+        "plugin_notice"
+      ],
+      [
+        "plugin_core",
+        "plugin_oauth2"
+      ],
+      [
+        "plugin_core",
+        "redis"
+      ],
+      [
+        "registrar",
+        "admin_api"
+      ],
+      [
+        "registrar",
+        "cache"
+      ],
+      [
+        "registrar",
+        "db"
+      ],
+      [
+        "registrar",
+        "middleware"
+      ],
+      [
+        "registrar",
+        "observability"
+      ],
+      [
+        "registrar",
+        "plugin_core"
+      ],
+      [
+        "registrar",
+        "redis"
+      ],
+      [
+        "registrar",
+        "socketio"
+      ],
+      [
+        "registrar",
+        "task_api"
+      ],
+      [
+        "security",
+        "db"
+      ],
+      [
+        "security",
+        "redis"
+      ],
+      [
+        "task_api",
+        "security"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 0.667,
+    "precision_strict": 0.444,
+    "recall": 0.8,
+    "drawn": 9,
+    "hits": [
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "plugin_email",
+        "ext:smtp"
+      ],
+      [
+        "plugin_oauth2",
+        "ext:oauth"
+      ],
+      [
+        "task_worker",
+        "ext:broker"
+      ]
+    ],
+    "wrong": [
+      [
+        "db",
+        "ext:redis"
+      ],
+      [
+        "task_api",
+        "ext:broker"
+      ]
+    ],
+    "not_counted": [
+      [
+        "socketio",
+        "ext:redis"
+      ],
+      [
+        "task_worker",
+        "ext:database"
+      ],
+      [
+        "task_worker",
+        "ext:redis"
+      ]
+    ],
+    "missed": [
+      [
+        "redis",
+        "ext:redis"
+      ]
+    ]
+  },
+  "quote_validity": 0.965,
+  "grouping_agreement": 0.978,
+  "components": 72,
+  "mapping": {
+    "C1": [
+      "Điểm khởi chạy",
+      "entry"
+    ],
+    "C2": [
+      "Định tuyến HTTP",
+      "admin_api"
+    ],
+    "C3": [
+      "Dịch vụ quản trị",
+      "admin_service"
+    ],
+    "C4": [
+      "CRUD dữ liệu admin",
+      "admin_data"
+    ],
+    "C5": [
+      "Mô hình dữ liệu admin",
+      "admin_data"
+    ],
+    "C6": [
+      "Schema dữ liệu admin",
+      "admin_data"
+    ],
+    "C7": [
+      "Dịch vụ xử lý tác vụ",
+      "task_api"
+    ],
+    "C8": [
+      "CRUD dữ liệu tác vụ",
+      "task_api"
+    ],
+    "C9": [
+      "Mô hình ORM tác vụ",
+      "task_api"
+    ],
+    "C10": [
+      "Định nghĩa schema tác vụ",
+      "task_api"
+    ],
+    "C11": [
+      "Định nghĩa task nền",
+      "task_worker"
+    ],
+    "C13": [
+      "Cấu hình lõi ứng dụng",
+      "config"
+    ],
+    "C14": [
+      "Kết nối database",
+      "db"
+    ],
+    "C15": [
+      "Middleware xử lý yêu cầu",
+      "middleware"
+    ],
+    "C20": [
+      "Tiện ích chung",
+      "utils"
+    ],
+    "C21": [
+      "Quản lý bộ nhớ đệm",
+      "cache"
+    ],
+    "C22": [
+      "Xử lý ngoại lệ chung",
+      "common"
+    ],
+    "C23": [
+      "Quản lý đa ngôn ngữ",
+      "common"
+    ],
+    "C24": [
+      "Khởi tạo observability",
+      "observability"
+    ],
+    "C25": [
+      "Định dạng phản hồi API",
+      "common"
+    ],
+    "C26": [
+      "Xác thực và phân quyền",
+      "security"
+    ],
+    "C27": [
+      "Socketio server",
+      "socketio"
+    ],
+    "C28": [
+      "Công cụ chung",
+      "common"
+    ],
+    "C29": [
+      "API tạo mã",
+      "plugin_codegen"
+    ],
+    "C30": [
+      "CRUD cho code generator",
+      "plugin_codegen"
+    ],
+    "C31": [
+      "Mô hình code generator",
+      "plugin_codegen"
+    ],
+    "C32": [
+      "Schema code generator",
+      "plugin_codegen"
+    ],
+    "C33": [
+      "Tạo mã service",
+      "plugin_codegen"
+    ],
+    "C34": [
+      "Công cụ sinh mã utils",
+      "plugin_codegen"
+    ],
+    "C35": [
+      "Định nghĩa enum",
+      "plugin_codegen"
+    ],
+    "C36": [
+      "Router API email",
+      "plugin_email"
+    ],
+    "C37": [
+      "Utils email gửi",
+      "plugin_email"
+    ],
+    "C38": [
+      "Router API notice",
+      "plugin_notice"
+    ],
+    "C39": [
+      "Quản lý CRUD Notice",
+      "plugin_notice"
+    ],
+    "C40": [
+      "Model Notice",
+      "plugin_notice"
+    ],
+    "C41": [
+      "Schema Notice",
+      "plugin_notice"
+    ],
+    "C42": [
+      "Service thông báo",
+      "plugin_notice"
+    ],
+    "C43": [
+      "Enum thông báo",
+      "plugin_notice"
+    ],
+    "C44": [
+      "Api OAuth2 router",
+      "plugin_oauth2"
+    ],
+    "C45": [
+      "CRUD người dùng xã hội",
+      "plugin_oauth2"
+    ],
+    "C46": [
+      "Mô hình UserSocial",
+      "plugin_oauth2"
+    ],
+    "C47": [
+      "Schema UserSocial",
+      "plugin_oauth2"
+    ],
+    "C48": [
+      "Dịch vụ OAuth2",
+      "plugin_oauth2"
+    ],
+    "C49": [
+      "Enum OAuth2",
+      "plugin_oauth2"
+    ],
+    "C50": [
+      "Router xác thực admin",
+      "admin_api"
+    ],
+    "C51": [
+      "API ghi nhật ký",
+      "admin_api"
+    ],
+    "C52": [
+      "API giám sát hệ thống",
+      "admin_api"
+    ],
+    "C53": [
+      "API quản lý hệ thống",
+      "admin_api"
+    ],
+    "C54": [
+      "CRUD admin dữ liệu",
+      "admin_data"
+    ],
+    "C55": [
+      "Model admin ORM",
+      "admin_data"
+    ],
+    "C56": [
+      "Schema admin API",
+      "admin_data"
+    ],
+    "C57": [
+      "Dịch vụ admin",
+      "admin_service"
+    ],
+    "C58": [
+      "Tiện ích admin",
+      "admin_service"
+    ],
+    "C59": [
+      "Nhiệm vụ nền",
+      "task_worker"
+    ],
+    "C60": [
+      "API nhiệm vụ v1",
+      "task_api"
+    ],
+    "C61": [
+      "Tiện ích lập lịch",
+      "task_worker"
+    ],
+    "C62": [
+      "Thư viện chung",
+      "common"
+    ],
+    "C63": [
+      "Giám sát Prometheus FastAPI",
+      "observability"
+    ],
+    "C64": [
+      "Middleware Trạng thái",
+      "middleware"
+    ],
+    "C65": [
+      "Plugin Quản lý Cấu hình",
+      "plugin_core"
+    ],
+    "C66": [
+      "Enum loại cấu hình",
+      "plugin_config"
+    ],
+    "C67": [
+      "Router API cấu hình",
+      "plugin_config"
+    ],
+    "C68": [
+      "CRUD cấu hình",
+      "plugin_config"
+    ],
+    "C69": [
+      "Mô hình cấu hình",
+      "plugin_config"
+    ],
+    "C70": [
+      "Schema cấu hình",
+      "plugin_config"
+    ],
+    "C71": [
+      "Service cấu hình",
+      "plugin_config"
+    ],
+    "C72": [
+      "Router API Từ điển",
+      "plugin_dict"
+    ],
+    "C73": [
+      "CRUD Từ điển",
+      "plugin_dict"
+    ],
+    "C74": [
+      "Mô hình Từ điển",
+      "plugin_dict"
+    ],
+    "C75": [
+      "Schema từ điển",
+      "plugin_dict"
+    ],
+    "C76": [
+      "Service từ điển",
+      "plugin_dict"
+    ],
+    "C77": [
+      "Thư viện tiện ích",
+      "utils"
+    ]
+  },
+  "files_outside_oracle": [],
+  "comparisons": {
+    "rule_edges": {
+      "precision": 0.145,
+      "precision_strict": 0.117,
+      "recall": 0.273,
+      "drawn": 77,
+      "components": 72,
+      "grouping_agreement": 0.978
+    },
+    "no_ai": {
+      "precision": 0.155,
+      "precision_strict": 0.126,
+      "recall": 0.485,
+      "drawn": 127,
+      "components": 70,
+      "grouping_agreement": 0.987
+    }
+  }
+}

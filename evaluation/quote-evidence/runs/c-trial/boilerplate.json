@@ -1,0 +1,709 @@
+{
+ "A": {
+  "score": {
+   "precision": 0.875,
+   "precision_strict": 0.761,
+   "recall": 0.972,
+   "drawn": 46,
+   "components": 38,
+   "grouping_agreement": 1.0
+  },
+  "flagged": {
+   "C26": "marked shared but imports non-shared components: dir:backend/src/infrastructure/auth",
+   "C27": "marked shared but imports non-shared components: dir:backend/src/infrastructure/auth"
+  },
+  "review": [
+   "C26 common_shared -> common_domain: Marked shared but imports non-shared auth infrastructure, so it must be a non-shared component.",
+   "C27 common_utils -> common_utils_nonshared: Marked shared but imports non-shared auth infrastructure, so it must be a non-shared component."
+  ],
+  "notes": [],
+  "issues": [
+   "13 files not grouped by AI; joined a component holding files of the same directory",
+   "3 files not grouped by AI; grouped by directory"
+  ],
+  "tokens": 1467,
+  "requests": 1,
+  "seconds": 2.4,
+  "grouping": {
+   "components": [
+    {
+     "key": "app_factory",
+     "members": [
+      "backend/src/infrastructure/app_factory.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "infra_dependencies",
+     "members": [
+      "backend/src/infrastructure/dependencies.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "middleware",
+     "members": [
+      "backend/src/infrastructure/middleware.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "redis_client",
+     "members": [
+      "backend/src/infrastructure/redis.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "auth_routes",
+     "members": [
+      "backend/src/infrastructure/auth/routes.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "auth_dependencies",
+     "members": [
+      "backend/src/infrastructure/auth/dependencies.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "auth_setup",
+     "members": [
+      "backend/src/infrastructure/auth/setup.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cache_core",
+     "members": [
+      "backend/src/infrastructure/cache/base.py",
+      "backend/src/infrastructure/cache/decorator.py",
+      "backend/src/infrastructure/cache/exceptions.py",
+      "backend/src/infrastructure/cache/initialize.py",
+      "backend/src/infrastructure/cache/provider.py",
+      "backend/src/infrastructure/cache/utils.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cache_backends",
+     "members": [
+      "backend/src/infrastructure/cache/backends/memcached.py",
+      "backend/src/infrastructure/cache/backends/redis.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "config_settings",
+     "members": [
+      "backend/src/infrastructure/config/settings.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "config_enums",
+     "members": [
+      "backend/src/infrastructure/config/enums.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "db_session",
+     "members": [
+      "backend/src/infrastructure/database/session.py",
+      "backend/src/infrastructure/database/initialize.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "db_models",
+     "members": [
+      "backend/src/infrastructure/database/models.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "logging_config",
+     "members": [
+      "backend/src/infrastructure/logging/config.py",
+      "backend/src/infrastructure/logging/factory.py",
+      "backend/src/infrastructure/logging/formatters.py",
+      "backend/src/infrastructure/logging/handlers.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "security_production",
+     "members": [
+      "backend/src/infrastructure/security/production_validator.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "taskiq_worker",
+     "members": [
+      "backend/src/infrastructure/taskiq/app.py",
+      "backend/src/infrastructure/taskiq/worker.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "taskiq_brokers",
+     "members": [
+      "backend/src/infrastructure/taskiq/brokers.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "taskiq_deps",
+     "members": [
+      "backend/src/infrastructure/taskiq/deps.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "taskiq_registry",
+     "members": [
+      "backend/src/infrastructure/taskiq/registry.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_entrypoint",
+     "members": [
+      "backend/src/interfaces/main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "admin_interface",
+     "members": [
+      "backend/src/interfaces/admin/auth.py",
+      "backend/src/interfaces/admin/initialize.py",
+      "backend/src/interfaces/admin/mixins.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "admin_views",
+     "members": [
+      "backend/src/interfaces/admin/views/__init__.py",
+      "backend/src/interfaces/admin/views/tiers.py",
+      "backend/src/interfaces/admin/views/users.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_router",
+     "members": [
+      "backend/src/interfaces/api/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_v1_router",
+     "members": [
+      "backend/src/interfaces/api/v1/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_keys_module",
+     "members": [
+      "backend/src/modules/api_keys/crud.py",
+      "backend/src/modules/api_keys/dependencies.py",
+      "backend/src/modules/api_keys/enums.py",
+      "backend/src/modules/api_keys/models.py",
+      "backend/src/modules/api_keys/routes.py",
+      "backend/src/modules/api_keys/schemas.py",
+      "backend/src/modules/api_keys/service.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "common_shared",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "common_utils",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "rate_limit_module",
+     "members": [
+      "backend/src/modules/rate_limit/crud.py",
+      "backend/src/modules/rate_limit/dependencies.py",
+      "backend/src/modules/rate_limit/models.py",
+      "backend/src/modules/rate_limit/routes.py",
+      "backend/src/modules/rate_limit/schemas.py",
+      "backend/src/modules/rate_limit/service.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "tier_module",
+     "members": [
+      "backend/src/modules/tier/crud.py",
+      "backend/src/modules/tier/dependencies.py",
+      "backend/src/modules/tier/models.py",
+      "backend/src/modules/tier/routes.py",
+      "backend/src/modules/tier/schemas.py",
+      "backend/src/modules/tier/service.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "user_module",
+     "members": [
+      "backend/src/modules/user/constants.py",
+      "backend/src/modules/user/crud.py",
+      "backend/src/modules/user/dependencies.py",
+      "backend/src/modules/user/enums.py",
+      "backend/src/modules/user/models.py",
+      "backend/src/modules/user/routes.py",
+      "backend/src/modules/user/schemas.py",
+      "backend/src/modules/user/service.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cli_app",
+     "members": [
+      "cli/src/cli/app.py",
+      "cli/src/cli/plugins.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cli_commands_deploy",
+     "members": [
+      "cli/src/cli/commands/deploy.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cli_commands_env",
+     "members": [
+      "cli/src/cli/commands/env.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cli_features",
+     "members": [
+      "cli/src/cli/features/__init__.py",
+      "cli/src/cli/features/base.py",
+      "cli/src/cli/features/installer.py",
+      "cli/src/cli/features/registry.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cli_builtin_deploy",
+     "members": [
+      "cli/src/cli/features/_builtins/deploy/feature.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cli_lib",
+     "members": [
+      "cli/src/cli/lib/project.py",
+      "cli/src/cli/lib/prompts.py",
+      "cli/src/cli/lib/render.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "common_domain",
+     "members": [
+      "backend/src/modules/common/constants.py",
+      "backend/src/modules/common/exceptions.py",
+      "backend/src/modules/common/schemas.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "common_utils_nonshared",
+     "members": [
+      "backend/src/modules/common/utils/error_handler.py",
+      "backend/src/modules/common/utils/logger.py"
+     ],
+     "shared": false
+    }
+   ]
+  }
+ },
+ "C": {
+  "score": {
+   "precision": 0.737,
+   "precision_strict": 0.636,
+   "recall": 0.778,
+   "drawn": 44,
+   "components": 34,
+   "grouping_agreement": 0.99
+  },
+  "flagged": {
+   "C23": "marked shared but imports non-shared components: auth"
+  },
+  "review": [
+   "C23 common_constants -> common_constants_shared, common_exceptions, common_schemas: Component imports non-shared auth, so it cannot be marked shared; split into separate components by concern."
+  ],
+  "notes": [
+   "D3,D4 -> cache, backend_src_infrastructure_cache, backend_src_infrastructure_cache_backends: merge cache backends and core cache utilities into one technical layer",
+   "D1 -> app_factory, middleware, redis_client, infra_core: split infrastructure root because it mixes application creation, middleware and redis client responsibilities",
+   "D6 -> db_models, db_session, db_core: split database package into model definitions, session/engine handling and core package",
+   "D5 -> config: configuration is passive support imported by many components",
+   "D7 -> logging: logging utilities are shared passive support",
+   "D17 -> common_constants: common constants, exceptions and base schemas are generic helpers used across modules",
+   "D2 -> auth: auth package stays as a single component representing the authentication layer",
+   "D8 -> security: security utilities are a distinct layer and not shared passive support",
+   "D9 -> taskiq: task queue integration forms its own component",
+   "D10 -> cli_interface: top‑level FastAPI entry point for the CLI interface",
+   "D11 -> admin_interface: admin UI layer",
+   "D12 -> admin_views: admin view registration component",
+   "D13 -> api_router_root: root API router package",
+   "D14 -> api_v1_router: v1 API router package",
+   "D15 -> modules_root: modules package root",
+   "D16 -> module_api_keys: API‑keys module component",
+   "D19 -> module_rate_limit: rate‑limit module component",
+   "D20 -> module_tier: tier module component",
+   "D21 -> module_user: user module component",
+   "D22 -> cli_app: CLI application entry point",
+   "D23 -> cli_commands: CLI command definitions",
+   "D24 -> cli_features: CLI feature infrastructure",
+   "D25 -> builtin_deploy_feature: built‑in deploy feature",
+   "D26 -> cli_lib: CLI helper library"
+  ],
+  "issues": [],
+  "tokens": 11240,
+  "requests": 3,
+  "seconds": 134.9,
+  "grouping": {
+   "components": [
+    {
+     "key": "app_factory",
+     "members": [
+      "backend/src/infrastructure/app_factory.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "middleware",
+     "members": [
+      "backend/src/infrastructure/middleware.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "redis_client",
+     "members": [
+      "backend/src/infrastructure/redis.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "infra_core",
+     "members": [
+      "backend/src/infrastructure/__init__.py",
+      "backend/src/infrastructure/dependencies.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "auth",
+     "members": [
+      "backend/src/infrastructure/auth/__init__.py",
+      "backend/src/infrastructure/auth/dependencies.py",
+      "backend/src/infrastructure/auth/http_exceptions.py",
+      "backend/src/infrastructure/auth/password_policy.py",
+      "backend/src/infrastructure/auth/routes.py",
+      "backend/src/infrastructure/auth/setup.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cache",
+     "members": [
+      "backend/src/infrastructure/cache/base.py",
+      "backend/src/infrastructure/cache/decorator.py",
+      "backend/src/infrastructure/cache/exceptions.py",
+      "backend/src/infrastructure/cache/initialize.py",
+      "backend/src/infrastructure/cache/provider.py",
+      "backend/src/infrastructure/cache/utils.py",
+      "backend/src/infrastructure/cache/backends/memcached.py",
+      "backend/src/infrastructure/cache/backends/redis.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "backend_src_infrastructure_cache",
+     "members": [
+      "backend/src/infrastructure/cache/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "backend_src_infrastructure_cache_backends",
+     "members": [
+      "backend/src/infrastructure/cache/backends/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "config",
+     "members": [
+      "backend/src/infrastructure/config/__init__.py",
+      "backend/src/infrastructure/config/enums.py",
+      "backend/src/infrastructure/config/settings.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "db_models",
+     "members": [
+      "backend/src/infrastructure/database/models.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "db_session",
+     "members": [
+      "backend/src/infrastructure/database/initialize.py",
+      "backend/src/infrastructure/database/session.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "db_core",
+     "members": [
+      "backend/src/infrastructure/database/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "logging",
+     "members": [
+      "backend/src/infrastructure/logging/__init__.py",
+      "backend/src/infrastructure/logging/config.py",
+      "backend/src/infrastructure/logging/factory.py",
+      "backend/src/infrastructure/logging/formatters.py",
+      "backend/src/infrastructure/logging/handlers.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "security",
+     "members": [
+      "backend/src/infrastructure/security/__init__.py",
+      "backend/src/infrastructure/security/production_validator.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "taskiq",
+     "members": [
+      "backend/src/infrastructure/taskiq/__init__.py",
+      "backend/src/infrastructure/taskiq/app.py",
+      "backend/src/infrastructure/taskiq/brokers.py",
+      "backend/src/infrastructure/taskiq/deps.py",
+      "backend/src/infrastructure/taskiq/registry.py",
+      "backend/src/infrastructure/taskiq/worker.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cli_interface",
+     "members": [
+      "backend/src/interfaces/main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "admin_interface",
+     "members": [
+      "backend/src/interfaces/admin/auth.py",
+      "backend/src/interfaces/admin/initialize.py",
+      "backend/src/interfaces/admin/mixins.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "admin_views",
+     "members": [
+      "backend/src/interfaces/admin/views/__init__.py",
+      "backend/src/interfaces/admin/views/tiers.py",
+      "backend/src/interfaces/admin/views/users.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_router_root",
+     "members": [
+      "backend/src/interfaces/api/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_v1_router",
+     "members": [
+      "backend/src/interfaces/api/v1/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "modules_root",
+     "members": [
+      "backend/src/modules/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "module_api_keys",
+     "members": [
+      "backend/src/modules/api_keys/__init__.py",
+      "backend/src/modules/api_keys/crud.py",
+      "backend/src/modules/api_keys/dependencies.py",
+      "backend/src/modules/api_keys/enums.py",
+      "backend/src/modules/api_keys/models.py",
+      "backend/src/modules/api_keys/routes.py",
+      "backend/src/modules/api_keys/schemas.py",
+      "backend/src/modules/api_keys/service.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "common_constants",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "backend_src_modules_common_utils",
+     "members": [
+      "backend/src/modules/common/utils/error_handler.py",
+      "backend/src/modules/common/utils/logger.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "module_rate_limit",
+     "members": [
+      "backend/src/modules/rate_limit/__init__.py",
+      "backend/src/modules/rate_limit/crud.py",
+      "backend/src/modules/rate_limit/dependencies.py",
+      "backend/src/modules/rate_limit/models.py",
+      "backend/src/modules/rate_limit/routes.py",
+      "backend/src/modules/rate_limit/schemas.py",
+      "backend/src/modules/rate_limit/service.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "module_tier",
+     "members": [
+      "backend/src/modules/tier/__init__.py",
+      "backend/src/modules/tier/crud.py",
+      "backend/src/modules/tier/dependencies.py",
+      "backend/src/modules/tier/models.py",
+      "backend/src/modules/tier/routes.py",
+      "backend/src/modules/tier/schemas.py",
+      "backend/src/modules/tier/service.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "module_user",
+     "members": [
+      "backend/src/modules/user/__init__.py",
+      "backend/src/modules/user/constants.py",
+      "backend/src/modules/user/crud.py",
+      "backend/src/modules/user/dependencies.py",
+      "backend/src/modules/user/enums.py",
+      "backend/src/modules/user/models.py",
+      "backend/src/modules/user/routes.py",
+      "backend/src/modules/user/schemas.py",
+      "backend/src/modules/user/service.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cli_app",
+     "members": [
+      "cli/src/cli/app.py",
+      "cli/src/cli/plugins.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cli_commands",
+     "members": [
+      "cli/src/cli/commands/deploy.py",
+      "cli/src/cli/commands/env.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cli_features",
+     "members": [
+      "cli/src/cli/features/__init__.py",
+      "cli/src/cli/features/base.py",
+      "cli/src/cli/features/installer.py",
+      "cli/src/cli/features/registry.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "builtin_deploy_feature",
+     "members": [
+      "cli/src/cli/features/_builtins/deploy/feature.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cli_lib",
+     "members": [
+      "cli/src/cli/lib/project.py",
+      "cli/src/cli/lib/prompts.py",
+      "cli/src/cli/lib/render.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "common_constants_shared",
+     "members": [
+      "backend/src/modules/common/constants.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "common_exceptions",
+     "members": [
+      "backend/src/modules/common/exceptions.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "common_schemas",
+     "members": [
+      "backend/src/modules/common/schemas.py"
+     ],
+     "shared": false
+    }
+   ]
+  }
+ },
+ "no_ai": {
+  "score": {
+   "precision": 0.49,
+   "precision_strict": 0.439,
+   "recall": 0.694,
+   "drawn": 57,
+   "components": 26,
+   "grouping_agreement": 0.98
+  }
+ }
+}

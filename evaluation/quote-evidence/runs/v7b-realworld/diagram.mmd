@@ -1,0 +1,41 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Định nghĩa router API"]
+  C3["Xử lý API bài viết"]
+  C4["Xử lý API xác thực"]
+  C5["Xử lý API bình luận"]
+  C6["Hồ sơ thẻ người dùng API"]
+  C7["Phụ thuộc API dịch vụ"]
+  C8["Repository dịch vụ dữ liệu"]
+  C9["Service nghiệp vụ ứng dụng"]
+  C10["Truy vấn dữ liệu"]
+  C11["Quản lý kết nối DB"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C12["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+  end
+  C7 -->|"lấy repository"| C11
+  C7 -->|"truy xuất bài viết"| C8
+  C2 -->|"gắn router bài viết"| C3
+  C2 -->|"gắn router xác thực"| C4
+  C2 -->|"gắn router bình luận"| C5
+  C2 -->|"gắn router hồ sơ"| C6
+  C1 -->|"gắn router API"| C2
+  C3 -->|"gọi phụ thuộc bài viết"| C7
+  C3 -->|"lấy repository"| C11
+  C3 -->|"gọi service repository"| C8
+  C4 -->|"lấy repository người dùng"| C11
+  C4 -->|"gọi service người dùng"| C8
+  C5 -->|"gọi phụ thuộc bình luận"| C7
+  C5 -->|"lấy repository bình luận"| C11
+  C5 -->|"gọi service bình luận"| C8
+  C6 -->|"lấy hồ sơ từ đường dẫn"| C7
+  C6 -->|"lấy repository"| C11
+  C6 -->|"quản lý người theo dõi"| C8
+  C10 -->|"tải truy vấn SQL"| C11
+  C8 -->|"lấy dữ liệu"| C11
+  C8 -->|"thực hiện CRUD"| C10
+  C9 -->|"kiểm tra tồn tại"| C8
+  C11 -.->|"truy vấn"| X1

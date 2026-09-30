@@ -1,0 +1,49 @@
+flowchart LR
+  C1["Điểm vào ứng dụng"]
+  C2["Cấu hình hạ tầng ứng dụng"]
+  C3["Router API xác thực"]
+  C4["Dịch vụ xác thực JWT"]
+  C5["Router API người dùng"]
+  C6["Dịch vụ người dùng"]
+  C7["Repo người dùng"]
+  C8["Khởi tạo Celery"]
+  C10["Quản lý cơ sở dữ liệu"]
+  C13["Middleware FastAPI xác thực"]
+  C15["Helper token JWT"]
+  C18["Khởi tạo mô-đun DB"]
+  C19["Hỗ trợ mixin cơ sở dữ liệu"]
+  C20["Exceptions core"]
+  C21["Dependencies FastAPI"]
+  C22["Middlewares FastAPI"]
+  C23["Helpers cache"]
+  C24["Helpers cache base"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C9["Cấu hình ứng dụng"]
+    C11["Định nghĩa ngoại lệ"]
+    C12["Phụ thuộc FastAPI"]
+    C14["Helper Redis"]
+    C16["Quản lý bộ nhớ đệm"]
+    C17["Kho lưu trữ dữ liệu"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[/"Celery broker"/]
+    X2[("Database")]
+  end
+  C13 -->|"gọi hàm thiết lập ngữ cảnh"| C10
+  C2 -->|"đăng ký middleware"| C13
+  C2 -->|"đăng ký router auth"| C3
+  C2 -->|"tiêm JwtService"| C4
+  C2 -->|"đăng ký router user"| C5
+  C2 -->|"tiêm UserService"| C6
+  C2 -->|"tiêm repository"| C7
+  C3 -->|"tiêm Container"| C2
+  C4 -->|"gọi TokenHelper.decode"| C15
+  C5 -->|"tiêm Container"| C2
+  C5 -->|"gọi CreateUserCommand"| C6
+  C6 -->|"đánh dấu phương thức với Transactional"| C10
+  C6 -->|"gọi TokenHelper.encode"| C15
+  C6 -->|"gọi User.create"| C7
+  C7 -->|"tạo và dùng session"| C10
+  C8 -.->|"kết nối broker"| X1
+  C10 -.->|"engine ghi"| X2
+  C10 -.->|"engine đọc"| X2

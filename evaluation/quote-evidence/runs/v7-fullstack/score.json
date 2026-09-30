@@ -1,0 +1,151 @@
+{
+  "all": {
+    "precision": 0.875,
+    "precision_strict": 0.875,
+    "recall": 0.875,
+    "drawn": 8,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "email",
+        "ext:smtp"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "routes",
+        "email"
+      ]
+    ],
+    "wrong": [
+      [
+        "app",
+        "db"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "seed",
+        "db"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.833,
+    "precision_strict": 0.833,
+    "recall": 0.833,
+    "drawn": 6,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "routes",
+        "email"
+      ]
+    ],
+    "wrong": [
+      [
+        "app",
+        "db"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "seed",
+        "db"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 1.0,
+    "drawn": 2,
+    "hits": [
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "email",
+        "ext:smtp"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": []
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.933,
+  "components": 8,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "Định nghĩa router API",
+      "routes"
+    ],
+    "C3": [
+      "Routes_api",
+      "routes"
+    ],
+    "C4": [
+      "Api_service",
+      "routes"
+    ],
+    "C5": [
+      "Quản lý dữ liệu",
+      "crud"
+    ],
+    "C6": [
+      "Xử lý dữ liệu email",
+      "email"
+    ],
+    "C7": [
+      "Kết nối cơ sở dữ liệu",
+      "db"
+    ],
+    "C8": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [
+    "hooks/post_gen_project.py"
+  ]
+}

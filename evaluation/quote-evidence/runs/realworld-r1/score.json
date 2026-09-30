@@ -1,0 +1,173 @@
+{
+  "precision": 0.765,
+  "recall": 1.0,
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.981,
+  "components": 14,
+  "hits": [
+    [
+      "db_events",
+      "ext:postgres"
+    ],
+    [
+      "dependencies",
+      "repositories"
+    ],
+    [
+      "dependencies",
+      "services"
+    ],
+    [
+      "domain_models",
+      "services"
+    ],
+    [
+      "entry",
+      "api_errors"
+    ],
+    [
+      "entry",
+      "lifecycle"
+    ],
+    [
+      "entry",
+      "routes"
+    ],
+    [
+      "lifecycle",
+      "db_events"
+    ],
+    [
+      "repositories",
+      "queries"
+    ],
+    [
+      "routes",
+      "dependencies"
+    ],
+    [
+      "routes",
+      "repositories"
+    ],
+    [
+      "routes",
+      "services"
+    ],
+    [
+      "services",
+      "repositories"
+    ]
+  ],
+  "wrong": [
+    [
+      "dependencies",
+      "db_events"
+    ],
+    [
+      "repositories",
+      "db_events"
+    ],
+    [
+      "routes",
+      "db_events"
+    ],
+    [
+      "services",
+      "db_events"
+    ]
+  ],
+  "missed": [],
+  "not_counted": [
+    [
+      "dependencies",
+      "domain_models"
+    ],
+    [
+      "dependencies",
+      "schemas"
+    ],
+    [
+      "repositories",
+      "domain_models"
+    ],
+    [
+      "routes",
+      "domain_models"
+    ],
+    [
+      "routes",
+      "schemas"
+    ],
+    [
+      "schemas",
+      "domain_models"
+    ],
+    [
+      "services",
+      "domain_models"
+    ],
+    [
+      "services",
+      "schemas"
+    ]
+  ],
+  "mapping": {
+    "C1": [
+      "Điểm vào ứng dụng",
+      "entry"
+    ],
+    "C2": [
+      "Cấu hình ứng dụng",
+      "config"
+    ],
+    "C3": [
+      "Ghi log tùy chỉnh",
+      "logging"
+    ],
+    "C4": [
+      "Kết nối cơ sở dữ liệu",
+      "db_events"
+    ],
+    "C5": [
+      "Truy vấn SQL",
+      "queries"
+    ],
+    "C6": [
+      "Kho lưu trữ dữ liệu",
+      "repositories"
+    ],
+    "C7": [
+      "Định nghĩa mô hình dữ liệu",
+      "domain_models"
+    ],
+    "C8": [
+      "Định nghĩa schema API",
+      "schemas"
+    ],
+    "C9": [
+      "Định nghĩa phụ thuộc API",
+      "dependencies"
+    ],
+    "C10": [
+      "Xử lý lỗi HTTP",
+      "api_errors"
+    ],
+    "C11": [
+      "Định nghĩa các router API",
+      "routes"
+    ],
+    "C12": [
+      "Cung cấp logic nghiệp vụ",
+      "services"
+    ],
+    "C13": [
+      "Chuỗi hằng lỗi",
+      "resources"
+    ],
+    "C14": [
+      "Xử lý sự kiện khởi động",
+      "lifecycle"
+    ]
+  },
+  "files_outside_oracle": []
+}

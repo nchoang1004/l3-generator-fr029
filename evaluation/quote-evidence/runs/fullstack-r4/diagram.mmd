@@ -1,0 +1,41 @@
+flowchart LR
+  C1["Điểm vào ứng dụng"]
+  C2["Định nghĩa router API"]
+  C3["Cung cấp phụ thuộc yêu cầu"]
+  C4["Định nghĩa các route HTTP"]
+  C5["Xử lý nghiệp vụ người dùng"]
+  C6["Xử lý gửi email"]
+  C7["Mô hình người dùng"]
+  C8["Khởi tạo dữ liệu"]
+  C10["Kết nối cơ sở dữ liệu"]
+  C11["Xử lý mật khẩu"]
+  C12["Hook dự án"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C9["Cấu hình ứng dụng"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Sentry"])
+    X2[("Database")]
+    X3(["SMTP"])
+  end
+  C1 -->|"đăng ký router API"| C2
+  C2 -->|"kết nối các route"| C4
+  C3 -->|"tạo phiên DB"| C10
+  C3 -->|"xác thực token"| C11
+  C3 -->|"truy xuất người dùng"| C7
+  C4 -->|"tạo token bảo mật"| C11
+  C4 -->|"đăng ký phụ thuộc người dùng"| C3
+  C4 -->|"gọi CRUD xác thực"| C5
+  C4 -->|"gửi email đặt lại mật khẩu"| C6
+  C4 -->|"chuyển đổi mô hình dữ liệu"| C7
+  C5 -->|"băm mật khẩu người dùng"| C11
+  C5 -->|"sử dụng mô hình người dùng"| C7
+  C6 -->|"sử dụng thuật toán bảo mật"| C11
+  C8 -->|"tạo phiên DB"| C10
+  C10 -->|"gọi CRUD tạo người dùng"| C5
+  C10 -->|"sử dụng mô hình User"| C7
+  C1 -.->|"khởi tạo giám sát lỗi"| X1
+  C3 -.->|"kết nối cơ sở dữ liệu"| X2
+  C8 -.->|"kết nối cơ sở dữ liệu"| X2
+  C10 -.->|"kết nối cơ sở dữ liệu"| X2
+  C6 -.->|"máy chủ SMTP"| X3

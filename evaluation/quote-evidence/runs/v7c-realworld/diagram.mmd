@@ -1,0 +1,7 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Định nghĩa router API"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C3["Dùng chung"]
+  end
+  C1 -->|"đăng ký router API"| C2

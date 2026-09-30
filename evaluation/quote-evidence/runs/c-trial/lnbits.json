@@ -1,0 +1,561 @@
+{
+ "A": {
+  "score": {
+   "precision": 0.3,
+   "precision_strict": 0.207,
+   "recall": 0.667,
+   "drawn": 87,
+   "components": 22,
+   "grouping_agreement": 0.953
+  },
+  "flagged": {
+   "C2": "marked shared but imports non-shared components: wallet_clients; marked shared but connects to an external system at lnbits/settings.py:82",
+   "C15": "marked shared but imports non-shared components: core_services, dir:lnbits; marked shared but connects to an external system at lnbits/utils/electrum.py:347",
+   "C16": "marked shared but imports non-shared components: wasm_extension_api; marked shared but connects to an external system at tools/conv.py:38"
+  },
+  "review": [
+   "C2 configuration -> lnbits_settings: The settings component imports wallet_clients and accesses external services, so it cannot be shared.",
+   "C15 utils -> lnbits_utils_shared, lnbits_utils_nonshared: The utils component mixes pure shared utilities with modules that depend on core services and external systems, requiring separation.",
+   "C16 tools -> tools_helpers: The tools component includes scripts that interact with databases and external APIs, so it should not be shared."
+  ],
+  "notes": [],
+  "issues": [
+   "2 files not grouped by AI; joined a component holding files of the same directory",
+   "20 files not grouped by AI; grouped by directory"
+  ],
+  "tokens": 2302,
+  "requests": 1,
+  "seconds": 62.9,
+  "grouping": {
+   "components": [
+    {
+     "key": "entrypoint",
+     "members": [
+      "lnbits/__main__.py",
+      "lnbits/app.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "configuration",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "server",
+     "members": [
+      "lnbits/server.py",
+      "lnbits/middleware.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "task_management",
+     "members": [
+      "lnbits/task_manager.py",
+      "lnbits/tasks.py",
+      "lnbits/core/tasks.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_models",
+     "members": [
+      "lnbits/core/models/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_crud",
+     "members": [
+      "lnbits/core/crud/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_services",
+     "members": [
+      "lnbits/core/services/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_views",
+     "members": [
+      "lnbits/core/views/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "wasm_extension_api",
+     "members": [
+      "lnbits/core/wasm_ext/api/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "wasm_extension_client",
+     "members": [
+      "lnbits/core/wasm_ext/client/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "wasm_extension_routes",
+     "members": [
+      "lnbits/core/wasm_ext/routes/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "fiat_providers",
+     "members": [
+      "lnbits/fiat/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "node_clients",
+     "members": [
+      "lnbits/nodes/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "wallet_clients",
+     "members": [
+      "lnbits/wallets/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "utils",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "tools",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "lnbits_settings",
+     "members": [
+      "lnbits/settings.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "lnbits_utils_shared",
+     "members": [
+      "lnbits/utils/cache.py",
+      "lnbits/utils/crypto.py",
+      "lnbits/utils/logger.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "lnbits_utils_nonshared",
+     "members": [
+      "lnbits/utils/bolt12.py",
+      "lnbits/utils/electrum.py",
+      "lnbits/utils/exchange_rates.py",
+      "lnbits/utils/nostr.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "tools_helpers",
+     "members": [
+      "tools/codegen/extension_sdk_typescript.py",
+      "tools/conv.py",
+      "tools/create_fake_admin.py",
+      "tools/i18n-ai-tool.py",
+      "tools/i18n-check.py",
+      "tools/preimage.py"
+     ],
+     "shared": false
+    }
+   ]
+  }
+ },
+ "C": {
+  "score": {
+   "precision": 0.25,
+   "precision_strict": 0.174,
+   "recall": 0.444,
+   "drawn": 69,
+   "components": 24,
+   "grouping_agreement": 0.941
+  },
+  "flagged": {
+   "C9": "mixes sub-directories that import each other: lnbits/core/wasm_ext/api/ imports lnbits/core/wasm_ext/client/",
+   "C12": "marked shared but imports non-shared components: core_services, lnbits_core, lnbits_entry; marked shared but connects to an external system at lnbits/utils/electrum.py:347"
+  },
+  "review": [
+   "C9 wasm_ext -> wasm_ext_root, wasm_ext_api, wasm_ext_client, wasm_ext_routes, wasm_ext_storage, wasm_ext_wasm: The component mixes multiple architectural layers (API, client adapters, routes, storage, and wasm runtime) and has circular imports, so it must be split into separate layer‑specific components.",
+   "C12 utils_shared -> utils_shared, utils_electrum: The component imports non‑shared services and talks to an external Electrum system, so it cannot be shared; split the pure utilities into a shared component and isolate the Electrum integration."
+  ],
+  "notes": [
+   "D1 -> lnbits_entry, lnbits_core: split entrypoint and core configuration from the rest of the package",
+   "D2 -> core_package: core package stays as its own component",
+   "D3 -> core_crud: CRUD operations are a distinct technical layer",
+   "D4 -> core_models: data models form their own component",
+   "D5 -> sso_models: single‑sign‑on models are isolated from other models",
+   "D6 -> core_services: business services belong together",
+   "D7 -> core_api: FastAPI view layer is a single component",
+   "D8,D9,D10,D11,D12,D13 -> wasm_ext: all wasm extension sub‑packages share the same technical purpose",
+   "D14 -> fiat_integration: external fiat provider adapters are a single integration component",
+   "D15 -> node_clients: node client wrappers belong together",
+   "D16 -> utils_shared: generic helpers and logging are passive utilities used by many components",
+   "D17 -> wallets: all wallet back‑ends form one service layer",
+   "D18 -> boltz_grpc_defs: generated gRPC definitions are a separate component",
+   "D19 -> lnd_grpc_defs: generated LND gRPC definitions are isolated",
+   "D20 -> macaroon_auth: macaroon handling is a distinct security helper",
+   "D21 -> dev_tools: development utilities are grouped together",
+   "D22 -> codegen_tool: code generation helper is its own component"
+  ],
+  "issues": [],
+  "tokens": 16745,
+  "requests": 4,
+  "seconds": 206.0,
+  "grouping": {
+   "components": [
+    {
+     "key": "lnbits_entry",
+     "members": [
+      "lnbits/__init__.py",
+      "lnbits/__main__.py",
+      "lnbits/app.py",
+      "lnbits/server.py",
+      "lnbits/settings.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "lnbits_core",
+     "members": [
+      "lnbits/bolt11.py",
+      "lnbits/commands.py",
+      "lnbits/db.py",
+      "lnbits/decorators.py",
+      "lnbits/exceptions.py",
+      "lnbits/helpers.py",
+      "lnbits/llms_txt.py",
+      "lnbits/middleware.py",
+      "lnbits/task_manager.py",
+      "lnbits/tasks.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_package",
+     "members": [
+      "lnbits/core/__init__.py",
+      "lnbits/core/db.py",
+      "lnbits/core/helpers.py",
+      "lnbits/core/migrations.py",
+      "lnbits/core/tasks.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_crud",
+     "members": [
+      "lnbits/core/crud/__init__.py",
+      "lnbits/core/crud/assets.py",
+      "lnbits/core/crud/audit.py",
+      "lnbits/core/crud/db_versions.py",
+      "lnbits/core/crud/extensions.py",
+      "lnbits/core/crud/payments.py",
+      "lnbits/core/crud/settings.py",
+      "lnbits/core/crud/tinyurl.py",
+      "lnbits/core/crud/users.py",
+      "lnbits/core/crud/wallets.py",
+      "lnbits/core/crud/webpush.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_models",
+     "members": [
+      "lnbits/core/models/__init__.py",
+      "lnbits/core/models/assets.py",
+      "lnbits/core/models/audit.py",
+      "lnbits/core/models/extensions.py",
+      "lnbits/core/models/extensions_builder.py",
+      "lnbits/core/models/lnurl.py",
+      "lnbits/core/models/misc.py",
+      "lnbits/core/models/notifications.py",
+      "lnbits/core/models/payments.py",
+      "lnbits/core/models/tinyurl.py",
+      "lnbits/core/models/users.py",
+      "lnbits/core/models/wallets.py",
+      "lnbits/core/models/webpush.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "sso_models",
+     "members": [
+      "lnbits/core/models/sso/keycloak.py",
+      "lnbits/core/models/sso/oidc.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_services",
+     "members": [
+      "lnbits/core/services/__init__.py",
+      "lnbits/core/services/assets.py",
+      "lnbits/core/services/blockexplorer.py",
+      "lnbits/core/services/extensions.py",
+      "lnbits/core/services/extensions_builder.py",
+      "lnbits/core/services/fiat_providers.py",
+      "lnbits/core/services/funding_source.py",
+      "lnbits/core/services/lightning_address.py",
+      "lnbits/core/services/lnurl.py",
+      "lnbits/core/services/nostr.py",
+      "lnbits/core/services/notifications.py",
+      "lnbits/core/services/payments.py",
+      "lnbits/core/services/settings.py",
+      "lnbits/core/services/users.py",
+      "lnbits/core/services/wallets.py",
+      "lnbits/core/services/websockets.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_api",
+     "members": [
+      "lnbits/core/views/admin_api.py",
+      "lnbits/core/views/api.py",
+      "lnbits/core/views/asset_api.py",
+      "lnbits/core/views/audit_api.py",
+      "lnbits/core/views/auth_api.py",
+      "lnbits/core/views/blockexplorer_api.py",
+      "lnbits/core/views/callback_api.py",
+      "lnbits/core/views/extension_api.py",
+      "lnbits/core/views/extensions_builder_api.py",
+      "lnbits/core/views/fiat_api.py",
+      "lnbits/core/views/generic.py",
+      "lnbits/core/views/lnurl_api.py",
+      "lnbits/core/views/node_api.py",
+      "lnbits/core/views/payment_api.py",
+      "lnbits/core/views/tinyurl_api.py",
+      "lnbits/core/views/user_api.py",
+      "lnbits/core/views/wallet_api.py",
+      "lnbits/core/views/webpush_api.py",
+      "lnbits/core/views/websocket_api.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "wasm_ext",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "fiat_integration",
+     "members": [
+      "lnbits/fiat/__init__.py",
+      "lnbits/fiat/base.py",
+      "lnbits/fiat/paypal.py",
+      "lnbits/fiat/revolut.py",
+      "lnbits/fiat/square.py",
+      "lnbits/fiat/stripe.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "node_clients",
+     "members": [
+      "lnbits/nodes/base.py",
+      "lnbits/nodes/cln.py",
+      "lnbits/nodes/lndrest.py",
+      "lnbits/nodes/phoenixd.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "utils_shared",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "wallets",
+     "members": [
+      "lnbits/wallets/__init__.py",
+      "lnbits/wallets/alby.py",
+      "lnbits/wallets/bark.py",
+      "lnbits/wallets/base.py",
+      "lnbits/wallets/blink.py",
+      "lnbits/wallets/boltz.py",
+      "lnbits/wallets/breez.py",
+      "lnbits/wallets/breez_liquid.py",
+      "lnbits/wallets/clnrest.py",
+      "lnbits/wallets/corelightning.py",
+      "lnbits/wallets/corelightningrest.py",
+      "lnbits/wallets/eclair.py",
+      "lnbits/wallets/fake.py",
+      "lnbits/wallets/lnbits.py",
+      "lnbits/wallets/lndgrpc.py",
+      "lnbits/wallets/lndrest.py",
+      "lnbits/wallets/lnpay.py",
+      "lnbits/wallets/lntips.py",
+      "lnbits/wallets/nwc.py",
+      "lnbits/wallets/opennode.py",
+      "lnbits/wallets/phoenixd.py",
+      "lnbits/wallets/spark.py",
+      "lnbits/wallets/sparkl2.py",
+      "lnbits/wallets/strike.py",
+      "lnbits/wallets/void.py",
+      "lnbits/wallets/zbd.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "boltz_grpc_defs",
+     "members": [
+      "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2.py",
+      "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2_grpc.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "lnd_grpc_defs",
+     "members": [
+      "lnbits/wallets/lnd_grpc_files/invoices_pb2.py",
+      "lnbits/wallets/lnd_grpc_files/invoices_pb2_grpc.py",
+      "lnbits/wallets/lnd_grpc_files/lightning_pb2.py",
+      "lnbits/wallets/lnd_grpc_files/lightning_pb2_grpc.py",
+      "lnbits/wallets/lnd_grpc_files/router_pb2.py",
+      "lnbits/wallets/lnd_grpc_files/router_pb2_grpc.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "macaroon_auth",
+     "members": [
+      "lnbits/wallets/macaroon/__init__.py",
+      "lnbits/wallets/macaroon/macaroon.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "dev_tools",
+     "members": [
+      "tools/conv.py",
+      "tools/create_fake_admin.py",
+      "tools/i18n-ai-tool.py",
+      "tools/i18n-check.py",
+      "tools/preimage.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "codegen_tool",
+     "members": [
+      "tools/codegen/extension_sdk_typescript.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "wasm_ext_root",
+     "members": [
+      "lnbits/core/wasm_ext/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "wasm_ext_api",
+     "members": [
+      "lnbits/core/wasm_ext/api/__init__.py",
+      "lnbits/core/wasm_ext/api/background_payments.py",
+      "lnbits/core/wasm_ext/api/host.py",
+      "lnbits/core/wasm_ext/api/lnurl.py",
+      "lnbits/core/wasm_ext/api/models.py",
+      "lnbits/core/wasm_ext/api/permissions.py",
+      "lnbits/core/wasm_ext/api/registry.py",
+      "lnbits/core/wasm_ext/api/runtime.py",
+      "lnbits/core/wasm_ext/api/utils.py",
+      "lnbits/core/wasm_ext/api/websockets.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "wasm_ext_client",
+     "members": [
+      "lnbits/core/wasm_ext/client/__init__.py",
+      "lnbits/core/wasm_ext/client/extensions.py",
+      "lnbits/core/wasm_ext/client/http.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "wasm_ext_routes",
+     "members": [
+      "lnbits/core/wasm_ext/routes/__init__.py",
+      "lnbits/core/wasm_ext/routes/api.py",
+      "lnbits/core/wasm_ext/routes/assets.py",
+      "lnbits/core/wasm_ext/routes/open_api.py",
+      "lnbits/core/wasm_ext/routes/register.py",
+      "lnbits/core/wasm_ext/routes/security.py",
+      "lnbits/core/wasm_ext/routes/ui.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "wasm_ext_storage",
+     "members": [
+      "lnbits/core/wasm_ext/storage/__init__.py",
+      "lnbits/core/wasm_ext/storage/crud.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "wasm_ext_wasm",
+     "members": [
+      "lnbits/core/wasm_ext/wasm/__init__.py",
+      "lnbits/core/wasm_ext/wasm/component.py",
+      "lnbits/core/wasm_ext/wasm/config.py",
+      "lnbits/core/wasm_ext/wasm/events.py",
+      "lnbits/core/wasm_ext/wasm/host.py",
+      "lnbits/core/wasm_ext/wasm/invoke.py",
+      "lnbits/core/wasm_ext/wasm/loader.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "utils_shared",
+     "members": [
+      "lnbits/utils/bolt12.py",
+      "lnbits/utils/cache.py",
+      "lnbits/utils/crypto.py",
+      "lnbits/utils/exchange_rates.py",
+      "lnbits/utils/logger.py",
+      "lnbits/utils/nostr.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "utils_electrum",
+     "members": [
+      "lnbits/utils/electrum.py"
+     ],
+     "shared": false
+    }
+   ]
+  }
+ },
+ "no_ai": {
+  "score": {
+   "precision": 0.333,
+   "precision_strict": 0.194,
+   "recall": 0.444,
+   "drawn": 62,
+   "components": 22,
+   "grouping_agreement": 0.935
+  }
+ }
+}

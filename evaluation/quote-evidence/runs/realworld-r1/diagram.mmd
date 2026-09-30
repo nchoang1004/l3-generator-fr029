@@ -1,0 +1,45 @@
+flowchart LR
+  C1["Điểm vào ứng dụng"]
+  C4["Kết nối cơ sở dữ liệu"]
+  C5["Truy vấn SQL"]
+  C6["Kho lưu trữ dữ liệu"]
+  C7["Định nghĩa mô hình dữ liệu"]
+  C8["Định nghĩa schema API"]
+  C9["Định nghĩa phụ thuộc API"]
+  C10["Xử lý lỗi HTTP"]
+  C11["Định nghĩa các router API"]
+  C12["Cung cấp logic nghiệp vụ"]
+  C14["Xử lý sự kiện khởi động"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C2["Cấu hình ứng dụng"]
+    C3["Ghi log tùy chỉnh"]
+    C13["Chuỗi hằng lỗi"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("PostgreSQL")]
+  end
+  C1 -->|"đăng ký xử lý lỗi"| C10
+  C1 -->|"đăng ký router API"| C11
+  C1 -->|"đăng ký lifecycle handlers"| C14
+  C6 -->|"ném ngoại lệ không tồn tại"| C4
+  C6 -->|"thực thi truy vấn SQL"| C5
+  C6 -->|"trả về đối tượng mô hình"| C7
+  C7 -->|"sử dụng security"| C12
+  C8 -->|"sử dụng mô hình"| C7
+  C9 -->|"sử dụng kiểm tra quyền"| C12
+  C9 -->|"xử lý ngoại lệ DB"| C4
+  C9 -->|"sử dụng repository"| C6
+  C9 -->|"sử dụng mô hình"| C7
+  C9 -->|"sử dụng tham số mặc định"| C8
+  C11 -->|"kiểm tra tồn tại bài viết"| C12
+  C11 -->|"bắt lỗi không tồn tại"| C4
+  C11 -->|"tiêm repository bài viết"| C6
+  C11 -->|"tiêm người dùng hiện tại"| C7
+  C11 -->|"tạo đối tượng phản hồi"| C8
+  C11 -->|"gọi hàm phụ thuộc"| C9
+  C12 -->|"bắt lỗi không tồn tại"| C4
+  C12 -->|"tiếp nhận repository"| C6
+  C12 -->|"kiểm tra quyền sửa"| C7
+  C12 -->|"tạo payload JWT"| C8
+  C14 -->|"kết nối tới db_connection"| C4
+  C4 -.->|"máy chủ cơ sở dữ liệu"| X1

@@ -1,0 +1,87 @@
+{
+  "all": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 0.25,
+    "drawn": 1,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": [
+      [
+        "pool",
+        "ext:postgres"
+      ],
+      [
+        "repos",
+        "pool"
+      ],
+      [
+        "routes",
+        "repos"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 0.333,
+    "drawn": 1,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": [
+      [
+        "repos",
+        "pool"
+      ],
+      [
+        "routes",
+        "repos"
+      ]
+    ]
+  },
+  "external": {
+    "precision": null,
+    "precision_strict": null,
+    "recall": 0.0,
+    "drawn": 0,
+    "hits": [],
+    "wrong": [],
+    "not_counted": [],
+    "missed": [
+      [
+        "pool",
+        "ext:postgres"
+      ]
+    ]
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.593,
+  "components": 3,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "Định nghĩa router API",
+      "routes"
+    ],
+    "C3": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": []
+}

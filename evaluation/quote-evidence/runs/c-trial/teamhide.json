@@ -1,0 +1,550 @@
+{
+ "A": {
+  "score": {
+   "precision": 0.85,
+   "precision_strict": 0.63,
+   "recall": 0.739,
+   "drawn": 27,
+   "components": 22,
+   "grouping_agreement": 0.981
+  },
+  "flagged": {
+   "C4": "mixes sub-directories that import each other: app/auth/application/ imports app/auth/domain/",
+   "C6": "mixes sub-directories that import each other: app/user/application/ imports app/user/domain/",
+   "C7": "mixes sub-directories that import each other: app/user/adapter/ imports app/user/domain/",
+   "C12": "marked shared but imports non-shared components: app_infra, user_application; marked shared but connects to an external system at core/fastapi/dependencies/permission.py:60",
+   "C14": "marked shared but connects to an external system at core/helpers/redis.py:5",
+   "C17": "marked shared but imports non-shared components: core_db"
+  },
+  "review": [
+   "C4 auth_service -> auth_application, auth_domain: Mixes application and domain layers; split into separate application and domain components.",
+   "C6 user_application -> user_application, user_domain_usecase, user_container: Mixes application, domain, and container layers; split into distinct components for each layer.",
+   "C7 user_repository -> user_adapter, user_domain_model: Mixes adapter and domain layers; separate adapter from domain model components.",
+   "C12 core_fastapi_dependencies -> core_fastapi_logging, core_fastapi_permission: Component mixes shared logging dependency with permission logic that imports non‑shared components and external systems; split into logging (shared) and permission (non‑shared).",
+   "C14 core_redis_helper -> core_redis_client: Component connects to external Redis system, so it cannot be shared.",
+   "C17 core_repository -> core_repository: Component imports non‑shared database layer, thus should not be shared."
+  ],
+  "notes": [],
+  "issues": [
+   "6 files not grouped by AI; joined a component holding files of the same directory"
+  ],
+  "tokens": 3766,
+  "requests": 1,
+  "seconds": 6.7,
+  "grouping": {
+   "components": [
+    {
+     "key": "entrypoint",
+     "members": [
+      "main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_infra",
+     "members": [
+      "app/container.py",
+      "app/server.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "auth_api",
+     "members": [
+      "app/auth/adapter/input/api/__init__.py",
+      "app/auth/adapter/input/api/v1/auth.py",
+      "app/auth/adapter/input/api/v1/request/__init__.py",
+      "app/auth/adapter/input/api/v1/response/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "auth_service",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "user_api",
+     "members": [
+      "app/user/adapter/input/api/__init__.py",
+      "app/user/adapter/input/api/v1/user.py",
+      "app/user/adapter/input/api/v1/request/__init__.py",
+      "app/user/adapter/input/api/v1/response/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "user_application",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "user_repository",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "celery_tasks",
+     "members": [
+      "celery_task/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_config",
+     "members": [
+      "core/config.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "core_db",
+     "members": [
+      "core/db/session.py",
+      "core/db/transactional.py",
+      "core/db/mixins/timestamp_mixin.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_exceptions",
+     "members": [
+      "core/exceptions/base.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "core_fastapi_dependencies",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "core_fastapi_middlewares",
+     "members": [
+      "core/fastapi/middlewares/authentication.py",
+      "core/fastapi/middlewares/response_log.py",
+      "core/fastapi/middlewares/sqlalchemy.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_redis_helper",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "core_token_helper",
+     "members": [
+      "core/helpers/token.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_cache",
+     "members": [
+      "core/helpers/cache/cache_manager.py",
+      "core/helpers/cache/cache_tag.py",
+      "core/helpers/cache/custom_key_maker.py",
+      "core/helpers/cache/redis_backend.py",
+      "core/helpers/cache/base/backend.py",
+      "core/helpers/cache/base/key_maker.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "core_repository",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "auth_application",
+     "members": [
+      "app/auth/application/dto/__init__.py",
+      "app/auth/application/exception/__init__.py",
+      "app/auth/application/service/jwt.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "auth_domain",
+     "members": [
+      "app/auth/domain/usecase/jwt.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "user_application",
+     "members": [
+      "app/user/application/dto/__init__.py",
+      "app/user/application/exception/__init__.py",
+      "app/user/application/service/user.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "user_domain_usecase",
+     "members": [
+      "app/user/domain/command/__init__.py",
+      "app/user/domain/usecase/user.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "user_container",
+     "members": [
+      "app/user/container.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "user_adapter",
+     "members": [
+      "app/user/adapter/output/persistence/repository_adapter.py",
+      "app/user/adapter/output/persistence/sqlalchemy/user.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "user_domain_model",
+     "members": [
+      "app/user/domain/entity/user.py",
+      "app/user/domain/repository/user.py",
+      "app/user/domain/vo/location.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_fastapi_logging",
+     "members": [
+      "core/fastapi/dependencies/__init__.py",
+      "core/fastapi/dependencies/logging.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "core_fastapi_permission",
+     "members": [
+      "core/fastapi/dependencies/permission.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_redis_client",
+     "members": [
+      "core/helpers/redis.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_repository",
+     "members": [
+      "core/repository/base.py",
+      "core/repository/enum.py"
+     ],
+     "shared": false
+    }
+   ]
+  }
+ },
+ "C": {
+  "score": {
+   "precision": 0.462,
+   "precision_strict": 0.364,
+   "recall": 0.522,
+   "drawn": 33,
+   "components": 33,
+   "grouping_agreement": 0.907
+  },
+  "flagged": {
+   "C30": "marked shared but imports non-shared components: core_helpers, core_helpers_cache_base"
+  },
+  "review": [
+   "C30 cache_helpers -> cache_helpers: Component imports non-shared modules, so it cannot be marked shared."
+  ],
+  "notes": [
+   "D3,D4 -> auth_api_router: merge API router and its routes into one component",
+   "D5,D6 -> auth_api_v1_models: merge request and response models of auth v1",
+   "D12,D13 -> user_api_router: merge user API router and its endpoints",
+   "D14,D15 -> user_api_v1_models: merge request and response models of user v1",
+   "D28 -> db_session, db_init: split DB package: session handling is a distinct component",
+   "D27 -> core_config: configuration is passive support shared by many components",
+   "D34 -> cache_helpers, core_helpers_cache: cache utilities are generic helpers shared across the system",
+   "D31,D32 -> fastapi_common: merge FastAPI dependencies and middlewares into one technical layer"
+  ],
+  "issues": [],
+  "tokens": 1295,
+  "requests": 1,
+  "seconds": 63.2,
+  "grouping": {
+   "components": [
+    {
+     "key": "root",
+     "members": [
+      "main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app",
+     "members": [
+      "app/container.py",
+      "app/server.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "auth_api_router",
+     "members": [
+      "app/auth/adapter/input/api/__init__.py",
+      "app/auth/adapter/input/api/v1/auth.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "auth_api_v1_models",
+     "members": [
+      "app/auth/adapter/input/api/v1/request/__init__.py",
+      "app/auth/adapter/input/api/v1/response/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_auth_application_dto",
+     "members": [
+      "app/auth/application/dto/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_auth_application_exception",
+     "members": [
+      "app/auth/application/exception/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_auth_application_service",
+     "members": [
+      "app/auth/application/service/jwt.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_auth_domain_usecase",
+     "members": [
+      "app/auth/domain/usecase/jwt.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_user",
+     "members": [
+      "app/user/container.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "user_api_router",
+     "members": [
+      "app/user/adapter/input/api/__init__.py",
+      "app/user/adapter/input/api/v1/user.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "user_api_v1_models",
+     "members": [
+      "app/user/adapter/input/api/v1/request/__init__.py",
+      "app/user/adapter/input/api/v1/response/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_user_adapter_output_persistence",
+     "members": [
+      "app/user/adapter/output/persistence/repository_adapter.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_user_adapter_output_persistence_sqlalchemy",
+     "members": [
+      "app/user/adapter/output/persistence/sqlalchemy/user.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_user_application_dto",
+     "members": [
+      "app/user/application/dto/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_user_application_exception",
+     "members": [
+      "app/user/application/exception/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_user_application_service",
+     "members": [
+      "app/user/application/service/user.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_user_domain_command",
+     "members": [
+      "app/user/domain/command/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_user_domain_entity",
+     "members": [
+      "app/user/domain/entity/user.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_user_domain_repository",
+     "members": [
+      "app/user/domain/repository/user.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_user_domain_usecase",
+     "members": [
+      "app/user/domain/usecase/user.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "app_user_domain_vo",
+     "members": [
+      "app/user/domain/vo/location.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "celery_task",
+     "members": [
+      "celery_task/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_config",
+     "members": [
+      "core/config.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "db_session",
+     "members": [
+      "core/db/session.py",
+      "core/db/transactional.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "db_init",
+     "members": [
+      "core/db/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_db_mixins",
+     "members": [
+      "core/db/mixins/__init__.py",
+      "core/db/mixins/timestamp_mixin.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_exceptions",
+     "members": [
+      "core/exceptions/__init__.py",
+      "core/exceptions/base.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "fastapi_common",
+     "members": [
+      "core/fastapi/dependencies/__init__.py",
+      "core/fastapi/dependencies/logging.py",
+      "core/fastapi/dependencies/permission.py",
+      "core/fastapi/middlewares/__init__.py",
+      "core/fastapi/middlewares/authentication.py",
+      "core/fastapi/middlewares/response_log.py",
+      "core/fastapi/middlewares/sqlalchemy.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_helpers",
+     "members": [
+      "core/helpers/redis.py",
+      "core/helpers/token.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cache_helpers",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "core_helpers_cache",
+     "members": [
+      "core/helpers/cache/__init__.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_helpers_cache_base",
+     "members": [
+      "core/helpers/cache/base/__init__.py",
+      "core/helpers/cache/base/backend.py",
+      "core/helpers/cache/base/key_maker.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_repository",
+     "members": [
+      "core/repository/base.py",
+      "core/repository/enum.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "cache_helpers",
+     "members": [
+      "core/helpers/cache/cache_manager.py",
+      "core/helpers/cache/cache_tag.py",
+      "core/helpers/cache/custom_key_maker.py",
+      "core/helpers/cache/redis_backend.py"
+     ],
+     "shared": false
+    }
+   ]
+  }
+ },
+ "no_ai": {
+  "score": {
+   "precision": 0.455,
+   "precision_strict": 0.375,
+   "recall": 0.652,
+   "drawn": 40,
+   "components": 36,
+   "grouping_agreement": 0.963
+  }
+ }
+}

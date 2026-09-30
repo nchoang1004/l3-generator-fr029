@@ -1,0 +1,318 @@
+{
+ "A": {
+  "score": {
+   "precision": 0.688,
+   "precision_strict": 0.458,
+   "recall": 0.917,
+   "drawn": 24,
+   "components": 14,
+   "grouping_agreement": 0.981
+  },
+  "flagged": {},
+  "review": [],
+  "notes": [],
+  "issues": [
+   "1 files not grouped by AI; grouped by directory"
+  ],
+  "tokens": 0,
+  "requests": 0,
+  "seconds": 0.0,
+  "grouping": {
+   "components": [
+    {
+     "key": "entrypoint",
+     "members": [
+      "app/main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "config",
+     "members": [
+      "app/core/config.py",
+      "app/core/settings/"
+     ],
+     "shared": true
+    },
+    {
+     "key": "logging",
+     "members": [
+      "app/core/logging.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "db_connection",
+     "members": [
+      "app/db/events.py",
+      "app/db/errors.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "queries",
+     "members": [
+      "app/db/queries/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "repositories",
+     "members": [
+      "app/db/repositories/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "models",
+     "members": [
+      "app/models/common.py",
+      "app/models/domain/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "schemas",
+     "members": [
+      "app/models/schemas/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "dependencies",
+     "members": [
+      "app/api/dependencies/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_errors",
+     "members": [
+      "app/api/errors/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "routes",
+     "members": [
+      "app/api/routes/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "services",
+     "members": [
+      "app/services/"
+     ],
+     "shared": false
+    },
+    {
+     "key": "resources",
+     "members": [
+      "app/resources/strings.py"
+     ],
+     "shared": true
+    }
+   ]
+  }
+ },
+ "C": {
+  "score": {
+   "precision": 0.688,
+   "precision_strict": 0.458,
+   "recall": 0.917,
+   "drawn": 24,
+   "components": 15,
+   "grouping_agreement": 0.963
+  },
+  "flagged": {
+   "C5": "marked shared but imports non-shared components: db"
+  },
+  "review": [
+   "C5 core -> core_shared, core_events: Component was marked shared but imports db, so split into a shared config/logging component and a non-shared events component."
+  ],
+  "notes": [
+   "D4,D5 -> api_routes: Combine all route definitions into a single routing component.",
+   "D1 -> app_entry: Expose the application entrypoint.",
+   "D2 -> api_dependencies: Group dependency helpers used by the API layer.",
+   "D3 -> api_errors: Collect error handlers for the API.",
+   "D6 -> core: Provide shared core utilities such as configuration and logging.",
+   "D7 -> app_settings: Expose application settings as shared configuration.",
+   "D8 -> db: Handle database connection lifecycle.",
+   "D9 -> db_queries: Encapsulate raw SQL query definitions.",
+   "D10 -> db_repositories: Provide repository classes for data access.",
+   "D11 -> model_mixins: Define reusable model mixins.",
+   "D12 -> domain_models: Represent domain entities.",
+   "D13 -> api_schemas: Define request/response schemas for the API.",
+   "D14 -> resources: Store static resources such as string literals.",
+   "D15 -> services: Implement business logic services."
+  ],
+  "issues": [],
+  "tokens": 5168,
+  "requests": 2,
+  "seconds": 68.3,
+  "grouping": {
+   "components": [
+    {
+     "key": "app_entry",
+     "members": [
+      "app/main.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_dependencies",
+     "members": [
+      "app/api/dependencies/articles.py",
+      "app/api/dependencies/authentication.py",
+      "app/api/dependencies/comments.py",
+      "app/api/dependencies/database.py",
+      "app/api/dependencies/profiles.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_errors",
+     "members": [
+      "app/api/errors/http_error.py",
+      "app/api/errors/validation_error.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_routes",
+     "members": [
+      "app/api/routes/api.py",
+      "app/api/routes/authentication.py",
+      "app/api/routes/comments.py",
+      "app/api/routes/profiles.py",
+      "app/api/routes/tags.py",
+      "app/api/routes/users.py",
+      "app/api/routes/articles/api.py",
+      "app/api/routes/articles/articles_common.py",
+      "app/api/routes/articles/articles_resource.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core",
+     "members": [],
+     "shared": false
+    },
+    {
+     "key": "app_settings",
+     "members": [
+      "app/core/settings/app.py",
+      "app/core/settings/base.py",
+      "app/core/settings/development.py",
+      "app/core/settings/production.py",
+      "app/core/settings/test.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "db",
+     "members": [
+      "app/db/errors.py",
+      "app/db/events.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "db_queries",
+     "members": [
+      "app/db/queries/queries.py",
+      "app/db/queries/tables.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "db_repositories",
+     "members": [
+      "app/db/repositories/articles.py",
+      "app/db/repositories/base.py",
+      "app/db/repositories/comments.py",
+      "app/db/repositories/profiles.py",
+      "app/db/repositories/tags.py",
+      "app/db/repositories/users.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "model_mixins",
+     "members": [
+      "app/models/common.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "domain_models",
+     "members": [
+      "app/models/domain/articles.py",
+      "app/models/domain/comments.py",
+      "app/models/domain/profiles.py",
+      "app/models/domain/rwmodel.py",
+      "app/models/domain/users.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "api_schemas",
+     "members": [
+      "app/models/schemas/articles.py",
+      "app/models/schemas/comments.py",
+      "app/models/schemas/jwt.py",
+      "app/models/schemas/profiles.py",
+      "app/models/schemas/rwschema.py",
+      "app/models/schemas/tags.py",
+      "app/models/schemas/users.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "resources",
+     "members": [
+      "app/resources/strings.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "services",
+     "members": [
+      "app/services/articles.py",
+      "app/services/authentication.py",
+      "app/services/comments.py",
+      "app/services/jwt.py",
+      "app/services/security.py"
+     ],
+     "shared": false
+    },
+    {
+     "key": "core_shared",
+     "members": [
+      "app/core/config.py",
+      "app/core/logging.py"
+     ],
+     "shared": true
+    },
+    {
+     "key": "core_events",
+     "members": [
+      "app/core/events.py"
+     ],
+     "shared": false
+    }
+   ]
+  }
+ },
+ "no_ai": {
+  "score": {
+   "precision": 0.476,
+   "precision_strict": 0.345,
+   "recall": 0.833,
+   "drawn": 29,
+   "components": 15,
+   "grouping_agreement": 0.944
+  }
+ }
+}

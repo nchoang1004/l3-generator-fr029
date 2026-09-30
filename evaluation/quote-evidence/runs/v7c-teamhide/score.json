@@ -1,0 +1,194 @@
+{
+  "all": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 0.818,
+    "drawn": 9,
+    "hits": [
+      [
+        "app",
+        "mw"
+      ],
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "celery",
+        "ext:broker"
+      ],
+      [
+        "db",
+        "ext:mysql"
+      ],
+      [
+        "mw",
+        "db"
+      ],
+      [
+        "persist",
+        "db"
+      ],
+      [
+        "user_svc",
+        "db"
+      ],
+      [
+        "user_svc",
+        "persist"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": [
+      [
+        "routes",
+        "jwt_svc"
+      ],
+      [
+        "routes",
+        "user_svc"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 0.75,
+    "drawn": 6,
+    "hits": [
+      [
+        "app",
+        "mw"
+      ],
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "mw",
+        "db"
+      ],
+      [
+        "persist",
+        "db"
+      ],
+      [
+        "user_svc",
+        "db"
+      ],
+      [
+        "user_svc",
+        "persist"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": [
+      [
+        "routes",
+        "jwt_svc"
+      ],
+      [
+        "routes",
+        "user_svc"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 1.0,
+    "drawn": 3,
+    "hits": [
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "celery",
+        "ext:broker"
+      ],
+      [
+        "db",
+        "ext:mysql"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": []
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.481,
+  "components": 15,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "Xử lý middleware FastAPI",
+      "mw"
+    ],
+    "C3": [
+      "Điểm vào ứng dụng",
+      "app"
+    ],
+    "C4": [
+      "API router Auth và User",
+      "routes"
+    ],
+    "C5": [
+      "Cache service Redis",
+      "cache"
+    ],
+    "C6": [
+      "Quản lý giao dịch DB",
+      "db"
+    ],
+    "C7": [
+      "Adapter lưu trữ người dùng",
+      "persist"
+    ],
+    "C8": [
+      "Xử lý nghiệp vụ người dùng",
+      "user_svc"
+    ],
+    "C9": [
+      "Định nghĩa thực thể người dùng",
+      "persist"
+    ],
+    "C10": [
+      "Cơ sở lớp repository",
+      null
+    ],
+    "C11": [
+      "Repo SQLAlchemy",
+      "persist"
+    ],
+    "C12": [
+      "Celery task manager",
+      "celery"
+    ],
+    "C13": [
+      "Engine DB async",
+      "db"
+    ],
+    "C14": [
+      "Redis client helper",
+      "cache"
+    ],
+    "C15": [
+      "Dùng chung",
+      "routes"
+    ]
+  },
+  "files_outside_oracle": [
+    "core/repository/base.py",
+    "core/repository/enum.py"
+  ]
+}

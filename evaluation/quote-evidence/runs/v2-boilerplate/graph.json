@@ -1,0 +1,3444 @@
+{
+  "meta": {
+    "repo": "fastapi-boilerplate",
+    "status": "partial",
+    "files": 99,
+    "issues": [
+      "16 files not grouped by AI; grouped by directory",
+      "3 candidate edges without a valid classification"
+    ],
+    "model": "openai/gpt-oss-120b",
+    "timing": {
+      "total_s": 1057.7,
+      "local_s": 0.22,
+      "ai_s": 1057.5,
+      "model_s": 87.8,
+      "waiting_s": 969.7
+    },
+    "tokens": 73174,
+    "requests": 19,
+    "cached": 0,
+    "calls": [
+      {
+        "at": "2026-09-28T09:54:49",
+        "step": "group",
+        "status": 400,
+        "seconds": 9.92,
+        "estimated": 6756,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "error": "Failed to validate JSON. Please adjust your prompt. See 'failed_generation' for more details.",
+        "note": "empty answer; retry with reasoning_effort=low"
+      },
+      {
+        "at": "2026-09-28T09:55:56",
+        "step": "group",
+        "status": 200,
+        "seconds": 5.54,
+        "estimated": 6756,
+        "prompt_tokens": 1875,
+        "completion_tokens": 2276,
+        "total_tokens": 4151,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T09:57:03",
+        "step": "describe-1",
+        "status": 200,
+        "seconds": 6.13,
+        "estimated": 6019,
+        "prompt_tokens": 2123,
+        "completion_tokens": 2580,
+        "total_tokens": 4703,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T09:58:09",
+        "step": "describe-2",
+        "status": 200,
+        "seconds": 4.91,
+        "estimated": 6020,
+        "prompt_tokens": 2148,
+        "completion_tokens": 1820,
+        "total_tokens": 3968,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T09:59:16",
+        "step": "describe-3",
+        "status": 200,
+        "seconds": 5.95,
+        "estimated": 6685,
+        "prompt_tokens": 2619,
+        "completion_tokens": 2400,
+        "total_tokens": 5019,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:00:19",
+        "step": "describe-4",
+        "status": 200,
+        "seconds": 2.57,
+        "estimated": 5478,
+        "prompt_tokens": 1721,
+        "completion_tokens": 906,
+        "total_tokens": 2627,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:01:23",
+        "step": "describe-5",
+        "status": 200,
+        "seconds": 2.52,
+        "estimated": 5548,
+        "prompt_tokens": 1755,
+        "completion_tokens": 859,
+        "total_tokens": 2614,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:02:28",
+        "step": "describe-6",
+        "status": 200,
+        "seconds": 3.74,
+        "estimated": 5639,
+        "prompt_tokens": 1915,
+        "completion_tokens": 1427,
+        "total_tokens": 3342,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:03:32",
+        "step": "describe-7",
+        "status": 200,
+        "seconds": 3.77,
+        "estimated": 5831,
+        "prompt_tokens": 2005,
+        "completion_tokens": 1510,
+        "total_tokens": 3515,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:04:41",
+        "step": "describe-8",
+        "status": 200,
+        "seconds": 7.89,
+        "estimated": 6732,
+        "prompt_tokens": 2716,
+        "completion_tokens": 3553,
+        "total_tokens": 6269,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:05:46",
+        "step": "describe-9",
+        "status": 200,
+        "seconds": 3.26,
+        "estimated": 6006,
+        "prompt_tokens": 2138,
+        "completion_tokens": 1203,
+        "total_tokens": 3341,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:06:53",
+        "step": "describe-10",
+        "status": 200,
+        "seconds": 5.99,
+        "estimated": 6425,
+        "prompt_tokens": 2496,
+        "completion_tokens": 2334,
+        "total_tokens": 4830,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:08:01",
+        "step": "describe-11",
+        "status": 200,
+        "seconds": 7.12,
+        "estimated": 6712,
+        "prompt_tokens": 2781,
+        "completion_tokens": 2666,
+        "total_tokens": 5447,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:09:06",
+        "step": "describe-12",
+        "status": 200,
+        "seconds": 4.74,
+        "estimated": 5883,
+        "prompt_tokens": 2171,
+        "completion_tokens": 1947,
+        "total_tokens": 4118,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:10:10",
+        "step": "describe-13",
+        "status": 200,
+        "seconds": 2.43,
+        "estimated": 5265,
+        "prompt_tokens": 1624,
+        "completion_tokens": 851,
+        "total_tokens": 2475,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:10:13",
+        "step": "describe-14",
+        "status": 200,
+        "seconds": 2.89,
+        "estimated": 5154,
+        "prompt_tokens": 1539,
+        "completion_tokens": 931,
+        "total_tokens": 2470,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:11:14",
+        "step": "describe-15",
+        "status": 200,
+        "seconds": 2.67,
+        "estimated": 5186,
+        "prompt_tokens": 1550,
+        "completion_tokens": 1012,
+        "total_tokens": 2562,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:11:17",
+        "step": "describe-16",
+        "status": 200,
+        "seconds": 3.39,
+        "estimated": 5222,
+        "prompt_tokens": 1602,
+        "completion_tokens": 1308,
+        "total_tokens": 2910,
+        "error": ""
+      },
+      {
+        "at": "2026-09-28T10:12:17",
+        "step": "describe-17",
+        "status": 200,
+        "seconds": 2.42,
+        "estimated": 5034,
+        "prompt_tokens": 1465,
+        "completion_tokens": 592,
+        "total_tokens": 2057,
+        "error": ""
+      }
+    ],
+    "candidate_edges": 108,
+    "grouping": {
+      "components": [
+        {
+          "key": "app_factory",
+          "members": [
+            "backend/src/infrastructure/app_factory.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "infra_dependencies",
+          "members": [
+            "backend/src/infrastructure/dependencies.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "middleware",
+          "members": [
+            "backend/src/infrastructure/middleware.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "redis_client",
+          "members": [
+            "backend/src/infrastructure/redis.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "auth_routes",
+          "members": [
+            "backend/src/infrastructure/auth/routes.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "auth_dependencies",
+          "members": [
+            "backend/src/infrastructure/auth/dependencies.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "auth_setup",
+          "members": [
+            "backend/src/infrastructure/auth/setup.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "cache_core",
+          "members": [
+            "backend/src/infrastructure/cache/base.py",
+            "backend/src/infrastructure/cache/decorator.py",
+            "backend/src/infrastructure/cache/exceptions.py",
+            "backend/src/infrastructure/cache/initialize.py",
+            "backend/src/infrastructure/cache/provider.py",
+            "backend/src/infrastructure/cache/utils.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "cache_backends",
+          "members": [
+            "backend/src/infrastructure/cache/backends/memcached.py",
+            "backend/src/infrastructure/cache/backends/redis.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "config_settings",
+          "members": [
+            "backend/src/infrastructure/config/settings.py"
+          ],
+          "shared": true
+        },
+        {
+          "key": "config_enums",
+          "members": [
+            "backend/src/infrastructure/config/enums.py"
+          ],
+          "shared": true
+        },
+        {
+          "key": "db_session",
+          "members": [
+            "backend/src/infrastructure/database/session.py",
+            "backend/src/infrastructure/database/initialize.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "db_models",
+          "members": [
+            "backend/src/infrastructure/database/models.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "logging_config",
+          "members": [
+            "backend/src/infrastructure/logging/config.py",
+            "backend/src/infrastructure/logging/factory.py",
+            "backend/src/infrastructure/logging/formatters.py",
+            "backend/src/infrastructure/logging/handlers.py"
+          ],
+          "shared": true
+        },
+        {
+          "key": "security_production",
+          "members": [
+            "backend/src/infrastructure/security/production_validator.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "taskiq_worker",
+          "members": [
+            "backend/src/infrastructure/taskiq/app.py",
+            "backend/src/infrastructure/taskiq/worker.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "taskiq_brokers",
+          "members": [
+            "backend/src/infrastructure/taskiq/brokers.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "taskiq_deps",
+          "members": [
+            "backend/src/infrastructure/taskiq/deps.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "taskiq_registry",
+          "members": [
+            "backend/src/infrastructure/taskiq/registry.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "api_entrypoint",
+          "members": [
+            "backend/src/interfaces/main.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "admin_interface",
+          "members": [
+            "backend/src/interfaces/admin/auth.py",
+            "backend/src/interfaces/admin/initialize.py",
+            "backend/src/interfaces/admin/mixins.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "admin_views",
+          "members": [
+            "backend/src/interfaces/admin/views/__init__.py",
+            "backend/src/interfaces/admin/views/tiers.py",
+            "backend/src/interfaces/admin/views/users.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "api_router",
+          "members": [
+            "backend/src/interfaces/api/__init__.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "api_v1_router",
+          "members": [
+            "backend/src/interfaces/api/v1/__init__.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "api_keys_module",
+          "members": [
+            "backend/src/modules/api_keys/crud.py",
+            "backend/src/modules/api_keys/dependencies.py",
+            "backend/src/modules/api_keys/enums.py",
+            "backend/src/modules/api_keys/models.py",
+            "backend/src/modules/api_keys/routes.py",
+            "backend/src/modules/api_keys/schemas.py",
+            "backend/src/modules/api_keys/service.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "common_shared",
+          "members": [
+            "backend/src/modules/common/constants.py",
+            "backend/src/modules/common/exceptions.py",
+            "backend/src/modules/common/schemas.py"
+          ],
+          "shared": true
+        },
+        {
+          "key": "common_utils",
+          "members": [
+            "backend/src/modules/common/utils/error_handler.py",
+            "backend/src/modules/common/utils/logger.py"
+          ],
+          "shared": true
+        },
+        {
+          "key": "rate_limit_module",
+          "members": [
+            "backend/src/modules/rate_limit/crud.py",
+            "backend/src/modules/rate_limit/dependencies.py",
+            "backend/src/modules/rate_limit/models.py",
+            "backend/src/modules/rate_limit/routes.py",
+            "backend/src/modules/rate_limit/schemas.py",
+            "backend/src/modules/rate_limit/service.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "tier_module",
+          "members": [
+            "backend/src/modules/tier/crud.py",
+            "backend/src/modules/tier/dependencies.py",
+            "backend/src/modules/tier/models.py",
+            "backend/src/modules/tier/routes.py",
+            "backend/src/modules/tier/schemas.py",
+            "backend/src/modules/tier/service.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "user_module",
+          "members": [
+            "backend/src/modules/user/constants.py",
+            "backend/src/modules/user/crud.py",
+            "backend/src/modules/user/dependencies.py",
+            "backend/src/modules/user/enums.py",
+            "backend/src/modules/user/models.py",
+            "backend/src/modules/user/routes.py",
+            "backend/src/modules/user/schemas.py",
+            "backend/src/modules/user/service.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "cli_app",
+          "members": [
+            "cli/src/cli/app.py",
+            "cli/src/cli/plugins.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "cli_commands_deploy",
+          "members": [
+            "cli/src/cli/commands/deploy.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "cli_commands_env",
+          "members": [
+            "cli/src/cli/commands/env.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "cli_features",
+          "members": [
+            "cli/src/cli/features/__init__.py",
+            "cli/src/cli/features/base.py",
+            "cli/src/cli/features/installer.py",
+            "cli/src/cli/features/registry.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "cli_builtin_deploy",
+          "members": [
+            "cli/src/cli/features/_builtins/deploy/feature.py"
+          ],
+          "shared": false
+        },
+        {
+          "key": "cli_lib",
+          "members": [
+            "cli/src/cli/lib/project.py",
+            "cli/src/cli/lib/prompts.py",
+            "cli/src/cli/lib/render.py"
+          ],
+          "shared": false
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "id": "C1",
+      "key": "app_factory",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/app_factory.py"
+      ],
+      "name": "Factory ứng dụng FastAPI",
+      "role": "Tạo và cấu hình ứng dụng FastAPI, khởi tạo DB, cache, middleware, auth và tài liệu.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/app_factory.py",
+        "line": 35,
+        "text": "logger = logging.getLogger(__name__)"
+      },
+      "described": true
+    },
+    {
+      "id": "C2",
+      "key": "infra_dependencies",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/dependencies.py"
+      ],
+      "name": "Định nghĩa phụ thuộc hạ tầng",
+      "role": "Định nghĩa các phụ thuộc cho DB và xác thực dùng Depends.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/dependencies.py",
+        "line": 11,
+        "text": "AsyncSessionDep = Annotated[AsyncSession, Depends(async_session)]"
+      },
+      "described": true
+    },
+    {
+      "id": "C3",
+      "key": "middleware",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/middleware.py"
+      ],
+      "name": "Middleware cache và bảo mật",
+      "role": "Định nghĩa middleware cho cache và bảo mật.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/middleware.py",
+        "line": 11,
+        "text": "class ClientCacheMiddleware(BaseHTTPMiddleware):"
+      },
+      "described": true
+    },
+    {
+      "id": "C4",
+      "key": "redis_client",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/redis.py"
+      ],
+      "name": "Redis client",
+      "role": "Tạo các client Redis để dùng làm cache và bộ giới hạn tốc độ.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/redis.py",
+        "line": 7,
+        "text": "settings = get_settings()"
+      },
+      "described": true
+    },
+    {
+      "id": "C5",
+      "key": "auth_routes",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/auth/routes.py"
+      ],
+      "name": "Router xác thực",
+      "role": "Định nghĩa các endpoint API cho xác thực người dùng.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/auth/routes.py",
+        "line": 18,
+        "text": "router = APIRouter(tags=[\"Authentication\"])"
+      },
+      "described": true
+    },
+    {
+      "id": "C6",
+      "key": "auth_dependencies",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/auth/dependencies.py"
+      ],
+      "name": "Auth dependencies",
+      "role": "Cung cấp các phụ thuộc FastAPI để lấy principal và người dùng hiện tại.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/auth/dependencies.py",
+        "line": 22,
+        "text": "async def get_current_principal("
+      },
+      "described": true
+    },
+    {
+      "id": "C7",
+      "key": "auth_setup",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/auth/setup.py"
+      ],
+      "name": "Cài đặt xác thực",
+      "role": "Thiết lập các thành phần xác thực và phụ thuộc",
+      "role_quote": {
+        "file": "backend/src/infrastructure/auth/setup.py",
+        "line": 81,
+        "text": "auth = CRUDAuth("
+      },
+      "described": true
+    },
+    {
+      "id": "C8",
+      "key": "cache_core",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/cache/base.py",
+        "backend/src/infrastructure/cache/decorator.py",
+        "backend/src/infrastructure/cache/exceptions.py",
+        "backend/src/infrastructure/cache/initialize.py",
+        "backend/src/infrastructure/cache/provider.py",
+        "backend/src/infrastructure/cache/utils.py"
+      ],
+      "name": "Cốt lõi bộ nhớ đệm",
+      "role": "Quản lý khởi tạo và cấu hình các backend cache",
+      "role_quote": {
+        "file": "backend/src/infrastructure/cache/initialize.py",
+        "line": 9,
+        "text": "if MEMCACHED_INSTALLED:"
+      },
+      "described": true
+    },
+    {
+      "id": "C9",
+      "key": "cache_backends",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/cache/backends/memcached.py",
+        "backend/src/infrastructure/cache/backends/redis.py"
+      ],
+      "name": "Backend cache",
+      "role": "Định nghĩa các backend cho cache như Redis và Memcached",
+      "role_quote": {
+        "file": "backend/src/infrastructure/cache/backends/redis.py",
+        "line": 41,
+        "text": "class RedisBackend(CacheBackend):"
+      },
+      "described": true
+    },
+    {
+      "id": "C10",
+      "key": "config_settings",
+      "shared": true,
+      "files": [
+        "backend/src/infrastructure/config/settings.py"
+      ],
+      "name": "Cài đặt cấu hình",
+      "role": "Định nghĩa các lớp cấu hình môi trường, cơ sở dữ liệu, cache, rate limiter và CORS.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/config/settings.py",
+        "line": 35,
+        "text": "class EnvironmentOption(StrEnum):"
+      },
+      "described": true
+    },
+    {
+      "id": "C11",
+      "key": "config_enums",
+      "shared": true,
+      "files": [
+        "backend/src/infrastructure/config/enums.py"
+      ],
+      "name": "Enum cấu hình",
+      "role": "Định nghĩa các enum cho backend cache, session, rate limiter, broker, log level và format.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/config/enums.py",
+        "line": 6,
+        "text": "class CacheBackend(StrEnum):"
+      },
+      "described": true
+    },
+    {
+      "id": "C12",
+      "key": "db_session",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/database/initialize.py",
+        "backend/src/infrastructure/database/session.py"
+      ],
+      "name": "Phiên làm việc DB",
+      "role": "Khởi tạo engine bất đồng bộ cho cơ sở dữ liệu dựa trên URL cấu hình.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/database/session.py",
+        "line": 28,
+        "text": "return create_async_engine(settings.DATABASE_URL, **options)"
+      },
+      "described": true
+    },
+    {
+      "id": "C13",
+      "key": "db_models",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/database/models.py"
+      ],
+      "name": "Định nghĩa mô hình dữ liệu",
+      "role": "Định nghĩa các mixin và mô hình ORM cho cơ sở dữ liệu.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/database/models.py",
+        "line": 10,
+        "text": "class UUIDMixin(MappedAsDataclass):"
+      },
+      "described": true
+    },
+    {
+      "id": "C14",
+      "key": "logging_config",
+      "shared": true,
+      "files": [
+        "backend/src/infrastructure/logging/config.py",
+        "backend/src/infrastructure/logging/factory.py",
+        "backend/src/infrastructure/logging/formatters.py",
+        "backend/src/infrastructure/logging/handlers.py"
+      ],
+      "name": "Cấu hình hệ thống ghi log",
+      "role": "Cung cấp các lớp bộ lọc, định dạng và xử lý log.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/logging/formatters.py",
+        "line": 20,
+        "text": "class SimpleFormatter(logging.Formatter):"
+      },
+      "described": true
+    },
+    {
+      "id": "C15",
+      "key": "security_production",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/security/production_validator.py"
+      ],
+      "name": "Kiểm tra bảo mật môi trường",
+      "role": "Thực hiện xác thực và kiểm tra bảo mật trong môi trường production.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/security/production_validator.py",
+        "line": 16,
+        "text": "class ProductionSecurityError(Exception):"
+      },
+      "described": true
+    },
+    {
+      "id": "C16",
+      "key": "taskiq_worker",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/taskiq/app.py",
+        "backend/src/infrastructure/taskiq/worker.py"
+      ],
+      "name": "Worker xử lý taskiq",
+      "role": "Cài đặt vòng đời broker cho worker taskiq",
+      "role_quote": {
+        "file": "backend/src/infrastructure/taskiq/worker.py",
+        "line": 7,
+        "text": "configure_broker_lifecycle(default_broker)"
+      },
+      "described": true
+    },
+    {
+      "id": "C17",
+      "key": "taskiq_brokers",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/taskiq/brokers.py"
+      ],
+      "name": "Cấu hình broker taskiq",
+      "role": "Định nghĩa broker mặc định cho Redis và RabbitMQ",
+      "role_quote": {
+        "file": "backend/src/infrastructure/taskiq/brokers.py",
+        "line": 52,
+        "text": "default_broker = create_default_broker()"
+      },
+      "described": true
+    },
+    {
+      "id": "C18",
+      "key": "taskiq_deps",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/taskiq/deps.py"
+      ],
+      "name": "Phụ thuộc taskiq",
+      "role": "Xây dựng engine async và session cho taskiq",
+      "role_quote": {
+        "file": "backend/src/infrastructure/taskiq/deps.py",
+        "line": 20,
+        "text": "_engine = build_engine(poolclass=NullPool)"
+      },
+      "described": true
+    },
+    {
+      "id": "C19",
+      "key": "taskiq_registry",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/taskiq/registry.py"
+      ],
+      "name": "Đăng ký task",
+      "role": "Định nghĩa lớp TaskRegistry và tạo một thể hiện toàn cục.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/taskiq/registry.py",
+        "line": 11,
+        "text": "class TaskRegistry:"
+      },
+      "described": true
+    },
+    {
+      "id": "C20",
+      "key": "api_entrypoint",
+      "shared": false,
+      "files": [
+        "backend/src/interfaces/main.py"
+      ],
+      "name": "Điểm vào API",
+      "role": "Khởi tạo ứng dụng FastAPI, cấu hình bảo mật, admin và router.",
+      "role_quote": {
+        "file": "backend/src/interfaces/main.py",
+        "line": 28,
+        "text": "app = create_application("
+      },
+      "described": true
+    },
+    {
+      "id": "C21",
+      "key": "admin_interface",
+      "shared": false,
+      "files": [
+        "backend/src/interfaces/admin/auth.py",
+        "backend/src/interfaces/admin/initialize.py",
+        "backend/src/interfaces/admin/mixins.py"
+      ],
+      "name": "Giao diện admin",
+      "role": "Tạo admin interface, khởi tạo engine DB và đăng ký các view admin.",
+      "role_quote": {
+        "file": "backend/src/interfaces/admin/initialize.py",
+        "line": 29,
+        "text": "engine=get_engine()"
+      },
+      "described": true
+    },
+    {
+      "id": "C22",
+      "key": "admin_views",
+      "shared": false,
+      "files": [
+        "backend/src/interfaces/admin/views/__init__.py",
+        "backend/src/interfaces/admin/views/tiers.py",
+        "backend/src/interfaces/admin/views/users.py"
+      ],
+      "name": "Giao diện admin",
+      "role": "Định nghĩa các lớp admin cho Tier và User, và quản lý phiên DB.",
+      "role_quote": {
+        "file": "backend/src/interfaces/admin/views/tiers.py",
+        "line": 14,
+        "text": "class TierAdmin(DataclassModelMixin, ModelView, model=Tier):"
+      },
+      "described": true
+    },
+    {
+      "id": "C23",
+      "key": "api_router",
+      "shared": false,
+      "files": [
+        "backend/src/interfaces/api/__init__.py"
+      ],
+      "name": "Router API",
+      "role": "Tạo router chính và gắn router v1 và auth vào.",
+      "role_quote": {
+        "file": "backend/src/interfaces/api/__init__.py",
+        "line": 6,
+        "text": "router = APIRouter()"
+      },
+      "described": true
+    },
+    {
+      "id": "C24",
+      "key": "api_v1_router",
+      "shared": false,
+      "files": [
+        "backend/src/interfaces/api/v1/__init__.py"
+      ],
+      "name": "Router API v1",
+      "role": "Định nghĩa router phiên bản 1 và gắn các router module con.",
+      "role_quote": {
+        "file": "backend/src/interfaces/api/v1/__init__.py",
+        "line": 11,
+        "text": "router = APIRouter(prefix=\"/v1\")"
+      },
+      "described": true
+    },
+    {
+      "id": "C25",
+      "key": "api_keys_module",
+      "shared": false,
+      "files": [
+        "backend/src/modules/api_keys/crud.py",
+        "backend/src/modules/api_keys/dependencies.py",
+        "backend/src/modules/api_keys/enums.py",
+        "backend/src/modules/api_keys/models.py",
+        "backend/src/modules/api_keys/routes.py",
+        "backend/src/modules/api_keys/schemas.py",
+        "backend/src/modules/api_keys/service.py"
+      ],
+      "name": "Module quản lý API Key",
+      "role": "Cung cấp CRUD, dịch vụ và router cho quản lý API Key.",
+      "role_quote": {
+        "file": "backend/src/modules/api_keys/routes.py",
+        "line": 17,
+        "text": "router = APIRouter(tags=[\"API Keys\"])"
+      },
+      "described": true
+    },
+    {
+      "id": "C26",
+      "key": "common_shared",
+      "shared": true,
+      "files": [
+        "backend/src/modules/common/constants.py",
+        "backend/src/modules/common/exceptions.py",
+        "backend/src/modules/common/schemas.py"
+      ],
+      "name": "Thư viện chung",
+      "role": "Định nghĩa hằng số, ngoại lệ và schema chung cho các mô-đun.",
+      "role_quote": {
+        "file": "backend/src/modules/common/constants.py",
+        "line": 29,
+        "text": "GENERIC_ERROR_MESSAGE = \"Something went wrong. Please try again.\""
+      },
+      "described": true
+    },
+    {
+      "id": "C27",
+      "key": "common_utils",
+      "shared": true,
+      "files": [
+        "backend/src/modules/common/utils/error_handler.py",
+        "backend/src/modules/common/utils/logger.py"
+      ],
+      "name": "Tiện ích chung",
+      "role": "Cung cấp hàm logger và middleware xử lý lỗi chung.",
+      "role_quote": {
+        "file": "backend/src/modules/common/utils/logger.py",
+        "line": 15,
+        "text": "def get_logger(name: str, level: int | None = None) -> logging.Logger | logging.LoggerAdapter[logging.Logger]:"
+      },
+      "described": true
+    },
+    {
+      "id": "C28",
+      "key": "rate_limit_module",
+      "shared": false,
+      "files": [
+        "backend/src/modules/rate_limit/crud.py",
+        "backend/src/modules/rate_limit/dependencies.py",
+        "backend/src/modules/rate_limit/models.py",
+        "backend/src/modules/rate_limit/routes.py",
+        "backend/src/modules/rate_limit/schemas.py",
+        "backend/src/modules/rate_limit/service.py"
+      ],
+      "name": "Module giới hạn tần suất",
+      "role": "Cung cấp CRUD và API cho cấu hình giới hạn tần suất truy cập",
+      "role_quote": {
+        "file": "backend/src/modules/rate_limit/routes.py",
+        "line": 13,
+        "text": "router = APIRouter(tags=[\"Rate Limits\"])"
+      },
+      "described": true
+    },
+    {
+      "id": "C29",
+      "key": "tier_module",
+      "shared": false,
+      "files": [
+        "backend/src/modules/tier/crud.py",
+        "backend/src/modules/tier/dependencies.py",
+        "backend/src/modules/tier/models.py",
+        "backend/src/modules/tier/routes.py",
+        "backend/src/modules/tier/schemas.py",
+        "backend/src/modules/tier/service.py"
+      ],
+      "name": "Module cấp bậc",
+      "role": "Quản lý cấp bậc người dùng và liên kết với rate limit",
+      "role_quote": {
+        "file": "backend/src/modules/tier/routes.py",
+        "line": 10,
+        "text": "router = APIRouter(tags=[\"Tiers\"])"
+      },
+      "described": true
+    },
+    {
+      "id": "C30",
+      "key": "user_module",
+      "shared": false,
+      "files": [
+        "backend/src/modules/user/constants.py",
+        "backend/src/modules/user/crud.py",
+        "backend/src/modules/user/dependencies.py",
+        "backend/src/modules/user/enums.py",
+        "backend/src/modules/user/models.py",
+        "backend/src/modules/user/routes.py",
+        "backend/src/modules/user/schemas.py",
+        "backend/src/modules/user/service.py"
+      ],
+      "name": "Module người dùng",
+      "role": "Quản lý các thao tác CRUD và dịch vụ người dùng.",
+      "role_quote": {
+        "file": "backend/src/modules/user/crud.py",
+        "line": 5,
+        "text": "crud_users: FastCRUD = FastCRUD(User)"
+      },
+      "described": true
+    },
+    {
+      "id": "C31",
+      "key": "cli_app",
+      "shared": false,
+      "files": [
+        "cli/src/cli/app.py",
+        "cli/src/cli/plugins.py"
+      ],
+      "name": "Ứng dụng CLI",
+      "role": "Khởi tạo ứng dụng Typer và gắn các sub‑command.",
+      "role_quote": {
+        "file": "cli/src/cli/app.py",
+        "line": 16,
+        "text": "app = typer.Typer("
+      },
+      "described": true
+    },
+    {
+      "id": "C32",
+      "key": "cli_commands_deploy",
+      "shared": false,
+      "files": [
+        "cli/src/cli/commands/deploy.py"
+      ],
+      "name": "Lệnh deploy CLI",
+      "role": "Định nghĩa lệnh CLI để tạo artefacts triển khai.",
+      "role_quote": {
+        "file": "cli/src/cli/commands/deploy.py",
+        "line": 20,
+        "text": "app = typer.Typer(no_args_is_help=True, help=\"Generate deployment artifacts.\")"
+      },
+      "described": true
+    },
+    {
+      "id": "C33",
+      "key": "cli_commands_env",
+      "shared": false,
+      "files": [
+        "cli/src/cli/commands/env.py"
+      ],
+      "name": "Lệnh môi trường CLI",
+      "role": "Định nghĩa các lệnh CLI để kiểm tra và chuẩn bị môi trường runtime.",
+      "role_quote": {
+        "file": "cli/src/cli/commands/env.py",
+        "line": 32,
+        "text": "app = typer.Typer(no_args_is_help=True, help=\"Inspect and prepare the runtime environment.\")"
+      },
+      "described": true
+    },
+    {
+      "id": "C34",
+      "key": "cli_features",
+      "shared": false,
+      "files": [
+        "cli/src/cli/features/__init__.py",
+        "cli/src/cli/features/base.py",
+        "cli/src/cli/features/installer.py",
+        "cli/src/cli/features/registry.py"
+      ],
+      "name": "Tính năng CLI",
+      "role": "Quản lý và cài đặt các tính năng cho CLI.",
+      "role_quote": {
+        "file": "cli/src/cli/features/registry.py",
+        "line": 31,
+        "text": "for name, feature in _plugins.discover_feature_plugins().items():"
+      },
+      "described": true
+    },
+    {
+      "id": "C35",
+      "key": "cli_builtin_deploy",
+      "shared": false,
+      "files": [
+        "cli/src/cli/features/_builtins/deploy/feature.py"
+      ],
+      "name": "Triển khai tính năng CLI",
+      "role": "Định nghĩa tính năng triển khai dự án cho CLI.",
+      "role_quote": {
+        "file": "cli/src/cli/features/_builtins/deploy/feature.py",
+        "line": 27,
+        "text": "class DeployFeature(Feature):"
+      },
+      "described": true
+    },
+    {
+      "id": "C36",
+      "key": "cli_lib",
+      "shared": false,
+      "files": [
+        "cli/src/cli/lib/project.py",
+        "cli/src/cli/lib/prompts.py",
+        "cli/src/cli/lib/render.py"
+      ],
+      "name": "Thư viện CLI",
+      "role": "cung cấp các hàm hỗ trợ CLI như xác nhận ghi đè và render template",
+      "role_quote": {
+        "file": "cli/src/cli/lib/prompts.py",
+        "line": 16,
+        "text": "return typer.confirm(f\"{path} already exists. Overwrite?\", default=False)"
+      },
+      "described": true
+    },
+    {
+      "id": "C37",
+      "key": "dir:backend/src/infrastructure",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/__init__.py"
+      ],
+      "name": "Cơ sở hạ tầng",
+      "role": "khai báo các thành phần công khai của package hạ tầng",
+      "role_quote": {
+        "file": "backend/src/infrastructure/__init__.py",
+        "line": 6,
+        "text": "__all__ = ["
+      },
+      "described": true
+    },
+    {
+      "id": "C38",
+      "key": "dir:backend/src/infrastructure/auth",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/auth/__init__.py",
+        "backend/src/infrastructure/auth/http_exceptions.py",
+        "backend/src/infrastructure/auth/password_policy.py"
+      ],
+      "name": "Cơ sở hạ tầng xác thực",
+      "role": "cung cấp các exception HTTP cho auth và cấu hình chính sách mật khẩu",
+      "role_quote": {
+        "file": "backend/src/infrastructure/auth/password_policy.py",
+        "line": 7,
+        "text": "password_policy = PasswordPolicy("
+      },
+      "described": true
+    },
+    {
+      "id": "C39",
+      "key": "dir:backend/src/infrastructure/cache",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/cache/__init__.py"
+      ],
+      "name": "Kiểm tra Memcached",
+      "role": "Xác định xem thư viện Memcached (aiomcache) có được cài đặt hay không.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/cache/__init__.py",
+        "line": 7,
+        "text": "MEMCACHED_INSTALLED = find_spec(\"aiomcache\") is not None"
+      },
+      "described": true
+    },
+    {
+      "id": "C40",
+      "key": "dir:backend/src/infrastructure/cache/backends",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/cache/backends/__init__.py"
+      ],
+      "name": "Định nghĩa xuất khẩu backend",
+      "role": "Mở rộng danh sách __all__ để xuất khẩu các backend cache.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/cache/backends/__init__.py",
+        "line": 32,
+        "text": "__all__.append(\"***\")"
+      },
+      "described": true
+    },
+    {
+      "id": "C41",
+      "key": "dir:backend/src/infrastructure/config",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/config/__init__.py"
+      ],
+      "name": "Xuất khẩu cấu hình",
+      "role": "Khai báo các thành phần công khai và nhập các enum cấu hình.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/config/__init__.py",
+        "line": 4,
+        "text": "__all__ = ["
+      },
+      "described": true
+    },
+    {
+      "id": "C42",
+      "key": "dir:backend/src/infrastructure/database",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/database/__init__.py"
+      ],
+      "name": "Khởi tạo database service",
+      "role": "Cung cấp các hàm khởi tạo và quản lý kết nối cơ sở dữ liệu",
+      "role_quote": {
+        "file": "backend/src/infrastructure/database/__init__.py",
+        "line": 21,
+        "text": "return get_engine()"
+      },
+      "described": true
+    },
+    {
+      "id": "C43",
+      "key": "dir:backend/src/infrastructure/logging",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/logging/__init__.py"
+      ],
+      "name": "Cấu hình logging",
+      "role": "Định nghĩa các đối tượng logging được xuất khẩu",
+      "role_quote": {
+        "file": "backend/src/infrastructure/logging/__init__.py",
+        "line": 30,
+        "text": "__all__ = ["
+      },
+      "described": true
+    },
+    {
+      "id": "C44",
+      "key": "dir:backend/src/infrastructure/security",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/security/__init__.py"
+      ],
+      "name": "Bảo mật production",
+      "role": "Xuất khẩu các lớp và hàm kiểm tra bảo mật sản xuất",
+      "role_quote": {
+        "file": "backend/src/infrastructure/security/__init__.py",
+        "line": 5,
+        "text": "__all__ = [\"ProductionSecurityValidator\", \"ProductionSecurityError\", \"validate_production_security\"]"
+      },
+      "described": true
+    },
+    {
+      "id": "C45",
+      "key": "dir:backend/src/infrastructure/taskiq",
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/taskiq/__init__.py"
+      ],
+      "name": "Cung cấp broker taskiq",
+      "role": "Xuất khẩu broker mặc định cho TaskIQ",
+      "role_quote": {
+        "file": "backend/src/infrastructure/taskiq/__init__.py",
+        "line": 3,
+        "text": "from .brokers import default_broker"
+      },
+      "described": true
+    },
+    {
+      "id": "C46",
+      "key": "dir:backend/src/modules",
+      "shared": false,
+      "files": [
+        "backend/src/modules/__init__.py"
+      ],
+      "name": "Đăng ký mô-đun API keys",
+      "role": "Xuất khẩu các model APIKey và quyền liên quan",
+      "role_quote": {
+        "file": "backend/src/modules/__init__.py",
+        "line": 3,
+        "text": "from .api_keys.models import APIKey, KeyPermission, KeyUsage"
+      },
+      "described": true
+    },
+    {
+      "id": "C47",
+      "key": "dir:backend/src/modules/api_keys",
+      "shared": false,
+      "files": [
+        "backend/src/modules/api_keys/__init__.py"
+      ],
+      "name": "Cung cấp CRUD và model cho API keys",
+      "role": "Xuất khẩu các hàm CRUD và model liên quan tới API keys",
+      "role_quote": {
+        "file": "backend/src/modules/api_keys/__init__.py",
+        "line": 15,
+        "text": "from .crud import crud_api_keys, crud_key_permissions, crud_key_usage"
+      },
+      "described": true
+    },
+    {
+      "id": "C48",
+      "key": "dir:backend/src/modules/rate_limit",
+      "shared": false,
+      "files": [
+        "backend/src/modules/rate_limit/__init__.py"
+      ],
+      "name": "Module giới hạn tốc độ",
+      "role": "Xác định các thành phần công khai của module.",
+      "role_quote": {
+        "file": "backend/src/modules/rate_limit/__init__.py",
+        "line": 11,
+        "text": "__all__ = ["
+      },
+      "described": true
+    },
+    {
+      "id": "C49",
+      "key": "dir:backend/src/modules/tier",
+      "shared": false,
+      "files": [
+        "backend/src/modules/tier/__init__.py"
+      ],
+      "name": "Module cấp độ",
+      "role": "Xác định các thành phần công khai của module.",
+      "role_quote": {
+        "file": "backend/src/modules/tier/__init__.py",
+        "line": 15,
+        "text": "__all__ = ["
+      },
+      "described": true
+    },
+    {
+      "id": "C50",
+      "key": "dir:backend/src/modules/user",
+      "shared": false,
+      "files": [
+        "backend/src/modules/user/__init__.py"
+      ],
+      "name": "Module người dùng",
+      "role": "Xác định các thành phần công khai của module.",
+      "role_quote": {
+        "file": "backend/src/modules/user/__init__.py",
+        "line": 19,
+        "text": "__all__ = ["
+      },
+      "described": true
+    }
+  ],
+  "edges": [
+    {
+      "id": "E2",
+      "source": "C1",
+      "target": "C12",
+      "kind": "call",
+      "label": "khởi tạo và đóng DB",
+      "quote": {
+        "file": "backend/src/infrastructure/app_factory.py",
+        "line": 61,
+        "text": "await create_tables()"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/initialize.py",
+          6
+        ],
+        [
+          "backend/src/infrastructure/database/session.py",
+          148
+        ]
+      ]
+    },
+    {
+      "id": "E4",
+      "source": "C1",
+      "target": "C3",
+      "kind": "register",
+      "label": "đăng ký middleware",
+      "quote": {
+        "file": "backend/src/infrastructure/app_factory.py",
+        "line": 279,
+        "text": "application.add_middleware(ClientCacheMiddleware, max_age=client_cache_max_age)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/middleware.py",
+          11
+        ],
+        [
+          "backend/src/infrastructure/middleware.py",
+          31
+        ]
+      ]
+    },
+    {
+      "id": "E5",
+      "source": "C1",
+      "target": "C4",
+      "kind": "call",
+      "label": "đóng kết nối Redis",
+      "quote": {
+        "file": "backend/src/infrastructure/app_factory.py",
+        "line": 68,
+        "text": "teardown.push_async_callback(rate_limiter_redis_client.aclose)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/redis.py",
+          22
+        ],
+        [
+          "backend/src/infrastructure/redis.py",
+          31
+        ]
+      ]
+    },
+    {
+      "id": "E6",
+      "source": "C1",
+      "target": "C6",
+      "kind": "inject",
+      "label": "tiêm phụ thuộc auth",
+      "quote": {
+        "file": "backend/src/infrastructure/app_factory.py",
+        "line": 253,
+        "text": "docs_dependency = docs_production_dependency if docs_production_dependency is not None else get_current_superuser"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/auth/dependencies.py",
+          81
+        ]
+      ]
+    },
+    {
+      "id": "E7",
+      "source": "C1",
+      "target": "C7",
+      "kind": "call",
+      "label": "khởi tạo auth",
+      "quote": {
+        "file": "backend/src/infrastructure/app_factory.py",
+        "line": 74,
+        "text": "await auth.initialize()"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/auth/setup.py",
+          81
+        ]
+      ]
+    },
+    {
+      "id": "E8",
+      "source": "C1",
+      "target": "C8",
+      "kind": "call",
+      "label": "khởi tạo và đóng cache",
+      "quote": {
+        "file": "backend/src/infrastructure/app_factory.py",
+        "line": 64,
+        "text": "await initialize_cache()"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/cache/initialize.py",
+          56
+        ],
+        [
+          "backend/src/infrastructure/cache/initialize.py",
+          16
+        ]
+      ]
+    },
+    {
+      "id": "E15",
+      "source": "C16",
+      "target": "C17",
+      "kind": "data",
+      "label": "đọc broker mặc định",
+      "quote": {
+        "file": "backend/src/infrastructure/taskiq/worker.py",
+        "line": 7,
+        "text": "configure_broker_lifecycle(default_broker)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/taskiq/brokers.py",
+          52
+        ]
+      ]
+    },
+    {
+      "id": "E16",
+      "source": "C16",
+      "target": "C18",
+      "kind": "call",
+      "label": "gọi hàm giải phóng engine",
+      "quote": {
+        "file": "backend/src/infrastructure/taskiq/app.py",
+        "line": 31,
+        "text": "await dispose_taskiq_engine()"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/taskiq/deps.py",
+          34
+        ]
+      ]
+    },
+    {
+      "id": "E19",
+      "source": "C18",
+      "target": "C12",
+      "kind": "call",
+      "label": "gọi hàm tạo engine",
+      "quote": {
+        "file": "backend/src/infrastructure/taskiq/deps.py",
+        "line": 20,
+        "text": "_engine = build_engine(poolclass=NullPool)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/session.py",
+          14
+        ]
+      ]
+    },
+    {
+      "id": "E20",
+      "source": "C2",
+      "target": "C12",
+      "kind": "inject",
+      "label": "tiêm session DB",
+      "quote": {
+        "file": "backend/src/infrastructure/dependencies.py",
+        "line": 11,
+        "text": "AsyncSessionDep = Annotated[AsyncSession, Depends(async_session)]"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/session.py",
+          112
+        ]
+      ]
+    },
+    {
+      "id": "E21",
+      "source": "C2",
+      "target": "C6",
+      "kind": "inject",
+      "label": "tiêm phụ thuộc auth",
+      "quote": {
+        "file": "backend/src/infrastructure/dependencies.py",
+        "line": 14,
+        "text": "CurrentUserDep = Annotated[dict[str, Any], Depends(get_current_user)]"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/auth/dependencies.py",
+          81
+        ],
+        [
+          "backend/src/infrastructure/auth/dependencies.py",
+          44
+        ],
+        [
+          "backend/src/infrastructure/auth/dependencies.py",
+          70
+        ]
+      ]
+    },
+    {
+      "id": "E22",
+      "source": "C20",
+      "target": "C1",
+      "kind": "call",
+      "label": "tạo ứng dụng FastAPI",
+      "quote": {
+        "file": "backend/src/interfaces/main.py",
+        "line": 28,
+        "text": "app = create_application("
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/app_factory.py",
+          83
+        ],
+        [
+          "backend/src/infrastructure/app_factory.py",
+          44
+        ]
+      ]
+    },
+    {
+      "id": "E24",
+      "source": "C20",
+      "target": "C15",
+      "kind": "call",
+      "label": "kiểm tra bảo mật production",
+      "quote": {
+        "file": "backend/src/interfaces/main.py",
+        "line": 20,
+        "text": "validate_production_security(settings)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/security/production_validator.py",
+          753
+        ]
+      ]
+    },
+    {
+      "id": "E25",
+      "source": "C20",
+      "target": "C21",
+      "kind": "call",
+      "label": "khởi tạo giao diện admin",
+      "quote": {
+        "file": "backend/src/interfaces/main.py",
+        "line": 68,
+        "text": "create_admin_interface(app)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/interfaces/admin/initialize.py",
+          11
+        ]
+      ]
+    },
+    {
+      "id": "E26",
+      "source": "C20",
+      "target": "C23",
+      "kind": "inject",
+      "label": "cung cấp router API",
+      "quote": {
+        "file": "backend/src/interfaces/main.py",
+        "line": 29,
+        "text": "router=router,"
+      },
+      "target_evidence": [
+        [
+          "backend/src/interfaces/api/__init__.py",
+          6
+        ]
+      ]
+    },
+    {
+      "id": "E28",
+      "source": "C21",
+      "target": "C12",
+      "kind": "call",
+      "label": "lấy engine DB",
+      "quote": {
+        "file": "backend/src/interfaces/admin/initialize.py",
+        "line": 29,
+        "text": "engine=get_engine()"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/session.py",
+          31
+        ]
+      ]
+    },
+    {
+      "id": "E29",
+      "source": "C21",
+      "target": "C22",
+      "kind": "call",
+      "label": "đăng ký view admin",
+      "quote": {
+        "file": "backend/src/interfaces/admin/initialize.py",
+        "line": 34,
+        "text": "register_admin_views(admin)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/interfaces/admin/views/__init__.py",
+          15
+        ]
+      ]
+    },
+    {
+      "id": "E30",
+      "source": "C22",
+      "target": "C12",
+      "kind": "call",
+      "label": "tạo session DB",
+      "quote": {
+        "file": "backend/src/interfaces/admin/views/tiers.py",
+        "line": 50,
+        "text": "async with local_session() as db:"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/session.py",
+          49
+        ]
+      ]
+    },
+    {
+      "id": "E32",
+      "source": "C22",
+      "target": "C29",
+      "kind": "call",
+      "label": "gọi CRUD tier",
+      "quote": {
+        "file": "backend/src/interfaces/admin/views/tiers.py",
+        "line": 33,
+        "text": "form_create_rules = list(TierCreate.model_fields.keys())"
+      },
+      "target_evidence": [
+        [
+          "backend/src/modules/tier/crud.py",
+          5
+        ],
+        [
+          "backend/src/modules/tier/models.py",
+          13
+        ],
+        [
+          "backend/src/modules/tier/schemas.py",
+          45
+        ],
+        [
+          "backend/src/modules/tier/schemas.py",
+          64
+        ]
+      ]
+    },
+    {
+      "id": "E33",
+      "source": "C22",
+      "target": "C30",
+      "kind": "call",
+      "label": "khởi tạo UserService",
+      "quote": {
+        "file": "backend/src/interfaces/admin/views/users.py",
+        "line": 71,
+        "text": "user_service = UserService()"
+      },
+      "target_evidence": [
+        [
+          "backend/src/modules/user/enums.py",
+          6
+        ],
+        [
+          "backend/src/modules/user/models.py",
+          15
+        ],
+        [
+          "backend/src/modules/user/schemas.py",
+          108
+        ],
+        [
+          "backend/src/modules/user/service.py",
+          42
+        ]
+      ]
+    },
+    {
+      "id": "E34",
+      "source": "C22",
+      "target": "C7",
+      "kind": "call",
+      "label": "xác thực mật khẩu",
+      "quote": {
+        "file": "backend/src/interfaces/admin/views/users.py",
+        "line": 52,
+        "text": "await auth.validate_password(data[\"hashed_password\"])"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/auth/setup.py",
+          81
+        ]
+      ]
+    },
+    {
+      "id": "E35",
+      "source": "C23",
+      "target": "C24",
+      "kind": "register",
+      "label": "đăng ký router v1",
+      "quote": {
+        "file": "backend/src/interfaces/api/__init__.py",
+        "line": 7,
+        "text": "router.include_router(v1_router, prefix=\"/api\")"
+      },
+      "target_evidence": [
+        [
+          "backend/src/interfaces/api/v1/__init__.py",
+          11
+        ]
+      ]
+    },
+    {
+      "id": "E36",
+      "source": "C23",
+      "target": "C7",
+      "kind": "data",
+      "label": "đọc cấu hình auth",
+      "quote": {
+        "file": "backend/src/interfaces/api/__init__.py",
+        "line": 9,
+        "text": "if auth.oauth is not None:"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/auth/setup.py",
+          81
+        ]
+      ]
+    },
+    {
+      "id": "E37",
+      "source": "C24",
+      "target": "C25",
+      "kind": "register",
+      "label": "đăng ký router api-keys",
+      "quote": {
+        "file": "backend/src/interfaces/api/v1/__init__.py",
+        "line": 16,
+        "text": "router.include_router(api_keys_router, prefix=\"/api-keys\", dependencies=rate_limit_dependencies)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/modules/api_keys/routes.py",
+          17
+        ]
+      ]
+    },
+    {
+      "id": "E38",
+      "source": "C24",
+      "target": "C28",
+      "kind": "register",
+      "label": "đăng ký router rate-limits",
+      "quote": {
+        "file": "backend/src/interfaces/api/v1/__init__.py",
+        "line": 14,
+        "text": "router.include_router(rate_limits_router, prefix=\"/rate-limits\", dependencies=rate_limit_dependencies)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/modules/rate_limit/routes.py",
+          13
+        ]
+      ]
+    },
+    {
+      "id": "E39",
+      "source": "C24",
+      "target": "C29",
+      "kind": "register",
+      "label": "đăng ký router tiers",
+      "quote": {
+        "file": "backend/src/interfaces/api/v1/__init__.py",
+        "line": 13,
+        "text": "router.include_router(tiers_router, prefix=\"/tiers\", dependencies=rate_limit_dependencies)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/modules/tier/routes.py",
+          10
+        ]
+      ]
+    },
+    {
+      "id": "E40",
+      "source": "C24",
+      "target": "C30",
+      "kind": "register",
+      "label": "đăng ký router users",
+      "quote": {
+        "file": "backend/src/interfaces/api/v1/__init__.py",
+        "line": 12,
+        "text": "router.include_router(users_router, prefix=\"/users\", dependencies=rate_limit_dependencies)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/modules/user/routes.py",
+          20
+        ]
+      ]
+    },
+    {
+      "id": "E41",
+      "source": "C24",
+      "target": "C5",
+      "kind": "register",
+      "label": "đăng ký router auth",
+      "quote": {
+        "file": "backend/src/interfaces/api/v1/__init__.py",
+        "line": 15,
+        "text": "router.include_router(auth_router, prefix=\"/auth\")"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/auth/routes.py",
+          18
+        ]
+      ]
+    },
+    {
+      "id": "E42",
+      "source": "C24",
+      "target": "C7",
+      "kind": "data",
+      "label": "sử dụng phụ thuộc api_rate_limit_dependency",
+      "quote": {
+        "file": "backend/src/interfaces/api/v1/__init__.py",
+        "line": 10,
+        "text": "rate_limit_dependencies = [Depends(api_rate_limit_dependency)]"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/auth/setup.py",
+          137
+        ]
+      ]
+    },
+    {
+      "id": "E46",
+      "source": "C25",
+      "target": "C2",
+      "kind": "inject",
+      "label": "tiêm phụ thuộc AsyncSessionDep và CurrentUserDep",
+      "quote": {
+        "file": "backend/src/modules/api_keys/routes.py",
+        "line": 47,
+        "text": "current_user: CurrentUserDep,"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/dependencies.py",
+          11
+        ]
+      ]
+    },
+    {
+      "id": "E54",
+      "source": "C28",
+      "target": "C2",
+      "kind": "inject",
+      "label": "tiêm phụ thuộc DB",
+      "quote": {
+        "file": "backend/src/modules/rate_limit/routes.py",
+        "line": 39,
+        "text": "db: AsyncSessionDep,"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/dependencies.py",
+          11
+        ]
+      ]
+    },
+    {
+      "id": "E56",
+      "source": "C28",
+      "target": "C29",
+      "kind": "call",
+      "label": "gọi CRUD tiers",
+      "quote": {
+        "file": "backend/src/modules/rate_limit/service.py",
+        "line": 31,
+        "text": "tier_exists = await crud_tiers.exists(db=db, id=tier_id)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/modules/tier/crud.py",
+          5
+        ]
+      ]
+    },
+    {
+      "id": "E59",
+      "source": "C29",
+      "target": "C2",
+      "kind": "inject",
+      "label": "tiêm phụ thuộc DB",
+      "quote": {
+        "file": "backend/src/modules/tier/routes.py",
+        "line": 20,
+        "text": "db: AsyncSessionDep,"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/dependencies.py",
+          11
+        ]
+      ]
+    },
+    {
+      "id": "E66",
+      "source": "C30",
+      "target": "C2",
+      "kind": "inject",
+      "label": "tiêm phụ thuộc",
+      "quote": {
+        "file": "backend/src/modules/user/routes.py",
+        "line": 48,
+        "text": "db: AsyncSessionDep,"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/dependencies.py",
+          11
+        ]
+      ]
+    },
+    {
+      "id": "E69",
+      "source": "C30",
+      "target": "C29",
+      "kind": "call",
+      "label": "gọi hàm",
+      "quote": {
+        "file": "backend/src/modules/user/service.py",
+        "line": 513,
+        "text": "tier_exists = await crud_tiers.exists(db=db, id=tier_update.tier_id)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/modules/tier/crud.py",
+          5
+        ],
+        [
+          "backend/src/modules/tier/models.py",
+          13
+        ],
+        [
+          "backend/src/modules/tier/schemas.py",
+          36
+        ]
+      ]
+    },
+    {
+      "id": "E71",
+      "source": "C30",
+      "target": "C7",
+      "kind": "call",
+      "label": "gọi hàm xác thực",
+      "quote": {
+        "file": "backend/src/modules/user/service.py",
+        "line": 81,
+        "text": "await auth.validate_password(user.password, source=\"register\")"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/auth/setup.py",
+          81
+        ]
+      ]
+    },
+    {
+      "id": "E72",
+      "source": "C31",
+      "target": "C32",
+      "kind": "register",
+      "label": "đăng ký lệnh",
+      "quote": {
+        "file": "cli/src/cli/app.py",
+        "line": 25,
+        "text": "app.add_typer(_deploy_cmd.app, name=\"deploy\", help=\"Generate deployment artifacts (Dockerfile, compose, nginx config).\")"
+      },
+      "target_evidence": [
+        [
+          "cli/src/cli/commands/deploy.py",
+          20
+        ]
+      ]
+    },
+    {
+      "id": "E73",
+      "source": "C31",
+      "target": "C33",
+      "kind": "register",
+      "label": "đăng ký lệnh",
+      "quote": {
+        "file": "cli/src/cli/app.py",
+        "line": 26,
+        "text": "app.add_typer(_env_cmd.app, name=\"env\", help=\"Inspect and prepare the runtime environment.\")"
+      },
+      "target_evidence": [
+        [
+          "cli/src/cli/commands/env.py",
+          32
+        ]
+      ]
+    },
+    {
+      "id": "E75",
+      "source": "C32",
+      "target": "C34",
+      "kind": "call",
+      "label": "gọi hàm tính năng",
+      "quote": {
+        "file": "cli/src/cli/commands/deploy.py",
+        "line": 50,
+        "text": "feature = get_feature(\"deploy\")"
+      },
+      "target_evidence": [
+        [
+          "cli/src/cli/features/installer.py",
+          27
+        ],
+        [
+          "cli/src/cli/features/registry.py",
+          43
+        ]
+      ]
+    },
+    {
+      "id": "E76",
+      "source": "C32",
+      "target": "C36",
+      "kind": "call",
+      "label": "gọi hàm thư viện",
+      "quote": {
+        "file": "cli/src/cli/commands/deploy.py",
+        "line": 49,
+        "text": "project = discover_project(output_dir)"
+      },
+      "target_evidence": [
+        [
+          "cli/src/cli/lib/project.py",
+          35
+        ],
+        [
+          "cli/src/cli/lib/prompts.py",
+          31
+        ],
+        [
+          "cli/src/cli/lib/prompts.py",
+          19
+        ]
+      ]
+    },
+    {
+      "id": "E77",
+      "source": "C33",
+      "target": "C36",
+      "kind": "call",
+      "label": "gọi hàm thông báo",
+      "quote": {
+        "file": "cli/src/cli/commands/env.py",
+        "line": 81,
+        "text": "success(\"No issues found. Configuration would pass production validation.\")"
+      },
+      "target_evidence": [
+        [
+          "cli/src/cli/lib/prompts.py",
+          31
+        ],
+        [
+          "cli/src/cli/lib/prompts.py",
+          19
+        ],
+        [
+          "cli/src/cli/lib/prompts.py",
+          23
+        ],
+        [
+          "cli/src/cli/lib/prompts.py",
+          27
+        ]
+      ]
+    },
+    {
+      "id": "E78",
+      "source": "C34",
+      "target": "C31",
+      "kind": "call",
+      "label": "gọi plugin để đăng ký",
+      "quote": {
+        "file": "cli/src/cli/features/registry.py",
+        "line": 31,
+        "text": "for name, feature in _plugins.discover_feature_plugins().items():"
+      },
+      "target_evidence": [
+        [
+          "cli/src/cli/plugins.py",
+          94
+        ]
+      ]
+    },
+    {
+      "id": "E79",
+      "source": "C34",
+      "target": "C35",
+      "kind": "call",
+      "label": "tạo đối tượng DeployFeature",
+      "quote": {
+        "file": "cli/src/cli/features/registry.py",
+        "line": 20,
+        "text": "\"deploy\": DeployFeature(),"
+      },
+      "target_evidence": [
+        [
+          "cli/src/cli/features/_builtins/deploy/feature.py",
+          27
+        ]
+      ]
+    },
+    {
+      "id": "E80",
+      "source": "C34",
+      "target": "C36",
+      "kind": "call",
+      "label": "gọi hàm và khởi tạo đối tượng",
+      "quote": {
+        "file": "cli/src/cli/features/installer.py",
+        "line": 47,
+        "text": "renderer = Renderer(plan.templates_root)"
+      },
+      "target_evidence": [
+        [
+          "cli/src/cli/lib/project.py",
+          16
+        ],
+        [
+          "cli/src/cli/lib/prompts.py",
+          12
+        ],
+        [
+          "cli/src/cli/lib/prompts.py",
+          19
+        ],
+        [
+          "cli/src/cli/lib/prompts.py",
+          23
+        ]
+      ]
+    },
+    {
+      "id": "E93",
+      "source": "C42",
+      "target": "C12",
+      "kind": "call",
+      "label": "gọi hàm engine",
+      "quote": {
+        "file": "backend/src/infrastructure/database/__init__.py",
+        "line": 21,
+        "text": "return get_engine()"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/session.py",
+          31
+        ]
+      ]
+    },
+    {
+      "id": "E107",
+      "source": "C5",
+      "target": "C2",
+      "kind": "inject",
+      "label": "tiêm phụ thuộc AsyncSessionDep và OAuth2FormDep",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/routes.py",
+        "line": 52,
+        "text": "form_data: OAuth2FormDep,"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/dependencies.py",
+          11
+        ]
+      ]
+    },
+    {
+      "id": "E108",
+      "source": "C5",
+      "target": "C30",
+      "kind": "call",
+      "label": "gọi crud_users",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/routes.py",
+        "line": 203,
+        "text": "user = await crud_users.get(db=db, id=principal.user_id, is_deleted=False)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/modules/user/crud.py",
+          5
+        ]
+      ]
+    },
+    {
+      "id": "E109",
+      "source": "C5",
+      "target": "C6",
+      "kind": "inject",
+      "label": "tiêm phụ thuộc get_current_principal và get_optional_principal",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/routes.py",
+        "line": 96,
+        "text": "principal: Annotated[Principal, Depends(get_current_principal)],"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/auth/dependencies.py",
+          22
+        ],
+        [
+          "backend/src/infrastructure/auth/dependencies.py",
+          34
+        ]
+      ]
+    },
+    {
+      "id": "E110",
+      "source": "C5",
+      "target": "C7",
+      "kind": "call",
+      "label": "gọi crud_auth và session_transport",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/routes.py",
+        "line": 66,
+        "text": "user = await crud_auth.authenticate_password(db, form_data.username, form_data.password, request=request)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/auth/setup.py",
+          81
+        ],
+        [
+          "backend/src/infrastructure/auth/setup.py",
+          79
+        ]
+      ]
+    },
+    {
+      "id": "E112",
+      "source": "C6",
+      "target": "C12",
+      "kind": "inject",
+      "label": "tiêm async_session",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/dependencies.py",
+        "line": 46,
+        "text": "db: Annotated[AsyncSession, Depends(async_session)],"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/session.py",
+          112
+        ]
+      ]
+    },
+    {
+      "id": "E113",
+      "source": "C6",
+      "target": "C30",
+      "kind": "call",
+      "label": "gọi crud_users",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/dependencies.py",
+        "line": 62,
+        "text": "user = await crud_users.get(db=db, id=principal.user_id, is_deleted=False)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/modules/user/crud.py",
+          5
+        ]
+      ]
+    },
+    {
+      "id": "E114",
+      "source": "C6",
+      "target": "C7",
+      "kind": "inject",
+      "label": "tiêm auth",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/dependencies.py",
+        "line": 23,
+        "text": "principal: Annotated[Principal, Depends(auth.current_user())],"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/auth/setup.py",
+          81
+        ]
+      ]
+    },
+    {
+      "id": "E117",
+      "source": "C7",
+      "target": "C12",
+      "kind": "inject",
+      "label": "cung cấp session DB",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/setup.py",
+        "line": 82,
+        "text": "session=async_session,"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/session.py",
+          112
+        ]
+      ]
+    },
+    {
+      "id": "E118",
+      "source": "C7",
+      "target": "C28",
+      "kind": "call",
+      "label": "gọi CRUD giới hạn",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/setup.py",
+        "line": 128,
+        "text": "configured = await crud_rate_limits.get("
+      },
+      "target_evidence": [
+        [
+          "backend/src/modules/rate_limit/crud.py",
+          5
+        ],
+        [
+          "backend/src/modules/rate_limit/schemas.py",
+          36
+        ]
+      ]
+    },
+    {
+      "id": "E120",
+      "source": "C7",
+      "target": "C38",
+      "kind": "inject",
+      "label": "cung cấp chính sách mật khẩu",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/setup.py",
+        "line": 89,
+        "text": "password_policy=password_policy,"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/auth/password_policy.py",
+          7
+        ]
+      ]
+    },
+    {
+      "id": "E121",
+      "source": "C7",
+      "target": "C4",
+      "kind": "inject",
+      "label": "cung cấp client Redis cho rate limiter",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/setup.py",
+        "line": 41,
+        "text": "return redis_rate_limiter(client=rate_limiter_redis_client)"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/redis.py",
+          31
+        ]
+      ]
+    },
+    {
+      "id": "E126",
+      "source": "C8",
+      "target": "C4",
+      "kind": "call",
+      "label": "đóng kết nối Redis cache",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/initialize.py",
+        "line": 72,
+        "text": "await cache_redis_client.aclose()"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/redis.py",
+          22
+        ]
+      ]
+    }
+  ],
+  "hidden_edges": [
+    {
+      "id": "E1",
+      "source": "C1",
+      "target": "C10",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E3",
+      "source": "C1",
+      "target": "C27",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E9",
+      "source": "C10",
+      "target": "C11",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E10",
+      "source": "C12",
+      "target": "C10",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E11",
+      "source": "C14",
+      "target": "C10",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E12",
+      "source": "C14",
+      "target": "C11",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E13",
+      "source": "C15",
+      "target": "C10",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E14",
+      "source": "C15",
+      "target": "C14",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E17",
+      "source": "C17",
+      "target": "C10",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E18",
+      "source": "C17",
+      "target": "C11",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E23",
+      "source": "C20",
+      "target": "C10",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E27",
+      "source": "C21",
+      "target": "C10",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E31",
+      "source": "C22",
+      "target": "C21",
+      "kind": "type",
+      "label": "kế thừa DataclassModelMixin",
+      "quote": {
+        "file": "backend/src/interfaces/admin/views/tiers.py",
+        "line": 14,
+        "text": "class TierAdmin(DataclassModelMixin, ModelView, model=Tier):"
+      },
+      "target_evidence": [
+        [
+          "backend/src/interfaces/admin/mixins.py",
+          8
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E43",
+      "source": "C25",
+      "target": "C12",
+      "kind": "type",
+      "label": "kế thừa lớp Base",
+      "quote": {
+        "file": "backend/src/modules/api_keys/models.py",
+        "line": 19,
+        "text": "class APIKey(Base, TimestampMixin):"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/session.py",
+          71
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E44",
+      "source": "C25",
+      "target": "C13",
+      "kind": "type",
+      "label": "kế thừa TimestampMixin",
+      "quote": {
+        "file": "backend/src/modules/api_keys/models.py",
+        "line": 19,
+        "text": "class APIKey(Base, TimestampMixin):"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/models.py",
+          57
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E45",
+      "source": "C25",
+      "target": "C14",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E47",
+      "source": "C25",
+      "target": "C26",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E48",
+      "source": "C26",
+      "target": "C38",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E49",
+      "source": "C27",
+      "target": "C14",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E50",
+      "source": "C27",
+      "target": "C26",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E51",
+      "source": "C27",
+      "target": "C38",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E52",
+      "source": "C28",
+      "target": "C12",
+      "kind": "type",
+      "label": "kế thừa Base",
+      "quote": {
+        "file": "backend/src/modules/rate_limit/models.py",
+        "line": 8,
+        "text": "class RateLimit(Base, TimestampMixin, SoftDeleteMixin):"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/session.py",
+          71
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E53",
+      "source": "C28",
+      "target": "C13",
+      "kind": "type",
+      "label": "kế thừa mixin",
+      "quote": {
+        "file": "backend/src/modules/rate_limit/models.py",
+        "line": 8,
+        "text": "class RateLimit(Base, TimestampMixin, SoftDeleteMixin):"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/models.py",
+          114
+        ],
+        [
+          "backend/src/infrastructure/database/models.py",
+          57
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E55",
+      "source": "C28",
+      "target": "C26",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E57",
+      "source": "C29",
+      "target": "C12",
+      "kind": "type",
+      "label": "kế thừa Base",
+      "quote": {
+        "file": "backend/src/modules/tier/models.py",
+        "line": 13,
+        "text": "class Tier(Base, TimestampMixin, SoftDeleteMixin):"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/session.py",
+          71
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E58",
+      "source": "C29",
+      "target": "C13",
+      "kind": "type",
+      "label": "kế thừa mixin",
+      "quote": {
+        "file": "backend/src/modules/tier/models.py",
+        "line": 13,
+        "text": "class Tier(Base, TimestampMixin, SoftDeleteMixin):"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/models.py",
+          114
+        ],
+        [
+          "backend/src/infrastructure/database/models.py",
+          57
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E60",
+      "source": "C29",
+      "target": "C26",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E61",
+      "source": "C29",
+      "target": "C28",
+      "reason": "no classification with a valid quote"
+    },
+    {
+      "id": "E62",
+      "source": "C29",
+      "target": "C30",
+      "reason": "no classification with a valid quote"
+    },
+    {
+      "id": "E63",
+      "source": "C30",
+      "target": "C12",
+      "kind": "type",
+      "label": "kế thừa Base",
+      "quote": {
+        "file": "backend/src/modules/user/models.py",
+        "line": 15,
+        "text": "class User(Base, TimestampMixin, SoftDeleteMixin):"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/session.py",
+          71
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E64",
+      "source": "C30",
+      "target": "C13",
+      "kind": "type",
+      "label": "kế thừa mixin",
+      "quote": {
+        "file": "backend/src/modules/user/models.py",
+        "line": 15,
+        "text": "class User(Base, TimestampMixin, SoftDeleteMixin):"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/database/models.py",
+          114
+        ],
+        [
+          "backend/src/infrastructure/database/models.py",
+          57
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E65",
+      "source": "C30",
+      "target": "C14",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E67",
+      "source": "C30",
+      "target": "C26",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E68",
+      "source": "C30",
+      "target": "C28",
+      "kind": "type",
+      "label": "sử dụng lớp",
+      "quote": {
+        "file": "backend/src/modules/user/service.py",
+        "line": 569,
+        "text": "model=RateLimit,"
+      },
+      "target_evidence": [
+        [
+          "backend/src/modules/rate_limit/models.py",
+          8
+        ],
+        [
+          "backend/src/modules/rate_limit/schemas.py",
+          43
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E70",
+      "source": "C30",
+      "target": "C38",
+      "kind": "type",
+      "label": "sử dụng kiểu",
+      "quote": {
+        "file": "backend/src/modules/user/schemas.py",
+        "line": 85,
+        "text": "password: password_policy.body_field()  # type: ignore[valid-type]"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/auth/password_policy.py",
+          7
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E74",
+      "source": "C31",
+      "target": "C34",
+      "kind": "type",
+      "label": "kiểm tra kiểu",
+      "quote": {
+        "file": "cli/src/cli/plugins.py",
+        "line": 75,
+        "text": "candidate = loaded() if callable(loaded) and not isinstance(loaded, Feature) else loaded"
+      },
+      "target_evidence": [
+        [
+          "cli/src/cli/features/base.py",
+          86
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E81",
+      "source": "C35",
+      "target": "C34",
+      "kind": "type",
+      "label": "kế thừa và sử dụng kiểu",
+      "quote": {
+        "file": "cli/src/cli/features/_builtins/deploy/feature.py",
+        "line": 27,
+        "text": "class DeployFeature(Feature):"
+      },
+      "target_evidence": [
+        [
+          "cli/src/cli/features/base.py",
+          86
+        ],
+        [
+          "cli/src/cli/features/base.py",
+          21
+        ],
+        [
+          "cli/src/cli/features/base.py",
+          75
+        ],
+        [
+          "cli/src/cli/features/base.py",
+          37
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E82",
+      "source": "C35",
+      "target": "C36",
+      "kind": "type",
+      "label": "sử dụng kiểu ProjectContext",
+      "quote": {
+        "file": "cli/src/cli/features/_builtins/deploy/feature.py",
+        "line": 35,
+        "text": "def plan(self, params: dict[str, Any], project: ProjectContext) -> FeaturePlan:"
+      },
+      "target_evidence": [
+        [
+          "cli/src/cli/lib/project.py",
+          16
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E85",
+      "source": "C38",
+      "target": "C10",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E89",
+      "source": "C4",
+      "target": "C10",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E106",
+      "source": "C5",
+      "target": "C14",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E115",
+      "source": "C7",
+      "target": "C10",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E116",
+      "source": "C7",
+      "target": "C11",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E119",
+      "source": "C7",
+      "target": "C30",
+      "kind": "type",
+      "label": "sử dụng mô hình người dùng",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/setup.py",
+        "line": 83,
+        "text": "user_model=User,"
+      },
+      "target_evidence": [
+        [
+          "backend/src/modules/user/constants.py",
+          3
+        ],
+        [
+          "backend/src/modules/user/models.py",
+          15
+        ]
+      ],
+      "reason": "only type use"
+    },
+    {
+      "id": "E122",
+      "source": "C8",
+      "target": "C10",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E123",
+      "source": "C8",
+      "target": "C11",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E124",
+      "source": "C8",
+      "target": "C14",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E125",
+      "source": "C8",
+      "target": "C39",
+      "kind": "constant",
+      "label": "kiểm tra cài đặt cache",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/initialize.py",
+        "line": 9,
+        "text": "if MEMCACHED_INSTALLED:"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/cache/__init__.py",
+          7
+        ]
+      ],
+      "reason": "only constant use"
+    },
+    {
+      "id": "E127",
+      "source": "C8",
+      "target": "C9",
+      "reason": "no classification with a valid quote"
+    },
+    {
+      "id": "E128",
+      "source": "C9",
+      "target": "C10",
+      "reason": "shared support is drawn without edges (SPEC)"
+    },
+    {
+      "id": "E129",
+      "source": "C9",
+      "target": "C8",
+      "kind": "type",
+      "label": "kế thừa lớp cơ sở cache",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/backends/memcached.py",
+        "line": 21,
+        "text": "class PatternMatchingNotSupportedError(CacheException):"
+      },
+      "target_evidence": [
+        [
+          "backend/src/infrastructure/cache/base.py",
+          5
+        ],
+        [
+          "backend/src/infrastructure/cache/exceptions.py",
+          1
+        ]
+      ],
+      "reason": "only type use"
+    }
+  ],
+  "externals": [
+    {
+      "id": "X1",
+      "name": "Redis",
+      "kind": "cache",
+      "edges": [
+        {
+          "source": "C4",
+          "label": "kết nối Redis",
+          "quote": {
+            "file": "backend/src/infrastructure/redis.py",
+            "line": 11,
+            "text": "return Redis("
+          }
+        },
+        {
+          "source": "C9",
+          "label": "client Redis",
+          "quote": {
+            "file": "backend/src/infrastructure/cache/backends/redis.py",
+            "line": 51,
+            "text": "self.client = client or Redis("
+          }
+        },
+        {
+          "source": "C17",
+          "label": "kết nối Redis",
+          "quote": {
+            "file": "backend/src/infrastructure/taskiq/brokers.py",
+            "line": 36,
+            "text": "broker = ListQueueBroker(url=redis_url, queue_name=\"default\").with_result_backend("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X2",
+      "name": "Memcached",
+      "kind": "cache",
+      "edges": [
+        {
+          "source": "C9",
+          "label": "client Memcached",
+          "quote": {
+            "file": "backend/src/infrastructure/cache/backends/memcached.py",
+            "line": 59,
+            "text": "self.client = aiomcache.Client("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X3",
+      "name": "Database",
+      "kind": "database",
+      "edges": [
+        {
+          "source": "C12",
+          "label": "Database server",
+          "quote": {
+            "file": "backend/src/infrastructure/database/session.py",
+            "line": 28,
+            "text": "return create_async_engine(settings.DATABASE_URL, **options)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X4",
+      "name": "RabbitMQ",
+      "kind": "queue",
+      "edges": [
+        {
+          "source": "C17",
+          "label": "kết nối RabbitMQ",
+          "quote": {
+            "file": "backend/src/infrastructure/taskiq/brokers.py",
+            "line": 47,
+            "text": "broker = AioPikaBroker(url=rabbitmq_url, queue_name=\"default\")"
+          }
+        }
+      ]
+    }
+  ],
+  "rejected": [
+    {
+      "what": "C8 edge E127",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/initialize.py",
+        "line": 31,
+        "text": "memcached_backend = MemcachedBackend(settings=memcached_settings)"
+      },
+      "reason": "text not on that line"
+    },
+    {
+      "what": "C29 edge E61",
+      "quote": {
+        "file": "backend/src/modules/tier/service.py",
+        "line": 98,
+        "text": "if await crud_rate_limits.exists(db=db, tier_id=tier[\\\"id\\\"]):"
+      },
+      "reason": "text not on that line"
+    },
+    {
+      "what": "C29 edge E62",
+      "quote": {
+        "file": "backend/src/modules/tier/service.py",
+        "line": 93,
+        "text": "if await crud_users.exists(db=db, tier_id=tier[\\\"id\\\"]):"
+      },
+      "reason": "text not on that line"
+    },
+    {
+      "what": "C41 edge none",
+      "reason": "not an open candidate edge of this component"
+    },
+    {
+      "what": "C45 edge none",
+      "reason": "not an open candidate edge of this component"
+    },
+    {
+      "what": "C46 edge none",
+      "reason": "not an open candidate edge of this component"
+    },
+    {
+      "what": "C47 edge none",
+      "reason": "not an open candidate edge of this component"
+    },
+    {
+      "what": "C47 edge none",
+      "reason": "not an open candidate edge of this component"
+    }
+  ],
+  "quotes": {
+    "returned": 133,
+    "valid": 130
+  },
+  "file_lines": {
+    "backend/src/infrastructure/__init__.py": 10,
+    "backend/src/infrastructure/app_factory.py": 332,
+    "backend/src/infrastructure/auth/__init__.py": 7,
+    "backend/src/infrastructure/auth/dependencies.py": 88,
+    "backend/src/infrastructure/auth/http_exceptions.py": 82,
+    "backend/src/infrastructure/auth/password_policy.py": 13,
+    "backend/src/infrastructure/auth/routes.py": 226,
+    "backend/src/infrastructure/auth/setup.py": 137,
+    "backend/src/infrastructure/cache/__init__.py": 38,
+    "backend/src/infrastructure/cache/backends/__init__.py": 32,
+    "backend/src/infrastructure/cache/backends/memcached.py": 155,
+    "backend/src/infrastructure/cache/backends/redis.py": 150,
+    "backend/src/infrastructure/cache/base.py": 243,
+    "backend/src/infrastructure/cache/decorator.py": 124,
+    "backend/src/infrastructure/cache/exceptions.py": 199,
+    "backend/src/infrastructure/cache/initialize.py": 72,
+    "backend/src/infrastructure/cache/provider.py": 166,
+    "backend/src/infrastructure/cache/utils.py": 111,
+    "backend/src/infrastructure/config/__init__.py": 12,
+    "backend/src/infrastructure/config/enums.py": 63,
+    "backend/src/infrastructure/config/settings.py": 422,
+    "backend/src/infrastructure/database/__init__.py": 23,
+    "backend/src/infrastructure/database/initialize.py": 8,
+    "backend/src/infrastructure/database/models.py": 172,
+    "backend/src/infrastructure/database/session.py": 188,
+    "backend/src/infrastructure/dependencies.py": 19,
+    "backend/src/infrastructure/logging/__init__.py": 34,
+    "backend/src/infrastructure/logging/config.py": 350,
+    "backend/src/infrastructure/logging/factory.py": 240,
+    "backend/src/infrastructure/logging/formatters.py": 189,
+    "backend/src/infrastructure/logging/handlers.py": 77,
+    "backend/src/infrastructure/middleware.py": 53,
+    "backend/src/infrastructure/redis.py": 38,
+    "backend/src/infrastructure/security/__init__.py": 5,
+    "backend/src/infrastructure/security/production_validator.py": 786,
+    "backend/src/infrastructure/taskiq/__init__.py": 12,
+    "backend/src/infrastructure/taskiq/app.py": 43,
+    "backend/src/infrastructure/taskiq/brokers.py": 52,
+    "backend/src/infrastructure/taskiq/deps.py": 58,
+    "backend/src/infrastructure/taskiq/registry.py": 65,
+    "backend/src/infrastructure/taskiq/worker.py": 13,
+    "backend/src/interfaces/admin/auth.py": 45,
+    "backend/src/interfaces/admin/initialize.py": 36,
+    "backend/src/interfaces/admin/mixins.py": 64,
+    "backend/src/interfaces/admin/views/__init__.py": 18,
+    "backend/src/interfaces/admin/views/tiers.py": 57,
+    "backend/src/interfaces/admin/views/users.py": 72,
+    "backend/src/interfaces/api/__init__.py": 10,
+    "backend/src/interfaces/api/v1/__init__.py": 16,
+    "backend/src/interfaces/main.py": 74,
+    "backend/src/modules/__init__.py": 15,
+    "backend/src/modules/api_keys/__init__.py": 74,
+    "backend/src/modules/api_keys/crud.py": 7,
+    "backend/src/modules/api_keys/dependencies.py": 12,
+    "backend/src/modules/api_keys/enums.py": 70,
+    "backend/src/modules/api_keys/models.py": 86,
+    "backend/src/modules/api_keys/routes.py": 322,
+    "backend/src/modules/api_keys/schemas.py": 189,
+    "backend/src/modules/api_keys/service.py": 632,
+    "backend/src/modules/common/constants.py": 48,
+    "backend/src/modules/common/exceptions.py": 73,
+    "backend/src/modules/common/schemas.py": 35,
+    "backend/src/modules/common/utils/error_handler.py": 109,
+    "backend/src/modules/common/utils/logger.py": 43,
+    "backend/src/modules/rate_limit/__init__.py": 17,
+    "backend/src/modules/rate_limit/crud.py": 5,
+    "backend/src/modules/rate_limit/dependencies.py": 12,
+    "backend/src/modules/rate_limit/models.py": 24,
+    "backend/src/modules/rate_limit/routes.py": 174,
+    "backend/src/modules/rate_limit/schemas.py": 97,
+    "backend/src/modules/rate_limit/service.py": 116,
+    "backend/src/modules/tier/__init__.py": 27,
+    "backend/src/modules/tier/crud.py": 5,
+    "backend/src/modules/tier/dependencies.py": 12,
+    "backend/src/modules/tier/models.py": 31,
+    "backend/src/modules/tier/routes.py": 51,
+    "backend/src/modules/tier/schemas.py": 95,
+    "backend/src/modules/tier/service.py": 106,
+    "backend/src/modules/user/__init__.py": 34,
+    "backend/src/modules/user/constants.py": 5,
+    "backend/src/modules/user/crud.py": 5,
+    "backend/src/modules/user/dependencies.py": 12,
+    "backend/src/modules/user/enums.py": 15,
+    "backend/src/modules/user/models.py": 64,
+    "backend/src/modules/user/routes.py": 400,
+    "backend/src/modules/user/schemas.py": 190,
+    "backend/src/modules/user/service.py": 637,
+    "cli/src/cli/app.py": 55,
+    "cli/src/cli/commands/deploy.py": 91,
+    "cli/src/cli/commands/env.py": 111,
+    "cli/src/cli/features/__init__.py": 25,
+    "cli/src/cli/features/_builtins/deploy/feature.py": 78,
+    "cli/src/cli/features/base.py": 98,
+    "cli/src/cli/features/installer.py": 87,
+    "cli/src/cli/features/registry.py": 44,
+    "cli/src/cli/lib/project.py": 70,
+    "cli/src/cli/lib/prompts.py": 32,
+    "cli/src/cli/lib/render.py": 33,
+    "cli/src/cli/plugins.py": 109
+  },
+  "snapshot": {
+    "backend/src/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/src/infrastructure/__init__.py": "cc6dcdf22500b43e7594cd531fbeb30f5f7ce523dcb576593a64ed8182da5957",
+    "backend/src/infrastructure/app_factory.py": "973b37e7e6f0074c65b35f33682af63cb4b77be1498125aafc451cdcf48a48e5",
+    "backend/src/infrastructure/auth/__init__.py": "526a05af740007a7710ecd9bafa57be80622e1f7e3b2990c6c6c8904fd7063b6",
+    "backend/src/infrastructure/auth/dependencies.py": "5955a4a852aecde4f9d79ef4478f5f4a2aa176d222256ae82112bc930b97926e",
+    "backend/src/infrastructure/auth/http_exceptions.py": "9aefe708c079d24e98cdd1ff3cb2e6f21d7858929c730243be68cc5acbd1bbc1",
+    "backend/src/infrastructure/auth/password_policy.py": "3c26d4a4cc9f48f9275730420c0cb3b9f7df1778d5be45f20955d32ac749bea0",
+    "backend/src/infrastructure/auth/routes.py": "b389b4c314809baefe5936fdb9bf8806f8a7cfb1df75c12d8e55f090fb3d3277",
+    "backend/src/infrastructure/auth/setup.py": "21d7ed1cf0afc8aa103be513dc1088588d21c1ceb0cf4300925ef87bc79f7ac0",
+    "backend/src/infrastructure/cache/__init__.py": "4f16b459938993c73dedc5ae7aa4462887565d06447ada01b76c5cf86e5e3476",
+    "backend/src/infrastructure/cache/backends/__init__.py": "62b2b81099b1577908666852d8d9dbe91f90e6134bb5eb7654111234fc300ee1",
+    "backend/src/infrastructure/cache/backends/memcached.py": "e091942f4920ba487d0ec7cd99e42bb034ba68a0e772374928c3e75fdfb85681",
+    "backend/src/infrastructure/cache/backends/redis.py": "7f189a016ffd157fa25caf74848dbe334bb96c39873ff1e4e58724377766f50a",
+    "backend/src/infrastructure/cache/base.py": "3ac120074826e59e4caa487bae628ef1be7d2e33ad037c99d9032f1b9cf237f6",
+    "backend/src/infrastructure/cache/decorator.py": "dcff426d84bad8e5c222fdb32c74f70e6aaa623144c46770ec85b5b71c98555e",
+    "backend/src/infrastructure/cache/exceptions.py": "487915b8a712b5c19b4a5679d256b5603764163d6ce60c788e2bb7f24009d8e3",
+    "backend/src/infrastructure/cache/initialize.py": "9b398428f3449c10173549bb6dcc64789b317dc1d572755b14e7baa42ceee5be",
+    "backend/src/infrastructure/cache/provider.py": "5c6ac03cbade8fed553f5d3256919ea8f61f96eb6cdd4ba0af86c8b3f76e369f",
+    "backend/src/infrastructure/cache/utils.py": "15bb64fa862f35d27b81299ace06dbb30610c08534fadaa4812d7eb5a94d4b68",
+    "backend/src/infrastructure/config/__init__.py": "ac00e97722cf6aff698f0afcb7cc7884645f011a47e5a78d58bc3ce1d9ec780b",
+    "backend/src/infrastructure/config/enums.py": "7165b50259d7f70e04743207924dc94f8aaad5468a990b347cfe159fb0eb6e89",
+    "backend/src/infrastructure/config/settings.py": "39abf33e8ae2e8da81b50bd1decfcdb6b300584f593df33994968821f87ce81e",
+    "backend/src/infrastructure/database/__init__.py": "8e5593da98f373bd8da47deb35a1334386ebef5e56430dd0628cc8aa8d806974",
+    "backend/src/infrastructure/database/initialize.py": "50b1d0e395b06fdec9dca37010b0128a6ba7a20cbe7a2c45327d676598a01cb4",
+    "backend/src/infrastructure/database/models.py": "ee1c7c10bf8017aff37e2899861e6d7516d214bd730e0276169ee4ad9a979ec7",
+    "backend/src/infrastructure/database/session.py": "d1122d101f6c277a053515b8e4aa8f1f3185a8121399b55731ffb9cb0e0f2cde",
+    "backend/src/infrastructure/dependencies.py": "addc32b48cd1c9bc512071148e0a970f691db400aff00406a4764998ab3983ae",
+    "backend/src/infrastructure/logging/__init__.py": "d277f26de1a304e1d708b915067d1edb5aff4bb165eb58baded910e64d428d88",
+    "backend/src/infrastructure/logging/config.py": "80aabc475d013241cecd8c8e31cdd29edfeec0d2b444765d141ba3b1701714ed",
+    "backend/src/infrastructure/logging/factory.py": "dfd976889a6f1c1a8a96ebebfdd4f0c152fe7bf5ee4dce66f7a6d1423900fac3",
+    "backend/src/infrastructure/logging/formatters.py": "81837997ec9d772a778f9fec200bec6a8914f703a0db4a5d35744b4dfc62c7b0",
+    "backend/src/infrastructure/logging/handlers.py": "d151b064d762c3814c882b4656e283e16a6a6a8be1df9289c79b5d53b4dd72d2",
+    "backend/src/infrastructure/middleware.py": "6aa27f6ea6df5f8b55437a2e35f6b9c82c1e3862354d81b269ef66ca6a53147b",
+    "backend/src/infrastructure/redis.py": "8d22da7d0626ebe0fccdf1bc12b4eb7a99de207bfa7be8e97f3a875d83d0cac8",
+    "backend/src/infrastructure/security/__init__.py": "693570082427241637066c41ba8ddf5b83940c99037c8de73933c0aa2a6a507d",
+    "backend/src/infrastructure/security/production_validator.py": "897439549839f85adae1bdb96d31f2c332589629eb9b39c35adbcc121442bfc7",
+    "backend/src/infrastructure/taskiq/__init__.py": "f988a37a036b486ea67fe979089d351cf97c4b6a315c4f6c82369f963a34be6b",
+    "backend/src/infrastructure/taskiq/app.py": "26e1ac1e3460424b4176b57d5be647371d4eb8e5d2f0ab5871ada118fbcdcf22",
+    "backend/src/infrastructure/taskiq/brokers.py": "34fce12dc771f1ab8067adddea6dd62a8e63545d81a5fb7f64438971f597adda",
+    "backend/src/infrastructure/taskiq/deps.py": "be832bab39e93a7997e43404bbbea8531dc67ea443fb22e4d3027edb89e1d124",
+    "backend/src/infrastructure/taskiq/registry.py": "f06b0ff9f2f2b1239475433e26f9fc6baa5cbe83460e125bd4d2d44982fe90de",
+    "backend/src/infrastructure/taskiq/worker.py": "25c262a0afdc6b1e600bddb50b142e7cac0cb06cff63380e213c41bac3f98ea6",
+    "backend/src/interfaces/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/src/interfaces/admin/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/src/interfaces/admin/auth.py": "ce7a6d26e339accc05931e628dceeb2cb9a72937ca237dc422db7adb9def3921",
+    "backend/src/interfaces/admin/initialize.py": "6e2b15c98846a32ad1d43d1312e0545163c572586653323007634e8c36e6edad",
+    "backend/src/interfaces/admin/mixins.py": "4078ea116fe916cceeaa4f5aed915fbd9c9458ffabf1ca13505d371d90a2df5c",
+    "backend/src/interfaces/admin/views/__init__.py": "cb67dccec544b85e2e4a18720bcef29beaa313f67a82ab8955dfc349b2965fc1",
+    "backend/src/interfaces/admin/views/tiers.py": "bc702d3becfd46e548cee9108581fcae5f455699373db29d61f61267e88b0002",
+    "backend/src/interfaces/admin/views/users.py": "6248ae1dba82f6700914dd182cc6dc6557d2f26c41752ea3971d398e6570b9f9",
+    "backend/src/interfaces/api/__init__.py": "6fb394e7c8886b17811488ba6db4537d76cbebd35c82dc8a674f11d92746d444",
+    "backend/src/interfaces/api/v1/__init__.py": "3bcfaf589644691c8939be4896ebb73d6b3af1f903685267ee47ac53ac2334ac",
+    "backend/src/interfaces/main.py": "76a07d6dba1478577266e528577256390a2563b0404d9cbde5e6277aa8334107",
+    "backend/src/modules/__init__.py": "e4b0fc133a5a09fe3c6fd459ad626b4701779bf8cafb6fe400214958e3b82c19",
+    "backend/src/modules/api_keys/__init__.py": "62fce9ad3cc1282646dd9311169c9cd3386107203c1529efb25d59af0ec06941",
+    "backend/src/modules/api_keys/crud.py": "af4c463da9261838699a274fb0cf81ac16e3c342c1b53757f4c9adedc0a5d508",
+    "backend/src/modules/api_keys/dependencies.py": "8832066d0576b17692549d76da62fea5ebe99a9978f715c8b8f848cbc83f4c3f",
+    "backend/src/modules/api_keys/enums.py": "1b845be7e742c9fa562d96b1b080aa94d5d860c7ddcb4389eb2ede7253796698",
+    "backend/src/modules/api_keys/models.py": "0f9ff44d6e5a1b2f65d272a8cb194f332eba204f9eea51cf1870036ebfec39cb",
+    "backend/src/modules/api_keys/routes.py": "f6d972e0745ab328e8ba6d0a330732ed45b7299f6b9c3ebb49030abd6cadddd1",
+    "backend/src/modules/api_keys/schemas.py": "553956c6505d2505da0ef91fa35ff29aae3264fbecf03de40d3a5fae31565ab5",
+    "backend/src/modules/api_keys/service.py": "76e3afc248f5d0b7ebd850ebf67010722aeedc6c96232141cbdc591e13ae0218",
+    "backend/src/modules/common/__init__.py": "2b320a0871f8f3d660dc7af7377e3a4e62ab26c80feb60aaf18ba6cb12f0db20",
+    "backend/src/modules/common/constants.py": "b1f20a67d439327f80fc11794dfd205b1bfe1a1232bbf2438d2d659c525a5d6a",
+    "backend/src/modules/common/exceptions.py": "3406e3e7815c43ef375de7c0133eab14d869e58ff108483fb08fcce8c17ec2ef",
+    "backend/src/modules/common/schemas.py": "eadecc377a4d4320a63c964242f45e1dafb4617f7bb9c010b28045af8bc5760b",
+    "backend/src/modules/common/utils/__init__.py": "856d913731149d490464ac4ae089cdfe973e049097b938d89281fc44d816a0d5",
+    "backend/src/modules/common/utils/error_handler.py": "e48727c369b35c08fac9cec3017b4271626a80b00ef6cb2c0c460875b750ed47",
+    "backend/src/modules/common/utils/logger.py": "5765e1e4c26c7a57fa4878505b1a58bc8a1b5612df1bf87648d3891c5a696488",
+    "backend/src/modules/rate_limit/__init__.py": "a515e1c015f30ffb825c696c463d5dc1011463d1e95cf33e33fed12a583b7020",
+    "backend/src/modules/rate_limit/crud.py": "82912fe22a50a397181f499767d0c8c873c4835149a4eb90fe1ec1701430792f",
+    "backend/src/modules/rate_limit/dependencies.py": "95db8ec0e93a0884516c316c28d7e0ed1c743354abbbdb66dd49381032fc2c52",
+    "backend/src/modules/rate_limit/models.py": "d577c44ea9753b09fcad2f3bb73b949158a759093c37f464a9ef0f24203cb66f",
+    "backend/src/modules/rate_limit/routes.py": "b07e9329d73cb79a8c1385ea25b11ecf80e5babd00aeda03658d962893526dd3",
+    "backend/src/modules/rate_limit/schemas.py": "e40ac146fae32d08dc594925b3bf53d3f57dcd8475a524ecb32587ea6d128266",
+    "backend/src/modules/rate_limit/service.py": "3c7f1bb567775c989f01487c4358f1001ea3fdbb5058fb2d875cc76688c77ea7",
+    "backend/src/modules/tier/__init__.py": "8afb7be9ead57d90eba9840d29106a20c4a3a7e564009eedc90f0a65c6f7de04",
+    "backend/src/modules/tier/crud.py": "66e2e82a2cb840c35941a567c7e2f35296bcf6cbc1ac92b0cc043a27b2d25b6c",
+    "backend/src/modules/tier/dependencies.py": "bb0b3746dd688de201ffe04dc191da6efbfaf81f6c5607fc2e8f7efdf07855ec",
+    "backend/src/modules/tier/models.py": "4f0ff13c9579f895098abfcf1eaa0d3571483511090bca8cda9e767137362b9c",
+    "backend/src/modules/tier/routes.py": "4b9f1d22c451dac2ced19612039c3e0af8fa901ec58ead91ee86b21f0677cff8",
+    "backend/src/modules/tier/schemas.py": "632bcea0a3b58d5fd70901585e1dff531f4d2a328d1d7700ee80c5fc69ae4809",
+    "backend/src/modules/tier/service.py": "fb0c90759792d94995db96df0bbdabd72771b522222a247d3f7af2ca8e311e2e",
+    "backend/src/modules/user/__init__.py": "5b7ac285c08ffe8c960e157be9188229ed1da94275cc4ae256d192d4f8fd7f9b",
+    "backend/src/modules/user/constants.py": "7b950f73827d7d3a3763545d78b327dcdc46a750ea7f26355b0dcc55237b24cc",
+    "backend/src/modules/user/crud.py": "5f119a0d4b61541d5be49fd5f3bf332987fce31c080aaad7b11ccb0df8f9f100",
+    "backend/src/modules/user/dependencies.py": "cdf397a87583af0f57d0bba1da6a38817069a7834ab53c21672e285ac4f83d8a",
+    "backend/src/modules/user/enums.py": "82ea746edd11e8a5638726d3de89085600134f138d85663eb904c93c162ca518",
+    "backend/src/modules/user/models.py": "67adcd748c94c32beb2e453c8aff3a16cc9fd371a8c127b3627f19c0012b858f",
+    "backend/src/modules/user/routes.py": "77f5b5941f6265393635c8027ce879eef35fd35cb7de2fb61187ee51f66f1f5c",
+    "backend/src/modules/user/schemas.py": "3d7b444b0d18f30d861804b79c924e50d07f213a59f3cf139ee42b1d34cb8d6a",
+    "backend/src/modules/user/service.py": "4c2c0f402e7fe853a98de0522cf668c33a428eb7086c6dc60174666c122c7bf8",
+    "cli/src/cli/__init__.py": "c2c3bfa40e16da4cca5724dacabb9a693b4e4dd10c8b48e0bc7f398431be51a7",
+    "cli/src/cli/app.py": "05ce23f592ecba95f5ed2cf3e9986d2476d2fa1fb5e850fc2896200690864797",
+    "cli/src/cli/commands/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cli/src/cli/commands/deploy.py": "532dd3e2a8021f367109ea72d95ddb39ba6a71785c5a558797cf018258b844a8",
+    "cli/src/cli/commands/env.py": "297ff11dcfa673ae0b0fc7ef846549d69f5aff4ee32dd94c9b04b2cc448760ac",
+    "cli/src/cli/features/__init__.py": "aa01d1f1e6c44b61480c8669f758a0c233c55e3d32079a620beb95272586791a",
+    "cli/src/cli/features/_builtins/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cli/src/cli/features/_builtins/deploy/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cli/src/cli/features/_builtins/deploy/feature.py": "66e8964f7833ccf172e931801faa3b17b2b06fb895dc334a29e2a304607557d2",
+    "cli/src/cli/features/base.py": "72a1290e656d41fd34fdaceea8c7841b68102b183868e5b3ffdfb4dd42a09103",
+    "cli/src/cli/features/installer.py": "684dde9609c6425a07744588c6db24af67f2044f6811bdcfda9088061a280bc9",
+    "cli/src/cli/features/registry.py": "8061dc5e708a4655bf808de439e8f1887eb11422870b9a21292c8ec751f43c02",
+    "cli/src/cli/lib/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cli/src/cli/lib/project.py": "874cab0b69f134dbd9a9a85d7cc83ab9d16cbb36c3cd900ae54a4c41fb299faa",
+    "cli/src/cli/lib/prompts.py": "80e2c33dccea0fa785ec586f684c63eb27d1998e651952306538c2cd0f55cc30",
+    "cli/src/cli/lib/render.py": "6468a2da1f26ac8f5a67275a2154ed2772608bf3b9a0b71abb32f9dbd4cee79b",
+    "cli/src/cli/plugins.py": "4e011245f5ce9a8b47c08e70b898898c015d8d30dacf05151958320b989bc1e0"
+  },
+  "excluded": {
+    "dir:migrations": 1,
+    "dir:scripts": 4,
+    "dir:tests": 61
+  }
+}

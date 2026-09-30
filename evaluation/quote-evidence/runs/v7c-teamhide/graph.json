@@ -1,0 +1,1013 @@
+{
+  "meta": {
+    "repo": "teamhide_fastapi-boilerplate-df4e6d4",
+    "pipeline": "v7",
+    "prompt_sha": "8a59e3ae5eb50ce6",
+    "status": "partial",
+    "files": 54,
+    "issues": [
+      "top: blocks dropped for a reason not in the code: api_public, app_entry, celery_broker, database, redis_cache",
+      "top: 5 problems left after the retry",
+      "top: no blocks; every file placed by rule",
+      "3 data blocks, above 2"
+    ],
+    "model": "openai/gpt-oss-120b",
+    "timing": {
+      "total_s": 393.3,
+      "model_s": 27.2
+    },
+    "tokens": 22835,
+    "requests": 8,
+    "cached": 0,
+    "calls": [
+      {
+        "at": "2026-09-30T14:50:49",
+        "step": "top-1",
+        "status": 200,
+        "seconds": 7.82,
+        "estimated": 6000,
+        "prompt_tokens": 2299,
+        "completion_tokens": 3356,
+        "total_tokens": 5655,
+        "error": ""
+      },
+      {
+        "at": "2026-09-30T14:51:56",
+        "step": "top-2",
+        "status": 400,
+        "seconds": 6.18,
+        "estimated": 6000,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "error": "Failed to validate JSON. Please adjust your prompt. See 'failed_generation' for more details.",
+        "note": "empty answer; retry with reasoning_effort=low"
+      },
+      {
+        "at": "2026-09-30T14:52:59",
+        "step": "top-2",
+        "status": 200,
+        "seconds": 2.67,
+        "estimated": 6000,
+        "prompt_tokens": 3068,
+        "completion_tokens": 934,
+        "total_tokens": 4002,
+        "error": ""
+      },
+      {
+        "at": "2026-09-30T14:54:01",
+        "step": "edges-1",
+        "status": 429,
+        "seconds": 0.19,
+        "estimated": 6000,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "error": "Rate limit reached for model `openai/gpt-oss-120b` in organization `org_01m399hj5me8wawcxhy9gyvsjt` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Used 4791, Requested 3836. Please t"
+      },
+      {
+        "at": "2026-09-30T14:55:03",
+        "step": "edges-1",
+        "status": 200,
+        "seconds": 1.18,
+        "estimated": 6000,
+        "prompt_tokens": 480,
+        "completion_tokens": 217,
+        "total_tokens": 697,
+        "error": ""
+      },
+      {
+        "at": "2026-09-30T14:55:06",
+        "step": "name-1",
+        "status": 200,
+        "seconds": 3.11,
+        "estimated": 6000,
+        "prompt_tokens": 1126,
+        "completion_tokens": 1100,
+        "total_tokens": 2226,
+        "error": ""
+      },
+      {
+        "at": "2026-09-30T14:56:10",
+        "step": "name-2",
+        "status": 200,
+        "seconds": 3.16,
+        "estimated": 6000,
+        "prompt_tokens": 1049,
+        "completion_tokens": 1163,
+        "total_tokens": 2212,
+        "error": ""
+      },
+      {
+        "at": "2026-09-30T14:57:14",
+        "step": "name-3",
+        "status": 200,
+        "seconds": 2.88,
+        "estimated": 6000,
+        "prompt_tokens": 887,
+        "completion_tokens": 1156,
+        "total_tokens": 2043,
+        "error": ""
+      }
+    ],
+    "grouping": {
+      "api_api": {
+        "layer": "api",
+        "files": [
+          "app/auth/adapter/input/api/__init__.py",
+          "app/auth/adapter/input/api/v1/auth.py",
+          "app/user/adapter/input/api/__init__.py",
+          "app/user/adapter/input/api/v1/user.py"
+        ]
+      },
+      "shared": {
+        "layer": "shared",
+        "files": [
+          "app/auth/adapter/input/api/v1/request/__init__.py",
+          "app/auth/adapter/input/api/v1/response/__init__.py",
+          "app/auth/application/dto/__init__.py",
+          "app/auth/application/exception/__init__.py",
+          "app/auth/application/service/jwt.py",
+          "app/auth/domain/usecase/jwt.py",
+          "app/container.py",
+          "app/user/adapter/input/api/v1/request/__init__.py",
+          "app/user/adapter/input/api/v1/response/__init__.py",
+          "app/user/application/dto/__init__.py",
+          "app/user/application/exception/__init__.py",
+          "app/user/container.py",
+          "app/user/domain/command/__init__.py",
+          "app/user/domain/repository/user.py",
+          "app/user/domain/usecase/user.py",
+          "app/user/domain/vo/location.py",
+          "core/config.py",
+          "core/db/__init__.py",
+          "core/db/mixins/__init__.py",
+          "core/db/mixins/timestamp_mixin.py",
+          "core/exceptions/__init__.py",
+          "core/exceptions/base.py",
+          "core/fastapi/dependencies/__init__.py",
+          "core/fastapi/dependencies/logging.py",
+          "core/fastapi/dependencies/permission.py",
+          "core/fastapi/middlewares/__init__.py",
+          "core/helpers/cache/__init__.py",
+          "core/helpers/cache/base/__init__.py",
+          "core/helpers/cache/base/backend.py",
+          "core/helpers/cache/base/key_maker.py",
+          "core/helpers/cache/cache_manager.py",
+          "core/helpers/cache/cache_tag.py",
+          "core/helpers/cache/custom_key_maker.py",
+          "core/helpers/token.py",
+          "core/repository/enum.py"
+        ]
+      },
+      "app_entry": {
+        "layer": "entry",
+        "files": [
+          "app/server.py"
+        ]
+      },
+      "persistence_service": {
+        "layer": "service",
+        "files": [
+          "app/user/adapter/output/persistence/repository_adapter.py"
+        ]
+      },
+      "sqlalchemy_data": {
+        "layer": "data",
+        "files": [
+          "app/user/adapter/output/persistence/sqlalchemy/user.py"
+        ]
+      },
+      "service_service": {
+        "layer": "service",
+        "files": [
+          "app/user/application/service/user.py"
+        ]
+      },
+      "entity_data": {
+        "layer": "data",
+        "files": [
+          "app/user/domain/entity/user.py"
+        ]
+      },
+      "celery_task_infra": {
+        "layer": "infra",
+        "files": [
+          "celery_task/__init__.py"
+        ]
+      },
+      "db_infra": {
+        "layer": "infra",
+        "files": [
+          "core/db/session.py"
+        ]
+      },
+      "db_service": {
+        "layer": "service",
+        "files": [
+          "core/db/transactional.py"
+        ]
+      },
+      "middlewares_entry": {
+        "layer": "entry",
+        "files": [
+          "core/fastapi/middlewares/authentication.py",
+          "core/fastapi/middlewares/response_log.py",
+          "core/fastapi/middlewares/sqlalchemy.py"
+        ]
+      },
+      "cache_service": {
+        "layer": "service",
+        "files": [
+          "core/helpers/cache/redis_backend.py"
+        ]
+      },
+      "helpers_infra": {
+        "layer": "infra",
+        "files": [
+          "core/helpers/redis.py"
+        ]
+      },
+      "repository_data": {
+        "layer": "data",
+        "files": [
+          "core/repository/base.py"
+        ]
+      },
+      "root_entry": {
+        "layer": "entry",
+        "files": [
+          "main.py"
+        ]
+      }
+    },
+    "reasons": {},
+    "block_reasons": {},
+    "ambiguous": {
+      "no_path": [
+        "app/auth/adapter/input/api/__init__.py",
+        "app/auth/adapter/input/api/v1/auth.py",
+        "app/auth/adapter/input/api/v1/request/__init__.py",
+        "app/auth/adapter/input/api/v1/response/__init__.py",
+        "app/auth/application/dto/__init__.py",
+        "app/auth/application/exception/__init__.py",
+        "app/auth/application/service/jwt.py",
+        "app/auth/domain/usecase/jwt.py",
+        "app/container.py",
+        "app/server.py",
+        "app/user/adapter/input/api/__init__.py",
+        "app/user/adapter/input/api/v1/request/__init__.py",
+        "app/user/adapter/input/api/v1/response/__init__.py",
+        "app/user/adapter/input/api/v1/user.py",
+        "app/user/adapter/output/persistence/repository_adapter.py",
+        "app/user/adapter/output/persistence/sqlalchemy/user.py",
+        "app/user/application/dto/__init__.py",
+        "app/user/application/exception/__init__.py",
+        "app/user/application/service/user.py",
+        "app/user/container.py",
+        "app/user/domain/command/__init__.py",
+        "app/user/domain/entity/user.py",
+        "app/user/domain/repository/user.py",
+        "app/user/domain/usecase/user.py",
+        "app/user/domain/vo/location.py",
+        "celery_task/__init__.py",
+        "core/db/__init__.py",
+        "core/db/mixins/__init__.py",
+        "core/db/mixins/timestamp_mixin.py",
+        "core/db/session.py",
+        "core/db/transactional.py",
+        "core/fastapi/dependencies/__init__.py",
+        "core/fastapi/dependencies/permission.py",
+        "core/fastapi/middlewares/__init__.py",
+        "core/fastapi/middlewares/authentication.py",
+        "core/fastapi/middlewares/response_log.py",
+        "core/fastapi/middlewares/sqlalchemy.py",
+        "core/helpers/cache/__init__.py",
+        "core/helpers/cache/base/__init__.py",
+        "core/helpers/cache/base/backend.py",
+        "core/helpers/cache/base/key_maker.py",
+        "core/helpers/cache/cache_manager.py",
+        "core/helpers/cache/cache_tag.py",
+        "core/helpers/cache/custom_key_maker.py",
+        "core/helpers/cache/redis_backend.py",
+        "core/helpers/redis.py",
+        "core/helpers/token.py",
+        "core/repository/base.py",
+        "core/repository/enum.py",
+        "main.py"
+      ],
+      "sure_above": []
+    },
+    "by_rule": [
+      "app/auth/adapter/input/api/__init__.py",
+      "app/auth/adapter/input/api/v1/auth.py",
+      "app/auth/adapter/input/api/v1/request/__init__.py",
+      "app/auth/adapter/input/api/v1/response/__init__.py",
+      "app/auth/application/dto/__init__.py",
+      "app/auth/application/exception/__init__.py",
+      "app/auth/application/service/jwt.py",
+      "app/auth/domain/usecase/jwt.py",
+      "app/container.py",
+      "app/server.py",
+      "app/user/adapter/input/api/__init__.py",
+      "app/user/adapter/input/api/v1/request/__init__.py",
+      "app/user/adapter/input/api/v1/response/__init__.py",
+      "app/user/adapter/input/api/v1/user.py",
+      "app/user/adapter/output/persistence/repository_adapter.py",
+      "app/user/adapter/output/persistence/sqlalchemy/user.py",
+      "app/user/application/dto/__init__.py",
+      "app/user/application/exception/__init__.py",
+      "app/user/application/service/user.py",
+      "app/user/container.py",
+      "app/user/domain/command/__init__.py",
+      "app/user/domain/entity/user.py",
+      "app/user/domain/repository/user.py",
+      "app/user/domain/usecase/user.py",
+      "app/user/domain/vo/location.py",
+      "celery_task/__init__.py",
+      "core/db/__init__.py",
+      "core/db/mixins/__init__.py",
+      "core/db/mixins/timestamp_mixin.py",
+      "core/db/session.py",
+      "core/db/transactional.py",
+      "core/fastapi/dependencies/__init__.py",
+      "core/fastapi/dependencies/permission.py",
+      "core/fastapi/middlewares/__init__.py",
+      "core/fastapi/middlewares/authentication.py",
+      "core/fastapi/middlewares/response_log.py",
+      "core/fastapi/middlewares/sqlalchemy.py",
+      "core/helpers/cache/__init__.py",
+      "core/helpers/cache/base/__init__.py",
+      "core/helpers/cache/base/backend.py",
+      "core/helpers/cache/base/key_maker.py",
+      "core/helpers/cache/cache_manager.py",
+      "core/helpers/cache/cache_tag.py",
+      "core/helpers/cache/custom_key_maker.py",
+      "core/helpers/cache/redis_backend.py",
+      "core/helpers/redis.py",
+      "core/helpers/token.py",
+      "core/repository/base.py",
+      "core/repository/enum.py",
+      "main.py"
+    ],
+    "top": {
+      "found": [
+        "block app_entry: reason 'server.py:77 app_ = FastAPI()' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block api_public: reason 'app/auth/adapter/input/api/__init__.py:6 router.include_router(auth_v1_router, p' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block auth_service: reason 'jwt.py:1 class JWTService' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block user_service: reason 'user.py:1 class UserService' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block database: reason 'session.py:38 EngineType.WRITER: create_async_engine(config.WRITER_DB_URL,)' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block redis_cache: reason 'redis.py:5 redis_client = redis.from_url(url=f\"redis://{confi)' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block celery_broker: reason '__init__.py:5 celery_app = Celery()' is not a line of the repository copied exactly (\"<file>:<line> <code>\")"
+      ],
+      "left": [
+        "block app_entry: reason 'app/server.py:77 app_ = FastAPI()' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block api_public: reason 'app/auth/adapter/input/api/__init__.py:6 router.include_router(auth_v1_router, p' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block database: reason 'core/db/session.py:38 EngineType.WRITER: create_async_engine(config.WRITER_DB_UR' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block redis_cache: reason 'core/helpers/redis.py:5 redis_client = redis.from_url(url=f\"redis://{config.REDI' is not a line of the repository copied exactly (\"<file>:<line> <code>\")",
+        "block celery_broker: reason 'celery_task/__init__.py:5 celery_app = Celery()' is not a line of the repository copied exactly (\"<file>:<line> <code>\")"
+      ]
+    },
+    "layer_differs": [],
+    "edge_check": [
+      {
+        "source": "service_service",
+        "target": "entity_data",
+        "kind": "flow",
+        "reason": {
+          "file": "app/user/application/service/user.py",
+          "line": 40,
+          "text": "user = User.create("
+        },
+        "checked": true
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "C1",
+      "key": "app_entry",
+      "name": "Khởi tạo FastAPI",
+      "layer": "entry",
+      "role": "Tạo ứng dụng FastAPI và khởi tạo router",
+      "role_quote": {
+        "file": "app/server.py",
+        "line": 77,
+        "text": "app_ = FastAPI("
+      },
+      "shared": false,
+      "files": [
+        "app/server.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C2",
+      "key": "middlewares_entry",
+      "name": "Xử lý middleware FastAPI",
+      "layer": "entry",
+      "role": "Quản lý middleware cho request/response",
+      "role_quote": {
+        "file": "core/fastapi/middlewares/sqlalchemy.py",
+        "line": 8,
+        "text": "class SQLAlchemyMiddleware:"
+      },
+      "shared": false,
+      "files": [
+        "core/fastapi/middlewares/authentication.py",
+        "core/fastapi/middlewares/response_log.py",
+        "core/fastapi/middlewares/sqlalchemy.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C3",
+      "key": "root_entry",
+      "name": "Điểm vào ứng dụng",
+      "layer": "entry",
+      "role": "Khởi chạy server FastAPI",
+      "role_quote": {
+        "file": "main.py",
+        "line": 21,
+        "text": "def main(env: str, debug: bool):"
+      },
+      "shared": false,
+      "files": [
+        "main.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C4",
+      "key": "api_api",
+      "name": "API router Auth và User",
+      "layer": "api",
+      "role": "Định nghĩa các endpoint xác thực và người dùng",
+      "role_quote": {
+        "file": "app/auth/adapter/input/api/__init__.py",
+        "line": 6,
+        "text": "router.include_router(auth_v1_router, prefix=\"/api/v1/auth\", tags=[\"Auth\"])"
+      },
+      "shared": false,
+      "files": [
+        "app/auth/adapter/input/api/__init__.py",
+        "app/auth/adapter/input/api/v1/auth.py",
+        "app/user/adapter/input/api/__init__.py",
+        "app/user/adapter/input/api/v1/user.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C5",
+      "key": "cache_service",
+      "name": "Cache service Redis",
+      "layer": "service",
+      "role": "Cung cấp backend cache sử dụng Redis",
+      "role_quote": {
+        "file": "core/helpers/cache/redis_backend.py",
+        "line": 10,
+        "text": "class RedisBackend(BaseBackend):"
+      },
+      "shared": false,
+      "files": [
+        "core/helpers/cache/redis_backend.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C6",
+      "key": "db_service",
+      "name": "Quản lý giao dịch DB",
+      "layer": "service",
+      "role": "Quản lý commit và rollback cho DB",
+      "role_quote": {
+        "file": "core/db/transactional.py",
+        "line": 12,
+        "text": "await session.commit()"
+      },
+      "shared": false,
+      "files": [
+        "core/db/transactional.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C7",
+      "key": "persistence_service",
+      "name": "Adapter lưu trữ người dùng",
+      "layer": "service",
+      "role": "Chuyển đổi dữ liệu sang DTO cho repository",
+      "role_quote": {
+        "file": "app/user/adapter/output/persistence/repository_adapter.py",
+        "line": 16,
+        "text": "return [UserRead.model_validate(user) for user in users]"
+      },
+      "shared": false,
+      "files": [
+        "app/user/adapter/output/persistence/repository_adapter.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C8",
+      "key": "service_service",
+      "name": "Xử lý nghiệp vụ người dùng",
+      "layer": "service",
+      "role": "Thực thi các use‑case người dùng với transaction",
+      "role_quote": {
+        "file": "app/user/application/service/user.py",
+        "line": 28,
+        "text": "@Transactional()"
+      },
+      "shared": false,
+      "files": [
+        "app/user/application/service/user.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C9",
+      "key": "entity_data",
+      "name": "Định nghĩa thực thể người dùng",
+      "layer": "data",
+      "role": "Mô tả cấu trúc và hành vi của thực thể User",
+      "role_quote": {
+        "file": "app/user/domain/entity/user.py",
+        "line": 10,
+        "text": "class User(Base, TimestampMixin):"
+      },
+      "shared": false,
+      "files": [
+        "app/user/domain/entity/user.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C10",
+      "key": "repository_data",
+      "name": "Cơ sở lớp repository",
+      "layer": "data",
+      "role": "Cung cấp các phương thức truy vấn DB chung",
+      "role_quote": {
+        "file": "core/repository/base.py",
+        "line": 17,
+        "text": "return await session.execute(query).scalars().first()"
+      },
+      "shared": false,
+      "files": [
+        "core/repository/base.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C11",
+      "key": "sqlalchemy_data",
+      "name": "Repo SQLAlchemy",
+      "layer": "data",
+      "role": "Quản lý truy cập dữ liệu người dùng qua SQLAlchemy.",
+      "role_quote": {
+        "file": "app/user/adapter/output/persistence/sqlalchemy/user.py",
+        "line": 8,
+        "text": "class UserSQLAlchemyRepo(UserRepo):"
+      },
+      "shared": false,
+      "files": [
+        "app/user/adapter/output/persistence/sqlalchemy/user.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C12",
+      "key": "celery_task_infra",
+      "name": "Celery task manager",
+      "layer": "infra",
+      "role": "Khởi tạo Celery app để quản lý các task nền.",
+      "role_quote": {
+        "file": "celery_task/__init__.py",
+        "line": 5,
+        "text": "celery_app = Celery("
+      },
+      "shared": false,
+      "files": [
+        "celery_task/__init__.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C13",
+      "key": "db_infra",
+      "name": "Engine DB async",
+      "layer": "infra",
+      "role": "Cấu hình engine kết nối cơ sở dữ liệu viết bất đồng bộ.",
+      "role_quote": {
+        "file": "core/db/session.py",
+        "line": 38,
+        "text": "EngineType.WRITER: create_async_engine(config.WRITER_DB_URL, pool_recycle=3600),"
+      },
+      "shared": false,
+      "files": [
+        "core/db/session.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C14",
+      "key": "helpers_infra",
+      "name": "Redis client helper",
+      "layer": "infra",
+      "role": "Tạo client Redis để lưu cache và truy xuất nhanh.",
+      "role_quote": {
+        "file": "core/helpers/redis.py",
+        "line": 5,
+        "text": "redis_client = redis.from_url(url=f\"redis://{config.REDIS_HOST}\", decode_responses=True)"
+      },
+      "shared": false,
+      "files": [
+        "core/helpers/redis.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C15",
+      "key": "shared",
+      "name": "Dùng chung",
+      "layer": "shared",
+      "role": "",
+      "role_quote": null,
+      "shared": true,
+      "files": [
+        "app/auth/adapter/input/api/v1/request/__init__.py",
+        "app/auth/adapter/input/api/v1/response/__init__.py",
+        "app/auth/application/dto/__init__.py",
+        "app/auth/application/exception/__init__.py",
+        "app/auth/application/service/jwt.py",
+        "app/auth/domain/usecase/jwt.py",
+        "app/container.py",
+        "app/user/adapter/input/api/v1/request/__init__.py",
+        "app/user/adapter/input/api/v1/response/__init__.py",
+        "app/user/application/dto/__init__.py",
+        "app/user/application/exception/__init__.py",
+        "app/user/container.py",
+        "app/user/domain/command/__init__.py",
+        "app/user/domain/repository/user.py",
+        "app/user/domain/usecase/user.py",
+        "app/user/domain/vo/location.py",
+        "core/config.py",
+        "core/db/__init__.py",
+        "core/db/mixins/__init__.py",
+        "core/db/mixins/timestamp_mixin.py",
+        "core/exceptions/__init__.py",
+        "core/exceptions/base.py",
+        "core/fastapi/dependencies/__init__.py",
+        "core/fastapi/dependencies/logging.py",
+        "core/fastapi/dependencies/permission.py",
+        "core/fastapi/middlewares/__init__.py",
+        "core/helpers/cache/__init__.py",
+        "core/helpers/cache/base/__init__.py",
+        "core/helpers/cache/base/backend.py",
+        "core/helpers/cache/base/key_maker.py",
+        "core/helpers/cache/cache_manager.py",
+        "core/helpers/cache/cache_tag.py",
+        "core/helpers/cache/custom_key_maker.py",
+        "core/helpers/token.py",
+        "core/repository/enum.py"
+      ],
+      "described": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "E1",
+      "source": "C1",
+      "target": "C4",
+      "label": "đăng ký router",
+      "quote": {
+        "file": "app/server.py",
+        "line": 26,
+        "text": "app_.include_router(auth_router)"
+      }
+    },
+    {
+      "id": "E2",
+      "source": "C1",
+      "target": "C2",
+      "label": "cài đặt middleware",
+      "quote": {
+        "file": "app/server.py",
+        "line": 61,
+        "text": "Middleware("
+      }
+    },
+    {
+      "id": "E3",
+      "source": "C5",
+      "target": "C14",
+      "label": "thao tác cache",
+      "quote": {
+        "file": "core/helpers/cache/redis_backend.py",
+        "line": 12,
+        "text": "result = await redis_client.get(key)"
+      }
+    },
+    {
+      "id": "E4",
+      "source": "C6",
+      "target": "C13",
+      "label": "gọi commit rollback",
+      "quote": {
+        "file": "core/db/transactional.py",
+        "line": 12,
+        "text": "await session.commit()"
+      }
+    },
+    {
+      "id": "E5",
+      "source": "C2",
+      "target": "C13",
+      "label": "quản lý session",
+      "quote": {
+        "file": "core/fastapi/middlewares/sqlalchemy.py",
+        "line": 21,
+        "text": "await session.remove()"
+      }
+    },
+    {
+      "id": "E6",
+      "source": "C7",
+      "target": "C9",
+      "label": "gọi model_validate",
+      "quote": {
+        "file": "app/user/adapter/output/persistence/repository_adapter.py",
+        "line": 16,
+        "text": "return [UserRead.model_validate(user) for user in users]"
+      }
+    },
+    {
+      "id": "E7",
+      "source": "C10",
+      "target": "C13",
+      "label": "gọi DB infra",
+      "quote": {
+        "file": "core/repository/base.py",
+        "line": 17,
+        "text": "return await session.execute(query).scalars().first()"
+      }
+    },
+    {
+      "id": "E8",
+      "source": "C3",
+      "target": "C1",
+      "label": "khởi chạy app",
+      "quote": {
+        "file": "main.py",
+        "line": 24,
+        "text": "uvicorn.run("
+      }
+    },
+    {
+      "id": "E9",
+      "source": "C8",
+      "target": "C6",
+      "label": "gọi Transactional",
+      "quote": {
+        "file": "app/user/application/service/user.py",
+        "line": 28,
+        "text": "@Transactional()"
+      }
+    },
+    {
+      "id": "E10",
+      "source": "C8",
+      "target": "C9",
+      "label": "tạo thực thể",
+      "quote": {
+        "file": "app/user/application/service/user.py",
+        "line": 40,
+        "text": "user = User.create("
+      }
+    },
+    {
+      "id": "E11",
+      "source": "C8",
+      "target": "C7",
+      "label": "gọi repository",
+      "quote": {
+        "file": "app/user/application/service/user.py",
+        "line": 26,
+        "text": "return await self.repository.get_users(limit=limit, prev=prev)"
+      }
+    },
+    {
+      "id": "E12",
+      "source": "C11",
+      "target": "C13",
+      "label": "gọi DB infra",
+      "quote": {
+        "file": "app/user/adapter/output/persistence/sqlalchemy/user.py",
+        "line": 25,
+        "text": "result = await read_session.execute(query)"
+      }
+    }
+  ],
+  "externals": [
+    {
+      "id": "X1",
+      "name": "Message broker",
+      "kind": "broker",
+      "edges": [
+        {
+          "source": "C12",
+          "label": "gửi tác vụ",
+          "quote": {
+            "file": "celery_task/__init__.py",
+            "line": 5,
+            "text": "celery_app = Celery("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X2",
+      "name": "Database",
+      "kind": "database",
+      "edges": [
+        {
+          "source": "C13",
+          "label": "truy vấn",
+          "quote": {
+            "file": "core/db/session.py",
+            "line": 39,
+            "text": "EngineType.READER: create_async_engine(config.READER_DB_URL, pool_recycle=3600),"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X3",
+      "name": "Redis",
+      "kind": "redis",
+      "edges": [
+        {
+          "source": "C14",
+          "label": "đọc ghi",
+          "quote": {
+            "file": "core/helpers/redis.py",
+            "line": 5,
+            "text": "redis_client = redis.from_url(url=f\"redis://{config.REDIS_HOST}\", decode_responses=True)"
+          }
+        }
+      ]
+    }
+  ],
+  "quotes": {
+    "returned": 14,
+    "valid": 14
+  },
+  "rejected": [],
+  "issues": [],
+  "file_lines": {
+    "app/auth/adapter/input/api/__init__.py": 9,
+    "app/auth/adapter/input/api/v1/auth.py": 37,
+    "app/auth/adapter/input/api/v1/request/__init__.py": 10,
+    "app/auth/adapter/input/api/v1/response/__init__.py": 6,
+    "app/auth/application/dto/__init__.py": 6,
+    "app/auth/application/exception/__init__.py": 13,
+    "app/auth/application/service/jwt.py": 33,
+    "app/auth/domain/usecase/jwt.py": 17,
+    "app/container.py": 17,
+    "app/server.py": 92,
+    "app/user/adapter/input/api/__init__.py": 9,
+    "app/user/adapter/input/api/v1/request/__init__.py": 15,
+    "app/user/adapter/input/api/v1/response/__init__.py": 6,
+    "app/user/adapter/input/api/v1/user.py": 53,
+    "app/user/adapter/output/persistence/repository_adapter.py": 44,
+    "app/user/adapter/output/persistence/sqlalchemy/user.py": 59,
+    "app/user/application/dto/__init__.py": 24,
+    "app/user/application/exception/__init__.py": 19,
+    "app/user/application/service/user.py": 67,
+    "app/user/container.py": 17,
+    "app/user/domain/command/__init__.py": 10,
+    "app/user/domain/entity/user.py": 38,
+    "app/user/domain/repository/user.py": 39,
+    "app/user/domain/usecase/user.py": 27,
+    "app/user/domain/vo/location.py": 7,
+    "celery_task/__init__.py": 12,
+    "core/config.py": 45,
+    "core/db/__init__.py": 9,
+    "core/db/mixins/__init__.py": 1,
+    "core/db/mixins/timestamp_mixin.py": 18,
+    "core/db/session.py": 76,
+    "core/db/transactional.py": 19,
+    "core/exceptions/__init__.py": 6,
+    "core/exceptions/base.py": 8,
+    "core/fastapi/dependencies/__init__.py": 15,
+    "core/fastapi/dependencies/logging.py": 9,
+    "core/fastapi/dependencies/permission.py": 67,
+    "core/fastapi/middlewares/__init__.py": 10,
+    "core/fastapi/middlewares/authentication.py": 50,
+    "core/fastapi/middlewares/response_log.py": 34,
+    "core/fastapi/middlewares/sqlalchemy.py": 22,
+    "core/helpers/cache/__init__.py": 11,
+    "core/helpers/cache/base/__init__.py": 7,
+    "core/helpers/cache/base/backend.py": 16,
+    "core/helpers/cache/base/key_maker.py": 8,
+    "core/helpers/cache/cache_manager.py": 52,
+    "core/helpers/cache/cache_tag.py": 5,
+    "core/helpers/cache/custom_key_maker.py": 18,
+    "core/helpers/cache/redis_backend.py": 28,
+    "core/helpers/redis.py": 5,
+    "core/helpers/token.py": 57,
+    "core/repository/base.py": 50,
+    "core/repository/enum.py": 7,
+    "main.py": 34
+  },
+  "snapshot": {
+    "app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/auth/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/auth/adapter/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/auth/adapter/input/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/auth/adapter/input/api/__init__.py": "975412be70340d08a9e8ab6d8b5ca4ad9b5032cca81f2c975879d3e4864bbf5d",
+    "app/auth/adapter/input/api/v1/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/auth/adapter/input/api/v1/auth.py": "32bf56280a955b7b3bf2bed52af7b131c37650508416a01702156d0e9ebe3018",
+    "app/auth/adapter/input/api/v1/request/__init__.py": "c3626c261288cf2b02edfad196ae3ae9d4ef736c5bea1f829e08db1fbd2ef696",
+    "app/auth/adapter/input/api/v1/response/__init__.py": "2413deb53390edf8624a729f48afdace8278515ef495135bb64be7b004e425be",
+    "app/auth/application/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/auth/application/dto/__init__.py": "bfcfafa7b412ee08a43813a23371958b96d3590660304f8530a59af298824730",
+    "app/auth/application/exception/__init__.py": "5b63950ee7f0cab87a5010341279afcb0e16fb9a005fe248a91167ddaa030116",
+    "app/auth/application/service/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/auth/application/service/jwt.py": "6d6610bd8ac93c99f6c47860d57c4ad9128bb4893c386a9d71ca0ea17d3d61f3",
+    "app/auth/domain/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/auth/domain/entity/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/auth/domain/usecase/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/auth/domain/usecase/jwt.py": "351c1d374ff8145b92215aea6f8ee74373967d4a1f54ac2fd685ed6d617fdbcb",
+    "app/container.py": "ee2f21acf9529e4efbfba84c2831d242ae053ce795e0c7f20649c9198daead42",
+    "app/server.py": "5889f694fb1842b7fa1d0f687bec1932b3856044dcc99af8fb7ac0779d27ba30",
+    "app/user/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/adapter/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/adapter/input/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/adapter/input/api/__init__.py": "7adebc20e81c364bcbb38b1c3907464422e41e63eadf31ca6a56e7b5b50fc8ab",
+    "app/user/adapter/input/api/v1/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/adapter/input/api/v1/request/__init__.py": "3f6e8f8d534c316847ccf9dc13c7da42a19d3ca123f552fcff660ae511a08c4c",
+    "app/user/adapter/input/api/v1/response/__init__.py": "bb2c055ca92cab70f8cc344d4e02090e588e413644c57c40b0f3a1a865f54d25",
+    "app/user/adapter/input/api/v1/user.py": "d3c6616b60709c605ee9cd8b825b8ca600673874f347d338f0afa10c3decfed2",
+    "app/user/adapter/output/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/adapter/output/persistence/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/adapter/output/persistence/repository_adapter.py": "47e19a072cf054ec223a54055fd1dbcfd0ce194184ce69ca1edddeb5022e7aa1",
+    "app/user/adapter/output/persistence/sqlalchemy/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/adapter/output/persistence/sqlalchemy/user.py": "bb1818fc975d0de72971720605da30622304745cfe863084131ecf53002d635d",
+    "app/user/application/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/application/dto/__init__.py": "08ce86b8ace5ef753984e0c6a47a097667c0be99164fd5badb5c716a29300858",
+    "app/user/application/exception/__init__.py": "40ded7578444465d102b10a2ff8bf86a0d971f9fad38e77a342b8e955deee564",
+    "app/user/application/service/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/application/service/user.py": "abca9ddca340202d4a879b825fcdb8b4508e0e464d2a04824405681f14960ac8",
+    "app/user/container.py": "dfaefa93451fdef4b1a885cfff59c0618d7cc736bd066c55fd6ffc193cc69246",
+    "app/user/domain/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/domain/command/__init__.py": "063b2974f2d60cd974e37d25b15198f584a64a33d2c0a2ebad3d7422c055185b",
+    "app/user/domain/entity/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/domain/entity/user.py": "859320d7675afc8a6210428e2a787fab478c4ff46af2e1294cac522de31c33ea",
+    "app/user/domain/repository/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/domain/repository/user.py": "a8bf092e986a1174c1fc51a45833a7be4085b82afed7c1429fe4cb787b26d103",
+    "app/user/domain/usecase/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/domain/usecase/user.py": "9a5d225357976ddfbebd0bc3b67b73321255bcedf9468b4ab7feff5c265f9e25",
+    "app/user/domain/vo/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/user/domain/vo/location.py": "350774cfa2ab1018343642c715e2d40f44a819682c715877877482080c98e43f",
+    "celery_task/__init__.py": "eef267c878e30368a541ee5e2c5b90761c5627c1b17d31589c79e31484514882",
+    "celery_task/tasks/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "core/config.py": "b2042ebcb6c2b9a2bd9b876524d673c77c098501f25dff507110c2fa7ccc338e",
+    "core/db/__init__.py": "fe25728fec117679dc98dc0650041b524570fe73664ef0928f6a63703b55c22c",
+    "core/db/mixins/__init__.py": "6657b5d7dcb6f404375ff88d62767c617b8d72ab905d6a75cc54dbfe517abd40",
+    "core/db/mixins/timestamp_mixin.py": "761868dcc345e2ce9d5ec1a6ce57bdc92b1a5867d419d5675c808520e32968ce",
+    "core/db/session.py": "003d61678593c27c699dde4aff0a32550dc84e57b7ef32ba9935442b1758a08d",
+    "core/db/transactional.py": "ca7eb447fdb3ba6950e331f4e288de8adaa158ef1d0b5e77ab9bc81d70e5b506",
+    "core/exceptions/__init__.py": "0c4fb0bd9934e08b1ac9f907c09af903123e26698cb8cd756f88ebf7f71db447",
+    "core/exceptions/base.py": "6216f043e6842318603c9ba279bb568ca710421d1dfdb47ce4ee5589b1124758",
+    "core/fastapi/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "core/fastapi/dependencies/__init__.py": "1318400cd4abf85679cfa2b4020e36025e47fe65883f1dead1aef60996c07c0d",
+    "core/fastapi/dependencies/logging.py": "166063b348f3b733f1f32d387b29dc224575728a35c58641916f3ed9ac50a250",
+    "core/fastapi/dependencies/permission.py": "41603ff1527e5954ca1be54f9f1979e438e4bde3b338d8778e02701c7318107b",
+    "core/fastapi/middlewares/__init__.py": "13d7bdf8cc5eaf3157172c0f563b6052729cb24d797578847ad6e71f1a1dfe7c",
+    "core/fastapi/middlewares/authentication.py": "fd5d0c62168e269f89ab229873e0e63f416a73407e98016565715ffe5dad4df7",
+    "core/fastapi/middlewares/response_log.py": "9a417188524d51b66f068737a781d406099e87276974d428934887d927167e90",
+    "core/fastapi/middlewares/sqlalchemy.py": "68eac6a6e7e6502d22fae7fc54745c0f9bfc44030d3f4398574f453b4d0d9339",
+    "core/helpers/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "core/helpers/cache/__init__.py": "2e80f48b1589422a7605bc7c0d456bcff4810645bddc3d86c2c480bb0536cf32",
+    "core/helpers/cache/base/__init__.py": "0c9a1b9fd5e82a095fd80e62eec00ce75d8ce683c177d866ba29a7c1dcf3e76c",
+    "core/helpers/cache/base/backend.py": "6ae748adf79e4dee23746003114889b1d153568ffed8165625e51a96cc4e1b6e",
+    "core/helpers/cache/base/key_maker.py": "e65edbab050a7646fe65f7787cfdf459872622283ff6874e938031d66d206941",
+    "core/helpers/cache/cache_manager.py": "3cd8139ba9dce63a40d6685a3d0439376b70dd19e87c17bd09c42914a2c72abe",
+    "core/helpers/cache/cache_tag.py": "da22c09232ce58afc4fa2f38cacd77187b5497fd193138b8e58a013a2cb015f8",
+    "core/helpers/cache/custom_key_maker.py": "ca28a1fcfc092215d02d53c25b596856c042e3c3c1b308848824bedabd4147c2",
+    "core/helpers/cache/redis_backend.py": "b930af6cf9a0593be3f1b405116b25380b2ff0f583a47e58484b2b0a88547395",
+    "core/helpers/redis.py": "13b22f5756089a072d42145441aa21890aef0bbbc904db409488bb91845b37e0",
+    "core/helpers/token.py": "51173b0191d1d84fa8677b04cc3f05eae23c071f04055da87cb58f617553ef94",
+    "core/repository/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "core/repository/base.py": "e7d7baf7ee876fb782aece0c28bc371990c877a1d013ad9596620fb4805d06a0",
+    "core/repository/enum.py": "5038d321c276c692c76137f8c8b597c6e358efeb38dda861b7f4a54d73219683",
+    "main.py": "128d31a05ecf3557161b916dd4c8eb12d8dbdad994fb4f12e867a0f630553f66"
+  },
+  "excluded": {
+    "dir:migrations": 2,
+    "dir:tests": 39
+  }
+}

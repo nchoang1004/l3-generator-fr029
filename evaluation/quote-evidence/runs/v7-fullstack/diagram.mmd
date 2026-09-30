@@ -1,0 +1,27 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Định nghĩa router API"]
+  C3["Routes_api"]
+  C4["Api_service"]
+  C5["Quản lý dữ liệu"]
+  C6["Xử lý dữ liệu email"]
+  C7["Kết nối cơ sở dữ liệu"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C8["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+    X2(["SMTP"])
+  end
+  C2 -->|"gắn router items"| C3
+  C4 -->|"gọi TokenPayload"| C5
+  C4 -->|"gọi engine"| C7
+  C5 -->|"thêm đối tượng vào DB"| C7
+  C1 -->|"gắn router API"| C2
+  C1 -->|"khởi tạo DB"| C7
+  C3 -->|"gọi all, exec"| C4
+  C3 -->|"gọi ItemsPublic, model_validate"| C5
+  C3 -->|"gọi send_email, generate_reset_password_email"| C6
+  C3 -->|"gọi"| C7
+  C7 -.->|"truy vấn"| X1
+  C6 -.->|"gửi email"| X2

@@ -1,0 +1,305 @@
+flowchart LR
+  C1["Điểm khởi chạy"]
+  C2["Định tuyến HTTP"]
+  C3["Dịch vụ quản trị"]
+  C4["CRUD dữ liệu admin"]
+  C5["Mô hình dữ liệu admin"]
+  C6["Schema dữ liệu admin"]
+  C7["Dịch vụ xử lý tác vụ"]
+  C8["CRUD dữ liệu tác vụ"]
+  C9["Mô hình ORM tác vụ"]
+  C10["Định nghĩa schema tác vụ"]
+  C11["Định nghĩa task nền"]
+  C14["Kết nối database"]
+  C15["Middleware xử lý yêu cầu"]
+  C21["Quản lý bộ nhớ đệm"]
+  C27["Socketio server"]
+  C29["API tạo mã"]
+  C30["CRUD cho code generator"]
+  C31["Mô hình code generator"]
+  C32["Schema code generator"]
+  C33["Tạo mã service"]
+  C34["Công cụ sinh mã utils"]
+  C36["Router API email"]
+  C37["Utils email gửi"]
+  C38["Router API notice"]
+  C39["Quản lý CRUD Notice"]
+  C40["Model Notice"]
+  C41["Schema Notice"]
+  C42["Service thông báo"]
+  C44["Api OAuth2 router"]
+  C45["CRUD người dùng xã hội"]
+  C46["Mô hình UserSocial"]
+  C47["Schema UserSocial"]
+  C48["Dịch vụ OAuth2"]
+  C50["Router xác thực admin"]
+  C51["API ghi nhật ký"]
+  C52["API giám sát hệ thống"]
+  C53["API quản lý hệ thống"]
+  C54["CRUD admin dữ liệu"]
+  C55["Model admin ORM"]
+  C56["Schema admin API"]
+  C57["Dịch vụ admin"]
+  C58["Tiện ích admin"]
+  C59["Nhiệm vụ nền"]
+  C60["API nhiệm vụ v1"]
+  C61["Tiện ích lập lịch"]
+  C62["Thư viện chung"]
+  C63["Giám sát Prometheus FastAPI"]
+  C64["Middleware Trạng thái"]
+  C65["Plugin Quản lý Cấu hình"]
+  C66["Enum loại cấu hình"]
+  C67["Router API cấu hình"]
+  C68["CRUD cấu hình"]
+  C69["Mô hình cấu hình"]
+  C70["Schema cấu hình"]
+  C71["Service cấu hình"]
+  C72["Router API Từ điển"]
+  C73["CRUD Từ điển"]
+  C74["Mô hình Từ điển"]
+  C75["Schema từ điển"]
+  C76["Service từ điển"]
+  C77["Thư viện tiện ích"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C13["Cấu hình lõi ứng dụng"]
+    C20["Tiện ích chung"]
+    C22["Xử lý ngoại lệ chung"]
+    C23["Quản lý đa ngôn ngữ"]
+    C24["Khởi tạo observability"]
+    C25["Định dạng phản hồi API"]
+    C26["Xác thực và phân quyền"]
+    C28["Công cụ chung"]
+    C35["Định nghĩa enum"]
+    C43["Enum thông báo"]
+    C49["Enum OAuth2"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[/"Celery"/]
+    X2[("Database")]
+    X3[("Redis")]
+    X4(["SMTP Server"])
+    X5(["GitHub"])
+    X6(["Google"])
+  end
+  C1 -->|"gọi async_db_session, create_database_async_engine"| C14
+  C1 -->|"gọi ImportParam"| C32
+  C1 -->|"gọi code_gen_service, code_gen_business_service"| C33
+  C1 -->|"dùng MappedBase"| C62
+  C1 -->|"gọi get_plugins, get_required_plugins"| C65
+  C1 -->|"gọi get_all_models, import_module_cached"| C77
+  C10 -->|"gọi celery_app"| C59
+  C10 -->|"kế thừa SchemaBase"| C62
+  C11 -->|"gọi async_db_session"| C14
+  C11 -->|"gọi task_notification"| C27
+  C11 -->|"gọi login_log_service, opera_log_service"| C57
+  C11 -->|"đăng ký qua celery_app"| C59
+  C11 -->|"gọi TzAwareCrontab"| C61
+  C14 -->|"gọi log"| C62
+  C14 -->|"dùng observe_sqlalchemy_pool_connections"| C63
+  C15 -->|"gọi async_db_session"| C14
+  C15 -->|"gọi CreateOperaLogParam"| C56
+  C15 -->|"gọi opera_log_service"| C57
+  C15 -->|"gọi log, batch_consume"| C62
+  C15 -->|"gọi dec_fastapi_request_in_progress, inc_fastapi_exception"| C63
+  C15 -->|"gọi timezone, get_request_trace_id"| C77
+  C2 -->|"dùng auth_router"| C50
+  C2 -->|"dùng log_router"| C51
+  C2 -->|"dùng monitor_router"| C52
+  C2 -->|"dùng sys_router"| C53
+  C2 -->|"dùng task_control_router, task_result_router"| C60
+  C21 -->|"gọi redis_client, RedisCli"| C14
+  C21 -->|"gọi log"| C62
+  C21 -->|"gọi select_columns_serialize, select_list_serialize"| C77
+  C27 -->|"gọi redis_client"| C14
+  C27 -->|"gọi log"| C62
+  C27 -->|"gọi timezone"| C77
+  C29 -->|"dùng kiểu CurrentSession, CurrentSessionTransaction"| C14
+  C29 -->|"dùng kiểu CreateCodeGenBusinessParam, GetCodeGenBusinessDetail"| C32
+  C29 -->|"gọi code_gen_business_service, code_gen_column_service"| C33
+  C29 -->|"đăng ký qua DependsPagination"| C62
+  C3 -->|"gọi uuid4_str, redis_client"| C14
+  C3 -->|"gọi data_rule_dao, data_scope_dao"| C4
+  C3 -->|"dùng kiểu DataRule, DataScope"| C5
+  C3 -->|"gọi menu_dao, user_dao"| C54
+  C3 -->|"dùng kiểu User"| C55
+  C3 -->|"gọi GetLoginToken, GetNewToken"| C56
+  C3 -->|"gọi password_security_service"| C57
+  C3 -->|"gọi password_verify, user_cache_manager"| C58
+  C3 -->|"gọi GetDataRuleColumnDetail, GetDataRuleTemplateVariableDetail"| C6
+  C3 -->|"gọi log, paging_data"| C62
+  C3 -->|"gọi load_login_config, timezone"| C77
+  C30 -->|"dùng CodeGenBusiness, CodeGenColumn"| C31
+  C30 -->|"dùng kiểu CreateCodeGenBusinessParam, UpdateCodeGenBusinessParam"| C32
+  C30 -->|"gọi timezone"| C77
+  C31 -->|"dùng UniversalText"| C62
+  C32 -->|"gọi sql_type_to_sqlalchemy"| C34
+  C32 -->|"kế thừa SchemaBase"| C62
+  C32 -->|"gọi is_english_identifier"| C77
+  C33 -->|"gọi code_gen_business_dao, code_gen_dao"| C30
+  C33 -->|"gọi CodeGenBusiness"| C31
+  C33 -->|"gọi CreateCodeGenBusinessParam, CreateCodeGenColumnInternalParam"| C32
+  C33 -->|"gọi format_python_code, gen_template"| C34
+  C33 -->|"gọi paging_data"| C62
+  C33 -->|"gọi acquire_distributed_reload_lock"| C77
+  C34 -->|"dùng kiểu CodeGenBusiness, CodeGenColumn"| C31
+  C34 -->|"gọi snowflake, timezone"| C77
+  C36 -->|"gọi redis_client"| C14
+  C36 -->|"gọi send_email"| C37
+  C37 -->|"gọi log"| C62
+  C37 -->|"gọi load_config, timezone"| C77
+  C38 -->|"dùng kiểu CurrentSession, CurrentSessionTransaction"| C14
+  C38 -->|"dùng kiểu CreateNoticeParam, DeleteNoticeParam"| C41
+  C38 -->|"gọi notice_service"| C42
+  C38 -->|"đăng ký qua DependsPagination"| C62
+  C39 -->|"dùng Notice"| C40
+  C39 -->|"dùng kiểu CreateNoticeParam, UpdateNoticeParam"| C41
+  C39 -->|"gọi timezone"| C77
+  C4 -->|"dùng DataRule, DataScope"| C5
+  C4 -->|"dùng data_scope_rule, User"| C55
+  C4 -->|"dùng kiểu CreateLoginLogParam"| C56
+  C4 -->|"gọi CreateDataScopeRuleParam"| C6
+  C4 -->|"gọi timezone, select_join_serialize"| C77
+  C40 -->|"dùng UniversalText"| C62
+  C41 -->|"kế thừa SchemaBase"| C62
+  C42 -->|"gọi notice_dao"| C39
+  C42 -->|"dùng kiểu Notice"| C40
+  C42 -->|"dùng kiểu CreateNoticeParam, DeleteNoticeParam"| C41
+  C42 -->|"gọi paging_data"| C62
+  C44 -->|"gọi redis_client"| C14
+  C44 -->|"gọi oauth2_service, user_social_service"| C48
+  C44 -->|"đăng ký qua RateLimiter"| C77
+  C45 -->|"dùng UserSocial"| C46
+  C45 -->|"dùng kiểu CreateUserSocialParam"| C47
+  C45 -->|"gọi timezone"| C77
+  C46 -->|"dùng kiểu id_key"| C62
+  C47 -->|"kế thừa SchemaBase"| C62
+  C48 -->|"gọi redis_client"| C14
+  C48 -->|"gọi github_client, google_client"| C44
+  C48 -->|"gọi user_social_dao"| C45
+  C48 -->|"gọi CreateUserSocialParam"| C47
+  C48 -->|"gọi user_dao"| C54
+  C48 -->|"gọi GetLoginToken, AddOAuth2UserParam"| C56
+  C48 -->|"dùng login_log_service"| C57
+  C48 -->|"gọi timezone"| C77
+  C5 -->|"dùng kiểu id_key"| C62
+  C50 -->|"gọi redis_client"| C14
+  C50 -->|"gọi auth_service"| C3
+  C50 -->|"gọi GetSwaggerToken"| C56
+  C50 -->|"gọi GetCaptchaDetail"| C6
+  C50 -->|"gọi load_login_config"| C77
+  C51 -->|"dùng kiểu CurrentSession, CurrentSessionTransaction"| C14
+  C51 -->|"dùng kiểu DeleteLoginLogParam, GetLoginLogDetail"| C56
+  C51 -->|"gọi login_log_service, opera_log_service"| C57
+  C51 -->|"đăng ký qua DependsPagination"| C62
+  C52 -->|"gọi redis_client"| C14
+  C52 -->|"gọi GetTokenDetail, RedisCommandStat"| C56
+  C52 -->|"gọi fmt_seconds, fmt_bytes"| C77
+  C53 -->|"dùng kiểu CurrentSession, CurrentSessionTransaction"| C14
+  C53 -->|"gọi data_rule_service, data_scope_service"| C3
+  C53 -->|"dùng kiểu Dept"| C5
+  C53 -->|"dùng kiểu CreateMenuParam, GetMenuDetail"| C56
+  C53 -->|"gọi menu_service, plugin_service"| C57
+  C53 -->|"dùng kiểu CreateDataRuleParam, DeleteDataRuleParam"| C6
+  C53 -->|"đăng ký qua DependsPagination"| C62
+  C53 -->|"gọi upload_file, upload_file_verify"| C77
+  C54 -->|"gọi user_social_dao"| C45
+  C54 -->|"dùng DataScope, DataRule"| C5
+  C54 -->|"gọi Role"| C55
+  C54 -->|"gọi CreateRoleMenuParam, CreateRoleScopeParam"| C56
+  C54 -->|"gọi get_hash_password"| C58
+  C54 -->|"gọi check_plugin_installed"| C65
+  C54 -->|"gọi timezone, select_join_serialize"| C77
+  C55 -->|"dùng uuid4_str"| C14
+  C55 -->|"dùng TimeZone, UniversalText"| C62
+  C55 -->|"dùng timezone"| C77
+  C56 -->|"dùng kiểu GetDataScopeWithRelationDetail, GetDeptDetail"| C6
+  C56 -->|"dùng kiểu CustomEmailStr, CustomPhoneNumber"| C62
+  C57 -->|"gọi async_db_session, redis_client"| C14
+  C57 -->|"gọi login_log_dao, data_scope_dao"| C4
+  C57 -->|"gọi menu_dao, opera_log_dao"| C54
+  C57 -->|"dùng kiểu Menu, Role"| C55
+  C57 -->|"gọi CreateLoginLogParam, CreateUserPasswordHistoryParam"| C56
+  C57 -->|"gọi user_cache_manager, password_verify"| C58
+  C57 -->|"gọi log, paging_data"| C62
+  C57 -->|"gọi get_required_plugins, install_git_plugin"| C65
+  C57 -->|"gọi timezone, load_user_security_config"| C77
+  C58 -->|"gọi redis_client"| C14
+  C58 -->|"gọi user_password_history_dao"| C54
+  C58 -->|"gọi data_scope_rule, role_data_scope"| C55
+  C58 -->|"gọi load_user_security_config, is_has_letter"| C77
+  C59 -->|"gọi get_local_beat_schedule"| C11
+  C59 -->|"gọi sio"| C27
+  C59 -->|"dùng Task, TaskExtended"| C9
+  C6 -->|"dùng kiểu CustomEmailStr, CustomPhoneNumber"| C62
+  C60 -->|"gọi GetTaskRegisteredDetail"| C10
+  C60 -->|"dùng kiểu CurrentSession, CurrentSessionTransaction"| C14
+  C60 -->|"gọi celery_app"| C59
+  C60 -->|"đăng ký qua DependsPagination"| C62
+  C60 -->|"gọi task_result_service, task_scheduler_service"| C7
+  C61 -->|"gọi CreateTaskSchedulerParam"| C10
+  C61 -->|"gọi async_db_session, redis_client"| C14
+  C61 -->|"dùng PeriodType, TaskSchedulerType"| C59
+  C61 -->|"gọi select_as_dict, timezone"| C77
+  C61 -->|"gọi TaskScheduler"| C9
+  C62 -->|"gọi inc_queue_exception, observe_batch_dequeue_cost"| C63
+  C62 -->|"gọi timezone, get_request_trace_id"| C77
+  C64 -->|"gọi parse_ip_info, parse_user_agent_info"| C77
+  C65 -->|"gọi RedisCli, redis_client"| C14
+  C65 -->|"dùng main_router"| C2
+  C65 -->|"gọi log, lifespan_manager"| C62
+  C65 -->|"gọi get_model_objects, import_module_cached"| C77
+  C67 -->|"dùng kiểu CurrentSession, CurrentSessionTransaction"| C14
+  C67 -->|"đăng ký qua DependsPagination"| C62
+  C67 -->|"dùng kiểu CreateConfigParam, GetConfigDetail"| C70
+  C67 -->|"gọi config_service"| C71
+  C68 -->|"dùng Config"| C69
+  C68 -->|"dùng kiểu CreateConfigParam, UpdateConfigParam"| C70
+  C68 -->|"gọi timezone"| C77
+  C69 -->|"dùng UniversalText"| C62
+  C7 -->|"dùng kiểu DeleteTaskResultParam, CreateTaskSchedulerParam"| C10
+  C7 -->|"gọi celery_app"| C59
+  C7 -->|"gọi crontab_verify"| C61
+  C7 -->|"gọi paging_data"| C62
+  C7 -->|"gọi task_result_dao, task_scheduler_dao"| C8
+  C7 -->|"dùng kiểu TaskResult, TaskScheduler"| C9
+  C70 -->|"kế thừa SchemaBase"| C62
+  C71 -->|"đăng ký qua cache_invalidate, cached"| C21
+  C71 -->|"gọi paging_data"| C62
+  C71 -->|"gọi config_dao"| C68
+  C71 -->|"dùng kiểu Config"| C69
+  C71 -->|"dùng kiểu CreateConfigParam, UpdateConfigParam"| C70
+  C72 -->|"dùng kiểu CurrentSession, CurrentSessionTransaction"| C14
+  C72 -->|"đăng ký qua DependsPagination"| C62
+  C72 -->|"dùng kiểu CreateDictDataParam, DeleteDictDataParam"| C75
+  C72 -->|"gọi dict_data_service, dict_type_service"| C76
+  C73 -->|"dùng DictData, DictType"| C74
+  C73 -->|"dùng kiểu CreateDictDataParam, UpdateDictDataParam"| C75
+  C73 -->|"gọi timezone"| C77
+  C74 -->|"dùng UniversalText"| C62
+  C75 -->|"kế thừa SchemaBase"| C62
+  C76 -->|"đăng ký qua cache_invalidate, cached"| C21
+  C76 -->|"gọi paging_data"| C62
+  C76 -->|"gọi dict_data_dao, dict_type_dao"| C73
+  C76 -->|"dùng kiểu DictData, DictType"| C74
+  C76 -->|"dùng kiểu CreateDictDataParam, DeleteDictDataParam"| C75
+  C77 -->|"gọi redis_client"| C14
+  C77 -->|"gọi log"| C62
+  C77 -->|"gọi check_plugin_installed, get_plugin_models"| C65
+  C77 -->|"dùng ConfigType"| C66
+  C77 -->|"gọi config_service"| C71
+  C8 -->|"dùng kiểu CreateTaskSchedulerParam, UpdateTaskSchedulerParam"| C10
+  C8 -->|"gọi timezone"| C77
+  C8 -->|"dùng TaskResult, TaskScheduler"| C9
+  C9 -->|"gọi redis_client"| C14
+  C9 -->|"dùng TimeZone, UniversalText"| C62
+  C9 -->|"gọi timezone"| C77
+  C7 -.->|"celery"| X1
+  C59 -.->|"RabbitMQ"| X1
+  C14 -.->|"SQL database"| X2
+  C59 -.->|"Database"| X2
+  C14 -.->|"Redis cache"| X3
+  C27 -.->|"Redis cache"| X3
+  C59 -.->|"Redis"| X3
+  C37 -.->|"smtp"| X4
+  C48 -.->|"github_client"| X5
+  C48 -.->|"google_client"| X6

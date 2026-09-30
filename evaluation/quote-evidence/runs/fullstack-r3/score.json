@@ -1,0 +1,145 @@
+{
+  "precision": 1.0,
+  "recall": 0.846,
+  "quote_validity": 1.0,
+  "grouping_agreement": 1.0,
+  "components": 12,
+  "hits": [
+    [
+      "api_deps",
+      "db"
+    ],
+    [
+      "api_router",
+      "routes"
+    ],
+    [
+      "bootstrap",
+      "db"
+    ],
+    [
+      "crud",
+      "security"
+    ],
+    [
+      "db",
+      "crud"
+    ],
+    [
+      "db",
+      "ext:postgres"
+    ],
+    [
+      "entry",
+      "api_router"
+    ],
+    [
+      "routes",
+      "api_deps"
+    ],
+    [
+      "routes",
+      "crud"
+    ],
+    [
+      "routes",
+      "email_utils"
+    ],
+    [
+      "routes",
+      "security"
+    ]
+  ],
+  "wrong": [],
+  "missed": [
+    [
+      "email_utils",
+      "ext:smtp"
+    ],
+    [
+      "entry",
+      "ext:sentry"
+    ]
+  ],
+  "not_counted": [
+    [
+      "api_deps",
+      "ext:postgres"
+    ],
+    [
+      "api_deps",
+      "models"
+    ],
+    [
+      "api_deps",
+      "security"
+    ],
+    [
+      "crud",
+      "models"
+    ],
+    [
+      "db",
+      "models"
+    ],
+    [
+      "email_utils",
+      "security"
+    ],
+    [
+      "routes",
+      "models"
+    ]
+  ],
+  "mapping": {
+    "C1": [
+      "điểm vào ứng dụng",
+      "entry"
+    ],
+    "C2": [
+      "router API",
+      "api_router"
+    ],
+    "C3": [
+      "phụ thuộc yêu cầu",
+      "api_deps"
+    ],
+    "C4": [
+      "định nghĩa các route HTTP",
+      "routes"
+    ],
+    "C5": [
+      "xử lý nghiệp vụ người dùng",
+      "crud"
+    ],
+    "C6": [
+      "gửi email và tạo nội dung",
+      "email_utils"
+    ],
+    "C7": [
+      "định nghĩa mô hình dữ liệu",
+      "models"
+    ],
+    "C8": [
+      "khởi tạo dữ liệu ban đầu",
+      "bootstrap"
+    ],
+    "C9": [
+      "cấu hình ứng dụng chung",
+      "config"
+    ],
+    "C10": [
+      "kết nối cơ sở dữ liệu",
+      "db"
+    ],
+    "C11": [
+      "bảo mật và mã hoá mật khẩu",
+      "security"
+    ],
+    "C12": [
+      "hook dự án sau tạo",
+      "hooks"
+    ]
+  },
+  "files_outside_oracle": []
+}

@@ -1,0 +1,148 @@
+{
+  "precision": 1.0,
+  "recall": 1.0,
+  "quote_validity": 1.0,
+  "grouping_agreement": 1.0,
+  "components": 12,
+  "hits": [
+    [
+      "api_deps",
+      "db"
+    ],
+    [
+      "api_router",
+      "routes"
+    ],
+    [
+      "bootstrap",
+      "db"
+    ],
+    [
+      "crud",
+      "security"
+    ],
+    [
+      "db",
+      "crud"
+    ],
+    [
+      "db",
+      "ext:postgres"
+    ],
+    [
+      "email_utils",
+      "ext:smtp"
+    ],
+    [
+      "entry",
+      "api_router"
+    ],
+    [
+      "entry",
+      "ext:sentry"
+    ],
+    [
+      "routes",
+      "api_deps"
+    ],
+    [
+      "routes",
+      "crud"
+    ],
+    [
+      "routes",
+      "email_utils"
+    ],
+    [
+      "routes",
+      "security"
+    ]
+  ],
+  "wrong": [],
+  "missed": [],
+  "not_counted": [
+    [
+      "api_deps",
+      "ext:postgres"
+    ],
+    [
+      "api_deps",
+      "models"
+    ],
+    [
+      "api_deps",
+      "security"
+    ],
+    [
+      "bootstrap",
+      "ext:postgres"
+    ],
+    [
+      "crud",
+      "models"
+    ],
+    [
+      "db",
+      "models"
+    ],
+    [
+      "email_utils",
+      "security"
+    ],
+    [
+      "routes",
+      "models"
+    ]
+  ],
+  "mapping": {
+    "C1": [
+      "Điểm vào ứng dụng",
+      "entry"
+    ],
+    "C2": [
+      "Định nghĩa router API",
+      "api_router"
+    ],
+    "C3": [
+      "Cung cấp phụ thuộc yêu cầu",
+      "api_deps"
+    ],
+    "C4": [
+      "Định nghĩa các route HTTP",
+      "routes"
+    ],
+    "C5": [
+      "Xử lý nghiệp vụ người dùng",
+      "crud"
+    ],
+    "C6": [
+      "Xử lý gửi email",
+      "email_utils"
+    ],
+    "C7": [
+      "Mô hình người dùng",
+      "models"
+    ],
+    "C8": [
+      "Khởi tạo dữ liệu",
+      "bootstrap"
+    ],
+    "C9": [
+      "Cấu hình ứng dụng",
+      "config"
+    ],
+    "C10": [
+      "Kết nối cơ sở dữ liệu",
+      "db"
+    ],
+    "C11": [
+      "Xử lý mật khẩu",
+      "security"
+    ],
+    "C12": [
+      "Hook dự án",
+      "hooks"
+    ]
+  },
+  "files_outside_oracle": []
+}

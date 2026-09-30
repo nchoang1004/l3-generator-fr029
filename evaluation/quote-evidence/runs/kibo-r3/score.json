@@ -1,0 +1,209 @@
+{
+  "precision": 0.944,
+  "recall": 1.0,
+  "quote_validity": 1.0,
+  "grouping_agreement": 1.0,
+  "components": 15,
+  "hits": [
+    [
+      "api",
+      "core_deps"
+    ],
+    [
+      "api",
+      "services"
+    ],
+    [
+      "api",
+      "whatsapp"
+    ],
+    [
+      "core_deps",
+      "repositories"
+    ],
+    [
+      "core_deps",
+      "security"
+    ],
+    [
+      "db",
+      "ext:postgres"
+    ],
+    [
+      "email",
+      "ext:smtp"
+    ],
+    [
+      "entry",
+      "api"
+    ],
+    [
+      "entry",
+      "scheduler"
+    ],
+    [
+      "entry",
+      "whatsapp"
+    ],
+    [
+      "scheduler",
+      "repositories"
+    ],
+    [
+      "scheduler",
+      "whatsapp"
+    ],
+    [
+      "services",
+      "email"
+    ],
+    [
+      "services",
+      "repositories"
+    ],
+    [
+      "services",
+      "security"
+    ],
+    [
+      "whatsapp",
+      "ext:evolution"
+    ],
+    [
+      "whatsapp",
+      "repositories"
+    ]
+  ],
+  "wrong": [
+    [
+      "services",
+      "ext:smtp"
+    ]
+  ],
+  "missed": [],
+  "not_counted": [
+    [
+      "api",
+      "db"
+    ],
+    [
+      "api",
+      "models"
+    ],
+    [
+      "api",
+      "repositories"
+    ],
+    [
+      "api",
+      "schemas"
+    ],
+    [
+      "core_deps",
+      "db"
+    ],
+    [
+      "core_deps",
+      "models"
+    ],
+    [
+      "models",
+      "db"
+    ],
+    [
+      "repositories",
+      "models"
+    ],
+    [
+      "scheduler",
+      "db"
+    ],
+    [
+      "scheduler",
+      "models"
+    ],
+    [
+      "schemas",
+      "models"
+    ],
+    [
+      "services",
+      "models"
+    ],
+    [
+      "whatsapp",
+      "core_deps"
+    ],
+    [
+      "whatsapp",
+      "db"
+    ],
+    [
+      "whatsapp",
+      "models"
+    ]
+  ],
+  "mapping": {
+    "C1": [
+      "Điểm vào ứng dụng",
+      "entry"
+    ],
+    "C2": [
+      "Định nghĩa router API",
+      "api"
+    ],
+    "C3": [
+      "Router kiểm thử API",
+      "api"
+    ],
+    "C4": [
+      "Cấu hình ứng dụng",
+      "config"
+    ],
+    "C5": [
+      "Múi giờ ứng dụng",
+      "timezone"
+    ],
+    "C6": [
+      "Các phụ thuộc",
+      "core_deps"
+    ],
+    "C7": [
+      "Khách hàng email",
+      "email"
+    ],
+    "C8": [
+      "Bảo mật ứng dụng",
+      "security"
+    ],
+    "C9": [
+      "Mô hình dữ liệu",
+      "models"
+    ],
+    "C10": [
+      "Truy cập dữ liệu repository",
+      "repositories"
+    ],
+    "C11": [
+      "Định nghĩa schema API",
+      "schemas"
+    ],
+    "C12": [
+      "Dịch vụ kinh doanh",
+      "services"
+    ],
+    "C13": [
+      "Công việc nền",
+      "scheduler"
+    ],
+    "C14": [
+      "Khách hàng WhatsApp",
+      "whatsapp"
+    ],
+    "C15": [
+      "Kết nối cơ sở dữ liệu",
+      "db"
+    ]
+  },
+  "files_outside_oracle": []
+}

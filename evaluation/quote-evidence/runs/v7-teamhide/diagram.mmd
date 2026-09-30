@@ -1,0 +1,42 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Middleware xác thực"]
+  C3["Điểm vào chính"]
+  C4["Router API chính"]
+  C5["Router API phiên bản 1"]
+  C6["Dịch vụ bộ nhớ đệm"]
+  C7["Dịch vụ giao dịch DB"]
+  C8["Dịch vụ lưu trữ"]
+  C9["Dịch vụ nghiệp vụ người dùng"]
+  C10["Thực thể người dùng"]
+  C11["Quản lý kho dữ liệu"]
+  C12["Repo SQLAlchemy"]
+  C13["Cấu hình Celery"]
+  C14["Kết nối Cơ sở dữ liệu"]
+  C15["Kết nối Redis"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C16["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Message broker"])
+    X2[("Database")]
+    X3(["Redis"])
+  end
+  C4 -->|"gọi v1 api"| C5
+  C1 -->|"gọi router auth"| C4
+  C1 -->|"gọi cache service"| C6
+  C1 -->|"gọi middleware"| C2
+  C6 -->|"lấy dữ liệu cache"| C15
+  C7 -->|"gửi commit DB"| C14
+  C2 -->|"gọi DB infra"| C14
+  C8 -->|"chuyển đổi thực thể"| C10
+  C11 -->|"gọi phương thức DB"| C14
+  C3 -->|"khởi chạy app"| C1
+  C9 -->|"bắt đầu giao dịch"| C7
+  C9 -->|"tạo thực thể người dùng"| C10
+  C9 -->|"gọi lưu trữ người dùng"| C8
+  C12 -->|"gọi truy vấn DB"| C14
+  C5 -->|"gọi service"| C9
+  C13 -.->|"gửi tác vụ"| X1
+  C14 -.->|"truy vấn"| X2
+  C15 -.->|"đọc ghi"| X3
