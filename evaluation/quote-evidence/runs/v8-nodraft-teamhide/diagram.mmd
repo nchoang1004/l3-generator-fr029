@@ -1,0 +1,29 @@
+flowchart LR
+  C1["CLI khởi chạy"]
+  C2["Web entrypoint"]
+  C3["Worker entrypoint"]
+  C4["Public API router"]
+  C5["Auth service"]
+  C6["Xử lý người dùng"]
+  C7["Lưu trữ người dùng"]
+  C8["Kết nối DB"]
+  C9["Quản lý cache"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C10["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Message broker"])
+    X2[("Database")]
+    X3(["Redis"])
+  end
+  C4 -->|"gọi create_refresh_token, verify_token"| C5
+  C4 -->|"gọi get_user_list, create_user"| C6
+  C7 -->|"thực thi truy vấn DB"| C8
+  C1 -->|"khởi chạy"| C2
+  C2 -->|"đăng ký"| C4
+  C2 -->|"gọi reset_session_context, remove"| C8
+  C6 -->|"gọi repository lấy người dùng"| C7
+  C6 -->|"đánh dấu transaction"| C8
+  C3 -.->|"gửi tác vụ"| X1
+  C8 -.->|"truy vấn"| X2
+  C9 -.->|"đọc ghi"| X3

@@ -1,0 +1,19 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Định nghĩa API router"]
+  C3["Mô hình dữ liệu"]
+  C4["Cấu hình hạ tầng"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C5["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+    X2(["SMTP"])
+  end
+  C2 -->|"xác thực token"| C3
+  C2 -->|"truy xuất người dùng"| C4
+  C1 -->|"đăng ký router API"| C2
+  C1 -->|"khởi tạo DB"| C4
+  C3 -->|"lưu đối tượng DB"| C4
+  C4 -.->|"truy vấn"| X1
+  C4 -.->|"gửi email"| X2

@@ -1,0 +1,135 @@
+{
+  "all": {
+    "precision": 1.0,
+    "precision_strict": 0.571,
+    "recall": 1.0,
+    "drawn": 7,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "pool",
+        "ext:postgres"
+      ],
+      [
+        "repos",
+        "pool"
+      ],
+      [
+        "routes",
+        "repos"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "app",
+        "pool"
+      ],
+      [
+        "routes",
+        "services"
+      ],
+      [
+        "services",
+        "repos"
+      ]
+    ],
+    "missed": []
+  },
+  "internal": {
+    "precision": 1.0,
+    "precision_strict": 0.5,
+    "recall": 1.0,
+    "drawn": 6,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "repos",
+        "pool"
+      ],
+      [
+        "routes",
+        "repos"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "app",
+        "pool"
+      ],
+      [
+        "routes",
+        "services"
+      ],
+      [
+        "services",
+        "repos"
+      ]
+    ],
+    "missed": []
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 1.0,
+    "drawn": 1,
+    "hits": [
+      [
+        "pool",
+        "ext:postgres"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": []
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.889,
+  "components": 6,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "Định nghĩa router API",
+      "routes"
+    ],
+    "C3": [
+      "Xử lý nghiệp vụ miền",
+      "services"
+    ],
+    "C4": [
+      "Truy cập dữ liệu DB",
+      "repos"
+    ],
+    "C5": [
+      "Cơ sở hạ tầng DB",
+      "pool"
+    ],
+    "C6": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [],
+  "flow": {
+    "flow_recall": 1.0,
+    "flow_precision": 1.0,
+    "shown": 3,
+    "merged": 0,
+    "missed": [],
+    "required": 3,
+    "right": 3,
+    "wrong": [],
+    "neutral": 3,
+    "ari": 0.762
+  }
+}

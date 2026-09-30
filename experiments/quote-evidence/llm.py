@@ -78,6 +78,7 @@ class Groq:
         self.cache.mkdir(parents=True, exist_ok=True)
         self.window: list[tuple[float, int]] = []
         self.calls: list[dict] = []
+        self.reasoning: dict[str, str] = {}
 
     def spent(self) -> int:
         """Reported tokens; a failed request reports none, so count its estimate to stay on the safe side."""
@@ -100,7 +101,20 @@ class Groq:
                 return
             time.sleep(max(1.0, 61 - (now - self.window[0][0])))
 
-    def json(self, system: str, user: str, schema: dict, *, step: str, max_tokens: int) -> dict:
+    def _effort(self, body: dict, effort: str) -> dict:
+        """How long the model reasons before it answers (gpt-oss: low, medium, high; it cannot be switched off)."""
+        if "gpt-oss" not in self.model:
+            return body
+        if self.open:
+            return {**body, "reasoning": {"effort": effort}}
+        return {**body, "reasoning_effort": effort}
+
+    def effort_of(self, body: dict) -> str:
+        return (body.get("reasoning") or {}).get("effort") or body.get("reasoning_effort") or ""
+
+    def json(self, system: str, user: str, schema: dict, *, step: str, max_tokens: int, effort: str = "medium") -> dict:
+        """The answer object. The model's reasoning text, when the provider returns it, is kept in
+        self.reasoning[step] and in the cache: it shows why the model answered so, for review."""
         est = estimate(system + user) + max_tokens
         if est > REQUEST_CAP and not self.open:
             raise BudgetExceeded(f"{step}: request estimated at {est} tokens, above cap {REQUEST_CAP}")
@@ -108,15 +122,17 @@ class Groq:
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
                 "response_format": {"type": "json_schema",
                                     "json_schema": {"name": "out", "strict": True, "schema": schema}}}
-        if "gpt-oss" in self.model:
-            body["reasoning_effort"] = "medium"
+        body = self._effort(body, effort)
         if self.open:              # only providers that honour the schema; report the cost
             body.update(max_tokens=max_tokens, provider={"require_parameters": True}, usage={"include": True})
         digest = hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:24]
         cached = self.cache / f"{digest}.json"
         if cached.exists():
             self.calls.append({"step": step, "cached": digest, "total_tokens": 0})
-            return json.loads(json.loads(cached.read_text(encoding="utf-8"))["content"])
+            saved = json.loads(cached.read_text(encoding="utf-8"))
+            if saved.get("reasoning"):
+                self.reasoning[step] = saved["reasoning"]
+            return json.loads(saved["content"])
         if self.spent() + est > self.budget:
             raise BudgetExceeded(f"{step}: budget {self.budget} would be exceeded ({self.spent()} spent)")
         resent = False
@@ -130,7 +146,9 @@ class Groq:
             self._record({"step": step, "status": status, "seconds": round(time.time() - started, 2),
                           "estimated": est, "prompt_tokens": usage.get("prompt_tokens", 0),
                           "completion_tokens": usage.get("completion_tokens", 0),
+                          "reasoning_tokens": (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0),
                           "total_tokens": usage.get("total_tokens", 0), "error": str(error.get("message", ""))[:200],
+                          "effort": self.effort_of(body),
                           **({"model": self.model, "usd": usage.get("cost", 0)} if self.open else {}),
                           **({"mode": "resent with the parse error"} if resent else {})})
             if status == 400:
@@ -138,14 +156,22 @@ class Groq:
                                                                           encoding="utf-8")
             if status == 200:
                 choice = data["choices"][0]
+                reasoning = str((choice.get("message") or {}).get("reasoning") or "")
+                if reasoning:
+                    self.reasoning[step] = reasoning
+                if choice.get("finish_reason") == "length" and self.effort_of(body) not in ("", "low") and attempt < 3:
+                    # The reasoning used up the answer's room: ask again, reasoning less.
+                    body = self._effort(body, "low")
+                    self.calls[-1]["note"] = "cut by length; retry with low reasoning"
+                    continue
                 if choice.get("finish_reason") != "stop":
                     raise ModelError(f"{step}: incomplete answer ({choice.get('finish_reason')})")
                 answer = _first_object(choice["message"]["content"])
                 if answer is None:
                     raise ModelError(f"{step}: answer is not a JSON object")
                 cached.write_text(json.dumps({"content": json.dumps(answer, ensure_ascii=False), "usage": usage,
-                                              "mode": "json_schema, resent" if resent else "json_schema"},
-                                             ensure_ascii=False), encoding="utf-8")
+                                              "mode": "json_schema, resent" if resent else "json_schema",
+                                              "reasoning": reasoning}, ensure_ascii=False), encoding="utf-8")
                 return answer
             truncated = "max completion tokens" in str(error.get("message", ""))
             if status == 400 and error.get("failed_generation"):
@@ -163,10 +189,11 @@ class Groq:
             if status == 429 and attempt < 3:
                 time.sleep(float(headers.get("retry-after", "20")) + 1)
                 continue
-            if status == 400 and "failed_generation" in error and not error["failed_generation"]                     and body.get("reasoning_effort") == "medium":
+            if status == 400 and "failed_generation" in error and not error["failed_generation"] \
+                    and self.effort_of(body) not in ("", "low"):
                 # Nothing was written: the reasoning used up the completion budget. Retry with less reasoning.
-                body = {**body, "reasoning_effort": "low"}
-                self.calls[-1]["note"] = "empty answer; retry with reasoning_effort=low"
+                body = self._effort(body, "low")
+                self.calls[-1]["note"] = "empty answer; retry with low reasoning"
                 continue
             if status == 400 and not resent and not truncated and "JSON" in str(error.get("message", "")):
                 # The provider rejected the answer as broken JSON or against the strict schema. Send it once more
@@ -176,7 +203,7 @@ class Groq:
                                "Answer again with one JSON object that matches the schema."
                 body = {**body, "messages": [body["messages"][0], {"role": "user", "content": again}]}
                 est = estimate(system + again) + max_tokens
-                if est > REQUEST_CAP + 1000 or self.spent() + est > self.budget:
+                if (est > REQUEST_CAP + 1000 and not self.open) or self.spent() + est > self.budget:
                     raise BudgetExceeded(f"{step}: resent request ({est} tokens) exceeds a cap")
                 continue
             raise ModelError(f"{step}: HTTP {status}: {str(error.get('message', ''))[:200]}")
@@ -189,7 +216,13 @@ class Groq:
                                               "User-Agent": "l3gen-quote-evidence/1"})
         try:
             with urllib.request.urlopen(req, timeout=300 if self.open else 120) as resp:
-                return resp.status, dict(resp.headers), json.load(resp)
+                status, headers, raw = resp.status, dict(resp.headers), resp.read()
+            try:
+                return status, headers, json.loads(raw)
+            except ValueError:
+                # OpenRouter keeps a slow answer's connection alive with blank lines; a body of only those is a
+                # connection cut before the answer (run v8, 30/09): treat it as a network failure, so it is retried
+                return 0, {}, {"error": {"message": f"network: the answer was not JSON ({len(raw)} bytes)"}}
         except urllib.error.HTTPError as exc:
             try:
                 return exc.code, dict(exc.headers), json.load(exc)

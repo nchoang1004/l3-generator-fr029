@@ -1,0 +1,53 @@
+flowchart LR
+  C1["Xử lý nền lịch nhắc"]
+  C2["Script CLI tiện ích"]
+  C3["Ứng dụng web FastAPI"]
+  C4["API quản trị Super‑Admin"]
+  C5["API công cộng cho tenant"]
+  C6["Xử lý xác thực người dùng"]
+  C7["Quản lý nghiệp vụ thuê bao"]
+  C8["Tích hợp WhatsApp"]
+  C9["Định nghĩa thực thể dữ liệu"]
+  C10["Truy cập dữ liệu"]
+  C11["Kết nối CSDL"]
+  C12["HTTP client"]
+  C13["SMTP email"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C14["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["SMTP"])
+    X2[("Database")]
+    X3(["HTTP client"])
+  end
+  C4 -->|"gọi service core"| C7
+  C6 -->|"thêm tenant vào DB"| C11
+  C6 -->|"tạo đối tượng người dùng"| C9
+  C6 -->|"khởi tạo repository xác thực"| C10
+  C6 -->|"gửi email đặt lại mật khẩu"| C13
+  C1 -->|"đóng kết nối DB"| C11
+  C1 -->|"gửi tin Evolution"| C12
+  C1 -->|"truy vấn mô hình"| C9
+  C1 -->|"lấy dữ liệu repository"| C10
+  C1 -->|"xử lý tin WhatsApp"| C8
+  C2 -->|"khởi chạy scheduler"| C1
+  C2 -->|"đóng DB session"| C11
+  C2 -->|"tạo thực thể model"| C9
+  C7 -->|"cập nhật tenant"| C9
+  C7 -->|"khởi tạo repository lịch hẹn"| C10
+  C5 -->|"xác thực người dùng"| C6
+  C5 -->|"tạo lịch hẹn"| C7
+  C5 -->|"truy vấn DB"| C11
+  C5 -->|"gửi tin Evolution"| C12
+  C5 -->|"cập nhật repository"| C10
+  C5 -->|"lấy thống kê WhatsApp"| C8
+  C10 -->|"thêm thực thể vào DB"| C11
+  C10 -->|"truy vấn và sắp xếp dữ liệu"| C9
+  C3 -->|"đăng ký router admin"| C4
+  C3 -->|"đăng ký router public"| C5
+  C8 -->|"cam kết giao dịch DB"| C11
+  C8 -->|"gọi Evolution API"| C12
+  C8 -->|"cập nhật trạng thái phiên"| C10
+  C13 -.->|"gửi email"| X1
+  C11 -.->|"truy vấn"| X2
+  C12 -.->|"gọi API"| X3

@@ -1,0 +1,196 @@
+{
+  "all": {
+    "precision": 0.909,
+    "precision_strict": 0.909,
+    "recall": 0.909,
+    "drawn": 11,
+    "hits": [
+      [
+        "app",
+        "mw"
+      ],
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "celery",
+        "ext:broker"
+      ],
+      [
+        "db",
+        "ext:mysql"
+      ],
+      [
+        "mw",
+        "db"
+      ],
+      [
+        "persist",
+        "db"
+      ],
+      [
+        "routes",
+        "jwt_svc"
+      ],
+      [
+        "routes",
+        "user_svc"
+      ],
+      [
+        "user_svc",
+        "db"
+      ],
+      [
+        "user_svc",
+        "persist"
+      ]
+    ],
+    "wrong": [
+      [
+        "mw",
+        "routes"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "app",
+        "routes"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.875,
+    "precision_strict": 0.875,
+    "recall": 0.875,
+    "drawn": 8,
+    "hits": [
+      [
+        "app",
+        "mw"
+      ],
+      [
+        "mw",
+        "db"
+      ],
+      [
+        "persist",
+        "db"
+      ],
+      [
+        "routes",
+        "jwt_svc"
+      ],
+      [
+        "routes",
+        "user_svc"
+      ],
+      [
+        "user_svc",
+        "db"
+      ],
+      [
+        "user_svc",
+        "persist"
+      ]
+    ],
+    "wrong": [
+      [
+        "mw",
+        "routes"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "app",
+        "routes"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 1.0,
+    "drawn": 3,
+    "hits": [
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "celery",
+        "ext:broker"
+      ],
+      [
+        "db",
+        "ext:mysql"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": []
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.846,
+  "components": 10,
+  "mapping": {
+    "C1": [
+      "CLI khởi chạy",
+      "app"
+    ],
+    "C2": [
+      "Web entrypoint",
+      "mw"
+    ],
+    "C3": [
+      "Worker entrypoint",
+      "celery"
+    ],
+    "C4": [
+      "Public API router",
+      "routes"
+    ],
+    "C5": [
+      "Auth service",
+      "jwt_svc"
+    ],
+    "C6": [
+      "Xử lý người dùng",
+      "user_svc"
+    ],
+    "C7": [
+      "Lưu trữ người dùng",
+      "persist"
+    ],
+    "C8": [
+      "Kết nối DB",
+      "db"
+    ],
+    "C9": [
+      "Quản lý cache",
+      "cache"
+    ],
+    "C10": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [
+    "core/repository/base.py",
+    "core/repository/enum.py"
+  ],
+  "flow": {
+    "flow_recall": 1.0,
+    "flow_precision": 1.0,
+    "shown": 8,
+    "merged": 0,
+    "missed": [],
+    "required": 8,
+    "right": 8,
+    "wrong": [],
+    "neutral": 0,
+    "ari": 0.735
+  }
+}

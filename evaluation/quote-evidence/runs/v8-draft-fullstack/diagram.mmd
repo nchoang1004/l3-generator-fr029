@@ -1,0 +1,26 @@
+flowchart LR
+  C1["Khởi tạo dữ liệu"]
+  C2["Ứng dụng FastAPI"]
+  C3["Router API"]
+  C4["Xác thực người dùng"]
+  C5["Mô hình và CRUD"]
+  C6["Cơ sở dữ liệu"]
+  C7["SMTP email service"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C8["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+    X2(["SMTP"])
+  end
+  C3 -->|"đọc dữ liệu"| C4
+  C3 -->|"chuyển đổi model"| C5
+  C3 -->|"truy vấn DB"| C6
+  C3 -->|"gửi email"| C7
+  C4 -->|"phân tích token"| C5
+  C4 -->|"lấy người dùng"| C6
+  C5 -->|"lưu DB"| C6
+  C1 -->|"khởi tạo DB"| C6
+  C2 -->|"gắn router"| C3
+  C6 -.->|"truy vấn"| X1
+  C7 -.->|"gửi email"| X2

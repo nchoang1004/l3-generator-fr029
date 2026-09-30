@@ -1,0 +1,2198 @@
+{
+  "meta": {
+    "repo": "lnbits_lnbits-958e4da",
+    "pipeline": "v7",
+    "prompt_sha": "03f08a56bbdba8e3",
+    "draft": false,
+    "status": "partial",
+    "files": 170,
+    "issues": [
+      "place-1: 2 answers rejected (unknown file or block, a sure file shared, or reason not a line of that file)",
+      "place-1: 39 files without a checked answer, placed by rule",
+      "6 service blocks, above 5",
+      "3 data blocks, above 2"
+    ],
+    "model": "openai/gpt-oss-120b",
+    "timing": {
+      "total_s": 73.1,
+      "model_s": 70.5
+    },
+    "tokens": 8677,
+    "usd": 0.0012,
+    "requests": 3,
+    "cached": 4,
+    "calls": [
+      {
+        "step": "top-1",
+        "cached": "d391bc676911306316ba9649",
+        "total_tokens": 0
+      },
+      {
+        "step": "top-2",
+        "cached": "527f58ada5a6fe65edbf2710",
+        "total_tokens": 0
+      },
+      {
+        "step": "place-1",
+        "cached": "0a854d6b6cdfe821d0aa0c48",
+        "total_tokens": 0
+      },
+      {
+        "step": "edges-1",
+        "cached": "f3584aa330beff1a7edb5b34",
+        "total_tokens": 0
+      },
+      {
+        "at": "2026-09-30T21:06:00",
+        "step": "name-1",
+        "status": 200,
+        "seconds": 36.78,
+        "estimated": 32000,
+        "prompt_tokens": 2193,
+        "completion_tokens": 1565,
+        "reasoning_tokens": 23,
+        "total_tokens": 3758,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000347191
+      },
+      {
+        "at": "2026-09-30T21:06:23",
+        "step": "name-2",
+        "status": 200,
+        "seconds": 22.77,
+        "estimated": 32000,
+        "prompt_tokens": 1573,
+        "completion_tokens": 1000,
+        "reasoning_tokens": 46,
+        "total_tokens": 2573,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000228201
+      },
+      {
+        "at": "2026-09-30T21:06:34",
+        "step": "name-3",
+        "status": 200,
+        "seconds": 10.96,
+        "estimated": 32000,
+        "prompt_tokens": 1410,
+        "completion_tokens": 936,
+        "reasoning_tokens": 0,
+        "total_tokens": 2346,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000609
+      }
+    ],
+    "grouping": {
+      "service_core": {
+        "layer": "service",
+        "files": [
+          "lnbits/__init__.py",
+          "lnbits/bolt11.py",
+          "lnbits/core/models/webpush.py",
+          "lnbits/core/services/__init__.py",
+          "lnbits/core/services/assets.py",
+          "lnbits/core/services/blockexplorer.py",
+          "lnbits/core/services/extensions.py",
+          "lnbits/core/services/extensions_builder.py",
+          "lnbits/core/services/fiat_providers.py",
+          "lnbits/core/services/funding_source.py",
+          "lnbits/core/services/lightning_address.py",
+          "lnbits/core/services/lnurl.py",
+          "lnbits/core/services/nostr.py",
+          "lnbits/core/services/notifications.py",
+          "lnbits/core/services/payments.py",
+          "lnbits/core/services/settings.py",
+          "lnbits/core/services/users.py",
+          "lnbits/core/services/wallets.py",
+          "lnbits/core/services/websockets.py",
+          "lnbits/core/tasks.py",
+          "lnbits/decorators.py",
+          "lnbits/nodes/base.py",
+          "lnbits/nodes/cln.py",
+          "lnbits/nodes/lndrest.py",
+          "lnbits/nodes/phoenixd.py"
+        ]
+      },
+      "entry_web": {
+        "layer": "entry",
+        "files": [
+          "lnbits/__main__.py",
+          "lnbits/app.py",
+          "lnbits/middleware.py",
+          "lnbits/server.py"
+        ]
+      },
+      "entry_cli": {
+        "layer": "entry",
+        "files": [
+          "lnbits/commands.py",
+          "lnbits/task_manager.py"
+        ]
+      },
+      "api_public": {
+        "layer": "api",
+        "files": [
+          "lnbits/core/__init__.py",
+          "lnbits/core/views/admin_api.py",
+          "lnbits/core/views/api.py",
+          "lnbits/core/views/asset_api.py",
+          "lnbits/core/views/audit_api.py",
+          "lnbits/core/views/auth_api.py",
+          "lnbits/core/views/blockexplorer_api.py",
+          "lnbits/core/views/callback_api.py",
+          "lnbits/core/views/extension_api.py",
+          "lnbits/core/views/extensions_builder_api.py",
+          "lnbits/core/views/fiat_api.py",
+          "lnbits/core/views/generic.py",
+          "lnbits/core/views/lnurl_api.py",
+          "lnbits/core/views/node_api.py",
+          "lnbits/core/views/payment_api.py",
+          "lnbits/core/views/tinyurl_api.py",
+          "lnbits/core/views/user_api.py",
+          "lnbits/core/views/wallet_api.py",
+          "lnbits/core/views/webpush_api.py",
+          "lnbits/core/views/websocket_api.py",
+          "lnbits/core/wasm_ext/routes/api.py",
+          "lnbits/core/wasm_ext/routes/ui.py",
+          "lnbits/llms_txt.py"
+        ]
+      },
+      "service_crud": {
+        "layer": "service",
+        "files": [
+          "lnbits/core/crud/__init__.py",
+          "lnbits/core/crud/assets.py",
+          "lnbits/core/crud/audit.py",
+          "lnbits/core/crud/db_versions.py",
+          "lnbits/core/crud/extensions.py",
+          "lnbits/core/crud/payments.py",
+          "lnbits/core/crud/settings.py",
+          "lnbits/core/crud/tinyurl.py",
+          "lnbits/core/crud/users.py",
+          "lnbits/core/crud/wallets.py",
+          "lnbits/core/crud/webpush.py"
+        ]
+      },
+      "data_db": {
+        "layer": "infra",
+        "files": [
+          "lnbits/core/db.py",
+          "lnbits/core/migrations.py",
+          "lnbits/core/wasm_ext/client/extensions.py",
+          "lnbits/core/wasm_ext/client/http.py",
+          "lnbits/db.py",
+          "lnbits/utils/exchange_rates.py",
+          "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2_grpc.py",
+          "lnbits/wallets/lnd_grpc_files/invoices_pb2_grpc.py",
+          "lnbits/wallets/lnd_grpc_files/lightning_pb2_grpc.py",
+          "lnbits/wallets/lnd_grpc_files/router_pb2_grpc.py"
+        ]
+      },
+      "core_data": {
+        "layer": "data",
+        "files": [
+          "lnbits/core/helpers.py"
+        ]
+      },
+      "data_models": {
+        "layer": "data",
+        "files": [
+          "lnbits/core/models/__init__.py",
+          "lnbits/core/models/assets.py",
+          "lnbits/core/models/audit.py",
+          "lnbits/core/models/extensions.py",
+          "lnbits/core/models/extensions_builder.py",
+          "lnbits/core/models/lnurl.py",
+          "lnbits/core/models/misc.py",
+          "lnbits/core/models/notifications.py",
+          "lnbits/core/models/payments.py",
+          "lnbits/core/models/sso/keycloak.py",
+          "lnbits/core/models/sso/oidc.py",
+          "lnbits/core/models/tinyurl.py",
+          "lnbits/core/models/users.py",
+          "lnbits/core/models/wallets.py"
+        ]
+      },
+      "service_wasm": {
+        "layer": "service",
+        "files": [
+          "lnbits/core/wasm_ext/__init__.py",
+          "lnbits/core/wasm_ext/api/__init__.py",
+          "lnbits/core/wasm_ext/api/background_payments.py",
+          "lnbits/core/wasm_ext/api/host.py",
+          "lnbits/core/wasm_ext/api/lnurl.py",
+          "lnbits/core/wasm_ext/api/models.py",
+          "lnbits/core/wasm_ext/api/permissions.py",
+          "lnbits/core/wasm_ext/api/registry.py",
+          "lnbits/core/wasm_ext/api/runtime.py",
+          "lnbits/core/wasm_ext/api/utils.py",
+          "lnbits/core/wasm_ext/api/websockets.py",
+          "lnbits/core/wasm_ext/client/__init__.py",
+          "lnbits/core/wasm_ext/routes/__init__.py",
+          "lnbits/core/wasm_ext/routes/assets.py",
+          "lnbits/core/wasm_ext/routes/open_api.py",
+          "lnbits/core/wasm_ext/routes/register.py",
+          "lnbits/core/wasm_ext/routes/security.py",
+          "lnbits/core/wasm_ext/storage/__init__.py",
+          "lnbits/core/wasm_ext/storage/crud.py",
+          "lnbits/core/wasm_ext/wasm/__init__.py",
+          "lnbits/core/wasm_ext/wasm/component.py",
+          "lnbits/core/wasm_ext/wasm/config.py",
+          "lnbits/core/wasm_ext/wasm/events.py",
+          "lnbits/core/wasm_ext/wasm/host.py",
+          "lnbits/core/wasm_ext/wasm/invoke.py",
+          "lnbits/core/wasm_ext/wasm/loader.py"
+        ]
+      },
+      "shared": {
+        "layer": "shared",
+        "files": [
+          "lnbits/exceptions.py",
+          "lnbits/helpers.py",
+          "lnbits/settings.py",
+          "lnbits/tasks.py",
+          "lnbits/utils/bolt12.py",
+          "lnbits/utils/cache.py",
+          "lnbits/utils/crypto.py",
+          "lnbits/utils/electrum.py",
+          "lnbits/utils/logger.py",
+          "lnbits/utils/nostr.py"
+        ]
+      },
+      "service_fiat": {
+        "layer": "service",
+        "files": [
+          "lnbits/fiat/__init__.py",
+          "lnbits/fiat/base.py",
+          "lnbits/fiat/paypal.py",
+          "lnbits/fiat/revolut.py",
+          "lnbits/fiat/square.py",
+          "lnbits/fiat/stripe.py"
+        ]
+      },
+      "service_wallet": {
+        "layer": "service",
+        "files": [
+          "lnbits/wallets/__init__.py",
+          "lnbits/wallets/alby.py",
+          "lnbits/wallets/bark.py",
+          "lnbits/wallets/base.py",
+          "lnbits/wallets/blink.py",
+          "lnbits/wallets/boltz.py",
+          "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2.py",
+          "lnbits/wallets/breez.py",
+          "lnbits/wallets/breez_liquid.py",
+          "lnbits/wallets/clnrest.py",
+          "lnbits/wallets/corelightning.py",
+          "lnbits/wallets/corelightningrest.py",
+          "lnbits/wallets/eclair.py",
+          "lnbits/wallets/fake.py",
+          "lnbits/wallets/lnbits.py",
+          "lnbits/wallets/lnd_grpc_files/invoices_pb2.py",
+          "lnbits/wallets/lnd_grpc_files/lightning_pb2.py",
+          "lnbits/wallets/lnd_grpc_files/router_pb2.py",
+          "lnbits/wallets/lndgrpc.py",
+          "lnbits/wallets/lndrest.py",
+          "lnbits/wallets/lnpay.py",
+          "lnbits/wallets/lntips.py",
+          "lnbits/wallets/macaroon/__init__.py",
+          "lnbits/wallets/macaroon/macaroon.py",
+          "lnbits/wallets/nwc.py",
+          "lnbits/wallets/opennode.py",
+          "lnbits/wallets/phoenixd.py",
+          "lnbits/wallets/spark.py",
+          "lnbits/wallets/sparkl2.py",
+          "lnbits/wallets/strike.py",
+          "lnbits/wallets/void.py",
+          "lnbits/wallets/zbd.py"
+        ]
+      },
+      "codegen_entry": {
+        "layer": "entry",
+        "files": [
+          "tools/codegen/extension_sdk_typescript.py"
+        ]
+      },
+      "tools_service": {
+        "layer": "service",
+        "files": [
+          "tools/conv.py",
+          "tools/i18n-ai-tool.py",
+          "tools/i18n-check.py",
+          "tools/preimage.py"
+        ]
+      },
+      "tools_data": {
+        "layer": "data",
+        "files": [
+          "tools/create_fake_admin.py"
+        ]
+      }
+    },
+    "reasons": {
+      "lnbits/decorators.py": {
+        "file": "lnbits/decorators.py",
+        "line": 123,
+        "text": "async with db.connect() as conn:"
+      },
+      "lnbits/llms_txt.py": {
+        "file": "lnbits/llms_txt.py",
+        "line": 70,
+        "text": "@app.get("
+      },
+      "lnbits/task_manager.py": {
+        "file": "lnbits/task_manager.py",
+        "line": 146,
+        "text": "while settings.lnbits_running:"
+      },
+      "lnbits/tasks.py": {
+        "file": "lnbits/tasks.py",
+        "line": 14,
+        "text": "def create_task(coro: Coroutine) -> asyncio.Task:"
+      }
+    },
+    "block_reasons": {
+      "entry_web": {
+        "file": "lnbits/app.py",
+        "line": 166,
+        "text": "app = FastAPI("
+      },
+      "entry_cli": {
+        "file": "lnbits/commands.py",
+        "line": 708,
+        "text": "resp = await client.post("
+      },
+      "api_public": {
+        "file": "lnbits/core/views/admin_api.py",
+        "line": 35,
+        "text": "@admin_router.get("
+      },
+      "service_core": {
+        "file": "lnbits/core/services/__init__.py",
+        "line": 1,
+        "text": "from .blockexplorer import ("
+      },
+      "service_crud": {
+        "file": "lnbits/core/crud/__init__.py",
+        "line": 1,
+        "text": "from .audit import create_audit_entry"
+      },
+      "service_wallet": {
+        "file": "lnbits/wallets/alby.py",
+        "line": 37,
+        "text": "self.client = httpx.AsyncClient(base_url=self.endpoint, headers=self.auth)"
+      },
+      "service_fiat": {
+        "file": "lnbits/fiat/paypal.py",
+        "line": 75,
+        "text": "self.client = httpx.AsyncClient(base_url=self.endpoint, headers=self.headers)"
+      },
+      "service_wasm": {
+        "file": "lnbits/core/wasm_ext/__init__.py",
+        "line": 1,
+        "text": "from .api.host import ExtensionHostAPI"
+      },
+      "data_db": {
+        "file": "lnbits/db.py",
+        "line": 317,
+        "text": "self.engine: AsyncEngine = create_async_engine("
+      },
+      "data_models": {
+        "file": "lnbits/core/models/__init__.py",
+        "line": 1,
+        "text": "from .audit import AuditEntry, AuditFilters"
+      }
+    },
+    "ambiguous": {
+      "no_path": [
+        "lnbits/__init__.py",
+        "lnbits/bolt11.py",
+        "lnbits/core/__init__.py",
+        "lnbits/core/helpers.py",
+        "lnbits/core/models/webpush.py",
+        "lnbits/core/tasks.py",
+        "lnbits/core/wasm_ext/client/__init__.py",
+        "lnbits/core/wasm_ext/client/extensions.py",
+        "lnbits/core/wasm_ext/client/http.py",
+        "lnbits/core/wasm_ext/routes/__init__.py",
+        "lnbits/core/wasm_ext/routes/api.py",
+        "lnbits/core/wasm_ext/routes/assets.py",
+        "lnbits/core/wasm_ext/routes/open_api.py",
+        "lnbits/core/wasm_ext/routes/register.py",
+        "lnbits/core/wasm_ext/routes/security.py",
+        "lnbits/core/wasm_ext/routes/ui.py",
+        "lnbits/core/wasm_ext/storage/__init__.py",
+        "lnbits/core/wasm_ext/storage/crud.py",
+        "lnbits/decorators.py",
+        "lnbits/llms_txt.py",
+        "lnbits/nodes/base.py",
+        "lnbits/nodes/cln.py",
+        "lnbits/nodes/lndrest.py",
+        "lnbits/nodes/phoenixd.py",
+        "lnbits/task_manager.py",
+        "lnbits/tasks.py",
+        "lnbits/utils/exchange_rates.py",
+        "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2.py",
+        "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2_grpc.py",
+        "lnbits/wallets/lnd_grpc_files/invoices_pb2.py",
+        "lnbits/wallets/lnd_grpc_files/invoices_pb2_grpc.py",
+        "lnbits/wallets/lnd_grpc_files/lightning_pb2.py",
+        "lnbits/wallets/lnd_grpc_files/lightning_pb2_grpc.py",
+        "lnbits/wallets/lnd_grpc_files/router_pb2.py",
+        "lnbits/wallets/lnd_grpc_files/router_pb2_grpc.py",
+        "lnbits/wallets/macaroon/__init__.py",
+        "lnbits/wallets/macaroon/macaroon.py",
+        "tools/codegen/extension_sdk_typescript.py",
+        "tools/conv.py",
+        "tools/create_fake_admin.py",
+        "tools/i18n-ai-tool.py",
+        "tools/i18n-check.py",
+        "tools/preimage.py"
+      ],
+      "sure_above": []
+    },
+    "by_rule": [
+      "lnbits/__init__.py",
+      "lnbits/bolt11.py",
+      "lnbits/core/__init__.py",
+      "lnbits/core/helpers.py",
+      "lnbits/core/tasks.py",
+      "lnbits/core/models/webpush.py",
+      "lnbits/core/wasm_ext/client/__init__.py",
+      "lnbits/core/wasm_ext/client/extensions.py",
+      "lnbits/core/wasm_ext/client/http.py",
+      "lnbits/core/wasm_ext/routes/__init__.py",
+      "lnbits/core/wasm_ext/routes/api.py",
+      "lnbits/core/wasm_ext/routes/assets.py",
+      "lnbits/core/wasm_ext/routes/open_api.py",
+      "lnbits/core/wasm_ext/routes/register.py",
+      "lnbits/core/wasm_ext/routes/security.py",
+      "lnbits/core/wasm_ext/routes/ui.py",
+      "lnbits/core/wasm_ext/storage/__init__.py",
+      "lnbits/core/wasm_ext/storage/crud.py",
+      "lnbits/nodes/base.py",
+      "lnbits/nodes/cln.py",
+      "lnbits/nodes/lndrest.py",
+      "lnbits/nodes/phoenixd.py",
+      "lnbits/utils/exchange_rates.py",
+      "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2.py",
+      "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2_grpc.py",
+      "lnbits/wallets/lnd_grpc_files/invoices_pb2.py",
+      "lnbits/wallets/lnd_grpc_files/invoices_pb2_grpc.py",
+      "lnbits/wallets/lnd_grpc_files/lightning_pb2.py",
+      "lnbits/wallets/lnd_grpc_files/lightning_pb2_grpc.py",
+      "lnbits/wallets/lnd_grpc_files/router_pb2.py",
+      "lnbits/wallets/lnd_grpc_files/router_pb2_grpc.py",
+      "lnbits/wallets/macaroon/__init__.py",
+      "lnbits/wallets/macaroon/macaroon.py",
+      "tools/conv.py",
+      "tools/create_fake_admin.py",
+      "tools/i18n-ai-tool.py",
+      "tools/i18n-check.py",
+      "tools/preimage.py",
+      "tools/codegen/extension_sdk_typescript.py"
+    ],
+    "top": {
+      "found": [
+        "path lnbits/wallets/boltz.py given to two blocks: entry_background, service_wallet",
+        "path lnbits/wallets/corelightning.py given to two blocks: entry_background, service_wallet",
+        "path lnbits/wallets/nwc.py given to two blocks: entry_background, service_wallet",
+        "path lnbits/commands.py given to two blocks: entry_cli, infra_http",
+        "block infra_http: path 'lnbits/core/services/**/*.py' holds no file of the repository",
+        "block infra_http: path 'lnbits/wallets/**/*.py' holds no file of the repository",
+        "block infra_http: path 'lnbits/fiat/**/*.py' holds no file of the repository",
+        "block infra_http: path 'lnbits/core/wasm_ext/**/*.py' holds no file of the repository",
+        "block infra_http: path 'lnbits/core/views/**/*.py' holds no file of the repository",
+        "path lnbits/core/services/notifications.py given to two blocks: service_core, infra_smtp",
+        "block infra_grpc: path 'lnbits/wallets/boltz_grpc_files/*.py' holds no file of the repository",
+        "block infra_grpc: path 'lnbits/wallets/lnd_grpc_files/*.py' holds no file of the repository",
+        "path lnbits/core/models/sso/keycloak.py given to two blocks: data_models, infra_oauth",
+        "path lnbits/core/models/sso/oidc.py given to two blocks: data_models, infra_oauth",
+        "block shared: path 'lnbits/utils/__init__.py' holds no file of the repository",
+        "5 infra blocks, above the limit of 4",
+        "api blocks api_admin and api_extension are both registered by lnbits/core/__init__.py: split api blocks only for a different way in; line lnbits/core/__init__.py:34 app.include_router(admin_router)",
+        "api blocks api_admin and api_public are both registered by lnbits/core/__init__.py: split api blocks only for a different way in; line lnbits/core/__init__.py:32 app.include_router(generic_router)",
+        "api blocks api_admin and api_websocket are both registered by lnbits/core/__init__.py: split api blocks only for a different way in; line lnbits/core/__init__.py:34 app.include_router(admin_router)",
+        "api blocks api_extension and api_public are both registered by lnbits/core/__init__.py: split api blocks only for a different way in; line lnbits/core/__init__.py:32 app.include_router(generic_router)",
+        "api blocks api_extension and api_websocket are both registered by lnbits/core/__init__.py: split api blocks only for a different way in; line lnbits/core/__init__.py:36 app.include_router(extension_router)",
+        "api blocks api_public and api_websocket are both registered by lnbits/core/__init__.py: split api blocks only for a different way in; line lnbits/core/__init__.py:32 app.include_router(generic_router)",
+        "shared holds lnbits/utils/exchange_rates.py, which opens http: shared is support without I/O; line lnbits/utils/exchange_rates.py:264 r = await client.get(url, timeout=3)"
+      ],
+      "left": [],
+      "source": "model",
+      "evidence_by_code": []
+    },
+    "layer_differs": [
+      {
+        "block": "data_db",
+        "highest": "infra",
+        "given": "data"
+      }
+    ],
+    "edge_check": [
+      {
+        "source": "api_public",
+        "target": "core_data",
+        "kind": "flow",
+        "reason": {
+          "file": "lnbits/core/views/generic.py",
+          "line": 250,
+          "text": "return RedirectResponse(url=f\"/wallet?usr={user_id}\")"
+        },
+        "checked": true
+      },
+      {
+        "source": "codegen_entry",
+        "target": "service_wasm",
+        "kind": "helper",
+        "reason": {
+          "file": "tools/codegen/extension_sdk_typescript.py",
+          "line": 67,
+          "text": "return list_extension_api_methods(api_cls)"
+        },
+        "checked": true
+      },
+      {
+        "source": "entry_web",
+        "target": "api_public",
+        "kind": "wiring",
+        "reason": {
+          "file": "lnbits/app.py",
+          "line": 117,
+          "text": "init_core_routers(app)"
+        },
+        "checked": true
+      },
+      {
+        "source": "service_core",
+        "target": "service_wasm",
+        "kind": "flow",
+        "reason": {
+          "file": "lnbits/core/services/extensions.py",
+          "line": 212,
+          "text": "extension_config = ext_info.load_archive_config()"
+        },
+        "checked": true
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "C1",
+      "key": "codegen_entry",
+      "name": "Tạo SDK Typescript",
+      "layer": "entry",
+      "role": "Sinh mã SDK Typescript cho các extension.",
+      "role_quote": {
+        "file": "tools/codegen/extension_sdk_typescript.py",
+        "line": 21,
+        "text": "def generate_typescript_sdk("
+      },
+      "shared": false,
+      "files": [
+        "tools/codegen/extension_sdk_typescript.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C2",
+      "key": "entry_cli",
+      "name": "CLI quản lý lnbits",
+      "layer": "entry",
+      "role": "Thực thi các lệnh CLI để quản lý extensions, người dùng và dữ liệu.",
+      "role_quote": {
+        "file": "lnbits/task_manager.py",
+        "line": 146,
+        "text": "while settings.lnbits_running:"
+      },
+      "shared": false,
+      "files": [
+        "lnbits/commands.py",
+        "lnbits/task_manager.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C3",
+      "key": "entry_web",
+      "name": "Web server FastAPI",
+      "layer": "entry",
+      "role": "Khởi tạo và cấu hình ứng dụng FastAPI cho giao diện web và API.",
+      "role_quote": {
+        "file": "lnbits/app.py",
+        "line": 166,
+        "text": "app = FastAPI("
+      },
+      "shared": false,
+      "files": [
+        "lnbits/__main__.py",
+        "lnbits/app.py",
+        "lnbits/middleware.py",
+        "lnbits/server.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C4",
+      "key": "api_public",
+      "name": "API công cộng",
+      "layer": "api",
+      "role": "Cung cấp các endpoint công cộng cho health‑check, extension và các dịch vụ khác.",
+      "role_quote": {
+        "file": "lnbits/core/views/api.py",
+        "line": 38,
+        "text": "@api_router.get(\"/api/v1/health\", status_code=HTTPStatus.OK)"
+      },
+      "shared": false,
+      "files": [
+        "lnbits/core/__init__.py",
+        "lnbits/core/views/admin_api.py",
+        "lnbits/core/views/api.py",
+        "lnbits/core/views/asset_api.py",
+        "lnbits/core/views/audit_api.py",
+        "lnbits/core/views/auth_api.py",
+        "lnbits/core/views/blockexplorer_api.py",
+        "lnbits/core/views/callback_api.py",
+        "lnbits/core/views/extension_api.py",
+        "lnbits/core/views/extensions_builder_api.py",
+        "lnbits/core/views/fiat_api.py",
+        "lnbits/core/views/generic.py",
+        "lnbits/core/views/lnurl_api.py",
+        "lnbits/core/views/node_api.py",
+        "lnbits/core/views/payment_api.py",
+        "lnbits/core/views/tinyurl_api.py",
+        "lnbits/core/views/user_api.py",
+        "lnbits/core/views/wallet_api.py",
+        "lnbits/core/views/webpush_api.py",
+        "lnbits/core/views/websocket_api.py",
+        "lnbits/core/wasm_ext/routes/api.py",
+        "lnbits/core/wasm_ext/routes/ui.py",
+        "lnbits/llms_txt.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C5",
+      "key": "service_core",
+      "name": "Dịch vụ lõi",
+      "layer": "service",
+      "role": "Xử lý logic nghiệp vụ cốt lõi như quản lý asset, funding source và extensions.",
+      "role_quote": {
+        "file": "lnbits/decorators.py",
+        "line": 123,
+        "text": "async with db.connect() as conn:"
+      },
+      "shared": false,
+      "files": [
+        "lnbits/__init__.py",
+        "lnbits/bolt11.py",
+        "lnbits/core/models/webpush.py",
+        "lnbits/core/services/__init__.py",
+        "lnbits/core/services/assets.py",
+        "lnbits/core/services/blockexplorer.py",
+        "lnbits/core/services/extensions.py",
+        "lnbits/core/services/extensions_builder.py",
+        "lnbits/core/services/fiat_providers.py",
+        "lnbits/core/services/funding_source.py",
+        "lnbits/core/services/lightning_address.py",
+        "lnbits/core/services/lnurl.py",
+        "lnbits/core/services/nostr.py",
+        "lnbits/core/services/notifications.py",
+        "lnbits/core/services/payments.py",
+        "lnbits/core/services/settings.py",
+        "lnbits/core/services/users.py",
+        "lnbits/core/services/wallets.py",
+        "lnbits/core/services/websockets.py",
+        "lnbits/core/tasks.py",
+        "lnbits/decorators.py",
+        "lnbits/nodes/base.py",
+        "lnbits/nodes/cln.py",
+        "lnbits/nodes/lndrest.py",
+        "lnbits/nodes/phoenixd.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C6",
+      "key": "service_crud",
+      "name": "Quản lý dữ liệu CRUD",
+      "layer": "service",
+      "role": "Thực hiện các thao tác tạo, đọc, cập nhật, xóa trên các bảng dữ liệu.",
+      "role_quote": {
+        "file": "lnbits/core/crud/assets.py",
+        "line": 6,
+        "text": "async def create_asset("
+      },
+      "shared": false,
+      "files": [
+        "lnbits/core/crud/__init__.py",
+        "lnbits/core/crud/assets.py",
+        "lnbits/core/crud/audit.py",
+        "lnbits/core/crud/db_versions.py",
+        "lnbits/core/crud/extensions.py",
+        "lnbits/core/crud/payments.py",
+        "lnbits/core/crud/settings.py",
+        "lnbits/core/crud/tinyurl.py",
+        "lnbits/core/crud/users.py",
+        "lnbits/core/crud/wallets.py",
+        "lnbits/core/crud/webpush.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C7",
+      "key": "service_fiat",
+      "name": "Cung cấp dịch vụ fiat",
+      "layer": "service",
+      "role": "Xử lý các giao dịch và chuyển đổi tiền tệ fiat.",
+      "role_quote": {
+        "file": "lnbits/fiat/__init__.py",
+        "line": 19,
+        "text": "class FiatProviderType(Enum):"
+      },
+      "shared": false,
+      "files": [
+        "lnbits/fiat/__init__.py",
+        "lnbits/fiat/base.py",
+        "lnbits/fiat/paypal.py",
+        "lnbits/fiat/revolut.py",
+        "lnbits/fiat/square.py",
+        "lnbits/fiat/stripe.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C8",
+      "key": "service_wallet",
+      "name": "Quản lý ví tiền",
+      "layer": "service",
+      "role": "Kết nối và thao tác với các loại ví Lightning và các dịch vụ liên quan.",
+      "role_quote": {
+        "file": "lnbits/wallets/__init__.py",
+        "line": 38,
+        "text": "def set_funding_source(class_name: str | None = None) -> None:"
+      },
+      "shared": false,
+      "files": [
+        "lnbits/wallets/__init__.py",
+        "lnbits/wallets/alby.py",
+        "lnbits/wallets/bark.py",
+        "lnbits/wallets/base.py",
+        "lnbits/wallets/blink.py",
+        "lnbits/wallets/boltz.py",
+        "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2.py",
+        "lnbits/wallets/breez.py",
+        "lnbits/wallets/breez_liquid.py",
+        "lnbits/wallets/clnrest.py",
+        "lnbits/wallets/corelightning.py",
+        "lnbits/wallets/corelightningrest.py",
+        "lnbits/wallets/eclair.py",
+        "lnbits/wallets/fake.py",
+        "lnbits/wallets/lnbits.py",
+        "lnbits/wallets/lnd_grpc_files/invoices_pb2.py",
+        "lnbits/wallets/lnd_grpc_files/lightning_pb2.py",
+        "lnbits/wallets/lnd_grpc_files/router_pb2.py",
+        "lnbits/wallets/lndgrpc.py",
+        "lnbits/wallets/lndrest.py",
+        "lnbits/wallets/lnpay.py",
+        "lnbits/wallets/lntips.py",
+        "lnbits/wallets/macaroon/__init__.py",
+        "lnbits/wallets/macaroon/macaroon.py",
+        "lnbits/wallets/nwc.py",
+        "lnbits/wallets/opennode.py",
+        "lnbits/wallets/phoenixd.py",
+        "lnbits/wallets/spark.py",
+        "lnbits/wallets/sparkl2.py",
+        "lnbits/wallets/strike.py",
+        "lnbits/wallets/void.py",
+        "lnbits/wallets/zbd.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C9",
+      "key": "service_wasm",
+      "name": "Mở rộng WASM API",
+      "layer": "service",
+      "role": "Cung cấp API cho các extension WASM thực hiện thanh toán và LNURL.",
+      "role_quote": {
+        "file": "lnbits/core/wasm_ext/api/background_payments.py",
+        "line": 20,
+        "text": "async def background_payment_extra("
+      },
+      "shared": false,
+      "files": [
+        "lnbits/core/wasm_ext/__init__.py",
+        "lnbits/core/wasm_ext/api/__init__.py",
+        "lnbits/core/wasm_ext/api/background_payments.py",
+        "lnbits/core/wasm_ext/api/host.py",
+        "lnbits/core/wasm_ext/api/lnurl.py",
+        "lnbits/core/wasm_ext/api/models.py",
+        "lnbits/core/wasm_ext/api/permissions.py",
+        "lnbits/core/wasm_ext/api/registry.py",
+        "lnbits/core/wasm_ext/api/runtime.py",
+        "lnbits/core/wasm_ext/api/utils.py",
+        "lnbits/core/wasm_ext/api/websockets.py",
+        "lnbits/core/wasm_ext/client/__init__.py",
+        "lnbits/core/wasm_ext/routes/__init__.py",
+        "lnbits/core/wasm_ext/routes/assets.py",
+        "lnbits/core/wasm_ext/routes/open_api.py",
+        "lnbits/core/wasm_ext/routes/register.py",
+        "lnbits/core/wasm_ext/routes/security.py",
+        "lnbits/core/wasm_ext/storage/__init__.py",
+        "lnbits/core/wasm_ext/storage/crud.py",
+        "lnbits/core/wasm_ext/wasm/__init__.py",
+        "lnbits/core/wasm_ext/wasm/component.py",
+        "lnbits/core/wasm_ext/wasm/config.py",
+        "lnbits/core/wasm_ext/wasm/events.py",
+        "lnbits/core/wasm_ext/wasm/host.py",
+        "lnbits/core/wasm_ext/wasm/invoke.py",
+        "lnbits/core/wasm_ext/wasm/loader.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C10",
+      "key": "tools_service",
+      "name": "Công cụ hỗ trợ dịch vụ",
+      "layer": "service",
+      "role": "Cung cấp các hàm tiện ích như truy vấn SQLite và xử lý i18n.",
+      "role_quote": {
+        "file": "tools/conv.py",
+        "line": 37,
+        "text": "def get_sqlite_cursor(sqdb):"
+      },
+      "shared": false,
+      "files": [
+        "tools/conv.py",
+        "tools/i18n-ai-tool.py",
+        "tools/i18n-check.py",
+        "tools/preimage.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C11",
+      "key": "core_data",
+      "name": "Quản lý di chuyển DB",
+      "layer": "data",
+      "role": "Thực hiện di chuyển và tạo bảng phiên bản cho cơ sở dữ liệu core.",
+      "role_quote": {
+        "file": "lnbits/core/helpers.py",
+        "line": 24,
+        "text": "async def migrate_extension_database("
+      },
+      "shared": false,
+      "files": [
+        "lnbits/core/helpers.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C12",
+      "key": "data_models",
+      "name": "Định nghĩa mô hình tài sản",
+      "layer": "data",
+      "role": "Xác định các lớp mô hình dữ liệu như AssetInfo, AuditEntry, v.v.",
+      "role_quote": {
+        "file": "lnbits/core/models/assets.py",
+        "line": 10,
+        "text": "class AssetInfo(BaseModel):"
+      },
+      "shared": false,
+      "files": [
+        "lnbits/core/models/__init__.py",
+        "lnbits/core/models/assets.py",
+        "lnbits/core/models/audit.py",
+        "lnbits/core/models/extensions.py",
+        "lnbits/core/models/extensions_builder.py",
+        "lnbits/core/models/lnurl.py",
+        "lnbits/core/models/misc.py",
+        "lnbits/core/models/notifications.py",
+        "lnbits/core/models/payments.py",
+        "lnbits/core/models/sso/keycloak.py",
+        "lnbits/core/models/sso/oidc.py",
+        "lnbits/core/models/tinyurl.py",
+        "lnbits/core/models/users.py",
+        "lnbits/core/models/wallets.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C13",
+      "key": "tools_data",
+      "name": "Tạo admin giả",
+      "layer": "data",
+      "role": "Tạo tài khoản admin mẫu bằng cách thao tác cursor trên kết nối DB.",
+      "role_quote": {
+        "file": "tools/create_fake_admin.py",
+        "line": 21,
+        "text": "cursor = conn.cursor()"
+      },
+      "shared": false,
+      "files": [
+        "tools/create_fake_admin.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C14",
+      "key": "data_db",
+      "name": "Cấu hình kết nối DB",
+      "layer": "infra",
+      "role": "Khởi tạo engine bất đồng bộ và đối tượng Database cho toàn bộ hệ thống.",
+      "role_quote": {
+        "file": "lnbits/db.py",
+        "line": 317,
+        "text": "self.engine: AsyncEngine = create_async_engine("
+      },
+      "shared": false,
+      "files": [
+        "lnbits/core/db.py",
+        "lnbits/core/migrations.py",
+        "lnbits/core/wasm_ext/client/extensions.py",
+        "lnbits/core/wasm_ext/client/http.py",
+        "lnbits/db.py",
+        "lnbits/utils/exchange_rates.py",
+        "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2_grpc.py",
+        "lnbits/wallets/lnd_grpc_files/invoices_pb2_grpc.py",
+        "lnbits/wallets/lnd_grpc_files/lightning_pb2_grpc.py",
+        "lnbits/wallets/lnd_grpc_files/router_pb2_grpc.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C15",
+      "key": "shared",
+      "name": "Dùng chung",
+      "layer": "shared",
+      "role": "",
+      "role_quote": null,
+      "shared": true,
+      "files": [
+        "lnbits/exceptions.py",
+        "lnbits/helpers.py",
+        "lnbits/settings.py",
+        "lnbits/tasks.py",
+        "lnbits/utils/bolt12.py",
+        "lnbits/utils/cache.py",
+        "lnbits/utils/crypto.py",
+        "lnbits/utils/electrum.py",
+        "lnbits/utils/logger.py",
+        "lnbits/utils/nostr.py"
+      ],
+      "described": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "E1",
+      "source": "C4",
+      "target": "C11",
+      "label": "chuyển hướng wallet",
+      "quote": {
+        "file": "lnbits/core/views/generic.py",
+        "line": 250,
+        "text": "return RedirectResponse(url=f\"/wallet?usr={user_id}\")"
+      }
+    },
+    {
+      "id": "E2",
+      "source": "C4",
+      "target": "C14",
+      "label": "đăng ký rate‑limiter",
+      "quote": {
+        "file": "lnbits/core/views/admin_api.py",
+        "line": 93,
+        "text": "core_app_extra.register_new_ratelimiter()"
+      }
+    },
+    {
+      "id": "E3",
+      "source": "C4",
+      "target": "C12",
+      "label": "xử lý tiền tệ",
+      "quote": {
+        "file": "lnbits/core/views/api.py",
+        "line": 113,
+        "text": "for currency in data.to.split(\",\"):"
+      }
+    },
+    {
+      "id": "E4",
+      "source": "C4",
+      "target": "C5",
+      "label": "gửi email thông báo",
+      "quote": {
+        "file": "lnbits/core/views/admin_api.py",
+        "line": 63,
+        "text": "return await send_email_notification("
+      }
+    },
+    {
+      "id": "E5",
+      "source": "C4",
+      "target": "C6",
+      "label": "cập nhật cài đặt admin",
+      "quote": {
+        "file": "lnbits/core/views/admin_api.py",
+        "line": 74,
+        "text": "admin_settings = await get_admin_settings(account.is_super_user)"
+      }
+    },
+    {
+      "id": "E6",
+      "source": "C4",
+      "target": "C7",
+      "label": "lấy thanh toán fiat",
+      "quote": {
+        "file": "lnbits/core/views/callback_api.py",
+        "line": 561,
+        "text": "payment = await fiat_provider.get_payment_for_order(order_id)"
+      }
+    },
+    {
+      "id": "E7",
+      "source": "C4",
+      "target": "C8",
+      "label": "kiểm tra trạng thái funding",
+      "quote": {
+        "file": "lnbits/core/views/api.py",
+        "line": 63,
+        "text": "status: StatusResponse = await funding_source.status()"
+      }
+    },
+    {
+      "id": "E8",
+      "source": "C4",
+      "target": "C9",
+      "label": "lắng nghe websocket wasm",
+      "quote": {
+        "file": "lnbits/core/views/websocket_api.py",
+        "line": 47,
+        "text": "await wasm_extension_websocket_hub.listen(conn)"
+      }
+    },
+    {
+      "id": "E9",
+      "source": "C11",
+      "target": "C14",
+      "label": "kết nối DB",
+      "quote": {
+        "file": "lnbits/core/helpers.py",
+        "line": 68,
+        "text": "async with core_db.connect() as conn:"
+      }
+    },
+    {
+      "id": "E10",
+      "source": "C11",
+      "target": "C12",
+      "label": "khởi tạo phiên bản",
+      "quote": {
+        "file": "lnbits/core/helpers.py",
+        "line": 110,
+        "text": "DbVersion(db=\"core\", version=0),"
+      }
+    },
+    {
+      "id": "E11",
+      "source": "C12",
+      "target": "C14",
+      "label": "lấy dữ liệu SSO",
+      "quote": {
+        "file": "lnbits/core/models/sso/keycloak.py",
+        "line": 33,
+        "text": "response = await session.get(self.discovery_url)"
+      }
+    },
+    {
+      "id": "E12",
+      "source": "C2",
+      "target": "C4",
+      "label": "cài đặt extension",
+      "quote": {
+        "file": "lnbits/commands.py",
+        "line": 713,
+        "text": "await api_install_extension(data)"
+      }
+    },
+    {
+      "id": "E13",
+      "source": "C2",
+      "target": "C11",
+      "label": "di chuyển DB",
+      "quote": {
+        "file": "lnbits/commands.py",
+        "line": 142,
+        "text": "loop.run_until_complete(migrate_databases())"
+      }
+    },
+    {
+      "id": "E14",
+      "source": "C2",
+      "target": "C14",
+      "label": "kết nối DB",
+      "quote": {
+        "file": "lnbits/commands.py",
+        "line": 134,
+        "text": "async with core_db.connect() as conn:"
+      }
+    },
+    {
+      "id": "E15",
+      "source": "C2",
+      "target": "C12",
+      "label": "tạo extension",
+      "quote": {
+        "file": "lnbits/commands.py",
+        "line": 569,
+        "text": "data = CreateExtension("
+      }
+    },
+    {
+      "id": "E16",
+      "source": "C2",
+      "target": "C3",
+      "label": "liệt kê extensions",
+      "quote": {
+        "file": "lnbits/commands.py",
+        "line": 320,
+        "text": "for ext in await build_all_installed_extensions_list():"
+      }
+    },
+    {
+      "id": "E17",
+      "source": "C2",
+      "target": "C5",
+      "label": "tạo tài khoản",
+      "quote": {
+        "file": "lnbits/commands.py",
+        "line": 297,
+        "text": "user = await create_user_account_no_ckeck(account)"
+      }
+    },
+    {
+      "id": "E18",
+      "source": "C2",
+      "target": "C6",
+      "label": "cập nhật thanh toán",
+      "quote": {
+        "file": "lnbits/commands.py",
+        "line": 202,
+        "text": "await update_payment(payment, conn=conn)"
+      }
+    },
+    {
+      "id": "E19",
+      "source": "C2",
+      "target": "C8",
+      "label": "nạp module ví",
+      "quote": {
+        "file": "lnbits/commands.py",
+        "line": 241,
+        "text": "wallets_module = importlib.import_module(\"lnbits.wallets\")"
+      }
+    },
+    {
+      "id": "E20",
+      "source": "C3",
+      "target": "C14",
+      "label": "đăng ký rate‑limiter",
+      "quote": {
+        "file": "lnbits/middleware.py",
+        "line": 202,
+        "text": "core_app_extra.register_new_ratelimiter()"
+      }
+    },
+    {
+      "id": "E21",
+      "source": "C3",
+      "target": "C12",
+      "label": "tạo audit entry",
+      "quote": {
+        "file": "lnbits/middleware.py",
+        "line": 159,
+        "text": "data = AuditEntry("
+      }
+    },
+    {
+      "id": "E22",
+      "source": "C3",
+      "target": "C5",
+      "label": "đăng ký middleware audit",
+      "quote": {
+        "file": "lnbits/app.py",
+        "line": 200,
+        "text": "app.add_middleware(AuditMiddleware, audit_queue=audit_queue)"
+      }
+    },
+    {
+      "id": "E23",
+      "source": "C3",
+      "target": "C9",
+      "label": "đăng ký wasm extension",
+      "quote": {
+        "file": "lnbits/app.py",
+        "line": 461,
+        "text": "register_wasm_extension(app, ext_id)"
+      }
+    },
+    {
+      "id": "E24",
+      "source": "C5",
+      "target": "C11",
+      "label": "di chuyển DB extension",
+      "quote": {
+        "file": "lnbits/core/services/extensions.py",
+        "line": 227,
+        "text": "await migrate_extension_database(ext_info, db_version)"
+      }
+    },
+    {
+      "id": "E25",
+      "source": "C5",
+      "target": "C14",
+      "label": "đăng ký/huỷ route extension",
+      "quote": {
+        "file": "lnbits/core/services/extensions.py",
+        "line": 641,
+        "text": "core_app_extra.unregister_wasm_ext_routes(ext_id)"
+      }
+    },
+    {
+      "id": "E26",
+      "source": "C5",
+      "target": "C12",
+      "label": "tạo asset từ archive",
+      "quote": {
+        "file": "lnbits/core/services/assets.py",
+        "line": 86,
+        "text": "asset = Asset("
+      }
+    },
+    {
+      "id": "E27",
+      "source": "C5",
+      "target": "C6",
+      "label": "đếm asset người dùng",
+      "quote": {
+        "file": "lnbits/core/services/assets.py",
+        "line": 60,
+        "text": "user_assets_count = await get_user_assets_count(user_id)"
+      }
+    },
+    {
+      "id": "E28",
+      "source": "C5",
+      "target": "C7",
+      "label": "kiểm tra trạng thái invoice fiat",
+      "quote": {
+        "file": "lnbits/core/services/fiat_providers.py",
+        "line": 58,
+        "text": "fiat_status = await fiat_provider.get_invoice_status(checking_id)"
+      }
+    },
+    {
+      "id": "E29",
+      "source": "C5",
+      "target": "C8",
+      "label": "kiểm tra trạng thái funding source",
+      "quote": {
+        "file": "lnbits/core/services/funding_source.py",
+        "line": 22,
+        "text": "status = await funding_source.status()"
+      }
+    },
+    {
+      "id": "E30",
+      "source": "C5",
+      "target": "C9",
+      "label": "tải cấu hình wasm extension",
+      "quote": {
+        "file": "lnbits/core/services/extensions.py",
+        "line": 212,
+        "text": "extension_config = ext_info.load_archive_config()"
+      }
+    },
+    {
+      "id": "E31",
+      "source": "C6",
+      "target": "C14",
+      "label": "cập nhật bảng assets",
+      "quote": {
+        "file": "lnbits/core/crud/assets.py",
+        "line": 72,
+        "text": "await db.update(\"assets\", asset)"
+      }
+    },
+    {
+      "id": "E32",
+      "source": "C6",
+      "target": "C12",
+      "label": "trả về mô hình dữ liệu",
+      "quote": {
+        "file": "lnbits/core/crud/extensions.py",
+        "line": 292,
+        "text": "return WasmInvocationStats()"
+      }
+    },
+    {
+      "id": "E33",
+      "source": "C7",
+      "target": "C14",
+      "label": "lọc và phân tích truy vấn",
+      "quote": {
+        "file": "lnbits/fiat/square.py",
+        "line": 562,
+        "text": "filters=Filters("
+      }
+    },
+    {
+      "id": "E34",
+      "source": "C7",
+      "target": "C6",
+      "label": "lấy danh sách thanh toán",
+      "quote": {
+        "file": "lnbits/fiat/square.py",
+        "line": 560,
+        "text": "payments = await get_payments("
+      }
+    },
+    {
+      "id": "E35",
+      "source": "C8",
+      "target": "C14",
+      "label": "kết nối RPC Boltz",
+      "quote": {
+        "file": "lnbits/wallets/boltz.py",
+        "line": 63,
+        "text": "self.rpc = boltzrpc_pb2_grpc.BoltzStub(channel)"
+      }
+    },
+    {
+      "id": "E36",
+      "source": "C8",
+      "target": "C5",
+      "label": "giải mã bolt11",
+      "quote": {
+        "file": "lnbits/wallets/blink.py",
+        "line": 276,
+        "text": "invoice = bolt11_lib.decode(bolt11)"
+      }
+    },
+    {
+      "id": "E37",
+      "source": "C8",
+      "target": "C6",
+      "label": "cập nhật cài đặt ví",
+      "quote": {
+        "file": "lnbits/wallets/boltz.py",
+        "line": 425,
+        "text": "await set_settings_field(\"boltz_mnemonic\", mnemonic)"
+      }
+    },
+    {
+      "id": "E38",
+      "source": "C9",
+      "target": "C14",
+      "label": "gửi yêu cầu API extension",
+      "quote": {
+        "file": "lnbits/core/wasm_ext/api/host.py",
+        "line": 675,
+        "text": "return await send_extension_api_request("
+      }
+    },
+    {
+      "id": "E39",
+      "source": "C9",
+      "target": "C12",
+      "label": "phân tích đối tượng grant",
+      "quote": {
+        "file": "lnbits/core/wasm_ext/api/background_payments.py",
+        "line": 84,
+        "text": "grant = ExtensionBackgroundPaymentGrant.parse_obj(grant_data)"
+      }
+    },
+    {
+      "id": "E40",
+      "source": "C9",
+      "target": "C5",
+      "label": "tạo và thanh toán invoice",
+      "quote": {
+        "file": "lnbits/core/wasm_ext/api/host.py",
+        "line": 583,
+        "text": "res, action = await fetch_lnurl_pay_request("
+      }
+    },
+    {
+      "id": "E41",
+      "source": "C9",
+      "target": "C6",
+      "label": "lấy thông tin ví",
+      "quote": {
+        "file": "lnbits/core/wasm_ext/api/background_payments.py",
+        "line": 109,
+        "text": "destination_wallet = await get_wallet(internal_payment.wallet_id)"
+      }
+    },
+    {
+      "id": "E42",
+      "source": "C13",
+      "target": "C14",
+      "label": "truy vấn tài khoản",
+      "quote": {
+        "file": "tools/create_fake_admin.py",
+        "line": 23,
+        "text": "old_account = cursor.execute("
+      }
+    },
+    {
+      "id": "E43",
+      "source": "C10",
+      "target": "C14",
+      "label": "thực thi truy vấn SQLite",
+      "quote": {
+        "file": "tools/conv.py",
+        "line": 97,
+        "text": "cursor.execute(query, d)"
+      }
+    }
+  ],
+  "externals": [
+    {
+      "id": "X1",
+      "name": "Extension review service",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C2",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/commands.py",
+            "line": 708,
+            "text": "resp = await client.post("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X2",
+      "name": "API mở rộng",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C12",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/core/models/extensions.py",
+            "line": 399,
+            "text": "resp = await client.get(url)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X3",
+      "name": "Keycloak discovery",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C12",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/core/models/sso/keycloak.py",
+            "line": 33,
+            "text": "response = await session.get(self.discovery_url)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X4",
+      "name": "OIDC discovery",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C12",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/core/models/sso/oidc.py",
+            "line": 33,
+            "text": "response = await session.get(self.discovery_url)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X5",
+      "name": "Keycloak OAuth",
+      "kind": "oauth",
+      "edges": [
+        {
+          "source": "C12",
+          "label": "đăng nhập",
+          "quote": {
+            "file": "lnbits/core/models/sso/keycloak.py",
+            "line": 20,
+            "text": "return OpenID("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X6",
+      "name": "OIDC OAuth",
+      "kind": "oauth",
+      "edges": [
+        {
+          "source": "C12",
+          "label": "đăng nhập",
+          "quote": {
+            "file": "lnbits/core/models/sso/oidc.py",
+            "line": 20,
+            "text": "return OpenID("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X7",
+      "name": "Fiat provider verification API",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C5",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/core/services/fiat_providers.py",
+            "line": 161,
+            "text": "verification_status = verify_resp.json().get(\"verification_status\")"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X8",
+      "name": "LNURL streaming service",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C5",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/core/services/lnurl.py",
+            "line": 503,
+            "text": "async with client.stream("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X9",
+      "name": "Nostr relay API",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C5",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/core/services/nostr.py",
+            "line": 62,
+            "text": "resp = await client.get(url)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X10",
+      "name": "SMTP",
+      "kind": "smtp",
+      "edges": [
+        {
+          "source": "C5",
+          "label": "gửi email",
+          "quote": {
+            "file": "lnbits/core/services/notifications.py",
+            "line": 230,
+            "text": "with smtplib.SMTP(server, port) as smtp_server:"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X11",
+      "name": "Extension reviews API",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C4",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/core/views/extension_api.py",
+            "line": 1027,
+            "text": "resp = await client.get(settings.lnbits_extensions_reviews_url + \"/tags\")"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X12",
+      "name": "LNURL service",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C4",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/core/views/lnurl_api.py",
+            "line": 194,
+            "text": "response = await client.get("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X13",
+      "name": "1ML node info API",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C4",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/core/views/node_api.py",
+            "line": 326,
+            "text": "r = await client.get(url=f\"https://1ml.com/node/{node_id}/json\", timeout=15)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X14",
+      "name": "WASM extension stream",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C14",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/core/wasm_ext/client/extensions.py",
+            "line": 64,
+            "text": "async with client.stream("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X15",
+      "name": "WASM HTTP client",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C14",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/core/wasm_ext/client/http.py",
+            "line": 58,
+            "text": "async with client.stream("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X16",
+      "name": "API tỷ giá",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C14",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/utils/exchange_rates.py",
+            "line": 264,
+            "text": "r = await client.get(url, timeout=3)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X17",
+      "name": "Database",
+      "kind": "database",
+      "edges": [
+        {
+          "source": "C14",
+          "label": "truy vấn",
+          "quote": {
+            "file": "lnbits/db.py",
+            "line": 317,
+            "text": "self.engine: AsyncEngine = create_async_engine("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X18",
+      "name": "cổng thanh toán PayPal",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C7",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/fiat/paypal.py",
+            "line": 75,
+            "text": "self.client = httpx.AsyncClient(base_url=self.endpoint, headers=self.headers)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X19",
+      "name": "cổng thanh toán Revolut",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C7",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/fiat/revolut.py",
+            "line": 110,
+            "text": "self.client = httpx.AsyncClient(base_url=self.endpoint, headers=self.headers)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X20",
+      "name": "cổng thanh toán Square",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C7",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/fiat/square.py",
+            "line": 81,
+            "text": "self.client = httpx.AsyncClient(base_url=self.endpoint, headers=self.headers)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X21",
+      "name": "API Alby wallet",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C8",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/wallets/alby.py",
+            "line": 37,
+            "text": "self.client = httpx.AsyncClient(base_url=self.endpoint, headers=self.auth)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X22",
+      "name": "API Bark wallet",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C8",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/wallets/bark.py",
+            "line": 66,
+            "text": "self.client = httpx.AsyncClient(base_url=self.endpoint, headers=self.headers)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X23",
+      "name": "API Blink wallet",
+      "kind": "http",
+      "edges": [
+        {
+          "source": "C8",
+          "label": "gọi API",
+          "quote": {
+            "file": "lnbits/wallets/blink.py",
+            "line": 93,
+            "text": "self.client = httpx.AsyncClient(base_url=self.endpoint, headers=self.auth)"
+          }
+        }
+      ]
+    }
+  ],
+  "quotes": {
+    "returned": 14,
+    "valid": 14
+  },
+  "rejected": [],
+  "issues": [],
+  "file_lines": {
+    "lnbits/__init__.py": 23,
+    "lnbits/__main__.py": 3,
+    "lnbits/app.py": 615,
+    "lnbits/bolt11.py": 7,
+    "lnbits/commands.py": 760,
+    "lnbits/core/__init__.py": 56,
+    "lnbits/core/crud/__init__.py": 166,
+    "lnbits/core/crud/assets.py": 108,
+    "lnbits/core/crud/audit.py": 89,
+    "lnbits/core/crud/db_versions.py": 37,
+    "lnbits/core/crud/extensions.py": 343,
+    "lnbits/core/crud/payments.py": 611,
+    "lnbits/core/crud/settings.py": 144,
+    "lnbits/core/crud/tinyurl.py": 40,
+    "lnbits/core/crud/users.py": 301,
+    "lnbits/core/crud/wallets.py": 360,
+    "lnbits/core/crud/webpush.py": 58,
+    "lnbits/core/db.py": 5,
+    "lnbits/core/helpers.py": 141,
+    "lnbits/core/migrations.py": 904,
+    "lnbits/core/models/__init__.py": 110,
+    "lnbits/core/models/assets.py": 37,
+    "lnbits/core/models/audit.py": 61,
+    "lnbits/core/models/extensions.py": 1271,
+    "lnbits/core/models/extensions_builder.py": 485,
+    "lnbits/core/models/lnurl.py": 31,
+    "lnbits/core/models/misc.py": 93,
+    "lnbits/core/models/notifications.py": 69,
+    "lnbits/core/models/payments.py": 372,
+    "lnbits/core/models/sso/keycloak.py": 36,
+    "lnbits/core/models/sso/oidc.py": 36,
+    "lnbits/core/models/tinyurl.py": 11,
+    "lnbits/core/models/users.py": 423,
+    "lnbits/core/models/wallets.py": 275,
+    "lnbits/core/models/webpush.py": 15,
+    "lnbits/core/services/__init__.py": 91,
+    "lnbits/core/services/assets.py": 194,
+    "lnbits/core/services/blockexplorer.py": 125,
+    "lnbits/core/services/extensions.py": 774,
+    "lnbits/core/services/extensions_builder.py": 576,
+    "lnbits/core/services/fiat_providers.py": 345,
+    "lnbits/core/services/funding_source.py": 88,
+    "lnbits/core/services/lightning_address.py": 242,
+    "lnbits/core/services/lnurl.py": 537,
+    "lnbits/core/services/nostr.py": 72,
+    "lnbits/core/services/notifications.py": 526,
+    "lnbits/core/services/payments.py": 1380,
+    "lnbits/core/services/settings.py": 59,
+    "lnbits/core/services/users.py": 236,
+    "lnbits/core/services/wallets.py": 202,
+    "lnbits/core/services/websockets.py": 65,
+    "lnbits/core/tasks.py": 92,
+    "lnbits/core/views/admin_api.py": 199,
+    "lnbits/core/views/api.py": 144,
+    "lnbits/core/views/asset_api.py": 190,
+    "lnbits/core/views/audit_api.py": 49,
+    "lnbits/core/views/auth_api.py": 840,
+    "lnbits/core/views/blockexplorer_api.py": 186,
+    "lnbits/core/views/callback_api.py": 710,
+    "lnbits/core/views/extension_api.py": 1254,
+    "lnbits/core/views/extensions_builder_api.py": 152,
+    "lnbits/core/views/fiat_api.py": 219,
+    "lnbits/core/views/generic.py": 312,
+    "lnbits/core/views/lnurl_api.py": 209,
+    "lnbits/core/views/node_api.py": 336,
+    "lnbits/core/views/payment_api.py": 526,
+    "lnbits/core/views/tinyurl_api.py": 106,
+    "lnbits/core/views/user_api.py": 421,
+    "lnbits/core/views/wallet_api.py": 247,
+    "lnbits/core/views/webpush_api.py": 77,
+    "lnbits/core/views/websocket_api.py": 65,
+    "lnbits/core/wasm_ext/__init__.py": 24,
+    "lnbits/core/wasm_ext/api/__init__.py": 22,
+    "lnbits/core/wasm_ext/api/background_payments.py": 124,
+    "lnbits/core/wasm_ext/api/host.py": 1003,
+    "lnbits/core/wasm_ext/api/lnurl.py": 70,
+    "lnbits/core/wasm_ext/api/models.py": 442,
+    "lnbits/core/wasm_ext/api/permissions.py": 412,
+    "lnbits/core/wasm_ext/api/registry.py": 205,
+    "lnbits/core/wasm_ext/api/runtime.py": 141,
+    "lnbits/core/wasm_ext/api/utils.py": 475,
+    "lnbits/core/wasm_ext/api/websockets.py": 176,
+    "lnbits/core/wasm_ext/client/__init__.py": 4,
+    "lnbits/core/wasm_ext/client/extensions.py": 219,
+    "lnbits/core/wasm_ext/client/http.py": 204,
+    "lnbits/core/wasm_ext/routes/__init__.py": 3,
+    "lnbits/core/wasm_ext/routes/api.py": 396,
+    "lnbits/core/wasm_ext/routes/assets.py": 140,
+    "lnbits/core/wasm_ext/routes/open_api.py": 356,
+    "lnbits/core/wasm_ext/routes/register.py": 53,
+    "lnbits/core/wasm_ext/routes/security.py": 127,
+    "lnbits/core/wasm_ext/routes/ui.py": 369,
+    "lnbits/core/wasm_ext/storage/__init__.py": 25,
+    "lnbits/core/wasm_ext/storage/crud.py": 720,
+    "lnbits/core/wasm_ext/wasm/__init__.py": 13,
+    "lnbits/core/wasm_ext/wasm/component.py": 62,
+    "lnbits/core/wasm_ext/wasm/config.py": 123,
+    "lnbits/core/wasm_ext/wasm/events.py": 256,
+    "lnbits/core/wasm_ext/wasm/host.py": 94,
+    "lnbits/core/wasm_ext/wasm/invoke.py": 279,
+    "lnbits/core/wasm_ext/wasm/loader.py": 107,
+    "lnbits/db.py": 779,
+    "lnbits/decorators.py": 630,
+    "lnbits/exceptions.py": 179,
+    "lnbits/fiat/__init__.py": 62,
+    "lnbits/fiat/base.py": 216,
+    "lnbits/fiat/paypal.py": 410,
+    "lnbits/fiat/revolut.py": 646,
+    "lnbits/fiat/square.py": 620,
+    "lnbits/fiat/stripe.py": 626,
+    "lnbits/helpers.py": 403,
+    "lnbits/llms_txt.py": 78,
+    "lnbits/middleware.py": 254,
+    "lnbits/nodes/base.py": 255,
+    "lnbits/nodes/cln.py": 369,
+    "lnbits/nodes/lndrest.py": 480,
+    "lnbits/nodes/phoenixd.py": 311,
+    "lnbits/server.py": 94,
+    "lnbits/settings.py": 1559,
+    "lnbits/task_manager.py": 555,
+    "lnbits/tasks.py": 89,
+    "lnbits/utils/bolt12.py": 259,
+    "lnbits/utils/cache.py": 63,
+    "lnbits/utils/crypto.py": 120,
+    "lnbits/utils/electrum.py": 1070,
+    "lnbits/utils/exchange_rates.py": 355,
+    "lnbits/utils/logger.py": 121,
+    "lnbits/utils/nostr.py": 249,
+    "lnbits/wallets/__init__.py": 84,
+    "lnbits/wallets/alby.py": 214,
+    "lnbits/wallets/bark.py": 575,
+    "lnbits/wallets/base.py": 215,
+    "lnbits/wallets/blink.py": 812,
+    "lnbits/wallets/boltz.py": 448,
+    "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2.py": 244,
+    "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2_grpc.py": 1690,
+    "lnbits/wallets/breez.py": 316,
+    "lnbits/wallets/breez_liquid.py": 336,
+    "lnbits/wallets/clnrest.py": 657,
+    "lnbits/wallets/corelightning.py": 398,
+    "lnbits/wallets/corelightningrest.py": 329,
+    "lnbits/wallets/eclair.py": 344,
+    "lnbits/wallets/fake.py": 181,
+    "lnbits/wallets/lnbits.py": 306,
+    "lnbits/wallets/lnd_grpc_files/invoices_pb2.py": 66,
+    "lnbits/wallets/lnd_grpc_files/invoices_pb2_grpc.py": 392,
+    "lnbits/wallets/lnd_grpc_files/lightning_pb2.py": 705,
+    "lnbits/wallets/lnd_grpc_files/lightning_pb2_grpc.py": 3425,
+    "lnbits/wallets/lnd_grpc_files/router_pb2.py": 188,
+    "lnbits/wallets/lnd_grpc_files/router_pb2_grpc.py": 1111,
+    "lnbits/wallets/lndgrpc.py": 405,
+    "lnbits/wallets/lndrest.py": 440,
+    "lnbits/wallets/lnpay.py": 165,
+    "lnbits/wallets/lntips.py": 207,
+    "lnbits/wallets/macaroon/__init__.py": 3,
+    "lnbits/wallets/macaroon/macaroon.py": 47,
+    "lnbits/wallets/nwc.py": 1658,
+    "lnbits/wallets/opennode.py": 170,
+    "lnbits/wallets/phoenixd.py": 468,
+    "lnbits/wallets/spark.py": 285,
+    "lnbits/wallets/sparkl2.py": 358,
+    "lnbits/wallets/strike.py": 733,
+    "lnbits/wallets/void.py": 40,
+    "lnbits/wallets/zbd.py": 211,
+    "tools/codegen/extension_sdk_typescript.py": 368,
+    "tools/conv.py": 315,
+    "tools/create_fake_admin.py": 79,
+    "tools/i18n-ai-tool.py": 150,
+    "tools/i18n-check.py": 78,
+    "tools/preimage.py": 8
+  },
+  "snapshot": {
+    "lnbits/__init__.py": "a6218e2f6c0cd4b80c1aeb36c7c5cf54802cc64110cd49e067195da78e154f44",
+    "lnbits/__main__.py": "3b66141b6d670c15c0a072c1051d41e4de7be4ae96164913471b03256b0aa92b",
+    "lnbits/app.py": "8475f2d75d58ee5b257f8410940ff19c5c1f5e334fff59fe8cc3421e91e691c0",
+    "lnbits/bolt11.py": "2be69f588c827f493b07f40dda4152a0dca980e184d8c27f8ba535634fd98fb4",
+    "lnbits/commands.py": "96691f505c5f0305519b0d9dc2dd20f618df096a8763e9eba31fa337d681c4ac",
+    "lnbits/core/__init__.py": "3a1209034c2826e35e4a979612eb473b084aa13d9a3affb23cdd47f0c811d2fb",
+    "lnbits/core/crud/__init__.py": "a99980f7ba317c4118215c6c0996ffdf5267c54a492226dc792c680f586982bf",
+    "lnbits/core/crud/assets.py": "a50c5094812524826e84014ad716b765ed9773d90f4db1b4d4f661558efc3bfb",
+    "lnbits/core/crud/audit.py": "6db1859af1d9232cf39510d4042ebd1fb957ca1aefc75cc73c18cb8fb346be62",
+    "lnbits/core/crud/db_versions.py": "5c36bceefa119cec73db2884dd2234770408d7fe93a5bf27f7958219cede4583",
+    "lnbits/core/crud/extensions.py": "424815c56f5e278d3d448bc9dbf81b240432a69d56be1e3ed2408bf803e347a2",
+    "lnbits/core/crud/payments.py": "10c481cfecc2cecf4dda06d12263e1ca03c5ac78d2a01a6fa1c8a1fe897afd8f",
+    "lnbits/core/crud/settings.py": "df3eda090908b2c529506b87b923c87b240650c1306c1e0466bf0afa127da32e",
+    "lnbits/core/crud/tinyurl.py": "d9a64358caacfc3fc7a0a2f4d255b7f97806eef7215c75c417baaed2846a4b1f",
+    "lnbits/core/crud/users.py": "bc67ed4b24b8a4fda4421e12d732762b15ff74c9a465321bbc828893e0f244a3",
+    "lnbits/core/crud/wallets.py": "3efaed3dfda8729b6de3299fead26c10c534c45dd3dd9175b3cc438fcbce0d0e",
+    "lnbits/core/crud/webpush.py": "16b8ea3571b530a67349c0f23a153c82a616e5cecf79107f72c88fd7233c33a8",
+    "lnbits/core/db.py": "ff91c5805ae830c025e7cee6e34ebc93db28e61d34e991fc43045a89671734af",
+    "lnbits/core/helpers.py": "191b21d7c99b5e0018400167912a677c2083d724620b2a103ea6ed9127841895",
+    "lnbits/core/migrations.py": "fbdfc31123542ba50c9fb1890cf1df9d92c8352917f33b94bb511bb2b6a99174",
+    "lnbits/core/models/__init__.py": "1ff9b030536609a26a33bf77bb05de8f56d8654cc59e194e5ec46120f813e4b2",
+    "lnbits/core/models/assets.py": "d219dbcc02b9b774758ba49742f310aa4d6e68c1043bf6bfed4ebff7906377d9",
+    "lnbits/core/models/audit.py": "089d7fd3fddfa44b75eee12cc159759af528855a55440765f93d43e61fb8d09d",
+    "lnbits/core/models/extensions.py": "351f0ba50001e9356d4d8b041015f55b1eb0373c8359575f5b47a53776a16f98",
+    "lnbits/core/models/extensions_builder.py": "0a3da65694a75e03dfd1e695e551f43f38ba3f9bbe6e57ac978684016c4de22e",
+    "lnbits/core/models/lnurl.py": "3a1a3cfb6abfbb903af0bb88ebdd6f915632b12dd9bc6d98695d5e4eef365b0a",
+    "lnbits/core/models/misc.py": "dabfb1dbba8b05ebbe445da5db64161cc2a8e8a8900b866bac9922496e61a7af",
+    "lnbits/core/models/notifications.py": "90d8b449e96505828c91b86912d712f8dd40fbb4f9ef632e226cd16be46385a9",
+    "lnbits/core/models/payments.py": "90698b99c0a3212ec6ca9ee962f307e394e795dc9be3f814ca5e14c177fc0023",
+    "lnbits/core/models/sso/__init__.py": "379daf6e99a1bf3820453ba3a6eb68b1ff89f68d9d07dcd3cb5a0e055a8cb737",
+    "lnbits/core/models/sso/keycloak.py": "9944d0d767ed115c54b003326db3181f17c336c373a23581c775c0eb4fa036fc",
+    "lnbits/core/models/sso/oidc.py": "b5372cf7c9a3032b9a4ff2bfa32eaa0d68bfecb4d1aee38f8cd831c7a083b4e9",
+    "lnbits/core/models/tinyurl.py": "cf1b81bb94dd1f242e4ca80bec99d6a3cb2f5fb294a73af9dd1b55f6c48a483f",
+    "lnbits/core/models/users.py": "a71da2fbba9353ee833b0c504e4d893f7e330397eb778892f4cc309422423a44",
+    "lnbits/core/models/wallets.py": "5e7c2b930a7edf9596f84bf8df3db28f6e7bd266fe5f84500e4b9bde3a2bba41",
+    "lnbits/core/models/webpush.py": "add60b4eab49e0b1f646c4ab3947e1dbd7c62fa6306444ab71b73d93e8eb856e",
+    "lnbits/core/services/__init__.py": "44836c9c8a7b0a2b483c5f25b1f022a879bd6bbf5e5b6e1b7d97afa01428572d",
+    "lnbits/core/services/assets.py": "bd88e7963d24e14c6c0ffdefe8455ef2bb24a37c6f989b7589f037c9776a93bd",
+    "lnbits/core/services/blockexplorer.py": "a765692ee9e5dea6d71c6634a938f1788a79ca16c00150a7b72b817d95d69811",
+    "lnbits/core/services/extensions.py": "7df728e09dc21f11dcac6e7592323457d7c481f4f8f09db6be75eb27667548a1",
+    "lnbits/core/services/extensions_builder.py": "f53ca020c70bc9e0b08ded65b69c27b6f1b6ae658e76b458d6b8db2715e42d83",
+    "lnbits/core/services/fiat_providers.py": "1bb4913b36dbd169fcf437db395d9551b3c5503d00cd6a4b0c9c08b6c774cb18",
+    "lnbits/core/services/funding_source.py": "756ee11e7a46bee13e768aa9a9f079230c34fcccf4e050dc518e592cc9c1e7a4",
+    "lnbits/core/services/lightning_address.py": "3837e2c6605b6864d23cb92047e0cc75ad3aa91bf6223ed7e76b19785b4a3736",
+    "lnbits/core/services/lnurl.py": "8eb978df5179ace9682c209cc0fdaba5681d3d74dc99a8712fbbf6eace3b4b30",
+    "lnbits/core/services/nostr.py": "9232a09bc498c5a5bfe7bc1df1e70e289209393a79148a23acc076784bb4b65b",
+    "lnbits/core/services/notifications.py": "c5c05880211751ad633a723ed6a8b3c59b4e472da37dba75db63baf560919663",
+    "lnbits/core/services/payments.py": "6a0b2e7b716b7f5eafb1475029f51fdbd6ae88cd71d98073fe25aac90a1f88fa",
+    "lnbits/core/services/settings.py": "1b4de3ae955032307dc63c539446b2b08157705a2ad2f0eef3c1ee6674b687ec",
+    "lnbits/core/services/users.py": "49e44d192fd5e472b73252d3e2b168927134112e68b4e8a6bf4ca50559cca70e",
+    "lnbits/core/services/wallets.py": "a4ab708ccb4e69884c867851fbeb3828f444e7f06c1afb3433d0c66f44d02f08",
+    "lnbits/core/services/websockets.py": "92dc33a1cc3b37237076fa72ba772bed056e44f05b9f9aad6772054be8c10868",
+    "lnbits/core/tasks.py": "604aeb51cff124f00a5ac23f6a5b2ec494676c853e4aba20d95416cee185861e",
+    "lnbits/core/views/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lnbits/core/views/admin_api.py": "afe53776d91cee51422a54ed82e1d0cb8daee13730c08c5f97f7f16619140f8e",
+    "lnbits/core/views/api.py": "7c9c7a0e12bbc13c6ce5b3a8be645d16571a7e0bb9f33de0ca58eb39758ad420",
+    "lnbits/core/views/asset_api.py": "fbbae273c1d904259287393b2939d07d919899381bfa526475734839286d5a6d",
+    "lnbits/core/views/audit_api.py": "3ec4c1ea5a1d5c99090f0a39b717450d33526ca5b5f93eb5b2616ada227f7f1e",
+    "lnbits/core/views/auth_api.py": "7d40d9b3e035d8d29b1d5575cabb31243f20503955bc13e6a66175f80a28f818",
+    "lnbits/core/views/blockexplorer_api.py": "8628c257e8779a642a7c46b262a569ea0d454f478cfc3bfed57ec27a2d43cbe9",
+    "lnbits/core/views/callback_api.py": "85ff03644d52f822f70a4f94f492a8dd4d36405120964c11d52d4808a58c55bf",
+    "lnbits/core/views/extension_api.py": "1566854ad258fe0438cbc19e8800c562da26e504348a29c88f45a93bec6390a8",
+    "lnbits/core/views/extensions_builder_api.py": "0b1af872f4ea0faa25cee070b1b10cd10e1a265fad776e375a405d6c5bae6920",
+    "lnbits/core/views/fiat_api.py": "bdf0eeb7e01b0c9bb219e2e3588141991591d8b040e28df7b13fe0ea25968bde",
+    "lnbits/core/views/generic.py": "4eda5ff1b914754def2c198f615d37c73b06d9036ee800cdc7bbfe39721d630d",
+    "lnbits/core/views/lnurl_api.py": "1737d53a5b2427d6ec12f9196761d229fdadf5372686d25ce3a3c28ec2b2ba35",
+    "lnbits/core/views/node_api.py": "1a8da34cc4800a434f3920c63139ba1e5cd8b210595474f484fe6466cb4d5dee",
+    "lnbits/core/views/payment_api.py": "b23e6cd5958a100cd8e7ff59dff51d4eb8ef219a5cc919c1a2cc6a7099829915",
+    "lnbits/core/views/tinyurl_api.py": "7a0ddc7b8d0646ec69c5f5eca8e9d42a95902d0a07dd06ac59466ce205bdcfec",
+    "lnbits/core/views/user_api.py": "9e30d0f1f616d0b57b26d1be101499a07e17f4e56f04c0463767f13d4c13bf20",
+    "lnbits/core/views/wallet_api.py": "961297894d83d3783081b5d17004af2d0b0a50d58a0ec2782027af71b628fabe",
+    "lnbits/core/views/webpush_api.py": "fe7c17fe7a99148ae27b6ee297d6cfc721677c1fe68413ee2aab76177613457c",
+    "lnbits/core/views/websocket_api.py": "cae8e719efc012c0ab56d25d0c898147a05496610106155b93589cfe77c5af1c",
+    "lnbits/core/wasm_ext/__init__.py": "434418a1ba50e453e0b6de0ce34e5ced939956a79cca46c2984e7e0f001ca249",
+    "lnbits/core/wasm_ext/api/__init__.py": "6b8b46ddc164ddbc278d40c301e751c4bb0459f0853bc8091355201ff74a2f47",
+    "lnbits/core/wasm_ext/api/background_payments.py": "0e3caae1907cb091ae51f4a94d83ddfb753242b9f3af90f0793c09835dcc5037",
+    "lnbits/core/wasm_ext/api/host.py": "9da627ac7c6917b615d5315c6652ebe3ff20d497ff049beeb4167fcf61d1c3dd",
+    "lnbits/core/wasm_ext/api/lnurl.py": "5a8a7f398665191c539867de64ad3d7610ad47212180ec71a6d2bc1b1df02667",
+    "lnbits/core/wasm_ext/api/models.py": "1658bd0934cf9d1deaed6f4b5203d0ef890836df2c6b95a77e2a084f64e6c45f",
+    "lnbits/core/wasm_ext/api/permissions.py": "6db1ad6e27f21ac417ee69307a88fc1eb6d9448998f55159533ddf5892d0b405",
+    "lnbits/core/wasm_ext/api/registry.py": "c8a2203bc5a340544973ba7191a8533e724222e14418e070668a8e43c0c87d0d",
+    "lnbits/core/wasm_ext/api/runtime.py": "f8f753e730e820743df56e9b0be541a8cbf2a12bcae9a95f2a2f8f37efff4304",
+    "lnbits/core/wasm_ext/api/utils.py": "7b9325760e15e9f9679aac87cc1a8e361548ce7f4380a4fdee92cc33acc62bbb",
+    "lnbits/core/wasm_ext/api/websockets.py": "de0a70ff26a3db132d38fa9c0894ab5b1572567e0956fd4993ad7d4a4ab175df",
+    "lnbits/core/wasm_ext/client/__init__.py": "e4dfd831cd88bf47f417c918a117d3137fb9b93a012d1c173e314eb9770e0358",
+    "lnbits/core/wasm_ext/client/extensions.py": "c635cbfd424ae507864e1e1bc8bed38b893e15a3e479cc7dfe5c09cdf3a45487",
+    "lnbits/core/wasm_ext/client/http.py": "4e6286b580d563a71d3b55e2900a171b9608647f8424b2bfd1f2c59b078d2316",
+    "lnbits/core/wasm_ext/routes/__init__.py": "4957f6c9228a1ad6498f34e9cf34143385892ee166cce388530711d85b0c152d",
+    "lnbits/core/wasm_ext/routes/api.py": "d4f08a24381e55a4920e3dedf51e123113143c54b5119a3fa8580c4f23a3181c",
+    "lnbits/core/wasm_ext/routes/assets.py": "605681d73b1b4cd8a177fe78d5f0e8c339c66bada463349028a3ca10724d14f8",
+    "lnbits/core/wasm_ext/routes/open_api.py": "36511e5fd348bf3404f0f8c6d78c5a0a0e8a2611e4c3195dfaaf78a34b420539",
+    "lnbits/core/wasm_ext/routes/register.py": "0c8faee37fa1c945220fb2ff401a7b8cf4fb28543b123fa7cc67224b1283eefe",
+    "lnbits/core/wasm_ext/routes/security.py": "d80ced6f9bcfcf669de7cc14f9e55c7b419376370475a66679d09bc3ab1d00cd",
+    "lnbits/core/wasm_ext/routes/ui.py": "2a27f223e5895b953d7dc6287016c3bdef42c20409b40251ff0dca25540c7e4d",
+    "lnbits/core/wasm_ext/storage/__init__.py": "64a54b33452f0dd9b16514c4ea038d7edee093b60fea272a528346dcf15d12c3",
+    "lnbits/core/wasm_ext/storage/crud.py": "03bc9a56bbdc00bccc0a16e94d3e920672ce396a980130832cba7dad54592176",
+    "lnbits/core/wasm_ext/wasm/__init__.py": "e18058213e9b835c01f261b6206e0dd5489604cf285b40f22298c47102ce2eec",
+    "lnbits/core/wasm_ext/wasm/component.py": "912d6c032bad22c9f3a20ec0bf92d13a96ccf261e7b5b27de89c97bfd1028937",
+    "lnbits/core/wasm_ext/wasm/config.py": "2676b1c867ea57fc1d2eac717645ae22414d79f7c7113436dd3ec4890a03177e",
+    "lnbits/core/wasm_ext/wasm/events.py": "1b340342ddbfccb9db12fc5489cfeea445fc8bbbfa5e346907ff519b93df4fef",
+    "lnbits/core/wasm_ext/wasm/host.py": "d7a68e0e03f2344b4b6995bc659d2e2a5cff079c45507296691815a8faf71017",
+    "lnbits/core/wasm_ext/wasm/invoke.py": "0354db3e7d428a8b7ecfa390775cea2316a00b8a0b60b2501d6ba3481dcf87dd",
+    "lnbits/core/wasm_ext/wasm/loader.py": "d43089de67cc6c2d7c85d4b84e1de32129c8baac57d848429ecf0cae12ed52a6",
+    "lnbits/db.py": "8959863fc9bd761fd9cf5b72394a3574d91179765d870393884543c95d5751f4",
+    "lnbits/decorators.py": "c07e0e23c2e20f59d4e04b4507f460be4fed36c3543bf761a4b162e123fa54d1",
+    "lnbits/exceptions.py": "d6e9369190cbadd89c582aad342e40d693b5066b98e24a6b5d049b7affcdf993",
+    "lnbits/fiat/__init__.py": "ebe41b7893a916eeec426a8fb26f694573defce8c1a5224ff89f1d36ac8bc155",
+    "lnbits/fiat/base.py": "1b392f76d9159ded2cb4dbd1a4a9cf41f9dcefb3e903fa51abc1f408b73773d6",
+    "lnbits/fiat/paypal.py": "53bb463bab5b87b2ea41f4925bcc1ac218259264c285dc568e263cf2ae9b2d7c",
+    "lnbits/fiat/revolut.py": "0e9814e63f21df895c8a47b40ebeedd39943ba8d594691a352f2f9d96af41bcf",
+    "lnbits/fiat/square.py": "5576bb9746f085bfc0d6e63c927b571edd938e5bdb9c7dea3b8a10a1867a9baa",
+    "lnbits/fiat/stripe.py": "2ff22d0e365570961ff4cc3bfcece3ee185f355a4feca2c57de4d04072bba2d4",
+    "lnbits/helpers.py": "3cca12aedc966e4c9e7ce7b74f5b12cc08a4987161015f2f37a51f6942ff8b0f",
+    "lnbits/llms_txt.py": "fdcd083462c4bc2bcf328ae94e019902493f652617af73f1082b03c886444e9a",
+    "lnbits/middleware.py": "7f2df159ae85827bae904006f546fc67367fe1ad42d7b28f6d244be36eb0eccc",
+    "lnbits/nodes/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lnbits/nodes/base.py": "82f8540117afe2a9f5f13fbfb7be10e7cb74c1ba7e9d50483638a24d08aa7c8d",
+    "lnbits/nodes/cln.py": "8ccdd70854cbd84e303575a8dc6c527ce04a9d8c976bd11ff5e24736f1016b34",
+    "lnbits/nodes/lndrest.py": "622c7fb3f29ad2c323dbdb313671a5b3d1cbb4e2fbf42865e5ee98041d100554",
+    "lnbits/nodes/phoenixd.py": "eeea50fac12b13f5f1ab02a85b86a7a7d8c1ecac90cf9293b691f97492944570",
+    "lnbits/server.py": "b6c3aef2748537c26b9af87e5dc7bb8378ae0d12790412bfdb49aa8147eab804",
+    "lnbits/settings.py": "ef49ff4e052b78f99f830adc25482f3dd0a7d0bdf9bdd367ab6ea3d567ad098b",
+    "lnbits/task_manager.py": "8daa621bf2052b84e6fb3d68cad1383352f845868dd840c98b9efcb2bae3cc1e",
+    "lnbits/tasks.py": "ffbf0d1e56dda13c4d81ef5bef38a608af8e93d2a78fc7d7b420e2490521ded3",
+    "lnbits/utils/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lnbits/utils/bolt12.py": "cbb8c2702296e1b5439994789fcee5c334ed0f1ec1da0e8762cc4dee26d24c29",
+    "lnbits/utils/cache.py": "7818fc76f66f6ba93c8063b8415350c324da2d3cdd8d1a711a75e97ffdaf3c7f",
+    "lnbits/utils/crypto.py": "d73d33660ba19fc7e49fed4d6e85a12f85ecb4201fba5879b0043832edc50346",
+    "lnbits/utils/electrum.py": "55ffff584a6b85bfac760bccd76e98b400607d22cf43646c57baf02a3ad70ac6",
+    "lnbits/utils/exchange_rates.py": "03ea94460e6abbda6bac44d01533f78f21f34f3da4e9af883b376a75f3ad9ede",
+    "lnbits/utils/logger.py": "1ea714ca488866e6e81efdfa0255ea6d56bb19b52979bd533aa3ef114f624c61",
+    "lnbits/utils/nostr.py": "031f19d32367019676ad4b4484a65222fe33faed134f98455235260926d0e1af",
+    "lnbits/wallets/__init__.py": "1264ab34f14b986e3d99825c6d01061e1ff9f8413ed5aff034e9b1e20b3450da",
+    "lnbits/wallets/alby.py": "d9fab02b6ab02d96ba8af8a29f040841059d12ff5da62dd957739d40d68ad050",
+    "lnbits/wallets/bark.py": "7107535ff73238c87f6a4fe1307dc97e8ee4042e843cdd2de9daa4979149b35c",
+    "lnbits/wallets/base.py": "0668767d147624ccd961cdfc6de6c5ea2ef8b9027db6b50cb19033a445dbb091",
+    "lnbits/wallets/blink.py": "0ae6b62a38abd9c643a7db53706611741f4191befc1454362ef1f36544293dd8",
+    "lnbits/wallets/boltz.py": "ec1312c0d9b46959d3d7cef24fdd3efaa5808a61a8662c6aae0d64cb69086a64",
+    "lnbits/wallets/boltz_grpc_files/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2.py": "e6fc4eb87c63bf67e912f9f71404a6775ce1aaa210ae0fa762fcd10a065302fe",
+    "lnbits/wallets/boltz_grpc_files/boltzrpc_pb2_grpc.py": "96f4a5f7e26e9b740c404d18768c29b04ceddc714e19c1bb4826e96964670b4f",
+    "lnbits/wallets/breez.py": "4164f0ec2b3f38665cf6fcb3dea1b10272956cba1a89639a150abd525b05afda",
+    "lnbits/wallets/breez_liquid.py": "ff7b8a4608d6d9380c480ee22c6b7d441e450c115cef5e174fa37c7728a03ee4",
+    "lnbits/wallets/clnrest.py": "f708b5786b137d626ad27b3fb8c78de716c499c0e444e68f1910f242178b429c",
+    "lnbits/wallets/corelightning.py": "732682357f6cbb73fe92dd2992fcd3170deae8a18453a2e3c1d826a82aaa3474",
+    "lnbits/wallets/corelightningrest.py": "88691ecba2973c42f37e436d74a0be898fb9335d8d7271ec2f5a48d35c6b9564",
+    "lnbits/wallets/eclair.py": "2ba8a71d76703c6c498e1f03909b467945b94c1c31f2a187fcbe6da1425c7ee9",
+    "lnbits/wallets/fake.py": "64122e56f487a02e0a4ed5b4aaaf2052aa3142fb8f39115ee80eea808c5fb4eb",
+    "lnbits/wallets/lnbits.py": "2993680b537ebd7c2020bbe2d63040917b9093a4d55f363df9525cf21042c5ab",
+    "lnbits/wallets/lnd_grpc_files/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lnbits/wallets/lnd_grpc_files/invoices_pb2.py": "9bef28f9050c02928d0670a575cfeb35d014b5db4d7d011a0d7bf2eb387fb2b6",
+    "lnbits/wallets/lnd_grpc_files/invoices_pb2_grpc.py": "f8986cfddca44c5b010338ec36ea47805a30e420f119760bd0b28642c7b2fb42",
+    "lnbits/wallets/lnd_grpc_files/lightning_pb2.py": "9f5124a672c6c73bc8610d784518ed715a02879ad1d44557c6ef4b49b5cb03da",
+    "lnbits/wallets/lnd_grpc_files/lightning_pb2_grpc.py": "67ca0f506d9ad40aaa2e9c81719e18ff35cf1283ff2bdc7628d30907b685e924",
+    "lnbits/wallets/lnd_grpc_files/router_pb2.py": "83ac1c91ced106793cf13f581845c45893697938bb5776b51543ee4788a7b6f5",
+    "lnbits/wallets/lnd_grpc_files/router_pb2_grpc.py": "9fa3184c3d6476c85ab0789edac32c3728a05e5d12a78bc867bfc78d7e911f1f",
+    "lnbits/wallets/lndgrpc.py": "f70cd467bbb8f8a3b13a8d123b213a64520e25a54505bcfd5979bb830c3a1309",
+    "lnbits/wallets/lndrest.py": "2227deba8270cff9adfdc7a6052ee517b8a206f1514bc5321387f65976daacb1",
+    "lnbits/wallets/lnpay.py": "7c2f1f78476b0554f6981934612b5880ab7329b725b79c46aad8ee43d294333a",
+    "lnbits/wallets/lntips.py": "182e49e8ad34fb005a25e644eb3445e1b5e2c2f6ffa838a64df0b71ab883c5d5",
+    "lnbits/wallets/macaroon/__init__.py": "0b99666618e8219b5c666f8c2e4dcd325eacb1e37b978114289d01c8f238a665",
+    "lnbits/wallets/macaroon/macaroon.py": "cdff20a5b718747b4b0bee13b9f2ae3cc8c7fe05d53dd9badb1e562065d67b98",
+    "lnbits/wallets/nwc.py": "f61630b819d8c601ecfcdbbe0a9f255ffdd31effb6088303bc2de7ee67eef355",
+    "lnbits/wallets/opennode.py": "3b36c648a4dd546403a88cf08a26eea9227ef8a6d7a7021bb11f80efa8d2005d",
+    "lnbits/wallets/phoenixd.py": "ab67ab325d68814b4a378b35d9193cc499e8f82d627c62e56554b081e9b84645",
+    "lnbits/wallets/spark.py": "dc1306bcfde22078b732603c8405fb391930079bdd5c900e3654598ce8555823",
+    "lnbits/wallets/sparkl2.py": "d876c2ed0d0b522c8889fc3f49aa4a21d73ff7a6213f312eaf943ae765906f90",
+    "lnbits/wallets/strike.py": "1f0c0e3bd9fe91a25a9a1da7270743e8d9425fd7e5e8d67942d855a21d683812",
+    "lnbits/wallets/void.py": "e9406b9df1351b4614c73429f4000c39018d881a195b5efba02064c4e6124c41",
+    "lnbits/wallets/zbd.py": "27087b296c7bfb73bac87a2793e34761076637bf52d8ca8d03b7a8de61b63d3b",
+    "tools/codegen/extension_sdk_typescript.py": "a2cf5e31d40783ab7fbcc2e9c70ef8928c86adfe957c7b47298e3a5b8d498e36",
+    "tools/conv.py": "fa248a0f4cb6aeedb8d162ba3806534a0d788b51ad954144e3c6ccce5ef05765",
+    "tools/create_fake_admin.py": "21585ca50044a052d367eea0499ef92bdea41b3234e4875c42e7ec77d6f314fe",
+    "tools/i18n-ai-tool.py": "2dc00db966bfe30876916cd28872b34bdda7b902f0f6343afb5a3399082cbb7b",
+    "tools/i18n-check.py": "3f4702b2997f69bc84677485990ea4629e86c5194161aeff7de1c3293dd3f8df",
+    "tools/preimage.py": "7858189946991f4b76f52a2a4ee9b95b3e4111d200f7ad61aeefe7d6dd6b03d0"
+  },
+  "excluded": {
+    "dir:.github": 22,
+    "dir:tests": 104
+  }
+}

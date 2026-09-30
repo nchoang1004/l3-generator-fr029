@@ -1,0 +1,19 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Định nghĩa router API"]
+  C3["Xử lý nghiệp vụ miền"]
+  C4["Truy cập dữ liệu DB"]
+  C5["Cơ sở hạ tầng DB"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C6["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+  end
+  C2 -->|"lấy dữ liệu bài viết"| C4
+  C2 -->|"sao chép đối tượng"| C3
+  C1 -->|"đăng ký router và handler lỗi"| C2
+  C1 -->|"kết nối tới DB"| C5
+  C4 -->|"xử lý lỗi thực thể"| C5
+  C3 -->|"truy vấn bài viết"| C4
+  C5 -.->|"truy vấn"| X1

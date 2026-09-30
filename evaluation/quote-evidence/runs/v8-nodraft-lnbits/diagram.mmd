@@ -1,0 +1,109 @@
+flowchart LR
+  C1["Tạo SDK Typescript"]
+  C2["CLI quản lý lnbits"]
+  C3["Web server FastAPI"]
+  C4["API công cộng"]
+  C5["Dịch vụ lõi"]
+  C6["Quản lý dữ liệu CRUD"]
+  C7["Cung cấp dịch vụ fiat"]
+  C8["Quản lý ví tiền"]
+  C9["Mở rộng WASM API"]
+  C10["Công cụ hỗ trợ dịch vụ"]
+  C11["Quản lý di chuyển DB"]
+  C12["Định nghĩa mô hình tài sản"]
+  C13["Tạo admin giả"]
+  C14["Cấu hình kết nối DB"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C15["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Extension review service"])
+    X2(["API mở rộng"])
+    X3(["Keycloak discovery"])
+    X4(["OIDC discovery"])
+    X5(["Keycloak OAuth"])
+    X6(["OIDC OAuth"])
+    X7(["Fiat provider verification API"])
+    X8(["LNURL streaming service"])
+    X9(["Nostr relay API"])
+    X10(["SMTP"])
+    X11(["Extension reviews API"])
+    X12(["LNURL service"])
+    X13(["1ML node info API"])
+    X14(["WASM extension stream"])
+    X15(["WASM HTTP client"])
+    X16(["API tỷ giá"])
+    X17[("Database")]
+    X18(["cổng thanh toán PayPal"])
+    X19(["cổng thanh toán Revolut"])
+    X20(["cổng thanh toán Square"])
+    X21(["API Alby wallet"])
+    X22(["API Bark wallet"])
+    X23(["API Blink wallet"])
+  end
+  C4 -->|"chuyển hướng wallet"| C11
+  C4 -->|"đăng ký rate‑limiter"| C14
+  C4 -->|"xử lý tiền tệ"| C12
+  C4 -->|"gửi email thông báo"| C5
+  C4 -->|"cập nhật cài đặt admin"| C6
+  C4 -->|"lấy thanh toán fiat"| C7
+  C4 -->|"kiểm tra trạng thái funding"| C8
+  C4 -->|"lắng nghe websocket wasm"| C9
+  C11 -->|"kết nối DB"| C14
+  C11 -->|"khởi tạo phiên bản"| C12
+  C12 -->|"lấy dữ liệu SSO"| C14
+  C2 -->|"cài đặt extension"| C4
+  C2 -->|"di chuyển DB"| C11
+  C2 -->|"kết nối DB"| C14
+  C2 -->|"tạo extension"| C12
+  C2 -->|"liệt kê extensions"| C3
+  C2 -->|"tạo tài khoản"| C5
+  C2 -->|"cập nhật thanh toán"| C6
+  C2 -->|"nạp module ví"| C8
+  C3 -->|"đăng ký rate‑limiter"| C14
+  C3 -->|"tạo audit entry"| C12
+  C3 -->|"đăng ký middleware audit"| C5
+  C3 -->|"đăng ký wasm extension"| C9
+  C5 -->|"di chuyển DB extension"| C11
+  C5 -->|"đăng ký/huỷ route extension"| C14
+  C5 -->|"tạo asset từ archive"| C12
+  C5 -->|"đếm asset người dùng"| C6
+  C5 -->|"kiểm tra trạng thái invoice fiat"| C7
+  C5 -->|"kiểm tra trạng thái funding source"| C8
+  C5 -->|"tải cấu hình wasm extension"| C9
+  C6 -->|"cập nhật bảng assets"| C14
+  C6 -->|"trả về mô hình dữ liệu"| C12
+  C7 -->|"lọc và phân tích truy vấn"| C14
+  C7 -->|"lấy danh sách thanh toán"| C6
+  C8 -->|"kết nối RPC Boltz"| C14
+  C8 -->|"giải mã bolt11"| C5
+  C8 -->|"cập nhật cài đặt ví"| C6
+  C9 -->|"gửi yêu cầu API extension"| C14
+  C9 -->|"phân tích đối tượng grant"| C12
+  C9 -->|"tạo và thanh toán invoice"| C5
+  C9 -->|"lấy thông tin ví"| C6
+  C13 -->|"truy vấn tài khoản"| C14
+  C10 -->|"thực thi truy vấn SQLite"| C14
+  C2 -.->|"gọi API"| X1
+  C12 -.->|"gọi API"| X2
+  C12 -.->|"gọi API"| X3
+  C12 -.->|"gọi API"| X4
+  C12 -.->|"đăng nhập"| X5
+  C12 -.->|"đăng nhập"| X6
+  C5 -.->|"gọi API"| X7
+  C5 -.->|"gọi API"| X8
+  C5 -.->|"gọi API"| X9
+  C5 -.->|"gửi email"| X10
+  C4 -.->|"gọi API"| X11
+  C4 -.->|"gọi API"| X12
+  C4 -.->|"gọi API"| X13
+  C14 -.->|"gọi API"| X14
+  C14 -.->|"gọi API"| X15
+  C14 -.->|"gọi API"| X16
+  C14 -.->|"truy vấn"| X17
+  C7 -.->|"gọi API"| X18
+  C7 -.->|"gọi API"| X19
+  C7 -.->|"gọi API"| X20
+  C8 -.->|"gọi API"| X21
+  C8 -.->|"gọi API"| X22
+  C8 -.->|"gọi API"| X23

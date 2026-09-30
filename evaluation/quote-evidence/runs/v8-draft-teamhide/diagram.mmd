@@ -1,0 +1,28 @@
+flowchart LR
+  C1["CLI khởi chạy"]
+  C2["FastAPI ứng dụng"]
+  C3["API công cộng"]
+  C4["Auth service"]
+  C5["User service"]
+  C6["Quản lý thực thể người dùng"]
+  C7["Celery task broker"]
+  C8["Kết nối CSDL async"]
+  C9["Quản lý cache Redis"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C10["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Message broker"])
+    X2[("Database")]
+    X3(["Redis"])
+  end
+  C3 -->|"tạo và xác thực token"| C4
+  C3 -->|"xử lý người dùng"| C5
+  C1 -->|"gọi khởi chạy web_app"| C2
+  C5 -->|"thực thi truy vấn DB"| C8
+  C5 -->|"chuyển đổi model"| C6
+  C2 -->|"đăng ký router auth và user"| C3
+  C2 -->|"quản lý session DB"| C8
+  C7 -.->|"gửi tác vụ"| X1
+  C8 -.->|"truy vấn"| X2
+  C9 -.->|"đọc ghi"| X3

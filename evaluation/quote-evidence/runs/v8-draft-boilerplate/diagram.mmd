@@ -1,0 +1,54 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["CLI lệnh quản trị"]
+  C3["Script khởi tạo dữ liệu"]
+  C4["API quản trị"]
+  C5["API xác thực"]
+  C6["Kiểm tra sức khỏe API"]
+  C7["API công cộng router"]
+  C8["Dịch vụ xác thực"]
+  C9["Service mô-đun"]
+  C10["Dữ liệu xác thực"]
+  C11["Quản lý dữ liệu mô-đun"]
+  C12["Task queue broker"]
+  C13["Hệ thống cache"]
+  C14["Kết nối database"]
+  C15["Hệ thống logging"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C16["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Memcached"])
+    X2(["Redis"])
+    X3[("Database")]
+    X4(["Message broker"])
+  end
+  C4 -->|"lấy engine"| C14
+  C4 -->|"lấy tier"| C11
+  C4 -->|"xóa vĩnh viễn"| C9
+  C5 -->|"xác thực mật khẩu"| C10
+  C5 -->|"lấy session"| C8
+  C5 -->|"ghi lỗi"| C15
+  C5 -->|"lấy người dùng"| C11
+  C10 -->|"tạo session DB"| C14
+  C10 -->|"lấy rate limit"| C11
+  C8 -->|"lấy người dùng"| C11
+  C13 -->|"tạo kết nối DB"| C14
+  C13 -->|"ghi log cảnh báo"| C15
+  C6 -->|"tạo giao diện admin"| C4
+  C11 -->|"sử dụng CRUD DB"| C14
+  C9 -->|"kiểm tra email"| C10
+  C9 -->|"truy vấn DB"| C14
+  C9 -->|"ghi log thông tin"| C15
+  C9 -->|"tạo khóa API"| C11
+  C7 -->|"gắn router auth"| C5
+  C7 -->|"gắn router oauth"| C10
+  C7 -->|"tạo API key"| C9
+  C3 -->|"commit và refresh"| C14
+  C3 -->|"ghi log"| C15
+  C3 -->|"tạo tier"| C11
+  C3 -->|"tạo người dùng"| C9
+  C13 -.->|"đọc ghi"| X1
+  C13 -.->|"đọc ghi"| X2
+  C14 -.->|"truy vấn"| X3
+  C12 -.->|"gửi tác vụ"| X4

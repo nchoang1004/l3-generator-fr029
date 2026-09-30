@@ -1,0 +1,591 @@
+{
+  "all": {
+    "precision": 0.429,
+    "precision_strict": 0.286,
+    "recall": 0.522,
+    "drawn": 42,
+    "hits": [
+      [
+        "app",
+        "wasm"
+      ],
+      [
+        "cli",
+        "crud"
+      ],
+      [
+        "fiat",
+        "ext:fiat"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "svc"
+      ],
+      [
+        "svc",
+        "crud"
+      ],
+      [
+        "svc",
+        "ext:notify"
+      ],
+      [
+        "svc",
+        "fiat"
+      ],
+      [
+        "svc",
+        "wallets"
+      ],
+      [
+        "wallets",
+        "ext:lightning"
+      ],
+      [
+        "wasm",
+        "crud"
+      ],
+      [
+        "wasm",
+        "svc"
+      ]
+    ],
+    "wrong": [
+      [
+        "cli",
+        "ext:extension_repo"
+      ],
+      [
+        "crud",
+        "ext:sso"
+      ],
+      [
+        "crud",
+        "ext?:API mở rộng"
+      ],
+      [
+        "fiat",
+        "wallets"
+      ],
+      [
+        "routes",
+        "ext:extension_repo"
+      ],
+      [
+        "routes",
+        "ext?:1ML node info API"
+      ],
+      [
+        "routes",
+        "ext?:LNURL service"
+      ],
+      [
+        "svc",
+        "ext:fiat"
+      ],
+      [
+        "svc",
+        "ext?:LNURL streaming service"
+      ],
+      [
+        "wallets",
+        "ext:database"
+      ],
+      [
+        "wallets",
+        "ext:extension_repo"
+      ],
+      [
+        "wallets",
+        "ext:rates"
+      ],
+      [
+        "wallets",
+        "ext?:API Bark wallet"
+      ],
+      [
+        "wallets",
+        "ext?:WASM HTTP client"
+      ],
+      [
+        "wallets",
+        "svc"
+      ],
+      [
+        "wasm",
+        "wallets"
+      ]
+    ],
+    "not_counted": [
+      [
+        "app",
+        "crud"
+      ],
+      [
+        "app",
+        "svc"
+      ],
+      [
+        "app",
+        "wallets"
+      ],
+      [
+        "cli",
+        "app"
+      ],
+      [
+        "cli",
+        "routes"
+      ],
+      [
+        "cli",
+        "svc"
+      ],
+      [
+        "cli",
+        "wallets"
+      ],
+      [
+        "crud",
+        "wallets"
+      ],
+      [
+        "fiat",
+        "crud"
+      ],
+      [
+        "routes",
+        "fiat"
+      ],
+      [
+        "routes",
+        "wallets"
+      ],
+      [
+        "routes",
+        "wasm"
+      ],
+      [
+        "svc",
+        "wasm"
+      ],
+      [
+        "wallets",
+        "crud"
+      ]
+    ],
+    "missed": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "jobs",
+        "crud"
+      ],
+      [
+        "jobs",
+        "rates"
+      ],
+      [
+        "jobs",
+        "svc"
+      ],
+      [
+        "nodes",
+        "wallets"
+      ],
+      [
+        "rates",
+        "ext:rates"
+      ],
+      [
+        "routes",
+        "nodes"
+      ],
+      [
+        "svc",
+        "rates"
+      ],
+      [
+        "wasm",
+        "db"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.75,
+    "precision_strict": 0.346,
+    "recall": 0.5,
+    "drawn": 26,
+    "hits": [
+      [
+        "app",
+        "wasm"
+      ],
+      [
+        "cli",
+        "crud"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "svc"
+      ],
+      [
+        "svc",
+        "crud"
+      ],
+      [
+        "svc",
+        "fiat"
+      ],
+      [
+        "svc",
+        "wallets"
+      ],
+      [
+        "wasm",
+        "crud"
+      ],
+      [
+        "wasm",
+        "svc"
+      ]
+    ],
+    "wrong": [
+      [
+        "fiat",
+        "wallets"
+      ],
+      [
+        "wallets",
+        "svc"
+      ],
+      [
+        "wasm",
+        "wallets"
+      ]
+    ],
+    "not_counted": [
+      [
+        "app",
+        "crud"
+      ],
+      [
+        "app",
+        "svc"
+      ],
+      [
+        "app",
+        "wallets"
+      ],
+      [
+        "cli",
+        "app"
+      ],
+      [
+        "cli",
+        "routes"
+      ],
+      [
+        "cli",
+        "svc"
+      ],
+      [
+        "cli",
+        "wallets"
+      ],
+      [
+        "crud",
+        "wallets"
+      ],
+      [
+        "fiat",
+        "crud"
+      ],
+      [
+        "routes",
+        "fiat"
+      ],
+      [
+        "routes",
+        "wallets"
+      ],
+      [
+        "routes",
+        "wasm"
+      ],
+      [
+        "svc",
+        "wasm"
+      ],
+      [
+        "wallets",
+        "crud"
+      ]
+    ],
+    "missed": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "jobs",
+        "crud"
+      ],
+      [
+        "jobs",
+        "rates"
+      ],
+      [
+        "jobs",
+        "svc"
+      ],
+      [
+        "nodes",
+        "wallets"
+      ],
+      [
+        "routes",
+        "nodes"
+      ],
+      [
+        "svc",
+        "rates"
+      ],
+      [
+        "wasm",
+        "db"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 0.188,
+    "precision_strict": 0.188,
+    "recall": 0.6,
+    "drawn": 16,
+    "hits": [
+      [
+        "fiat",
+        "ext:fiat"
+      ],
+      [
+        "svc",
+        "ext:notify"
+      ],
+      [
+        "wallets",
+        "ext:lightning"
+      ]
+    ],
+    "wrong": [
+      [
+        "cli",
+        "ext:extension_repo"
+      ],
+      [
+        "crud",
+        "ext:sso"
+      ],
+      [
+        "crud",
+        "ext?:API mở rộng"
+      ],
+      [
+        "routes",
+        "ext:extension_repo"
+      ],
+      [
+        "routes",
+        "ext?:1ML node info API"
+      ],
+      [
+        "routes",
+        "ext?:LNURL service"
+      ],
+      [
+        "svc",
+        "ext:fiat"
+      ],
+      [
+        "svc",
+        "ext?:LNURL streaming service"
+      ],
+      [
+        "wallets",
+        "ext:database"
+      ],
+      [
+        "wallets",
+        "ext:extension_repo"
+      ],
+      [
+        "wallets",
+        "ext:rates"
+      ],
+      [
+        "wallets",
+        "ext?:API Bark wallet"
+      ],
+      [
+        "wallets",
+        "ext?:WASM HTTP client"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "rates",
+        "ext:rates"
+      ]
+    ]
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.883,
+  "components": 15,
+  "mapping": {
+    "C1": [
+      "Tạo SDK Typescript",
+      null
+    ],
+    "C2": [
+      "CLI quản lý lnbits",
+      "cli"
+    ],
+    "C3": [
+      "Web server FastAPI",
+      "app"
+    ],
+    "C4": [
+      "API công cộng",
+      "routes"
+    ],
+    "C5": [
+      "Dịch vụ lõi",
+      "svc"
+    ],
+    "C6": [
+      "Quản lý dữ liệu CRUD",
+      "crud"
+    ],
+    "C7": [
+      "Cung cấp dịch vụ fiat",
+      "fiat"
+    ],
+    "C8": [
+      "Quản lý ví tiền",
+      "wallets"
+    ],
+    "C9": [
+      "Mở rộng WASM API",
+      "wasm"
+    ],
+    "C10": [
+      "Công cụ hỗ trợ dịch vụ",
+      null
+    ],
+    "C11": [
+      "Quản lý di chuyển DB",
+      "crud"
+    ],
+    "C12": [
+      "Định nghĩa mô hình tài sản",
+      "crud"
+    ],
+    "C13": [
+      "Tạo admin giả",
+      null
+    ],
+    "C14": [
+      "Cấu hình kết nối DB",
+      "wallets"
+    ],
+    "C15": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [
+    "lnbits/__init__.py",
+    "tools/codegen/extension_sdk_typescript.py",
+    "tools/conv.py",
+    "tools/create_fake_admin.py",
+    "tools/i18n-ai-tool.py",
+    "tools/i18n-check.py",
+    "tools/preimage.py"
+  ],
+  "flow": {
+    "flow_recall": 0.611,
+    "flow_precision": 0.929,
+    "shown": 11,
+    "merged": 0,
+    "missed": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "jobs",
+        "rates"
+      ],
+      [
+        "nodes",
+        "wallets"
+      ],
+      [
+        "routes",
+        "nodes"
+      ],
+      [
+        "svc",
+        "rates"
+      ],
+      [
+        "wasm",
+        "db"
+      ]
+    ],
+    "required": 18,
+    "right": 26,
+    "wrong": [
+      [
+        "C7",
+        "C14"
+      ],
+      [
+        "C8",
+        "C5"
+      ]
+    ],
+    "neutral": 15,
+    "ari": 0.752
+  }
+}

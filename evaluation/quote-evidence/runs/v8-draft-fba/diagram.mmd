@@ -1,0 +1,80 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Quản lý Snowflake"]
+  C3["CLI công cụ tùy chỉnh"]
+  C4["API quản trị chính"]
+  C5["API plugin sinh mã"]
+  C6["Xử lý socketio"]
+  C7["Quản lý admin"]
+  C8["Chung service"]
+  C9["Plugin service"]
+  C10["Quản lý task"]
+  C11["Mô hình dữ liệu"]
+  C12["Broker tác vụ"]
+  C13["Cơ sở dữ liệu"]
+  C14["HTTP utility"]
+  C15["Redis cache"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C16["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Message broker"])
+    X2(["Redis"])
+    X3[("Database")]
+    X4(["SMTP"])
+    X5(["IP vị trí API"])
+  end
+  C4 -->|"lưu captcha vào Redis"| C15
+  C4 -->|"đăng nhập, tạo token"| C7
+  C4 -->|"tải cấu hình login, thu hồi token"| C8
+  C4 -->|"quản lý kết quả task"| C10
+  C5 -->|"import module plugin cho API chính"| C4
+  C5 -->|"thay thế tên bảng trong template"| C11
+  C5 -->|"truy vấn model business trong DB"| C13
+  C5 -->|"gửi email captcha"| C14
+  C5 -->|"sử dụng Redis client cho plugin"| C15
+  C5 -->|"tải cấu hình email"| C8
+  C5 -->|"lấy danh sách business"| C9
+  C6 -->|"lưu session Redis"| C15
+  C6 -->|"xác thực JWT"| C8
+  C11 -->|"truy vấn DB"| C13
+  C11 -->|"xóa/đặt cache"| C15
+  C1 -->|"gọi router, xây dựng router cuối"| C5
+  C1 -->|"ghi log vào DB"| C13
+  C1 -->|"phân tích user‑agent, IP"| C14
+  C1 -->|"tạo log admin"| C7
+  C1 -->|"đo lường request FastAPI"| C8
+  C2 -->|"quét, set, expire, delete Redis"| C15
+  C3 -->|"tải plugin, cài đặt git/zip"| C5
+  C3 -->|"import model plugin"| C11
+  C3 -->|"thực thi câu lệnh DB"| C13
+  C3 -->|"gọi HTTP client"| C14
+  C3 -->|"khởi tạo Redis, xóa theo prefix"| C15
+  C3 -->|"import và sinh mã plugin"| C9
+  C12 -->|"khởi tạo tracer"| C15
+  C14 -->|"lấy vị trí IP"| C15
+  C15 -->|"lấy engine DB"| C13
+  C7 -->|"lấy menu dữ liệu"| C11
+  C7 -->|"cập nhật DB"| C13
+  C7 -->|"đọc captcha Redis"| C15
+  C7 -->|"tạo token"| C8
+  C8 -->|"lấy người dùng join"| C11
+  C8 -->|"phân trang DB"| C13
+  C8 -->|"cache Redis"| C15
+  C8 -->|"lấy cấu hình động"| C9
+  C9 -->|"tạo business mới"| C11
+  C9 -->|"thêm DB"| C13
+  C9 -->|"xóa captcha Redis"| C15
+  C9 -->|"tạo token và paging"| C8
+  C10 -->|"khởi tạo scheduler"| C11
+  C10 -->|"gửi task broker"| C12
+  C10 -->|"truy vấn DB"| C13
+  C10 -->|"khóa Redis"| C15
+  C10 -->|"xóa log admin"| C7
+  C10 -->|"paging kết quả"| C8
+  C12 -.->|"gửi tác vụ"| X1
+  C15 -.->|"đọc ghi"| X2
+  C6 -.->|"đọc ghi"| X2
+  C13 -.->|"truy vấn"| X3
+  C14 -.->|"gửi email"| X4
+  C14 -.->|"gọi API"| X5

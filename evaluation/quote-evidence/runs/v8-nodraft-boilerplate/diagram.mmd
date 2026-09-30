@@ -1,0 +1,60 @@
+flowchart LR
+  C1["CLI tính năng"]
+  C2["Script khởi tạo"]
+  C3["Web khởi tạo"]
+  C4["Admin API"]
+  C5["Public API"]
+  C6["Quản lý API Key"]
+  C7["Xác thực người dùng"]
+  C8["Giới hạn tần suất"]
+  C9["Quản lý tier"]
+  C10["Quản lý người dùng"]
+  C11["ORM mô hình dữ liệu"]
+  C12["Task broker khởi động"]
+  C13["Cache khởi tạo"]
+  C14["Database kết nối"]
+  C15["Logging cấu hình"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C16["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Memcached"])
+    X2(["Redis"])
+    X3[("Database")]
+    X4(["Message broker"])
+  end
+  C4 -->|"lấy engine"| C14
+  C4 -->|"xác thực mật khẩu"| C7
+  C4 -->|"lấy tier"| C9
+  C4 -->|"ẩn ẩn"| C10
+  C5 -->|"khởi tạo admin"| C4
+  C5 -->|"log lỗi"| C15
+  C5 -->|"tạo API key"| C6
+  C5 -->|"đăng nhập hoàn thiện"| C7
+  C5 -->|"lấy dữ liệu rate limit"| C8
+  C5 -->|"lả..."| C9
+  C5 -->|"lấy người dùng"| C10
+  C2 -->|"tạo tier"| C11
+  C2 -->|"commit"| C14
+  C2 -->|"log lỗi"| C15
+  C2 -->|"tạo người dùng"| C10
+  C13 -->|"kết nối tới database"| C14
+  C6 -->|"đếm API key"| C11
+  C6 -->|"tạo CRUD APIKey"| C14
+  C6 -->|"ghi log tạo key"| C15
+  C7 -->|"tạo session DB"| C14
+  C7 -->|"lấy cấu hình giới hạn"| C8
+  C7 -->|"lấy thông tin người dùng"| C10
+  C8 -->|"tạo CRUD RateLimit"| C14
+  C8 -->|"kiểm tra tồn tại tier"| C9
+  C9 -->|"tạo CRUD Tier"| C14
+  C9 -->|"kiểm tra tồn tại giới hạn"| C8
+  C9 -->|"kiểm tra tồn tại người dùng"| C10
+  C10 -->|"tạo CRUD User"| C14
+  C10 -->|"ghi log người dùng"| C15
+  C10 -->|"kiểm tra mật khẩu"| C7
+  C10 -->|"kiểm tra tồn tại tier"| C9
+  C13 -.->|"đọc ghi"| X1
+  C13 -.->|"đọc ghi"| X2
+  C14 -.->|"truy vấn"| X3
+  C12 -.->|"gửi tác vụ"| X4

@@ -1,0 +1,317 @@
+{
+  "all": {
+    "precision": 0.737,
+    "precision_strict": 0.609,
+    "recall": 0.875,
+    "drawn": 23,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "email",
+        "ext:smtp"
+      ],
+      [
+        "jobs",
+        "wa"
+      ],
+      [
+        "repos",
+        "db"
+      ],
+      [
+        "routes",
+        "repos"
+      ],
+      [
+        "routes",
+        "svc"
+      ],
+      [
+        "routes",
+        "wa"
+      ],
+      [
+        "scripts",
+        "db"
+      ],
+      [
+        "svc",
+        "email"
+      ],
+      [
+        "svc",
+        "repos"
+      ],
+      [
+        "wa",
+        "db"
+      ],
+      [
+        "wa",
+        "evo"
+      ],
+      [
+        "wa",
+        "repos"
+      ]
+    ],
+    "wrong": [
+      [
+        "evo",
+        "ext?:HTTP client"
+      ],
+      [
+        "jobs",
+        "evo"
+      ],
+      [
+        "jobs",
+        "repos"
+      ],
+      [
+        "scripts",
+        "jobs"
+      ],
+      [
+        "svc",
+        "db"
+      ]
+    ],
+    "not_counted": [
+      [
+        "jobs",
+        "db"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "routes",
+        "evo"
+      ],
+      [
+        "scripts",
+        "repos"
+      ]
+    ],
+    "missed": [
+      [
+        "evo",
+        "ext:evolution"
+      ],
+      [
+        "scripts",
+        "wa"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.75,
+    "precision_strict": 0.6,
+    "recall": 0.923,
+    "drawn": 20,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "jobs",
+        "wa"
+      ],
+      [
+        "repos",
+        "db"
+      ],
+      [
+        "routes",
+        "repos"
+      ],
+      [
+        "routes",
+        "svc"
+      ],
+      [
+        "routes",
+        "wa"
+      ],
+      [
+        "scripts",
+        "db"
+      ],
+      [
+        "svc",
+        "email"
+      ],
+      [
+        "svc",
+        "repos"
+      ],
+      [
+        "wa",
+        "db"
+      ],
+      [
+        "wa",
+        "evo"
+      ],
+      [
+        "wa",
+        "repos"
+      ]
+    ],
+    "wrong": [
+      [
+        "jobs",
+        "evo"
+      ],
+      [
+        "jobs",
+        "repos"
+      ],
+      [
+        "scripts",
+        "jobs"
+      ],
+      [
+        "svc",
+        "db"
+      ]
+    ],
+    "not_counted": [
+      [
+        "jobs",
+        "db"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "routes",
+        "evo"
+      ],
+      [
+        "scripts",
+        "repos"
+      ]
+    ],
+    "missed": [
+      [
+        "scripts",
+        "wa"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 0.667,
+    "precision_strict": 0.667,
+    "recall": 0.667,
+    "drawn": 3,
+    "hits": [
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "email",
+        "ext:smtp"
+      ]
+    ],
+    "wrong": [
+      [
+        "evo",
+        "ext?:HTTP client"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "evo",
+        "ext:evolution"
+      ]
+    ]
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.968,
+  "components": 14,
+  "mapping": {
+    "C1": [
+      "Xử lý nền lịch nhắc",
+      "jobs"
+    ],
+    "C2": [
+      "Script CLI tiện ích",
+      "scripts"
+    ],
+    "C3": [
+      "Ứng dụng web FastAPI",
+      "app"
+    ],
+    "C4": [
+      "API quản trị Super‑Admin",
+      "routes"
+    ],
+    "C5": [
+      "API công cộng cho tenant",
+      "routes"
+    ],
+    "C6": [
+      "Xử lý xác thực người dùng",
+      "svc"
+    ],
+    "C7": [
+      "Quản lý nghiệp vụ thuê bao",
+      "svc"
+    ],
+    "C8": [
+      "Tích hợp WhatsApp",
+      "wa"
+    ],
+    "C9": [
+      "Định nghĩa thực thể dữ liệu",
+      "repos"
+    ],
+    "C10": [
+      "Truy cập dữ liệu",
+      "repos"
+    ],
+    "C11": [
+      "Kết nối CSDL",
+      "db"
+    ],
+    "C12": [
+      "HTTP client",
+      "evo"
+    ],
+    "C13": [
+      "SMTP email",
+      "email"
+    ],
+    "C14": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [],
+  "flow": {
+    "flow_recall": 1.0,
+    "flow_precision": 1.0,
+    "shown": 13,
+    "merged": 0,
+    "missed": [],
+    "required": 13,
+    "right": 27,
+    "wrong": [],
+    "neutral": 1,
+    "ari": 0.674
+  }
+}

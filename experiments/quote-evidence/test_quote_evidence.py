@@ -228,6 +228,56 @@ class QuoteEvidenceTests(unittest.TestCase):
         self.assertEqual(client.json("sys", "user", {"type": "object"}, step="s", max_tokens=100), {"a": 1})
         self.assertEqual([b["reasoning_effort"] for b in sent], ["medium", "low"])
 
+    def test_openrouter_effort_sent_and_reasoning_kept(self):
+        client = llm.Groq("test-key", budget=100_000, state=self.root.parent / "state5", url=llm.OPENROUTER_URL)
+        reply = {"choices": [{"finish_reason": "stop", "message": {"content": '{"a": 1}', "reasoning": "why: x"}}],
+                 "usage": {"total_tokens": 9, "completion_tokens_details": {"reasoning_tokens": 4}, "cost": 0.001}}
+        sent = []
+        client._post = lambda body: (sent.append(body), (200, {}, reply))[1]
+        self.assertEqual(client.json("sys", "user", {"type": "object"}, step="top-1", max_tokens=100, effort="low"),
+                         {"a": 1})
+        self.assertEqual((sent[0]["reasoning"], "reasoning_effort" in sent[0]), ({"effort": "low"}, False))
+        self.assertEqual((client.reasoning, client.calls[-1]["reasoning_tokens"]), ({"top-1": "why: x"}, 4))
+        again = llm.Groq("test-key", budget=100_000, state=self.root.parent / "state5", url=llm.OPENROUTER_URL)
+        again.json("sys", "user", {"type": "object"}, step="top-1", max_tokens=100, effort="low")   # from cache
+        self.assertEqual((again.reasoning, len(sent)), ({"top-1": "why: x"}, 1))
+
+    def test_body_of_blank_lines_is_a_network_failure_retried(self):
+        client = llm.Groq("test-key", budget=100_000, state=self.root.parent / "state7", url=llm.OPENROUTER_URL)
+        bodies = [b"\n" * 600, b'{"choices": [{"finish_reason": "stop", "message": {"content": "{\\"a\\": 3}"}}], '
+                               b'"usage": {"total_tokens": 5}}']
+
+        class Resp:
+            status, headers = 200, {}
+
+            def __init__(self, body):
+                self.body = body
+
+            def read(self):
+                return self.body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        with unittest.mock.patch("llm.urllib.request.urlopen", lambda req, timeout: Resp(bodies.pop(0))), \
+                unittest.mock.patch("llm.time.sleep"):
+            self.assertEqual(client.json("sys", "user", {"type": "object"}, step="s", max_tokens=100), {"a": 3})
+        self.assertEqual([c["status"] for c in client.calls], [0, 200])
+        self.assertIn("the answer was not JSON (600 bytes)", client.calls[0]["error"])
+
+    def test_answer_cut_by_length_is_asked_again_with_low_reasoning(self):
+        client = llm.Groq("test-key", budget=100_000, state=self.root.parent / "state6", url=llm.OPENROUTER_URL)
+        cut = {"choices": [{"finish_reason": "length", "message": {"content": ""}}], "usage": {"total_tokens": 100}}
+        done = {"choices": [{"finish_reason": "stop", "message": {"content": '{"a": 2}'}}], "usage": {"total_tokens": 9}}
+        replies, sent = [(200, {}, cut), (200, {}, done)], []
+        client._post = lambda body: (sent.append(body), replies[len(sent) - 1])[1]
+        self.assertEqual(client.json("sys", "user", {"type": "object"}, step="s", max_tokens=100), {"a": 2})
+        self.assertEqual([b["reasoning"]["effort"] for b in sent], ["medium", "low"])
+        self.assertEqual(client.calls[0]["note"], "cut by length; retry with low reasoning")
+
     def test_truncated_generation_is_not_salvaged_or_resent(self):
         client = llm.Groq("test-key", budget=100_000, state=self.root.parent / "state2")
         cut = {"error": {"message": "max completion tokens reached before generating a valid document",

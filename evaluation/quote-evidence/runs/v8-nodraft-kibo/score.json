@@ -1,0 +1,277 @@
+{
+  "all": {
+    "precision": 0.941,
+    "precision_strict": 0.762,
+    "recall": 1.0,
+    "drawn": 21,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "email",
+        "ext:smtp"
+      ],
+      [
+        "evo",
+        "ext:evolution"
+      ],
+      [
+        "jobs",
+        "wa"
+      ],
+      [
+        "repos",
+        "db"
+      ],
+      [
+        "routes",
+        "repos"
+      ],
+      [
+        "routes",
+        "svc"
+      ],
+      [
+        "routes",
+        "wa"
+      ],
+      [
+        "scripts",
+        "db"
+      ],
+      [
+        "scripts",
+        "wa"
+      ],
+      [
+        "svc",
+        "email"
+      ],
+      [
+        "svc",
+        "repos"
+      ],
+      [
+        "wa",
+        "db"
+      ],
+      [
+        "wa",
+        "evo"
+      ],
+      [
+        "wa",
+        "repos"
+      ]
+    ],
+    "wrong": [
+      [
+        "svc",
+        "db"
+      ]
+    ],
+    "not_counted": [
+      [
+        "jobs",
+        "db"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "routes",
+        "evo"
+      ],
+      [
+        "scripts",
+        "repos"
+      ]
+    ],
+    "missed": []
+  },
+  "internal": {
+    "precision": 0.929,
+    "precision_strict": 0.722,
+    "recall": 1.0,
+    "drawn": 18,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "jobs",
+        "wa"
+      ],
+      [
+        "repos",
+        "db"
+      ],
+      [
+        "routes",
+        "repos"
+      ],
+      [
+        "routes",
+        "svc"
+      ],
+      [
+        "routes",
+        "wa"
+      ],
+      [
+        "scripts",
+        "db"
+      ],
+      [
+        "scripts",
+        "wa"
+      ],
+      [
+        "svc",
+        "email"
+      ],
+      [
+        "svc",
+        "repos"
+      ],
+      [
+        "wa",
+        "db"
+      ],
+      [
+        "wa",
+        "evo"
+      ],
+      [
+        "wa",
+        "repos"
+      ]
+    ],
+    "wrong": [
+      [
+        "svc",
+        "db"
+      ]
+    ],
+    "not_counted": [
+      [
+        "jobs",
+        "db"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "routes",
+        "evo"
+      ],
+      [
+        "scripts",
+        "repos"
+      ]
+    ],
+    "missed": []
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 1.0,
+    "drawn": 3,
+    "hits": [
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "email",
+        "ext:smtp"
+      ],
+      [
+        "evo",
+        "ext:evolution"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": []
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.81,
+  "components": 13,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "Công cụ dòng lệnh",
+      "scripts"
+    ],
+    "C3": [
+      "Worker WhatsApp",
+      "jobs"
+    ],
+    "C4": [
+      "API công cộng",
+      "routes"
+    ],
+    "C5": [
+      "Dịch vụ xác thực",
+      "svc"
+    ],
+    "C6": [
+      "Quản lý dịch vụ cốt lõi",
+      "svc"
+    ],
+    "C7": [
+      "Lịch nhắc nhở",
+      "wa"
+    ],
+    "C8": [
+      "WhatsApp integration",
+      "wa"
+    ],
+    "C9": [
+      "Mô hình dữ liệu",
+      "repos"
+    ],
+    "C10": [
+      "Kết nối DB",
+      "db"
+    ],
+    "C11": [
+      "Quản lý email",
+      "email"
+    ],
+    "C12": [
+      "HTTP client cho WhatsApp",
+      "evo"
+    ],
+    "C13": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [],
+  "flow": {
+    "flow_recall": 1.0,
+    "flow_precision": 1.0,
+    "shown": 13,
+    "merged": 0,
+    "missed": [],
+    "required": 13,
+    "right": 24,
+    "wrong": [],
+    "neutral": 0,
+    "ari": 0.63
+  }
+}

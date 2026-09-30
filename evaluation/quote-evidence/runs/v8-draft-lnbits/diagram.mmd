@@ -1,0 +1,36 @@
+flowchart LR
+  C1["Quản lý tác vụ nền"]
+  C2["Giao diện dòng lệnh"]
+  C3["Ứng dụng web FastAPI"]
+  C4["API quản trị"]
+  C5["API công cộng"]
+  C6["Quản lý ví dịch vụ"]
+  C7["Cơ sở dữ liệu async"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C8["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Extension service API"])
+    X2(["Extension reviews API"])
+    X3(["LNURL service API"])
+    X4(["1ML node info API"])
+    X5[("Database")]
+    X6(["HTTP API của ví Alby"])
+    X7(["HTTP API của ví Bark"])
+    X8(["HTTP API của ví Blink"])
+  end
+  C4 -->|"cập nhật cache cài đặt"| C6
+  C2 -->|"xóa cấu hình hệ thống"| C7
+  C2 -->|"cài đặt extension"| C5
+  C2 -->|"tạo danh sách extension"| C3
+  C5 -->|"gọi router admin"| C4
+  C5 -->|"xử lý bộ lọc truy vấn"| C7
+  C5 -->|"đặt giá trị cài đặt"| C6
+  C2 -.->|"gọi API"| X1
+  C5 -.->|"gọi API"| X2
+  C5 -.->|"gọi API"| X3
+  C5 -.->|"gọi API"| X4
+  C7 -.->|"truy vấn"| X5
+  C6 -.->|"gọi API"| X6
+  C6 -.->|"gọi API"| X7
+  C6 -.->|"gọi API"| X8

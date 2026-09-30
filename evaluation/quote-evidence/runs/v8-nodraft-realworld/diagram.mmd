@@ -1,0 +1,17 @@
+flowchart LR
+  C1["Khởi tạo FastAPI ứng dụng"]
+  C2["Định nghĩa router API"]
+  C3["Logic nghiệp vụ dịch vụ"]
+  C4["Truy cập dữ liệu repository"]
+  C5["Kết nối cơ sở dữ liệu"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C6["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+  end
+  C1 -->|"đăng ký router và handler"| C2
+  C3 -->|"gọi repository để lấy dữ liệu"| C4
+  C4 -->|"tạo queries từ file sql"| C5
+  C2 -->|"lấy và thao tác bài viết"| C4
+  C5 -.->|"truy vấn"| X1

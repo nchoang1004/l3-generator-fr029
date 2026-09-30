@@ -1,0 +1,18 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Router API"]
+  C3["Use‑case Service"]
+  C4["Model dữ liệu"]
+  C5["Kết nối DB"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C6["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+  end
+  C2 -->|"gọi use‑case"| C3
+  C1 -->|"gắn router API"| C2
+  C4 -->|"gọi engine DB"| C5
+  C3 -->|"gọi model"| C4
+  C3 -->|"gọi session DB"| C5
+  C5 -.->|"truy vấn"| X1

@@ -1,0 +1,48 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Công cụ dòng lệnh"]
+  C3["Worker WhatsApp"]
+  C4["API công cộng"]
+  C5["Dịch vụ xác thực"]
+  C6["Quản lý dịch vụ cốt lõi"]
+  C7["Lịch nhắc nhở"]
+  C8["WhatsApp integration"]
+  C9["Mô hình dữ liệu"]
+  C10["Kết nối DB"]
+  C11["Quản lý email"]
+  C12["HTTP client cho WhatsApp"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C13["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["SMTP"])
+    X2[("Database")]
+    X3(["WhatsApp Evolution API"])
+  end
+  C4 -->|"cập nhật dữ liệu"| C9
+  C4 -->|"truy vấn DB"| C10
+  C4 -->|"gửi tin nhắn HTTP"| C12
+  C4 -->|"xác thực người dùng"| C5
+  C4 -->|"quản lý lịch hẹn"| C6
+  C4 -->|"thống kê WhatsApp"| C8
+  C9 -->|"thêm thực thể DB"| C10
+  C1 -->|"đăng ký router API"| C4
+  C2 -->|"tạo thực thể dữ liệu"| C9
+  C2 -->|"truy cập DB"| C10
+  C2 -->|"lên lịch reminder"| C7
+  C3 -->|"đóng kết nối DB"| C10
+  C3 -->|"xử lý tin nhắn WhatsApp"| C8
+  C5 -->|"truy vấn repo"| C9
+  C5 -->|"lưu DB"| C10
+  C5 -->|"gửi email reset"| C11
+  C6 -->|"gọi repository dữ liệu"| C9
+  C7 -->|"lấy dữ liệu tenant"| C9
+  C7 -->|"truy vấn DB"| C10
+  C7 -->|"gửi tin Evolution"| C12
+  C7 -->|"giải quyết biến WhatsApp"| C8
+  C8 -->|"cập nhật session"| C9
+  C8 -->|"commit DB"| C10
+  C8 -->|"cấu hình webhook"| C12
+  C11 -.->|"gửi email"| X1
+  C10 -.->|"truy vấn"| X2
+  C12 -.->|"gọi API"| X3

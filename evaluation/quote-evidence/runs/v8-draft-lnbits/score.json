@@ -1,0 +1,428 @@
+{
+  "all": {
+    "precision": 0.286,
+    "precision_strict": 0.167,
+    "recall": 0.087,
+    "drawn": 12,
+    "hits": [
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "wallets",
+        "ext:lightning"
+      ]
+    ],
+    "wrong": [
+      [
+        "cli",
+        "ext:extension_repo"
+      ],
+      [
+        "routes",
+        "ext:extension_repo"
+      ],
+      [
+        "routes",
+        "ext?:1ML node info API"
+      ],
+      [
+        "routes",
+        "ext?:LNURL service API"
+      ],
+      [
+        "wallets",
+        "ext?:HTTP API của ví Bark"
+      ]
+    ],
+    "not_counted": [
+      [
+        "cli",
+        "app"
+      ],
+      [
+        "cli",
+        "db"
+      ],
+      [
+        "cli",
+        "routes"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "routes",
+        "wallets"
+      ]
+    ],
+    "missed": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "app",
+        "wasm"
+      ],
+      [
+        "cli",
+        "crud"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "fiat",
+        "ext:fiat"
+      ],
+      [
+        "jobs",
+        "crud"
+      ],
+      [
+        "jobs",
+        "rates"
+      ],
+      [
+        "jobs",
+        "svc"
+      ],
+      [
+        "nodes",
+        "wallets"
+      ],
+      [
+        "rates",
+        "ext:rates"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "nodes"
+      ],
+      [
+        "routes",
+        "svc"
+      ],
+      [
+        "svc",
+        "crud"
+      ],
+      [
+        "svc",
+        "ext:notify"
+      ],
+      [
+        "svc",
+        "fiat"
+      ],
+      [
+        "svc",
+        "rates"
+      ],
+      [
+        "svc",
+        "wallets"
+      ],
+      [
+        "wasm",
+        "crud"
+      ],
+      [
+        "wasm",
+        "db"
+      ],
+      [
+        "wasm",
+        "svc"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": null,
+    "precision_strict": 0.0,
+    "recall": 0.0,
+    "drawn": 5,
+    "hits": [],
+    "wrong": [],
+    "not_counted": [
+      [
+        "cli",
+        "app"
+      ],
+      [
+        "cli",
+        "db"
+      ],
+      [
+        "cli",
+        "routes"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "routes",
+        "wallets"
+      ]
+    ],
+    "missed": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "app",
+        "wasm"
+      ],
+      [
+        "cli",
+        "crud"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "jobs",
+        "crud"
+      ],
+      [
+        "jobs",
+        "rates"
+      ],
+      [
+        "jobs",
+        "svc"
+      ],
+      [
+        "nodes",
+        "wallets"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "nodes"
+      ],
+      [
+        "routes",
+        "svc"
+      ],
+      [
+        "svc",
+        "crud"
+      ],
+      [
+        "svc",
+        "fiat"
+      ],
+      [
+        "svc",
+        "rates"
+      ],
+      [
+        "svc",
+        "wallets"
+      ],
+      [
+        "wasm",
+        "crud"
+      ],
+      [
+        "wasm",
+        "db"
+      ],
+      [
+        "wasm",
+        "svc"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 0.286,
+    "precision_strict": 0.286,
+    "recall": 0.4,
+    "drawn": 7,
+    "hits": [
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "wallets",
+        "ext:lightning"
+      ]
+    ],
+    "wrong": [
+      [
+        "cli",
+        "ext:extension_repo"
+      ],
+      [
+        "routes",
+        "ext:extension_repo"
+      ],
+      [
+        "routes",
+        "ext?:1ML node info API"
+      ],
+      [
+        "routes",
+        "ext?:LNURL service API"
+      ],
+      [
+        "wallets",
+        "ext?:HTTP API của ví Bark"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "fiat",
+        "ext:fiat"
+      ],
+      [
+        "rates",
+        "ext:rates"
+      ],
+      [
+        "svc",
+        "ext:notify"
+      ]
+    ]
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.54,
+  "components": 8,
+  "mapping": {
+    "C1": [
+      "Quản lý tác vụ nền",
+      "rates"
+    ],
+    "C2": [
+      "Giao diện dòng lệnh",
+      "cli"
+    ],
+    "C3": [
+      "Ứng dụng web FastAPI",
+      "app"
+    ],
+    "C4": [
+      "API quản trị",
+      "routes"
+    ],
+    "C5": [
+      "API công cộng",
+      "routes"
+    ],
+    "C6": [
+      "Quản lý ví dịch vụ",
+      "wallets"
+    ],
+    "C7": [
+      "Cơ sở dữ liệu async",
+      "db"
+    ],
+    "C8": [
+      "Dùng chung",
+      "wasm"
+    ]
+  },
+  "files_outside_oracle": [
+    "lnbits/__init__.py",
+    "tools/codegen/extension_sdk_typescript.py",
+    "tools/conv.py",
+    "tools/create_fake_admin.py",
+    "tools/i18n-ai-tool.py",
+    "tools/i18n-check.py",
+    "tools/preimage.py"
+  ],
+  "flow": {
+    "flow_recall": 0.056,
+    "flow_precision": 1.0,
+    "shown": 1,
+    "merged": 1,
+    "missed": [
+      [
+        "app",
+        "wasm"
+      ],
+      [
+        "cli",
+        "crud"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "jobs",
+        "crud"
+      ],
+      [
+        "jobs",
+        "svc"
+      ],
+      [
+        "nodes",
+        "wallets"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "nodes"
+      ],
+      [
+        "routes",
+        "svc"
+      ],
+      [
+        "svc",
+        "crud"
+      ],
+      [
+        "svc",
+        "fiat"
+      ],
+      [
+        "svc",
+        "rates"
+      ],
+      [
+        "svc",
+        "wallets"
+      ],
+      [
+        "wasm",
+        "crud"
+      ],
+      [
+        "wasm",
+        "db"
+      ],
+      [
+        "wasm",
+        "svc"
+      ]
+    ],
+    "required": 18,
+    "right": 5,
+    "wrong": [],
+    "neutral": 2,
+    "ari": 0.278
+  }
+}

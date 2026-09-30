@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import ai7       # noqa: E402
 import calls     # noqa: E402
+import evaluate  # noqa: E402
 import flow      # noqa: E402
 import inventory  # noqa: E402
 import llm       # noqa: E402
@@ -63,14 +64,28 @@ FILES = {
 PLACE = {"app/api/users.py": "routes", "app/tasks.py": "logic"}     # pass 2 answers for the ambiguous files
 
 
-def first_line(path: str) -> str:
-    n, text = next((n, t) for n, t in enumerate(FILES[path].splitlines(), start=1) if t.strip())
-    return f"{path}:{n} {text.strip()}"
+def shown_ids(user: str) -> list[tuple[str, str, int]]:
+    """(id, path as shown, line) of the code lines of a prompt: `[L3] main.py:7 code` and the overview's file lines
+    `  main.py sure entry [L3]:7 code`."""
+    out = []
+    for row in user.splitlines():
+        out += [(m[1], m[2], int(m[3])) for m in re.finditer(r"\[(L\d+)\] (\S+?):(\d+)", row)]
+        m = re.match(r"\s+(\S+) [\w ]+ \[(L\d+)\]:(\d+) ", row)
+        if m:
+            out.append((m[2], m[1], int(m[3])))
+    return out
+
+
+def point(user: str, ref: str) -> str:
+    """The id of the shown line `path:line ...` names, as the model answers; "L999" when that line is not shown."""
+    path, line = ref.split(" ")[0].rsplit(":", 1)
+    return next((i for i, shown, n in shown_ids(user) if n == int(line) and path.endswith(shown)), "L999")
 
 
 def placer(user: str, bad=frozenset()) -> dict:
-    """Answers a pass-2 request from the files it lists, following PLACE; files in `bad` get an invented reason."""
-    rows, folder = [], ""
+    """Answers a pass-2 request from the files it lists, following PLACE, pointing at the first line shown for
+    each file; files in `bad` point at a line of another file."""
+    rows, folder, ids = [], "", {}
     for line in user.splitlines():
         head = re.match(r"# (.*)/$", line)
         entry = re.match(r"([\w.\-]+\.py)(?: \||$)", line)
@@ -78,44 +93,51 @@ def placer(user: str, bad=frozenset()) -> dict:
             folder = "" if head[1] == "." else head[1] + "/"
         elif entry:
             path = folder + entry[1]
-            reason = f"{path}:1 invented line of code" if path in bad else first_line(path)
-            rows.append({"file": path, "block": PLACE[path], "reason": reason})
-    return {"files": rows}
+            ids[path] = re.findall(r"\[(L\d+)\]", line)
+            rows.append(path)
+        elif rows and re.match(r"\s+\[L\d+\]", line):
+            ids[rows[-1]] += re.findall(r"\[(L\d+)\]", line)
+    out = []
+    for n, path in enumerate(rows):
+        other = [i for p in rows if p != path for i in ids[p]]
+        reason = (other[0] if other else "L999") if path in bad else ids[path][0]
+        out.append({"file": path, "block": PLACE[path], "reason": reason})
+    return {"files": out}
 
 
 def edge_judge(user: str, kind: str) -> dict:
     rows, cur = [], None
     for line in user.splitlines():
         head = re.match(r"## (P\d+):", line)
-        quote = re.match(r"(\S+?):(\d+)\| (.*)", line)
+        found = re.match(r"\[(L\d+)\] \S+?:\d+\| \S", line)
         if head:
             cur = {"id": head[1], "kind": kind, "reason": None}
             rows.append(cur)
-        elif quote and cur and cur["reason"] is None and quote[3].strip():
-            cur["reason"] = f"{quote[1]}:{quote[2]} {quote[3].strip()}"
+        elif found and cur and cur["reason"] is None:
+            cur["reason"] = found[1]
     return {"pairs": rows}
 
 
 def namer(user: str) -> dict:
-    """Answers a naming request from its text; the quote of block `app` is deliberately wrong."""
+    """Answers a naming request from its text; block `app` points at an id that was not shown."""
     blocks, edges, exts, cur = [], [], [], None
     for line in user.splitlines():
         head = re.match(r"## (\w+) \(", line)
-        quote = re.match(r"(\S+?):(\d+)\| (.*)", line)
+        found = re.match(r"\[(L\d+)\] ", line)
         edge = re.match(r"(E\d+) -> (\w+)", line)
         ext = re.match(r"(X\d+) ", line)
         if head:
-            cur = {"key": head[1], "name": "khối " + head[1], "role": "Làm việc", "role_quote": None}
+            cur = {"key": head[1], "name": "khối " + head[1], "role": "Làm việc", "role_line": None}
             blocks.append(cur)
         elif edge:
             edges.append({"id": edge[1], "label": "" if edge[2] == "database" else "gọi xử lý"})
         elif ext:
             exts.append({"id": ext[1], "name": "Payment API"})
-        elif quote and cur and cur["role_quote"] is None:
-            cur["role_quote"] = {"file": quote[1], "line": int(quote[2]), "text": quote[3].strip()}
+        elif found and cur and cur["role_line"] is None:
+            cur["role_line"] = found[1]
     for b in blocks:
         if b["key"] == "app":
-            b["role_quote"] = {**b["role_quote"], "text": "invented line of code"}
+            b["role_line"] = "L999"
     return {"blocks": blocks, "edges": edges, "externals": exts}
 
 
@@ -137,7 +159,7 @@ TOP_BAD = {"blocks": [
     {"name": "models", "layer": "data", "paths": ["app/models.py", "app/nothing/"], "reason": "app/models.py:1 class User:"},
     {"name": "dto", "layer": "data", "paths": ["app/dto.py"], "reason": "app/dto.py:1 class UserOut:"},
     TOP_GOOD["blocks"][4],
-    {"name": "pay", "layer": "infra", "paths": ["app/clients/", "app/db.py"], "reason": "app/clients/pay.py:6 invented code"}],
+    {"name": "pay", "layer": "infra", "paths": ["app/clients/", "app/db.py"], "reason": "app/main.py:7 app = FastAPI()"}],
     "shared": ["app/constants.py", "app/db.py"]}
 # routes keep only deps.py, so users.py (sure api) sits in the service block through app/api/; tasks.py has no path
 TOP_PARTIAL = {"blocks": [
@@ -150,13 +172,19 @@ class FakeLLM:
     def __init__(self, bad=frozenset(), fail=(), edge_kind="pass", top=()):
         self.bad, self.fail, self.edge_kind, self.top, self.calls = bad, set(fail), edge_kind, list(top), []
 
-    def json(self, system, user, schema, *, step, max_tokens):
-        self.calls.append({"step": step, "user": user, "total_tokens": 0, "max_tokens": max_tokens,
+    def json(self, system, user, schema, *, step, max_tokens, effort="medium"):
+        self.calls.append({"step": step, "user": user, "total_tokens": 0, "max_tokens": max_tokens, "effort": effort,
                            "prompt": llm.estimate(system + user)})
         if step in self.fail:
             raise llm.ModelError(f"{step}: fake failure")
         if step.startswith("top"):
-            return json.loads(json.dumps(self.top.pop(0))) if self.top else {}
+            if not self.top:
+                return {}
+            answer = json.loads(json.dumps(self.top.pop(0)))
+            for b in answer["blocks"]:          # a reason written as `path:line code` becomes the id of that line
+                if " " in str(b.get("reason")):
+                    b["reason"] = point(user, b["reason"])
+            return answer
         if step.startswith("place"):
             return placer(user, self.bad)
         if step.startswith("edges"):
@@ -201,11 +229,15 @@ class Ai7Tests(unittest.TestCase):
         self.assertEqual(g["ambiguous"], {"no_path": ["app/tasks.py"], "sure_above": ["app/api/users.py"]})
         self.assertEqual((owner["app/api/users.py"], owner["app/tasks.py"]), ("routes", "logic"))
         self.assertEqual(owner["app/api/schemas.py"], "logic")                # by path, not ambiguous
-        self.assertEqual(g["reasons"]["app/tasks.py"], {"file": "app/tasks.py", "line": 1,
-                                                        "text": "from app.crud import create_user"})
+        self.assertEqual(g["reasons"]["app/tasks.py"], {"file": "app/tasks.py", "line": 4,
+                                                        "text": "async def nightly(session):"})
         self.assertEqual(sorted(g["reasons"]), ["app/api/users.py", "app/tasks.py"])
         self.assertEqual(g["block_reasons"]["app"], {"file": "app/main.py", "line": 7, "text": "app = FastAPI()"})
-        self.assertEqual((g["by_rule"], g["issues"]), ([], ["top: 1 problems left after the retry"]))
+        # routes points at users.py, which its paths no longer hold: code picks a line of deps.py
+        self.assertEqual(g["block_reasons"]["routes"]["file"], "app/deps.py")
+        self.assertEqual((g["by_rule"], g["issues"]), ([], [
+            "top: evidence picked by code (the model's line missing or outside the block): routes",
+            "top: 1 problems left after the retry"]))
 
     def test_block_layer_sure_files_first_then_given(self):
         top = json.loads(json.dumps(TOP_GOOD))
@@ -221,9 +253,9 @@ class Ai7Tests(unittest.TestCase):
         self.assertTrue(text.startswith("Blocks:\napp (entry): app/container.py, app/main.py\n"))
         self.assertIn("logic (service): app/api/, app/domain/, app/dto.py, app/service/\n", text)
         self.assertIn("\nshared: app/constants.py\n", text)
-        self.assertIn("users.py | layer: api (sure) 11: @router.post('/users')", text)
-        self.assertRegex(text, r"tasks\.py \| defines nightly \| reaches [^\n]*\n  4\| async def")
-        self.assertNotRegex(text, r"users\.py \| [^\n]*\n  \d+\|")           # no code lines for a sure file
+        self.assertRegex(text, r"users\.py \| layer: api \(sure\) \[L\d+\] 11: @router\.post\('/users'\)")
+        self.assertRegex(text, r"tasks\.py \| defines nightly \| reaches [^\n]*\n  \[L\d+\] 4\| async def")
+        self.assertNotRegex(text, r"users\.py \| [^\n]*\n  \[L\d+\] \d+\|")   # no code lines for a sure file
         for by_path in ("schemas.py", "crud.py", "db.py", "constants.py"):
             self.assertNotRegex(text, rf"(?m)^{re.escape(by_path)} ")
 
@@ -233,26 +265,25 @@ class Ai7Tests(unittest.TestCase):
         self.assertEqual(owner["app/tasks.py"], "app_service")   # logic is api now (users.py): no service block in app/
         self.assertEqual(g["reasons"], {})
         self.assertEqual(sorted(g["by_rule"]), ["app/api/users.py", "app/tasks.py"])
-        self.assertIn("place-1: 2 answers rejected (unknown file or block, a sure file shared, or reason not on a "
+        self.assertIn("place-1: 2 answers rejected (unknown file or block, a sure file shared, or reason not a "
                       "line of that file)", g["issues"])
 
-    def test_reason_forms(self):
-        ok = {"file": "app/db.py", "line": 3, "text": "engine = create_async_engine('postgresql+asyncpg://x')"}
-        for text in ("app/db.py:3 engine = create_async_engine('postgresql+asyncpg://x')",
-                     "3: engine = create_async_engine('postgresql+asyncpg://x')",     # as the profile shows lines
-                     "3| engine = create_async_engine('postgresql+asyncpg://x')",
-                     "db.py:3 engine = create_async_engine('postgresql+asyncpg://x')",  # the name as listed
-                     "engine = create_async_engine('postgresql+asyncpg://x')"):      # no line number
-            self.assertEqual(ai7._quote(self.idx, text, ["app/db.py"]), ok)
-        for text in ("4: engine = create_async_engine('postgresql+asyncpg://x')",    # wrong line
-                     "app/models.py:1 class User:",                                    # another file
-                     "3: invented line of code"):
-            self.assertIsNone(ai7._quote(self.idx, text, ["app/db.py"]))
-        # brackets or "…" the model adds after a cut line are dropped (run v7c); the rest must still match
-        for text in ("app/db.py:3 engine = create_async_engine()", "3: engine = create_async_engine('postgresql…)"):
-            self.assertEqual(ai7._quote(self.idx, text, ["app/db.py"])["line"], 3)
-        for text in ("app/db.py:3 engine = create_engine()", "3: engine)"):     # other code; too short once cut
-            self.assertIsNone(ai7._quote(self.idx, text, ["app/db.py"]))
+    def test_lines_turn_ids_back_into_exact_code(self):
+        lines = ai7.Lines(self.idx)
+        self.assertEqual((lines.tag("app/db.py", 3), lines.tag("app/main.py", 7), lines.tag("app/db.py", 3)),
+                         ("L1", "L2", "L1"))
+        self.assertEqual(lines.show("app/db.py", 3), "[L1] app/db.py:3| engine = create_async_engine('postgresql+asyncpg://x')")
+        self.assertEqual(lines.quote("L1"), {"file": "app/db.py", "line": 3,
+                                             "text": "engine = create_async_engine('postgresql+asyncpg://x')"})
+        self.assertEqual(lines.quote("[L2]")["line"], 7)
+        self.assertIsNone(lines.quote("L2", ["app/db.py"]))                    # a line outside the given files
+        self.assertIsNone(lines.quote("L9"))
+        self.assertIsNone(lines.quote("app/db.py:3 engine"))                   # code text is not an id
+        self.assertEqual(lines.schema(), {"type": "string", "enum": ["L1", "L2"]})
+        mark = lines.mark()
+        lines.tag("app/crud.py", 8)
+        lines.reset(mark)
+        self.assertEqual(lines.schema()["enum"], ["L1", "L2"])
 
     def test_failed_request_falls_back(self):
         g, owner, _ = self.group(FakeLLM(top=[TOP_PARTIAL], fail={"place-1"}))
@@ -260,13 +291,40 @@ class Ai7Tests(unittest.TestCase):
         self.assertEqual(g["layer"][owner["app/api/users.py"]], "api")    # a sure layer lifts its block
         self.assertEqual(g["layer"][owner["app/db.py"]], "infra")
 
-    def test_no_blocks_from_pass_1_places_every_file_by_rule(self):
+    def test_no_answer_from_pass_1_the_code_draft_is_the_grouping(self):
         g, owner, fake = self.group(FakeLLM(top=[]))
         self.assertEqual([c["step"] for c in fake.calls], ["top-1"])
-        self.assertIn("top: no blocks; every file placed by rule", g["issues"])
+        self.assertEqual(g["top"]["source"], "draft")
+        self.assertIn("top: no answer from the model; the code draft is the grouping", g["issues"])
         self.assertEqual(sorted(owner), sorted(p for p, e in self.idx.items() if not e.get("empty")))
+        self.assertEqual({p: owner[p] for p in ("app/main.py", "app/container.py", "app/api/users.py", "app/deps.py",
+                                                "app/crud.py", "app/db.py", "app/clients/pay.py", "app/constants.py")},
+                         {"app/main.py": "app", "app/container.py": "app", "app/api/users.py": "api",
+                          "app/deps.py": "api", "app/crud.py": "data", "app/db.py": "database",
+                          "app/clients/pay.py": "http", "app/constants.py": ai7.SHARED})
+        self.assertEqual(g["block_reasons"]["database"]["line"], 3)
+
+    def test_no_answer_and_no_draft_places_every_file_by_rule(self):
+        g = ai7.group(FakeLLM(top=[]), self.idx, self.facts, self.an, use_draft=False)
+        owner = {p: k for k, files in g["blocks"].items() for p in files}
+        self.assertIn("top: no blocks; every file placed by rule", g["issues"])
         self.assertEqual(owner["app/constants.py"], ai7.SHARED)
         self.assertEqual(g["layer"][owner["app/db.py"]], "infra")
+
+    def test_pass_1_prompt_holds_the_draft_unless_asked_not_to(self):
+        with_draft, without = FakeLLM(top=[TOP_GOOD]), FakeLLM(top=[TOP_GOOD])
+        ai7.top_blocks(with_draft, self.idx, self.facts, self.an)
+        ai7.top_blocks(without, self.idx, self.facts, self.an, use_draft=False)
+        self.assertRegex(with_draft.calls[0]["user"], r"Draft by code \(name \(layer\): paths \| evidence id\):\n"
+                                                      r"api \(api\): app/deps\.py, app/api/ \| \[L\d+\]\n")
+        self.assertNotIn("Draft by code", without.calls[0]["user"])
+
+    def test_reasoning_effort_per_step(self):
+        fake = FakeLLM(top=[TOP_PARTIAL, TOP_PARTIAL])
+        g = ai7.group(fake, self.idx, self.facts, self.an)
+        ai7.describe(fake, self.idx, self.facts, self.an, g)
+        self.assertEqual({c["step"].split("-")[0]: c["effort"] for c in fake.calls},
+                         {"top": "medium", "place": "low", "name": "low"})
 
     def test_block_cap_is_reported(self):
         with unittest.mock.patch.dict(ai7.CAP, {"infra": 1}):
@@ -333,26 +391,36 @@ class Ai7Tests(unittest.TestCase):
         text, units, issues = ai7.overview(self.idx, self.facts, self.an, 3_000)
         self.assertEqual(issues, [])
         self.assertEqual(sorted(units), ["app/", "app/api/", "app/clients/", "app/domain/", "app/service/"])
-        self.assertIn("app/main.py\n  -> app/api/users.py: app/main.py:9 app.include_router(router)\n", text)
+        self.assertIn("app/main.py\n  -> app/api/users.py: [L1] app/main.py:9 app.include_router(router)\n", text)
         lines = {row.split(" ")[1]: row for row in text.splitlines() if re.match(r"D\d+ ", row)}
         self.assertTrue(lines["app/"].startswith("D1 app/ 9 files | constants.py, container.py, crud.py,"))
-        self.assertIn("sure entry x1: main.py:7 app = FastAPI() |", lines["app/"])
-        # code sits last, never in brackets; a cut line ends in "…" (run v7c: the model copied the bracket)
-        self.assertIn("io database: db.py:3 engine = create_async_engine('postgresql+asyncpg:/… |", lines["app/"])
-        self.assertTrue(lines["app/clients/"].endswith("io http: pay.py:6 self.client = httpx.AsyncClient("))
+        self.assertIn("sure entry x1: [L2] main.py:7 app = FastAPI() |", lines["app/"])
+        # a cut line ends in "…"; the same line keeps one id wherever it is shown
+        self.assertIn("io database: [L4] db.py:3 engine = create_async_engine('postgresql+asyncpg:/… |", lines["app/"])
+        self.assertIn("\n  db.py sure infra [L4]:3 engine = create_async_engine(", text)
+        self.assertTrue(lines["app/clients/"].endswith("io http: [L13] pay.py:6 self.client = httpx.AsyncClient("))
         self.assertTrue(lines["app/api/"].endswith("| -> D1, D4 | <- D1 (include)"))   # a plain call has no label
         self.assertTrue(lines["app/domain/"].endswith("| <- D2"))
+        # one line per file under its directory: a line of its code, what it shows, where it calls
+        self.assertIn("\n  users.py sure api [L11]:11 @router.post('/users') | -> D1, D4\n", text)
+        self.assertIn("\n  tasks.py defines [L10]:4 async def nightly(session):\n", text)
 
-    def test_overview_merges_deep_directories_to_fit(self):
-        full = llm.estimate(ai7.overview(self.idx, self.facts, self.an, 10_000)[0])
-        text, units, issues = ai7.overview(self.idx, self.facts, self.an, full - 1)
+    def test_overview_drops_file_lines_then_merges_deep_directories_to_fit(self):
+        overview = lambda limit: ai7.overview(self.idx, self.facts, self.an, limit)
+        full = llm.estimate(overview(10_000)[0])
+        text, units, issues = overview(full - 1)                   # file lines lose their calls first
+        self.assertEqual((len(units), issues), (5, ["overview: file lines without their calls to fit"]))
+        self.assertIn("\n  users.py sure api [L11]:11 @router.post('/users')\n", text)
+        bare = llm.estimate(overview(llm.estimate(text) - 1)[0])    # then they go
+        self.assertIn("overview: file lines left out to fit", overview(bare)[2])
+        text, units, issues = overview(bare - 1)                    # then directories merge
         self.assertLess(len(units), 5)
         self.assertEqual(sorted(p for ps in units.values() for p in ps), sorted(ai7.graph.content_files(self.idx)))
         self.assertTrue(any(i.startswith("overview: sub-directories shown as their parent: app/") for i in issues))
-        text, units, issues = ai7.overview(self.idx, self.facts, self.an, 10)   # merged up to the repo root
+        text, units, issues = overview(10)                          # merged up to the repo root
         self.assertEqual(list(units), ["./"])
         self.assertTrue(any("above 10" in i for i in issues))
-        self.assertIn("D1 ./ 16 files in 5 dirs | sub-dirs app/ | sure entry x1: app/main.py:7", text)
+        self.assertIn("D1 ./ 16 files in 5 dirs | sub-dirs app/ | sure entry x1: [L2] app/main.py:7", text)
 
     def test_router_tree_skips_prefix_and_other_keywords(self):
         files = {"main.py": "from fastapi import FastAPI\nfrom api import router\nfrom config import PREFIX\n\n"
@@ -363,14 +431,15 @@ class Ai7Tests(unittest.TestCase):
             for rel, body in files.items():
                 (Path(tmp) / rel).write_text(body, encoding="utf-8")
             idx = pyindex.index(Path(tmp), inventory.scan(Path(tmp)))
-            tree = ai7._router_tree(idx, calls.facts(idx))
-        self.assertEqual(tree, ["main.py", "  -> api.py: main.py:6 app.include_router(router, prefix=PREFIX)"])
+            tree = ai7._router_tree(idx, calls.facts(idx), ai7.Lines(idx))
+        self.assertEqual(tree, ["main.py", "  -> api.py: [L1] main.py:6 app.include_router(router, prefix=PREFIX)"])
 
     def test_top_blocks_checked_answer_kept(self):
         fake = FakeLLM(top=[TOP_GOOD])
         out = ai7.top_blocks(fake, self.idx, self.facts, self.an)
         self.assertEqual([c["step"] for c in fake.calls], ["top-1"])
-        self.assertEqual((out["found"], out["left"], out["issues"]), ([], [], []))
+        self.assertEqual((out["found"], out["left"], out["issues"], out["source"], out["evidence_by_code"]),
+                         ([], [], [], "model", []))
         self.assertEqual(out["blocks"]["routes"]["paths"], ["app/api/", "app/deps.py"])      # "./" dropped
         self.assertEqual(out["blocks"]["logic"]["paths"][0], "app/domain/")                  # a directory gets "/"
         self.assertEqual(out["blocks"]["data"]["reason"],
@@ -386,7 +455,6 @@ class Ai7Tests(unittest.TestCase):
         found = "\n".join(out["found"])
         for text in ("block models: path 'app/nothing/' holds no file of the repository",
                      "path app/db.py given to two blocks: database, pay",
-                     "block pay: reason 'app/clients/pay.py:6 invented code' is not a line of the repository",
                      "3 data blocks, above the limit of 2",
                      "block models (data) is called only by block crud (data): a block that only serves one block joins it; "
                      "line app/crud.py:",
@@ -394,15 +462,22 @@ class Ai7Tests(unittest.TestCase):
             self.assertIn(text, found)
         retry = fake.calls[1]
         self.assertIn("Problems found by code, with the facts:\n- ", retry["user"])
-        self.assertIn("\ndto (data): app/dto.py | app/dto.py:1 class UserOut:\n", retry["user"])   # the first answer
+        self.assertRegex(retry["user"], r"\ndto \(data\): app/dto\.py \| L\d+\n")   # the first answer, with ids
+        self.assertIn("Draft by code", retry["user"])
         self.assertLessEqual(retry["prompt"], ai7.LIMIT - ai7.TOP_ANSWER)
-        self.assertEqual(out["left"], [])
+        self.assertEqual((out["left"], out["evidence_by_code"]), ([], []))
         self.assertEqual(sorted(out["blocks"]), ["app", "data", "database", "logic", "pay", "routes"])
 
-    def test_top_blocks_unfixed_reason_drops_the_block(self):
+    def test_top_blocks_bad_evidence_is_picked_by_code_not_dropped(self):
         out = ai7.top_blocks(FakeLLM(top=[TOP_BAD, TOP_BAD]), self.idx, self.facts, self.an)
-        self.assertNotIn("pay", out["blocks"])
-        self.assertIn("top: blocks dropped for a reason not in the code: pay", out["issues"])
+        # pay points at main.py (another block); crud at a line never shown: code picks a line of each block
+        self.assertEqual(sorted(out["evidence_by_code"]), ["crud", "pay"])
+        self.assertEqual(out["blocks"]["pay"]["reason"]["file"], "app/clients/pay.py")
+        self.assertEqual(out["blocks"]["crud"]["reason"], {"file": "app/crud.py", "line": 8,
+                                                           "text": "return await session.execute(select(User))"})
+        self.assertEqual(out["blocks"]["models"]["reason"], {"file": "app/models.py", "line": 1,
+                                                             "text": "class User:"})   # the model's own line
+        self.assertNotIn("dto", out["blocks"])     # its only path was given to logic first: no file of its own
         self.assertEqual(len(out["left"]), len(out["found"]))
 
     def test_shared_with_io_or_sure_layer_is_a_problem(self):
@@ -435,6 +510,25 @@ class Ai7Tests(unittest.TestCase):
         self.assertGreaterEqual(est["answer_room"]["top-1"], ai7.TOP_ANSWER)
         self.assertEqual(est["not_sent"], [])
         self.assertEqual(est["pass2_worst"]["requests"], 1)
+
+    def test_flow_score_credits_a_diagram_drawn_another_way(self):
+        comp = lambda cid, files, shared=False: {"id": cid, "files": files, "shared": shared}
+        run = {"components": [comp("C1", ["app/main.py", "app/container.py"]), comp("C2", ["app/api/users.py"]),
+                              comp("C3", ["app/api/schemas.py", "app/deps.py"]),          # api split in two
+                              comp("C4", ["app/service/user.py", "app/domain/usecase.py", "app/dto.py",
+                                          "app/crud.py", "app/models.py"]),                # logic and data merged
+                              comp("C5", ["app/db.py"]), comp("C6", ["app/constants.py"], True)],
+               "edges": [{"source": a, "target": b} for a, b in (("C1", "C2"), ("C2", "C4"), ("C4", "C5"),
+                                                                 ("C2", "C3"))],
+               "externals": [], "file_lines": {}}
+        f = evaluate.flow_score(run, ORACLE)
+        self.assertEqual((f["flow_recall"], f["merged"], f["missed"]), (0.75, 1, []))   # logic -> data hidden in C4
+        self.assertEqual((f["flow_precision"], f["right"], f["neutral"], f["wrong"]), (1.0, 3, 1, []))
+        self.assertLess(f["ari"], 1)
+        same = {"components": [comp(k, [p for p in ai7.graph.content_files(self.idx)
+                                        if evaluate.oracle_owner(ORACLE, p) == k]) for k in ORACLE["components"]],
+                "edges": [], "externals": []}
+        self.assertEqual(evaluate.flow_score(same, ORACLE)["ari"], 1.0)
 
     def test_request_with_too_little_answer_room_is_not_sent(self):
         fake, issues = FakeLLM(), []

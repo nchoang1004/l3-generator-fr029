@@ -1,0 +1,66 @@
+flowchart LR
+  C1["CLI khởi tạo"]
+  C2["FastAPI khởi động"]
+  C3["Worker khởi tạo"]
+  C4["API quản trị"]
+  C5["API plugin"]
+  C6["API quản lý tác vụ"]
+  C7["Dịch vụ quản trị"]
+  C8["Dịch vụ plugin"]
+  C9["Dịch vụ tác vụ"]
+  C10["Mô hình dữ liệu"]
+  C11["Quản lý kết nối DB"]
+  C12["Gọi API bên ngoài"]
+  C13["Quản lý cache Redis"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C14["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Message broker"])
+    X2(["Redis"])
+    X3[("Database")]
+    X4(["SMTP"])
+    X5(["Dịch vụ định vị IP"])
+  end
+  C4 -->|"kết nối task router"| C6
+  C4 -->|"lưu captcha Redis"| C13
+  C4 -->|"đăng nhập service"| C7
+  C5 -->|"import router admin"| C4
+  C5 -->|"import router task"| C6
+  C5 -->|"gửi email qua HTTP"| C12
+  C5 -->|"lưu captcha Redis"| C13
+  C5 -->|"gọi service plugin"| C8
+  C6 -->|"phát sự kiện trạng thái worker"| C13
+  C6 -->|"kiểm tra, thu hồi tác vụ"| C7
+  C6 -->|"lấy chi tiết kết quả tác vụ"| C9
+  C10 -->|"gọi"| C11
+  C10 -->|"gọi set"| C13
+  C1 -->|"import plugin model"| C5
+  C1 -->|"import plugin model"| C10
+  C1 -->|"thực thi truy vấn DB"| C11
+  C1 -->|"import plugin model"| C12
+  C1 -->|"khởi tạo Redis"| C13
+  C1 -->|"khởi chạy service admin"| C7
+  C1 -->|"cài đặt plugin"| C8
+  C2 -->|"đăng ký router plugin"| C5
+  C2 -->|"khởi chạy service admin"| C7
+  C3 -->|"khởi tạo tracer Redis"| C13
+  C3 -->|"gửi email"| C9
+  C12 -->|"Lấy vị trí IP từ cache"| C13
+  C13 -->|"Lấy các engine DB"| C11
+  C7 -->|"truy vấn vai trò người dùng"| C10
+  C7 -->|"tạo UUID cho bản ghi"| C11
+  C7 -->|"lấy mã captcha từ cache"| C13
+  C7 -->|"xóa plugin theo user"| C8
+  C8 -->|"tạo đối tượng kinh doanh mới"| C10
+  C8 -->|"truy vấn mô hình kinh doanh"| C11
+  C8 -->|"khởi tạo client Redis"| C13
+  C8 -->|"lấy thông tin người dùng OAuth"| C7
+  C9 -->|"khởi tạo scheduler tác vụ"| C10
+  C9 -->|"truy vấn kết quả tác vụ từ DB"| C11
+  C9 -->|"gửi thông báo bắt đầu tác vụ"| C13
+  C3 -.->|"gửi tác vụ"| X1
+  C13 -.->|"đọc ghi"| X2
+  C11 -.->|"truy vấn"| X3
+  C12 -.->|"gửi email"| X4
+  C12 -.->|"gọi API"| X5
