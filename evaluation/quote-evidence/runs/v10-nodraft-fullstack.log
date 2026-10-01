@@ -1,0 +1,43 @@
+{
+  "status": "complete",
+  "files": 16,
+  "tokens": 4457,
+  "usd": 0.0007,
+  "requests": 2,
+  "cached": 0,
+  "timing": {
+    "total_s": 37.2,
+    "model_s": 31.4
+  },
+  "components": 5,
+  "edges": 5,
+  "externals": 2,
+  "quotes": {
+    "returned": 4,
+    "valid": 4
+  },
+  "issues": 0,
+  "pass1": "model",
+  "evidence_by_code": 0,
+  "by_rule": 0,
+  "score": {
+    "internal": {
+      "precision": 0.4,
+      "precision_strict": 0.4,
+      "recall": 0.333
+    },
+    "external": {
+      "precision": 0.0,
+      "precision_strict": 0.0,
+      "recall": 0.0
+    },
+    "quote_validity": 1.0,
+    "grouping_agreement": 0.8,
+    "flow": {
+      "flow_precision": 1.0,
+      "flow_recall": 1.0,
+      "merged": 0,
+      "ari": 0.666
+    }
+  }
+}

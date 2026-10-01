@@ -1,0 +1,367 @@
+{
+  "meta": {
+    "repo": "full-stack-fastapi-template-cb740b6",
+    "pipeline": "v7",
+    "prompt_sha": "445591d10cfacc37",
+    "draft": false,
+    "status": "complete",
+    "files": 16,
+    "issues": [],
+    "model": "openai/gpt-oss-120b",
+    "timing": {
+      "total_s": 37.2,
+      "model_s": 31.4
+    },
+    "tokens": 4457,
+    "usd": 0.0007,
+    "requests": 2,
+    "cached": 0,
+    "calls": [
+      {
+        "at": "2026-10-01T17:39:03",
+        "step": "top-1",
+        "status": 200,
+        "seconds": 25.86,
+        "estimated": 32000,
+        "prompt_tokens": 1596,
+        "completion_tokens": 1686,
+        "reasoning_tokens": 1443,
+        "total_tokens": 3282,
+        "error": "",
+        "effort": "medium",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000345672
+      },
+      {
+        "at": "2026-10-01T17:39:09",
+        "step": "name-1",
+        "status": 200,
+        "seconds": 5.5,
+        "estimated": 32000,
+        "prompt_tokens": 794,
+        "completion_tokens": 381,
+        "reasoning_tokens": 27,
+        "total_tokens": 1175,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.0003477
+      }
+    ],
+    "grouping": {
+      "shared": {
+        "layer": "shared",
+        "files": [
+          "backend/app/api/deps.py",
+          "hooks/post_gen_project.py"
+        ]
+      },
+      "api_routes": {
+        "layer": "api",
+        "files": [
+          "backend/app/api/main.py",
+          "backend/app/api/routes/items.py",
+          "backend/app/api/routes/login.py",
+          "backend/app/api/routes/private.py",
+          "backend/app/api/routes/users.py",
+          "backend/app/api/routes/utils.py"
+        ]
+      },
+      "infra_core": {
+        "layer": "infra",
+        "files": [
+          "backend/app/core/config.py",
+          "backend/app/core/db.py",
+          "backend/app/core/security.py",
+          "backend/app/utils.py"
+        ]
+      },
+      "data_access": {
+        "layer": "data",
+        "files": [
+          "backend/app/crud.py",
+          "backend/app/models.py"
+        ]
+      },
+      "app_entry": {
+        "layer": "entry",
+        "files": [
+          "backend/app/initial_data.py",
+          "backend/app/main.py"
+        ]
+      }
+    },
+    "reasons": {},
+    "block_reasons": {
+      "app_entry": {
+        "file": "backend/app/main.py",
+        "line": 21,
+        "text": "app = FastAPI("
+      },
+      "api_routes": {
+        "file": "backend/app/api/main.py",
+        "line": 7,
+        "text": "api_router.include_router(login.router)"
+      },
+      "data_access": {
+        "file": "backend/app/models.py",
+        "line": 52,
+        "text": "class User(UserBase, table=True):"
+      },
+      "infra_core": {
+        "file": "backend/app/core/db.py",
+        "line": 7,
+        "text": "engine = create_engine(str(settings.DATABASE_URL), pool_pre_ping=True)"
+      }
+    },
+    "ambiguous": {
+      "no_path": [],
+      "sure_above": []
+    },
+    "by_rule": [],
+    "top": {
+      "found": [],
+      "left": [],
+      "source": "model",
+      "evidence_by_code": []
+    },
+    "layer_differs": [],
+    "edge_check": []
+  },
+  "components": [
+    {
+      "id": "C1",
+      "key": "app_entry",
+      "name": "Khởi tạo FastAPI",
+      "layer": "entry",
+      "role": "Tạo ứng dụng FastAPI và khởi tạo dữ liệu ban đầu.",
+      "role_quote": {
+        "file": "backend/app/main.py",
+        "line": 21,
+        "text": "app = FastAPI("
+      },
+      "shared": false,
+      "files": [
+        "backend/app/initial_data.py",
+        "backend/app/main.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C2",
+      "key": "api_routes",
+      "name": "Định nghĩa API routes",
+      "layer": "api",
+      "role": "Khai báo các endpoint API và gắn chúng vào router.",
+      "role_quote": {
+        "file": "backend/app/api/main.py",
+        "line": 7,
+        "text": "api_router.include_router(login.router)"
+      },
+      "shared": false,
+      "files": [
+        "backend/app/api/main.py",
+        "backend/app/api/routes/items.py",
+        "backend/app/api/routes/login.py",
+        "backend/app/api/routes/private.py",
+        "backend/app/api/routes/users.py",
+        "backend/app/api/routes/utils.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C3",
+      "key": "data_access",
+      "name": "Truy cập dữ liệu",
+      "layer": "data",
+      "role": "Định nghĩa mô hình và CRUD cho thực thể người dùng.",
+      "role_quote": {
+        "file": "backend/app/models.py",
+        "line": 52,
+        "text": "class User(UserBase, table=True):"
+      },
+      "shared": false,
+      "files": [
+        "backend/app/crud.py",
+        "backend/app/models.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C4",
+      "key": "infra_core",
+      "name": "Cấu hình hạ tầng",
+      "layer": "infra",
+      "role": "Cấu hình database, settings và bảo mật cho ứng dụng.",
+      "role_quote": {
+        "file": "backend/app/core/db.py",
+        "line": 7,
+        "text": "engine = create_engine(str(settings.DATABASE_URL), pool_pre_ping=True)"
+      },
+      "shared": false,
+      "files": [
+        "backend/app/core/config.py",
+        "backend/app/core/db.py",
+        "backend/app/core/security.py",
+        "backend/app/utils.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C5",
+      "key": "shared",
+      "name": "Dùng chung",
+      "layer": "shared",
+      "role": "",
+      "role_quote": null,
+      "shared": true,
+      "files": [
+        "backend/app/api/deps.py",
+        "hooks/post_gen_project.py"
+      ],
+      "described": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "E1",
+      "source": "C2",
+      "target": "C3",
+      "label": "chuyển đổi model sang public",
+      "quote": {
+        "file": "backend/app/api/routes/items.py",
+        "line": 44,
+        "text": "items_public = [ItemPublic.model_validate(item) for item in items]"
+      }
+    },
+    {
+      "id": "E2",
+      "source": "C2",
+      "target": "C4",
+      "label": "gửi email và token",
+      "quote": {
+        "file": "backend/app/api/routes/items.py",
+        "line": 23,
+        "text": "count = session.exec(count_statement).one()"
+      }
+    },
+    {
+      "id": "E3",
+      "source": "C1",
+      "target": "C2",
+      "label": "đăng ký router API",
+      "quote": {
+        "file": "backend/app/main.py",
+        "line": 35,
+        "text": "app.include_router(api_router, prefix=settings.API_V1_STR)"
+      }
+    },
+    {
+      "id": "E4",
+      "source": "C1",
+      "target": "C4",
+      "label": "khởi tạo DB",
+      "quote": {
+        "file": "backend/app/initial_data.py",
+        "line": 13,
+        "text": "init_db(session)"
+      }
+    },
+    {
+      "id": "E5",
+      "source": "C3",
+      "target": "C4",
+      "label": "thêm đối tượng vào DB",
+      "quote": {
+        "file": "backend/app/crud.py",
+        "line": 14,
+        "text": "session.add(db_obj)"
+      }
+    }
+  ],
+  "externals": [
+    {
+      "id": "X1",
+      "name": "Database",
+      "kind": "database",
+      "edges": [
+        {
+          "source": "C4",
+          "label": "truy vấn",
+          "quote": {
+            "file": "backend/app/core/db.py",
+            "line": 7,
+            "text": "engine = create_engine(str(settings.DATABASE_URL), pool_pre_ping=True)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X2",
+      "name": "SMTP",
+      "kind": "smtp",
+      "edges": [
+        {
+          "source": "C4",
+          "label": "gửi email",
+          "quote": {
+            "file": "backend/app/utils.py",
+            "line": 56,
+            "text": "response = message.send(to=email_to, smtp=smtp_options)"
+          }
+        }
+      ]
+    }
+  ],
+  "quotes": {
+    "returned": 4,
+    "valid": 4
+  },
+  "rejected": [],
+  "issues": [],
+  "file_lines": {
+    "backend/app/api/deps.py": 57,
+    "backend/app/api/main.py": 14,
+    "backend/app/api/routes/items.py": 113,
+    "backend/app/api/routes/login.py": 123,
+    "backend/app/api/routes/private.py": 38,
+    "backend/app/api/routes/users.py": 232,
+    "backend/app/api/routes/utils.py": 31,
+    "backend/app/core/config.py": 91,
+    "backend/app/core/db.py": 33,
+    "backend/app/core/security.py": 36,
+    "backend/app/crud.py": 68,
+    "backend/app/initial_data.py": 23,
+    "backend/app/main.py": 36,
+    "backend/app/models.py": 133,
+    "backend/app/utils.py": 125,
+    "hooks/post_gen_project.py": 8
+  },
+  "snapshot": {
+    "backend/app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/api/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/api/deps.py": "84c30966b3b862c643009c14146d1924dec50be5b0efb9f56798e2fda5189daa",
+    "backend/app/api/main.py": "9e9d533bea7c8616a1d9dd3d7e7cdfefa36726fb221bb289fd102654b7e93b3f",
+    "backend/app/api/routes/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/api/routes/items.py": "7f0fa55d1f7b02188c4abd4f88aa6db92fe03de38258b765ed050ec72032b410",
+    "backend/app/api/routes/login.py": "3c7f7c395b74cea54e505a16052679614b4fd92325d88b761385df8d952af642",
+    "backend/app/api/routes/private.py": "f5df74cc276f0d8d83337922fb8e05e69ecbc885d466d90d2e3de54ba5e4c8f4",
+    "backend/app/api/routes/users.py": "566f253330d75bdbf04f2fd59b380dd2c51041d931bd7af6b2064ee66ea96e6d",
+    "backend/app/api/routes/utils.py": "5e77b59fab0bfcb1cef581938dcc8a47afb7518664a497763d4c50711898e925",
+    "backend/app/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/core/config.py": "ef306f8b68c64f1864269891d353c23807d5685d62e514066598b33ee099ca08",
+    "backend/app/core/db.py": "22b8642606ae619a1ea07b5e3c3bee49c2fc0ded5d0e583e810fba6e7ffadfc9",
+    "backend/app/core/security.py": "adb90882929ab33c238e2e9fa81b03fa0364c1a8cce0e9e70b98c68c321f468f",
+    "backend/app/crud.py": "f69d79e858ee22cee7792494b0df0370afaed20439ed16bbf6f70767926254d1",
+    "backend/app/initial_data.py": "29b51ebdd3c8cb9fde80a426f9c10af08c606ad0ffcec39a23fddc6587ab812c",
+    "backend/app/main.py": "e8b28b639d86c76dcf60348185c91125a789951ff085a5289d9f5add0854dfda",
+    "backend/app/models.py": "1b7384d0dc779cca9ebc9d2b05ccd1864988c2043a3692384ff7a731819050f0",
+    "backend/app/utils.py": "61fbc8476b1c1247b80e2220d28f89e33370434e2eb172f325ed0a6643e433b3",
+    "hooks/post_gen_project.py": "ea8320797206afea47fbb6b243e7e71d849977ce762c8ec630c0512f12ce3799"
+  },
+  "excluded": {
+    "dir:alembic": 6,
+    "dir:tests": 15,
+    "side:no_own_import": 2
+  }
+}

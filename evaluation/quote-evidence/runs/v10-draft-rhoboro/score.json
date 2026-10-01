@@ -1,0 +1,130 @@
+{
+  "all": {
+    "precision": 1.0,
+    "precision_strict": 0.833,
+    "recall": 1.0,
+    "drawn": 6,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "models",
+        "db"
+      ],
+      [
+        "routes",
+        "use_cases"
+      ],
+      [
+        "use_cases",
+        "models"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "use_cases",
+        "db"
+      ]
+    ],
+    "missed": []
+  },
+  "internal": {
+    "precision": 1.0,
+    "precision_strict": 0.8,
+    "recall": 1.0,
+    "drawn": 5,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "models",
+        "db"
+      ],
+      [
+        "routes",
+        "use_cases"
+      ],
+      [
+        "use_cases",
+        "models"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "use_cases",
+        "db"
+      ]
+    ],
+    "missed": []
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 1.0,
+    "drawn": 1,
+    "hits": [
+      [
+        "db",
+        "ext:database"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": []
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.923,
+  "components": 6,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "Router API",
+      "routes"
+    ],
+    "C3": [
+      "Use‑case Service",
+      "use_cases"
+    ],
+    "C4": [
+      "Mô hình dữ liệu",
+      "models"
+    ],
+    "C5": [
+      "Kết nối DB",
+      "db"
+    ],
+    "C6": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [
+    "app/api/notebooks/schema.py",
+    "app/api/notes/schema.py"
+  ],
+  "flow": {
+    "flow_recall": 1.0,
+    "flow_precision": 1.0,
+    "shown": 4,
+    "merged": 0,
+    "missed": [],
+    "required": 4,
+    "right": 5,
+    "wrong": [],
+    "neutral": 0,
+    "ari": 0.687
+  }
+}

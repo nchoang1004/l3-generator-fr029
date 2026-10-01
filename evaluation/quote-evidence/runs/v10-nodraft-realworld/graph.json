@@ -1,0 +1,579 @@
+{
+  "meta": {
+    "repo": "fastapi-realworld-diagram",
+    "pipeline": "v7",
+    "prompt_sha": "445591d10cfacc37",
+    "draft": false,
+    "status": "complete",
+    "files": 54,
+    "issues": [],
+    "model": "openai/gpt-oss-120b",
+    "timing": {
+      "total_s": 30.8,
+      "model_s": 24.9
+    },
+    "tokens": 8026,
+    "usd": 0.0009,
+    "requests": 4,
+    "cached": 0,
+    "calls": [
+      {
+        "at": "2026-10-01T17:38:50",
+        "step": "top-1",
+        "status": 200,
+        "seconds": 12.53,
+        "estimated": 32000,
+        "prompt_tokens": 3040,
+        "completion_tokens": 2270,
+        "reasoning_tokens": 1749,
+        "total_tokens": 5310,
+        "error": "",
+        "effort": "medium",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.0007195
+      },
+      {
+        "at": "2026-10-01T17:38:52",
+        "step": "place-1",
+        "status": 200,
+        "seconds": 1.88,
+        "estimated": 32000,
+        "prompt_tokens": 651,
+        "completion_tokens": 105,
+        "reasoning_tokens": 52,
+        "total_tokens": 756,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 6.25e-05
+      },
+      {
+        "at": "2026-10-01T17:38:57",
+        "step": "edges-1",
+        "status": 200,
+        "seconds": 4.99,
+        "estimated": 32000,
+        "prompt_tokens": 565,
+        "completion_tokens": 132,
+        "reasoning_tokens": 85,
+        "total_tokens": 697,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 4.071e-05
+      },
+      {
+        "at": "2026-10-01T17:39:03",
+        "step": "name-1",
+        "status": 200,
+        "seconds": 5.45,
+        "estimated": 32000,
+        "prompt_tokens": 844,
+        "completion_tokens": 419,
+        "reasoning_tokens": 25,
+        "total_tokens": 1263,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000102458
+      }
+    ],
+    "grouping": {
+      "shared": {
+        "layer": "shared",
+        "files": [
+          "app/api/dependencies/articles.py",
+          "app/api/dependencies/authentication.py",
+          "app/api/dependencies/comments.py",
+          "app/api/dependencies/database.py",
+          "app/api/dependencies/profiles.py",
+          "app/api/errors/http_error.py",
+          "app/api/errors/validation_error.py",
+          "app/core/config.py",
+          "app/core/events.py",
+          "app/core/logging.py",
+          "app/core/settings/app.py",
+          "app/core/settings/base.py",
+          "app/core/settings/development.py",
+          "app/core/settings/production.py",
+          "app/core/settings/test.py",
+          "app/db/errors.py",
+          "app/models/common.py",
+          "app/models/domain/articles.py",
+          "app/models/domain/comments.py",
+          "app/models/domain/profiles.py",
+          "app/models/domain/rwmodel.py",
+          "app/models/domain/users.py",
+          "app/models/schemas/articles.py",
+          "app/models/schemas/comments.py",
+          "app/models/schemas/jwt.py",
+          "app/models/schemas/profiles.py",
+          "app/models/schemas/rwschema.py",
+          "app/models/schemas/tags.py",
+          "app/models/schemas/users.py",
+          "app/resources/strings.py"
+        ]
+      },
+      "api_routes": {
+        "layer": "api",
+        "files": [
+          "app/api/routes/api.py",
+          "app/api/routes/articles/api.py",
+          "app/api/routes/articles/articles_common.py",
+          "app/api/routes/articles/articles_resource.py",
+          "app/api/routes/authentication.py",
+          "app/api/routes/comments.py",
+          "app/api/routes/profiles.py",
+          "app/api/routes/tags.py",
+          "app/api/routes/users.py"
+        ]
+      },
+      "infra_db": {
+        "layer": "infra",
+        "files": [
+          "app/db/events.py"
+        ]
+      },
+      "data_repositories": {
+        "layer": "data",
+        "files": [
+          "app/db/queries/queries.py",
+          "app/db/queries/tables.py",
+          "app/db/repositories/articles.py",
+          "app/db/repositories/base.py",
+          "app/db/repositories/comments.py",
+          "app/db/repositories/profiles.py",
+          "app/db/repositories/tags.py",
+          "app/db/repositories/users.py"
+        ]
+      },
+      "app_entry": {
+        "layer": "entry",
+        "files": [
+          "app/main.py"
+        ]
+      },
+      "app_services": {
+        "layer": "service",
+        "files": [
+          "app/services/articles.py",
+          "app/services/authentication.py",
+          "app/services/comments.py",
+          "app/services/jwt.py",
+          "app/services/security.py"
+        ]
+      }
+    },
+    "reasons": {
+      "app/db/errors.py": {
+        "file": "app/db/errors.py",
+        "line": 1,
+        "text": "class EntityDoesNotExist(Exception):"
+      }
+    },
+    "block_reasons": {
+      "app_entry": {
+        "file": "app/main.py",
+        "line": 18,
+        "text": "application = FastAPI(**settings.fastapi_kwargs)"
+      },
+      "api_routes": {
+        "file": "app/api/routes/api.py",
+        "line": 7,
+        "text": "router.include_router(authentication.router, tags=[\"authentication\"], prefix=\"/users\")"
+      },
+      "app_services": {
+        "file": "app/services/articles.py",
+        "line": 9,
+        "text": "async def check_article_exists(articles_repo: ArticlesRepository, slug: str) -> bool:"
+      },
+      "data_repositories": {
+        "file": "app/db/repositories/articles.py",
+        "line": 28,
+        "text": "class ArticlesRepository(BaseRepository):  # noqa: WPS214"
+      },
+      "infra_db": {
+        "file": "app/db/events.py",
+        "line": 11,
+        "text": "app.state.pool = await asyncpg.create_pool("
+      }
+    },
+    "ambiguous": {
+      "no_path": [
+        "app/db/errors.py"
+      ],
+      "sure_above": []
+    },
+    "by_rule": [],
+    "top": {
+      "found": [],
+      "left": [],
+      "source": "model",
+      "evidence_by_code": []
+    },
+    "layer_differs": [],
+    "edge_check": [
+      {
+        "source": "api_routes",
+        "target": "app_services",
+        "kind": "check",
+        "reason": {
+          "file": "app/api/routes/articles/articles_resource.py",
+          "line": 65,
+          "text": "if await check_article_exists(articles_repo, slug):"
+        },
+        "checked": true
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "C1",
+      "key": "app_entry",
+      "name": "Khởi tạo FastAPI",
+      "layer": "entry",
+      "role": "Tạo đối tượng FastAPI và cấu hình chung cho ứng dụng.",
+      "role_quote": {
+        "file": "app/main.py",
+        "line": 18,
+        "text": "application = FastAPI(**settings.fastapi_kwargs)"
+      },
+      "shared": false,
+      "files": [
+        "app/main.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C2",
+      "key": "api_routes",
+      "name": "Định nghĩa API router",
+      "layer": "api",
+      "role": "Khai báo các router cho xác thực và bài viết, gắn vào FastAPI.",
+      "role_quote": {
+        "file": "app/api/routes/api.py",
+        "line": 7,
+        "text": "router.include_router(authentication.router, tags=[\"authentication\"], prefix=\"/users\")"
+      },
+      "shared": false,
+      "files": [
+        "app/api/routes/api.py",
+        "app/api/routes/articles/api.py",
+        "app/api/routes/articles/articles_common.py",
+        "app/api/routes/articles/articles_resource.py",
+        "app/api/routes/authentication.py",
+        "app/api/routes/comments.py",
+        "app/api/routes/profiles.py",
+        "app/api/routes/tags.py",
+        "app/api/routes/users.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C3",
+      "key": "app_services",
+      "name": "Xử lý nghiệp vụ",
+      "layer": "service",
+      "role": "Cung cấp các hàm kiểm tra và xác thực nghiệp vụ cho bài viết, người dùng và bình luận.",
+      "role_quote": {
+        "file": "app/services/articles.py",
+        "line": 9,
+        "text": "async def check_article_exists(articles_repo: ArticlesRepository, slug: str) -> bool:"
+      },
+      "shared": false,
+      "files": [
+        "app/services/articles.py",
+        "app/services/authentication.py",
+        "app/services/comments.py",
+        "app/services/jwt.py",
+        "app/services/security.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C4",
+      "key": "data_repositories",
+      "name": "Truy cập dữ liệu",
+      "layer": "data",
+      "role": "Định nghĩa repository và truy vấn SQL để thao tác với cơ sở dữ liệu.",
+      "role_quote": {
+        "file": "app/db/repositories/articles.py",
+        "line": 28,
+        "text": "class ArticlesRepository(BaseRepository):  # noqa: WPS214"
+      },
+      "shared": false,
+      "files": [
+        "app/db/queries/queries.py",
+        "app/db/queries/tables.py",
+        "app/db/repositories/articles.py",
+        "app/db/repositories/base.py",
+        "app/db/repositories/comments.py",
+        "app/db/repositories/profiles.py",
+        "app/db/repositories/tags.py",
+        "app/db/repositories/users.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C5",
+      "key": "infra_db",
+      "name": "Kết nối DB",
+      "layer": "infra",
+      "role": "Thiết lập kết nối async tới PostgreSQL khi ứng dụng khởi động.",
+      "role_quote": {
+        "file": "app/db/events.py",
+        "line": 8,
+        "text": "async def connect_to_db(app: FastAPI, settings: AppSettings) -> None:"
+      },
+      "shared": false,
+      "files": [
+        "app/db/events.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C6",
+      "key": "shared",
+      "name": "Dùng chung",
+      "layer": "shared",
+      "role": "",
+      "role_quote": null,
+      "shared": true,
+      "files": [
+        "app/api/dependencies/articles.py",
+        "app/api/dependencies/authentication.py",
+        "app/api/dependencies/comments.py",
+        "app/api/dependencies/database.py",
+        "app/api/dependencies/profiles.py",
+        "app/api/errors/http_error.py",
+        "app/api/errors/validation_error.py",
+        "app/core/config.py",
+        "app/core/events.py",
+        "app/core/logging.py",
+        "app/core/settings/app.py",
+        "app/core/settings/base.py",
+        "app/core/settings/development.py",
+        "app/core/settings/production.py",
+        "app/core/settings/test.py",
+        "app/db/errors.py",
+        "app/models/common.py",
+        "app/models/domain/articles.py",
+        "app/models/domain/comments.py",
+        "app/models/domain/profiles.py",
+        "app/models/domain/rwmodel.py",
+        "app/models/domain/users.py",
+        "app/models/schemas/articles.py",
+        "app/models/schemas/comments.py",
+        "app/models/schemas/jwt.py",
+        "app/models/schemas/profiles.py",
+        "app/models/schemas/rwschema.py",
+        "app/models/schemas/tags.py",
+        "app/models/schemas/users.py",
+        "app/resources/strings.py"
+      ],
+      "described": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "E1",
+      "source": "C2",
+      "target": "C4",
+      "label": "gọi repository dữ liệu",
+      "quote": {
+        "file": "app/api/routes/articles/articles_common.py",
+        "line": 33,
+        "text": "articles = await articles_repo.get_articles_for_user_feed("
+      }
+    },
+    {
+      "id": "E2",
+      "source": "C1",
+      "target": "C2",
+      "label": "đăng ký router API",
+      "quote": {
+        "file": "app/main.py",
+        "line": 40,
+        "text": "application.include_router(api_router, prefix=settings.api_prefix)"
+      }
+    },
+    {
+      "id": "E3",
+      "source": "C3",
+      "target": "C4",
+      "label": "gọi repository dữ liệu",
+      "quote": {
+        "file": "app/services/articles.py",
+        "line": 11,
+        "text": "await articles_repo.get_article_by_slug(slug=slug)"
+      }
+    },
+    {
+      "id": "E4",
+      "source": "C4",
+      "target": "C5",
+      "label": "tải truy vấn SQL",
+      "quote": {
+        "file": "app/db/queries/queries.py",
+        "line": 5,
+        "text": "queries = aiosql.from_path(pathlib.Path(__file__).parent / \"sql\", \"asyncpg\")"
+      }
+    }
+  ],
+  "externals": [
+    {
+      "id": "X1",
+      "name": "Database",
+      "kind": "database",
+      "edges": [
+        {
+          "source": "C5",
+          "label": "truy vấn",
+          "quote": {
+            "file": "app/db/events.py",
+            "line": 11,
+            "text": "app.state.pool = await asyncpg.create_pool("
+          }
+        }
+      ]
+    }
+  ],
+  "quotes": {
+    "returned": 5,
+    "valid": 5
+  },
+  "rejected": [],
+  "issues": [],
+  "file_lines": {
+    "app/api/dependencies/articles.py": 59,
+    "app/api/dependencies/authentication.py": 111,
+    "app/api/dependencies/comments.py": 47,
+    "app/api/dependencies/database.py": 30,
+    "app/api/dependencies/profiles.py": 29,
+    "app/api/errors/http_error.py": 7,
+    "app/api/errors/validation_error.py": 28,
+    "app/api/routes/api.py": 16,
+    "app/api/routes/articles/api.py": 8,
+    "app/api/routes/articles/articles_common.py": 104,
+    "app/api/routes/articles/articles_resource.py": 120,
+    "app/api/routes/authentication.py": 93,
+    "app/api/routes/comments.py": 71,
+    "app/api/routes/profiles.py": 84,
+    "app/api/routes/tags.py": 15,
+    "app/api/routes/users.py": 73,
+    "app/core/config.py": 21,
+    "app/core/events.py": 25,
+    "app/core/logging.py": 25,
+    "app/core/settings/app.py": 57,
+    "app/core/settings/base.py": 16,
+    "app/core/settings/development.py": 14,
+    "app/core/settings/production.py": 6,
+    "app/core/settings/test.py": 19,
+    "app/db/errors.py": 2,
+    "app/db/events.py": 25,
+    "app/db/queries/queries.py": 5,
+    "app/db/queries/tables.py": 75,
+    "app/db/repositories/articles.py": 330,
+    "app/db/repositories/base.py": 10,
+    "app/db/repositories/comments.py": 103,
+    "app/db/repositories/profiles.py": 74,
+    "app/db/repositories/tags.py": 13,
+    "app/db/repositories/users.py": 81,
+    "app/main.py": 45,
+    "app/models/common.py": 19,
+    "app/models/domain/articles.py": 16,
+    "app/models/domain/comments.py": 8,
+    "app/models/domain/profiles.py": 10,
+    "app/models/domain/rwmodel.py": 21,
+    "app/models/domain/users.py": 24,
+    "app/models/schemas/articles.py": 43,
+    "app/models/schemas/comments.py": 16,
+    "app/models/schemas/jwt.py": 12,
+    "app/models/schemas/profiles.py": 7,
+    "app/models/schemas/rwschema.py": 6,
+    "app/models/schemas/tags.py": 7,
+    "app/models/schemas/users.py": 31,
+    "app/resources/strings.py": 25,
+    "app/services/articles.py": 23,
+    "app/services/authentication.py": 20,
+    "app/services/comments.py": 6,
+    "app/services/jwt.py": 41,
+    "app/services/security.py": 16
+  },
+  "snapshot": {
+    "app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/api/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/api/dependencies/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/api/dependencies/articles.py": "ebf8577282e1173be6808cbeec9cc39ca79ca91275aa1623134b2e328bfc6101",
+    "app/api/dependencies/authentication.py": "f3e625aaf2b069ed3ca1386ed4d11937bdc7112a5295c48c814c80fe981fc6cf",
+    "app/api/dependencies/comments.py": "ba856a769f1adc5e5f4106d03c857202d23e3d7861a44e60192f0b5c188b6756",
+    "app/api/dependencies/database.py": "c7a1b8f98416cae32b0fa7c4b6bd48f2817ed0b4d43e2a4fe17566c9947b8e01",
+    "app/api/dependencies/profiles.py": "23c5fe3de6e9022eb4ddf8a50463b2f05d2756f47ab55864a7ae94a779de636d",
+    "app/api/errors/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/api/errors/http_error.py": "8aa7d746ab6de3ab71dfeca84bca8c70473bf6ab3f2326e573f3ba037e1db7f9",
+    "app/api/errors/validation_error.py": "48d30af538f46f82507fba2b7d72e374c3b82827daccd680caaefb8787b59b29",
+    "app/api/routes/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/api/routes/api.py": "1e071551476f4c7fbf82ac700dae01b3ec070790366fbcd5d56f606434a61cc8",
+    "app/api/routes/articles/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/api/routes/articles/api.py": "60ec742c74185541cd722d20c6120c327fb16f890b960e0253b41a8d0ffa9bfa",
+    "app/api/routes/articles/articles_common.py": "51ea1475c5d9cf30135a76081d6eb056f647a82ff5303dd97ca88e6813549f83",
+    "app/api/routes/articles/articles_resource.py": "81001cd8fb5c6f09e49a149ae7ecbf06f4ac6a1e9985b86e6f7763c9c8600f9f",
+    "app/api/routes/authentication.py": "f8712fe91435653c8cc35c66e0249277e8eb9db8cba33149a9af546d05938aad",
+    "app/api/routes/comments.py": "cb68c031cfa295a9e868f34341e4c22e6918960df7646f870aec11d591c997fb",
+    "app/api/routes/profiles.py": "455d398bc084cc70a42a3105f519b4af22002792bd22076017fca28a9cf4e0f9",
+    "app/api/routes/tags.py": "92a8c0abd744834c84fffe81f09dddd6cf08886b2ff46437cba00602c879325e",
+    "app/api/routes/users.py": "b63f0dfe545d5dc9b199f48a4d3411c4421ab65b904e609bfe1b3a55481ecbf1",
+    "app/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/core/config.py": "b891dedf432387eb2b6177b339258a5a857d0246693a5559230e33211d3a18cb",
+    "app/core/events.py": "7efcc18b206a67c63965e3e3d1606035a7087682c55fd189b452dce35d2b6e7c",
+    "app/core/logging.py": "ac8bca2bb583f126f9b01fe1b12eaf3ce3e1da555f220c75e56fecfc364c2086",
+    "app/core/settings/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/core/settings/app.py": "7a609734b97c7e64fb3c9efbba7bcf72ec9ed5e6f035e50a2dadb23e6bd6f2f9",
+    "app/core/settings/base.py": "573f58c9434aa5db4715a468a29882a5bb7d1dcef48017311ff954d745cb1c81",
+    "app/core/settings/development.py": "0439a23e49812453ddace18dc3ed43edc4a9c74b06729a29e90a465f42369367",
+    "app/core/settings/production.py": "110bd979241b5d00e46546d0cc2b22db25f850027a2593887437bbd0bda0d89b",
+    "app/core/settings/test.py": "d764876454f7fba38fa68e62980625c462b6d8940bbcd932826937b1db5b2b29",
+    "app/db/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/db/errors.py": "49d524ce9a7c847e4f040b08076fd5f54aa0e4fc9957143e1350a6458d5be76d",
+    "app/db/events.py": "2800bd0a83ccd8ac4bd21a6b9ac9b7fe2ffb158344d197f9d6ddcfb46c948929",
+    "app/db/queries/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/db/queries/queries.py": "942fb8385871e3d16aa6139f79f9e4183264ef811bcb50ed7b1f0881f2a9555f",
+    "app/db/queries/tables.py": "00fbd82ab9bbd50896db0fc4da0c90318797ceed709aa073f1d6b082ef11075f",
+    "app/db/repositories/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/db/repositories/articles.py": "e4acfaea2b0155865c8a8ca688ae206a3f6959e5a650584ec54c1e04350d8afe",
+    "app/db/repositories/base.py": "6d2d8399365a6e02219a9029e0a1013a434364ea02ece99d9979c6d7c2a7c990",
+    "app/db/repositories/comments.py": "95f7d8807f65207cd83a3245e990aba7b04a3b2023ec8c0774c5073d4897aa6b",
+    "app/db/repositories/profiles.py": "af5f5b9babd13b6d984f8d85f282e8c0884e28e4606ec6a0588e0bc28cc0f2be",
+    "app/db/repositories/tags.py": "9c57cdf46c665a56c5766325951ff38cccc1d774eff5be94c07c5a3aad171420",
+    "app/db/repositories/users.py": "81aa44c80794c78f08245fed90be373f62c0fd93bdd8951c3737846738f5bfef",
+    "app/main.py": "4a7e85fe2c543accc2d1277dbba78f04e6f6bc8d54b25053f691a60077bf4048",
+    "app/models/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/models/common.py": "36f3559b9bb57ef6a2aa06f4c6a27582d994f2b3a16d43f38048455e80089c40",
+    "app/models/domain/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/models/domain/articles.py": "0b36705b09254204ba8f9ab3b3dad04b00509145cad9000a9813a39585fdca65",
+    "app/models/domain/comments.py": "eb4948a6a892af4092644ec93ab14222a3244512ee5cac77e358f2d26e4b007c",
+    "app/models/domain/profiles.py": "fce99819bdfc5f9436a606abbeba21f18a3494af16de1b73787545cbe207b1b7",
+    "app/models/domain/rwmodel.py": "2bfd4880a3a583f487c0f3fd0426dcfc04f062bd7d745dfd023ae01664077e82",
+    "app/models/domain/users.py": "6d6f7711a539c30e9c7473b3f1bef1f4c329756fd32aa6ff099639f4a6d25113",
+    "app/models/schemas/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/models/schemas/articles.py": "bf1528da718f694efa793dd7dad2a1209060b36c1ca1d2c2acfd4ed6c17e97f4",
+    "app/models/schemas/comments.py": "973aa0a01a30128ee324906891fbd64a289ffe372cbcc084dc7ef20ab5ecfeb1",
+    "app/models/schemas/jwt.py": "2e50f287b75d4a7ebcb85325b3eda0237e0afa41c5bcfc12b37a4d3f7d3046d3",
+    "app/models/schemas/profiles.py": "c244b1bf8d1c77fc9bc1a662cee3cb73f9d0157db290c26c084122a2e8447180",
+    "app/models/schemas/rwschema.py": "b4bb14bad6d12fcdc20d14480fb7136e2e97fd2f4784e486a09a4c577b8b493f",
+    "app/models/schemas/tags.py": "07cef9451b843e5ae7b6c7ead5b04f5530913a49fbd1f7f1a2546547709ada6a",
+    "app/models/schemas/users.py": "b2b8201958fce9528eac3989e7ad8c966c7524a768bb1072e5d1674ae7fe5b73",
+    "app/resources/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/resources/strings.py": "15dbaa59b5caa0d9d31ab5610746143366d10ad39a5122e16b95eebd13f7ee54",
+    "app/services/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/services/articles.py": "60e458e628bb6a1f211332d7ae39591f90442b4b2e0597ee40bc67f5ca4a7357",
+    "app/services/authentication.py": "5a1ff58511ef26ce4c1ef38c99e28d5dea78267f4f20656253e07a574f830bf3",
+    "app/services/comments.py": "1e5796ff77223beaa3c998ad4da72908b0bacb8bafe861526f9a1b70a8a7073c",
+    "app/services/jwt.py": "b4f2cd4d1741089fd48b60527f53c478bac2411d189763c733f5d007b48d6bc8",
+    "app/services/security.py": "57fd5d390f2c795b0a67aeb52bc076cca7359b47d819abf1707f374068a34dfa"
+  },
+  "excluded": {
+    "dir:migrations": 2,
+    "dir:tests": 23
+  }
+}

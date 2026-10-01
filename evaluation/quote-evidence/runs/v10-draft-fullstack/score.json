@@ -1,0 +1,161 @@
+{
+  "all": {
+    "precision": 0.889,
+    "precision_strict": 0.889,
+    "recall": 1.0,
+    "drawn": 9,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "email",
+        "ext:smtp"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "routes",
+        "email"
+      ],
+      [
+        "seed",
+        "db"
+      ]
+    ],
+    "wrong": [
+      [
+        "routes",
+        "common"
+      ]
+    ],
+    "not_counted": [],
+    "missed": []
+  },
+  "internal": {
+    "precision": 0.857,
+    "precision_strict": 0.857,
+    "recall": 1.0,
+    "drawn": 7,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "routes",
+        "email"
+      ],
+      [
+        "seed",
+        "db"
+      ]
+    ],
+    "wrong": [
+      [
+        "routes",
+        "common"
+      ]
+    ],
+    "not_counted": [],
+    "missed": []
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 1.0,
+    "drawn": 2,
+    "hits": [
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "email",
+        "ext:smtp"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": []
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 1.0,
+  "components": 8,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "Khởi tạo dữ liệu mẫu",
+      "seed"
+    ],
+    "C3": [
+      "Định nghĩa API",
+      "routes"
+    ],
+    "C4": [
+      "Mô hình và CRUD",
+      "crud"
+    ],
+    "C5": [
+      "Kết nối DB",
+      "db"
+    ],
+    "C6": [
+      "Quản lý mật khẩu",
+      "common"
+    ],
+    "C7": [
+      "Gửi email",
+      "email"
+    ],
+    "C8": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [
+    "hooks/post_gen_project.py"
+  ],
+  "flow": {
+    "flow_recall": 1.0,
+    "flow_precision": 1.0,
+    "shown": 6,
+    "merged": 0,
+    "missed": [],
+    "required": 6,
+    "right": 6,
+    "wrong": [],
+    "neutral": 1,
+    "ari": 0.972
+  }
+}

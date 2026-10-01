@@ -1,0 +1,376 @@
+{
+  "all": {
+    "precision": 0.583,
+    "precision_strict": 0.467,
+    "recall": 0.412,
+    "drawn": 15,
+    "hits": [
+      [
+        "auth",
+        "db"
+      ],
+      [
+        "cache",
+        "ext:memcached"
+      ],
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "routes",
+        "auth"
+      ],
+      [
+        "scripts",
+        "db"
+      ],
+      [
+        "taskiq",
+        "ext:broker"
+      ]
+    ],
+    "wrong": [
+      [
+        "cache",
+        "common"
+      ],
+      [
+        "cache",
+        "db"
+      ],
+      [
+        "routes",
+        "common"
+      ],
+      [
+        "scripts",
+        "common"
+      ],
+      [
+        "scripts",
+        "routes"
+      ]
+    ],
+    "not_counted": [
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "scripts",
+        "crud"
+      ]
+    ],
+    "missed": [
+      [
+        "admin",
+        "db"
+      ],
+      [
+        "admin",
+        "services"
+      ],
+      [
+        "app",
+        "admin"
+      ],
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "auth",
+        "ext:google"
+      ],
+      [
+        "auth",
+        "ext:redis"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "routes",
+        "services"
+      ],
+      [
+        "scripts",
+        "services"
+      ],
+      [
+        "services",
+        "crud"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.375,
+    "precision_strict": 0.273,
+    "recall": 0.273,
+    "drawn": 11,
+    "hits": [
+      [
+        "auth",
+        "db"
+      ],
+      [
+        "routes",
+        "auth"
+      ],
+      [
+        "scripts",
+        "db"
+      ]
+    ],
+    "wrong": [
+      [
+        "cache",
+        "common"
+      ],
+      [
+        "cache",
+        "db"
+      ],
+      [
+        "routes",
+        "common"
+      ],
+      [
+        "scripts",
+        "common"
+      ],
+      [
+        "scripts",
+        "routes"
+      ]
+    ],
+    "not_counted": [
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "scripts",
+        "crud"
+      ]
+    ],
+    "missed": [
+      [
+        "admin",
+        "db"
+      ],
+      [
+        "admin",
+        "services"
+      ],
+      [
+        "app",
+        "admin"
+      ],
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "routes",
+        "services"
+      ],
+      [
+        "scripts",
+        "services"
+      ],
+      [
+        "services",
+        "crud"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 0.667,
+    "drawn": 4,
+    "hits": [
+      [
+        "cache",
+        "ext:memcached"
+      ],
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "taskiq",
+        "ext:broker"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": [
+      [
+        "auth",
+        "ext:google"
+      ],
+      [
+        "auth",
+        "ext:redis"
+      ]
+    ]
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.782,
+  "components": 12,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "CLI lệnh Typer",
+      null
+    ],
+    "C3": [
+      "Script quản lý dữ liệu",
+      "scripts"
+    ],
+    "C4": [
+      "API router chính",
+      "routes"
+    ],
+    "C5": [
+      "Xác thực và ủy quyền",
+      "auth"
+    ],
+    "C6": [
+      "Quản lý mô-đun dữ liệu",
+      "crud"
+    ],
+    "C7": [
+      "Cơ sở hạ tầng cơ sở dữ liệu",
+      "db"
+    ],
+    "C8": [
+      "Hệ thống logging",
+      "common"
+    ],
+    "C9": [
+      "Infra_redis_cache",
+      "cache"
+    ],
+    "C10": [
+      "Bảo mật môi trường production",
+      "common"
+    ],
+    "C11": [
+      "Quản lý công việc",
+      "taskiq"
+    ],
+    "C12": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [
+    "backend/src/infrastructure/__init__.py",
+    "backend/src/modules/__init__.py",
+    "backend/src/modules/api_keys/__init__.py",
+    "backend/src/modules/api_keys/enums.py",
+    "backend/src/modules/api_keys/schemas.py",
+    "backend/src/modules/rate_limit/__init__.py",
+    "backend/src/modules/rate_limit/schemas.py",
+    "backend/src/modules/tier/__init__.py",
+    "backend/src/modules/tier/schemas.py",
+    "backend/src/modules/user/__init__.py",
+    "backend/src/modules/user/constants.py",
+    "backend/src/modules/user/enums.py",
+    "backend/src/modules/user/schemas.py",
+    "cli/src/cli/app.py",
+    "cli/src/cli/commands/deploy.py",
+    "cli/src/cli/commands/env.py",
+    "cli/src/cli/features/__init__.py",
+    "cli/src/cli/features/_builtins/deploy/feature.py",
+    "cli/src/cli/features/base.py",
+    "cli/src/cli/features/installer.py",
+    "cli/src/cli/features/registry.py",
+    "cli/src/cli/lib/project.py",
+    "cli/src/cli/lib/prompts.py",
+    "cli/src/cli/lib/render.py",
+    "cli/src/cli/plugins.py"
+  ],
+  "flow": {
+    "flow_recall": 0.273,
+    "flow_precision": 0.75,
+    "shown": 3,
+    "merged": 0,
+    "missed": [
+      [
+        "admin",
+        "db"
+      ],
+      [
+        "admin",
+        "services"
+      ],
+      [
+        "app",
+        "admin"
+      ],
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "routes",
+        "services"
+      ],
+      [
+        "scripts",
+        "services"
+      ],
+      [
+        "services",
+        "crud"
+      ]
+    ],
+    "required": 11,
+    "right": 6,
+    "wrong": [
+      [
+        "C3",
+        "C4"
+      ],
+      [
+        "C9",
+        "C7"
+      ]
+    ],
+    "neutral": 4,
+    "ari": 0.487
+  }
+}

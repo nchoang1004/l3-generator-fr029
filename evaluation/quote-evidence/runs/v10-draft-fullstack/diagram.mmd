@@ -1,0 +1,24 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Khởi tạo dữ liệu mẫu"]
+  C3["Định nghĩa API"]
+  C4["Mô hình và CRUD"]
+  C5["Kết nối DB"]
+  C6["Quản lý mật khẩu"]
+  C7["Gửi email"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C8["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+    X2(["SMTP"])
+  end
+  C3 -->|"tạo payload token"| C4
+  C3 -->|"truy vấn người dùng"| C5
+  C3 -->|"tạo access token"| C6
+  C3 -->|"gửi email reset"| C7
+  C1 -->|"gắn router API"| C3
+  C4 -->|"thêm bản ghi DB"| C5
+  C2 -->|"khởi tạo DB"| C5
+  C5 -.->|"truy vấn"| X1
+  C7 -.->|"gửi email"| X2

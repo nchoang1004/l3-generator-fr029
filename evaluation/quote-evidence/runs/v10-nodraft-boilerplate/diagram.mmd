@@ -1,0 +1,37 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["CLI lệnh Typer"]
+  C3["Script quản lý dữ liệu"]
+  C4["API router chính"]
+  C5["Xác thực và ủy quyền"]
+  C6["Quản lý mô-đun dữ liệu"]
+  C7["Cơ sở hạ tầng cơ sở dữ liệu"]
+  C8["Hệ thống logging"]
+  C9["Infra_redis_cache"]
+  C10["Bảo mật môi trường production"]
+  C11["Quản lý công việc"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C12["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Memcached"])
+    X2(["Redis"])
+    X3[("Database")]
+    X4(["Message broker"])
+  end
+  C4 -->|"Lấy engine DB"| C7
+  C4 -->|"Thống kê APIKey"| C6
+  C4 -->|"Ghi log lỗi"| C8
+  C4 -->|"Xử lý đăng nhập"| C5
+  C3 -->|"Tạo người dùng"| C4
+  C3 -->|"Commit DB"| C7
+  C3 -->|"Tạo Tier"| C6
+  C3 -->|"Ghi log"| C8
+  C9 -->|"tạo kết nối Redis"| C7
+  C9 -->|"ghi cảnh báo cache"| C8
+  C10 -->|"ghi log bảo mật"| C8
+  C5 -->|"Tạo async session"| C7
+  C9 -.->|"đọc ghi"| X1
+  C9 -.->|"đọc ghi"| X2
+  C7 -.->|"truy vấn"| X3
+  C11 -.->|"gửi tác vụ"| X4

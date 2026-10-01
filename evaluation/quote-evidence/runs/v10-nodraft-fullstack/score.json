@@ -1,0 +1,184 @@
+{
+  "all": {
+    "precision": 0.286,
+    "precision_strict": 0.286,
+    "recall": 0.25,
+    "drawn": 7,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "routes",
+        "crud"
+      ]
+    ],
+    "wrong": [
+      [
+        "app",
+        "common"
+      ],
+      [
+        "common",
+        "ext:postgres"
+      ],
+      [
+        "common",
+        "ext:smtp"
+      ],
+      [
+        "crud",
+        "common"
+      ],
+      [
+        "routes",
+        "common"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "email",
+        "ext:smtp"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "routes",
+        "email"
+      ],
+      [
+        "seed",
+        "db"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.4,
+    "precision_strict": 0.4,
+    "recall": 0.333,
+    "drawn": 5,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "routes",
+        "crud"
+      ]
+    ],
+    "wrong": [
+      [
+        "app",
+        "common"
+      ],
+      [
+        "crud",
+        "common"
+      ],
+      [
+        "routes",
+        "common"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "routes",
+        "email"
+      ],
+      [
+        "seed",
+        "db"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 0.0,
+    "precision_strict": 0.0,
+    "recall": 0.0,
+    "drawn": 2,
+    "hits": [],
+    "wrong": [
+      [
+        "common",
+        "ext:postgres"
+      ],
+      [
+        "common",
+        "ext:smtp"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "email",
+        "ext:smtp"
+      ]
+    ]
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.8,
+  "components": 5,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "Định nghĩa API routes",
+      "routes"
+    ],
+    "C3": [
+      "Truy cập dữ liệu",
+      "crud"
+    ],
+    "C4": [
+      "Cấu hình hạ tầng",
+      "common"
+    ],
+    "C5": [
+      "Dùng chung",
+      "routes"
+    ]
+  },
+  "files_outside_oracle": [
+    "hooks/post_gen_project.py"
+  ],
+  "flow": {
+    "flow_recall": 1.0,
+    "flow_precision": 1.0,
+    "shown": 6,
+    "merged": 0,
+    "missed": [],
+    "required": 6,
+    "right": 5,
+    "wrong": [],
+    "neutral": 0,
+    "ari": 0.666
+  }
+}
