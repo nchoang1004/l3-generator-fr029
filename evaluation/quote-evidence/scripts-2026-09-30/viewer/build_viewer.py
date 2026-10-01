@@ -1,8 +1,8 @@
-"""Dựng trang xem sơ đồ: gom đáp án + các lần chạy v7 vào viewer.html. Không gọi AI.
+"""Dựng trang xem sơ đồ: gom đáp án + các lần chạy v8 của cả 8 repo vào viewer.html. Không gọi AI.
 
     python build_viewer.py
 
-Repo lộ: đủ khối, cạnh, trích dẫn. Repo kín: chỉ số tổng (P, Pk, R, token, số khối).
+Mọi repo: đủ khối, cạnh, trích dẫn; bảng cuối trang là số tổng.
 Đầu ra: viewer.html cạnh script (template.html + dữ liệu JSON nhúng).
 """
 import json
@@ -16,9 +16,7 @@ OPEN = [("rhoboro", "rhoboro-async-fastapi-sqlalchemy"), ("fullstack", "full-sta
         ("realworld", "fastapi-realworld"), ("teamhide", "teamhide-fastapi-boilerplate")]
 CLOSED = [("boilerplate", "fastapi-boilerplate"), ("kibo", "kibo-backend"), ("lnbits", "lnbits"),
           ("fba", "fastapi-best-architecture")]
-VERSIONS = [("v7", "Groq, mọi file xếp theo luật"), ("v7b", "Groq, prompt có luật interface"),
-            ("v7c", "Groq, chia khối từ trên xuống"), ("v7d", "Groq, a–c đã sửa"),
-            ("v7e-gptoss", "OpenRouter gpt-oss-120b, trần 32k"), ("v7e-haiku", "OpenRouter Claude Haiku 4.5, trần 32k")]
+VERSIONS = [("v8-nodraft", "v8 OpenRouter gpt-oss-120b, không nháp"), ("v8-draft", "v8 OpenRouter gpt-oss-120b, có nháp")]
 
 
 def split_quote(text):
@@ -62,12 +60,12 @@ def run_view(d):
 
 
 data = {"open": [], "closed": []}
-for name, orc in OPEN:
+for name, orc in OPEN + CLOSED:
     o = json.loads((Q / "oracle" / f"{orc}.json").read_text(encoding="utf-8"))
     runs = {v: {"note": note, **run_view(RUNS / f"{v}-{name}")} for v, note in VERSIONS
             if (RUNS / f"{v}-{name}" / "score.json").exists()}
     data["open"].append({"name": name, "source": o.get("source", ""), "oracle": oracle_view(o), "runs": runs})
-for name, _ in CLOSED:
+for name, _ in OPEN + CLOSED:
     for v, note in VERSIONS:
         d = RUNS / f"{v}-{name}"
         if (d / "score.json").exists():
@@ -80,4 +78,4 @@ for name, _ in CLOSED:
 page = (HERE / "template.html").read_text(encoding="utf-8")
 blob = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
 (HERE / "viewer.html").write_text(page.replace("/*DATA*/null", blob), encoding="utf-8")
-print(f"viewer.html: {len(data['open'])} repo lộ, {len(data['closed'])} lần chạy repo kín, {len(blob) // 1024} KB dữ liệu")
+print(f"viewer.html: {len(data['open'])} repo, {len(data['closed'])} lần chạy, {len(blob) // 1024} KB dữ liệu")
