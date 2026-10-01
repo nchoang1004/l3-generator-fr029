@@ -1,0 +1,128 @@
+{
+  "all": {
+    "precision": 1.0,
+    "precision_strict": 0.75,
+    "recall": 0.6,
+    "drawn": 4,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "db",
+        "ext:database"
+      ],
+      [
+        "models",
+        "db"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "routes",
+        "models"
+      ]
+    ],
+    "missed": [
+      [
+        "routes",
+        "use_cases"
+      ],
+      [
+        "use_cases",
+        "models"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 1.0,
+    "precision_strict": 0.667,
+    "recall": 0.5,
+    "drawn": 3,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "models",
+        "db"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "routes",
+        "models"
+      ]
+    ],
+    "missed": [
+      [
+        "routes",
+        "use_cases"
+      ],
+      [
+        "use_cases",
+        "models"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 1.0,
+    "drawn": 1,
+    "hits": [
+      [
+        "db",
+        "ext:database"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": []
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.769,
+  "components": 5,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "Định nghĩa router API",
+      "routes"
+    ],
+    "C3": [
+      "Định nghĩa mô hình dữ liệu",
+      "models"
+    ],
+    "C4": [
+      "Cấu hình database async",
+      "db"
+    ],
+    "C5": [
+      "Dùng chung",
+      "models"
+    ]
+  },
+  "files_outside_oracle": [
+    "app/api/notebooks/schema.py",
+    "app/api/notes/schema.py"
+  ],
+  "flow": {
+    "flow_recall": 0.75,
+    "flow_precision": 1.0,
+    "shown": 3,
+    "merged": 1,
+    "missed": [],
+    "required": 4,
+    "right": 3,
+    "wrong": [],
+    "neutral": 0,
+    "ari": 0.45
+  }
+}

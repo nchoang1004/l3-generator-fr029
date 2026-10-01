@@ -1,0 +1,19 @@
+flowchart LR
+  C1["Khởi tạo FastAPI ứng dụng"]
+  C2["Router API Auth và User"]
+  C3["Service người dùng"]
+  C4["Entity và Repository người dùng"]
+  C5["Broker Celery"]
+  C6["Quản lý kết nối DB"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C7["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1(["Message broker"])
+  end
+  C4 -->|"thực thi truy vấn DB"| C6
+  C1 -->|"đăng ký router"| C2
+  C1 -->|"quản lý session DB"| C6
+  C3 -->|"chuyển đổi model"| C4
+  C3 -->|"thực hiện transaction"| C6
+  C5 -.->|"gửi tác vụ"| X1

@@ -1,0 +1,29 @@
+{
+  "status": "partial",
+  "files": 54,
+  "tokens": 27575,
+  "usd": 0.0036,
+  "requests": 6,
+  "tokens_by_step": {
+    "sum": 21875,
+    "assemble": 2093,
+    "libs": 820,
+    "name": 2787
+  },
+  "components": 7,
+  "edges": 5,
+  "issues": 2,
+  "score": {
+    "internal": {
+      "precision": 0.8,
+      "precision_strict": 0.8,
+      "recall": 0.5
+    },
+    "external": {
+      "precision": 1.0,
+      "precision_strict": 1.0,
+      "recall": 0.333
+    },
+    "ari": 0.08
+  }
+}

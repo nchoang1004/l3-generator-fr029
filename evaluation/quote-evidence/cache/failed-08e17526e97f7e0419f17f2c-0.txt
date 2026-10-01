@@ -1,0 +1,1 @@
+{"blocks":[{"name":"app_entry","layer":"entry","paths":["lnbits/app.py","lnbits/__main__.py","lnbits/server.py","lnbits/middleware.py"],"reason":"app.py:166 app = FastAPI("}]}

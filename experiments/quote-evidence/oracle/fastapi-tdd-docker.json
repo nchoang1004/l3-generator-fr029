@@ -1,0 +1,40 @@
+{
+ "repo": "testdrivenio/fastapi-tdd-docker",
+ "source": "commit 16433b6621e9afd801de8eba9738a6bfefb1f601",
+ "local_dir": "sample-repos/testdrivenio_fastapi-tdd-docker-16433b6",
+ "set": "held-out",
+ "rev": 4,
+ "written": "2026-10-01 viết mù theo CHUAN-DAP-AN bản 3",
+ "note": "Luồng chính: gunicorn chạy app.main:app (Dockerfile.prod) -> main.py dựng FastAPI, include_router ping và summaries -> summaries gọi crud (TextSummary, Tortoise ORM) -> Postgres. Luồng phụ: POST /summaries/ đẩy generate_summary vào BackgroundTasks; summarizer tải bài báo bằng newspaper Article(url), tóm tắt, ghi lại TextSummary. Script phụ: db.py chạy trực tiếp (__main__) để sinh schema. Gộp main.py + db.py thành một khối khởi động: db.py chỉ đăng ký Tortoise lúc khởi động và script sinh schema, không có lớp bọc kết nối dùng lúc request. crud.py nằm trong app/api/ nhưng là truy vấn bảng, gộp với app/models/ thành khối dữ liệu; models/pydantic.py chỉ là schema, để chung khối dữ liệu. config.py là cấu hình, dùng chung. Bỏ: tests/, migrations/ (aerich sinh, không ai import). Khối dữ liệu dùng Postgres qua kết nối toàn cục của Tortoise, không import db.py, nên cạnh data -> postgres để hand.",
+ "components": {
+  "app": ["project/app/main.py", "project/app/db.py"],
+  "api": ["project/app/api/ping.py", "project/app/api/summaries.py", "project/app/api/__init__.py"],
+  "summarizer": ["project/app/summarizer.py"],
+  "data": ["project/app/api/crud.py", "project/app/models/"],
+  "config": ["project/app/config.py"]
+ },
+ "shared": ["config"],
+ "layers": {
+  "app": ["entry", "project/app/main.py:12 application = FastAPI()"],
+  "api": ["api", "project/app/api/summaries.py:15 router = APIRouter()"],
+  "summarizer": ["service", "project/app/api/summaries.py:38 background_tasks.add_task(generate_summary, summary_id, str(payload.url))"],
+  "data": ["data", "project/app/models/tortoise.py:5 class TextSummary(models.Model):"]
+ },
+ "externals": {
+  "postgres": ["postgres", "postgresql", "database", "db", "tortoise", "web-db"],
+  "article_web": ["article", "newspaper", "news site", "web", "internet", "url", "http"],
+  "nltk_data": ["nltk", "punkt"]
+ },
+ "required": [
+  ["app", "api", "project/app/main.py:13 application.include_router(ping.router)"],
+  ["api", "data", "project/app/api/summaries.py:20 summary = await crud.get(id)"],
+  ["api", "summarizer", "project/app/api/summaries.py:38 background_tasks.add_task(generate_summary, summary_id, str(payload.url))"],
+  ["summarizer", "data", "project/app/summarizer.py:21 await TextSummary.filter(id=summary_id).update(summary=summary)"],
+  ["summarizer", "ext:article_web", "project/app/summarizer.py:8 article = Article(url)"],
+  ["app", "ext:postgres", "project/app/db.py:25 db_url=os.environ.get(\"DATABASE_URL\"),"]
+ ],
+ "acceptable": [
+  ["data", "ext:postgres", "hand"],
+  ["summarizer", "ext:nltk_data", "hand"]
+ ]
+}

@@ -1,0 +1,49 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Định tuyến API"]
+  C3["Xử lý nghiệp vụ"]
+  C4["Mô hình dữ liệu"]
+  C5["Broker task"]
+  C6["Quản lý kết nối DB"]
+  C7["Prometheus metric cho SQLAlchemy"]
+  C8["Cache và plugin service"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C9["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+    X2(["Message broker"])
+    X3(["Redis"])
+    X4(["SMTP"])
+    X5(["GitHub OAuth 認證"])
+    X6(["Google OAuth 誁"])
+    X7(["IP 位置查詢服務"])
+  end
+  C2 -->|"驗證登入"| C4
+  C2 -->|"取得綁定"| C6
+  C2 -->|"管理插件"| C8
+  C2 -->|"載入設定"| C3
+  C1 -->|"thêm middleware"| C2
+  C1 -->|"寫入資料庫"| C6
+  C1 -->|"記錄日誌"| C8
+  C1 -->|"回傳 JSON"| C3
+  C4 -->|"建立 Session"| C5
+  C4 -->|"查詢 CRUD"| C6
+  C4 -->|"記錄錯誤"| C8
+  C5 -->|"取得資料庫引擎"| C6
+  C5 -->|"設定排程"| C8
+  C6 -->|"ghi lỗi kết nối"| C8
+  C3 -->|"存取資料"| C4
+  C3 -->|"發送任務"| C5
+  C3 -->|"使用資料庫"| C6
+  C3 -->|"記錄錯誤"| C8
+  C4 -.->|"truy vấn"| X1
+  C3 -.->|"truy vấn"| X1
+  C6 -.->|"truy vấn"| X1
+  C5 -.->|"gửi tác vụ"| X2
+  C5 -.->|"đọc ghi"| X3
+  C4 -.->|"đọc ghi"| X3
+  C8 -.->|"gửi email"| X4
+  C2 -.->|"đăng nhập"| X5
+  C2 -.->|"đăng nhập"| X6
+  C2 -.->|"gọi API"| X7

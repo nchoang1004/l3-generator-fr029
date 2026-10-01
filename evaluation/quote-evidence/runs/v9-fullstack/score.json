@@ -1,0 +1,164 @@
+{
+  "all": {
+    "precision": 0.667,
+    "precision_strict": 0.667,
+    "recall": 0.5,
+    "drawn": 6,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "email",
+        "ext:smtp"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "email"
+      ]
+    ],
+    "wrong": [
+      [
+        "crud",
+        "ext:postgres"
+      ],
+      [
+        "routes",
+        "ext:postgres"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "seed",
+        "db"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 0.5,
+    "drawn": 3,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "routes",
+        "crud"
+      ],
+      [
+        "routes",
+        "email"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": [
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "routes",
+        "db"
+      ],
+      [
+        "seed",
+        "db"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 0.333,
+    "precision_strict": 0.333,
+    "recall": 0.5,
+    "drawn": 3,
+    "hits": [
+      [
+        "email",
+        "ext:smtp"
+      ]
+    ],
+    "wrong": [
+      [
+        "crud",
+        "ext:postgres"
+      ],
+      [
+        "routes",
+        "ext:postgres"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "db",
+        "ext:postgres"
+      ]
+    ]
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.8,
+  "components": 6,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI ứng dụng",
+      "app"
+    ],
+    "C2": [
+      "Định nghĩa router API",
+      "routes"
+    ],
+    "C3": [
+      "Mô hình dữ liệu người dùng",
+      "crud"
+    ],
+    "C4": [
+      "Kết nối và thao tác DB",
+      "crud"
+    ],
+    "C5": [
+      "Gửi email SMTP",
+      "email"
+    ],
+    "C6": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [
+    "hooks/post_gen_project.py"
+  ],
+  "flow": {
+    "flow_recall": 0.667,
+    "flow_precision": 1.0,
+    "shown": 4,
+    "merged": 2,
+    "missed": [],
+    "required": 6,
+    "right": 4,
+    "wrong": [],
+    "neutral": 0,
+    "ari": 0.703
+  }
+}

@@ -1,0 +1,194 @@
+{
+  "all": {
+    "precision": 0.833,
+    "precision_strict": 0.833,
+    "recall": 0.455,
+    "drawn": 6,
+    "hits": [
+      [
+        "celery",
+        "ext:broker"
+      ],
+      [
+        "mw",
+        "db"
+      ],
+      [
+        "persist",
+        "db"
+      ],
+      [
+        "user_svc",
+        "db"
+      ],
+      [
+        "user_svc",
+        "persist"
+      ]
+    ],
+    "wrong": [
+      [
+        "mw",
+        "routes"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "app",
+        "mw"
+      ],
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "db",
+        "ext:mysql"
+      ],
+      [
+        "routes",
+        "jwt_svc"
+      ],
+      [
+        "routes",
+        "user_svc"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.8,
+    "precision_strict": 0.8,
+    "recall": 0.5,
+    "drawn": 5,
+    "hits": [
+      [
+        "mw",
+        "db"
+      ],
+      [
+        "persist",
+        "db"
+      ],
+      [
+        "user_svc",
+        "db"
+      ],
+      [
+        "user_svc",
+        "persist"
+      ]
+    ],
+    "wrong": [
+      [
+        "mw",
+        "routes"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "app",
+        "mw"
+      ],
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "routes",
+        "jwt_svc"
+      ],
+      [
+        "routes",
+        "user_svc"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 1.0,
+    "precision_strict": 1.0,
+    "recall": 0.333,
+    "drawn": 1,
+    "hits": [
+      [
+        "celery",
+        "ext:broker"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [],
+    "missed": [
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "db",
+        "ext:mysql"
+      ]
+    ]
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.404,
+  "components": 7,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI ứng dụng",
+      "mw"
+    ],
+    "C2": [
+      "Router API Auth và User",
+      "routes"
+    ],
+    "C3": [
+      "Service người dùng",
+      "user_svc"
+    ],
+    "C4": [
+      "Entity và Repository người dùng",
+      "persist"
+    ],
+    "C5": [
+      "Broker Celery",
+      "celery"
+    ],
+    "C6": [
+      "Quản lý kết nối DB",
+      "db"
+    ],
+    "C7": [
+      "Dùng chung",
+      "cache"
+    ]
+  },
+  "files_outside_oracle": [
+    "core/repository/base.py",
+    "core/repository/enum.py"
+  ],
+  "flow": {
+    "flow_recall": 0.625,
+    "flow_precision": 1.0,
+    "shown": 5,
+    "merged": 1,
+    "missed": [
+      [
+        "routes",
+        "jwt_svc"
+      ],
+      [
+        "routes",
+        "user_svc"
+      ]
+    ],
+    "required": 8,
+    "right": 5,
+    "wrong": [],
+    "neutral": 0,
+    "ari": 0.08
+  }
+}

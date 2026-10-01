@@ -26,7 +26,7 @@ import re
 RANK = ("entry", "api", "service", "data", "infra")
 KINDS = ("flow", "check", "helper", "pass", "wiring")
 CHECK = re.compile(r"^(check|verify|validate|require|ensure|has|is|can)_|^get_current_|"
-                   r"(^|_)(authentication|authorize|authorization|permission|permissions|rbac)($|_)", re.I)
+                   r"(^|_)(authentication|authorize|authorization|permission|permissions)($|_)", re.I)
 OPENS_SESSION = re.compile(r"session|connect|engine|begin|get_db|transaction", re.I)
 EXT_NAME = {"database": "Database", "redis": "Redis", "smtp": "SMTP", "broker": "Message broker",
             "memcached": "Memcached", "http": "HTTP API", "oauth": "OAuth"}

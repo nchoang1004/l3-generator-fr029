@@ -2,9 +2,13 @@
 
     facts(idx) -> {path: {...}}      idx is pyindex.index(...)
 
-Every call is resolved to the repository file it reaches, through: an imported name; a parameter whose
-annotation or Depends(...) names an imported class; a local variable set from such a call; a `self.`
-attribute set in any method of the class. A call into a library keeps the library name instead.
+Every call is resolved to the repository file it reaches. Pyright decides first (pyindex entry "names", from
+names.py): imports, re-exports, inheritance, inferred attribute types, a parameter hiding an imported name. Where
+Pyright has no answer (libraries are not installed, so their names stay unplaced), this module's own reading
+applies: an imported name; a parameter whose annotation or Depends(...) names an imported class; a local variable
+set from such a call; a `self.` attribute set in any method of the class. A call into a library keeps the library
+name. What FastAPI and the standard library do with a function handed to them is read here (RUNS_FOR_YOU,
+on_event, add_event_handler, lifespan=), each entry from their documentation.
 
 Per file:
 - calls: [{line, name, last, target, symbol, lib, func, how, session_arg}]
@@ -29,7 +33,7 @@ from __future__ import annotations
 import ast
 import re
 
-SESSION_NAMES = {"session", "db", "conn", "connection", "read_session", "write_session", "db_session",
+SESSION_NAMES = {"session", "db", "conn", "connection", "db_session",
                  "async_session", "cursor"}
 SESSION_TYPE = re.compile(r"Session|Connection")
 DB_METHODS = {"execute", "executemany", "exec", "scalar", "scalars", "scalar_one", "stream", "stream_scalars",
@@ -38,7 +42,19 @@ DB_METHODS = {"execute", "executemany", "exec", "scalar", "scalars", "scalar_one
 ROUTING = {"include_router", "add_middleware", "mount", "add_api_route", "add_route", "add_websocket_route",
            "add_api_websocket_route", "add_exception_handler", "Middleware"}
 HTTP_VERBS = {"get", "post", "put", "patch", "delete", "head", "options", "api_route", "websocket"}
-LIFESPAN_NAMES = {"lifespan", "startup", "shutdown", "on_startup", "on_shutdown", "start_app", "stop_app"}
+# A library call that runs the function given to it (argument index, or the keyword "target"): a flow, not wiring.
+RUNS_FOR_YOU = {
+    "add_task": 0,                 # FastAPI BackgroundTasks.add_task(func, ...)  (fastapi.tiangolo.com, Background Tasks)
+    "run_in_threadpool": 0,        # starlette.concurrency.run_in_threadpool(func, ...)
+    "to_thread": 0,                # asyncio.to_thread(func, ...)                  (docs.python.org, asyncio-task)
+    "run_in_executor": 1,          # loop.run_in_executor(executor, func, ...)     (docs.python.org, asyncio-eventloop)
+    "call_soon": 0, "call_soon_threadsafe": 0, "call_later": 1, "call_at": 1,   # asyncio event loop scheduling
+    "submit": 0,                   # concurrent.futures Executor.submit(fn, ...)
+    "Thread": "target", "Process": "target",   # threading.Thread(target=...), multiprocessing.Process(target=...)
+}
+# FastAPI/Starlette start-up and shut-down registration: the function given is wiring (fastapi.tiangolo.com, Events).
+STARTUP_DECORATORS = {"on_event"}
+STARTUP_CALLS = {"add_event_handler"}       # app.add_event_handler("startup", func)
 # library -> (kind of external system, calls that open a connection; None = any call)
 IO_LIBS = {
     "sqlalchemy": ("database", {"create_engine", "create_async_engine"}),
@@ -60,7 +76,7 @@ IO_LIBS = {
     "prometheus_client": ("monitoring", None),
 }
 CLI_LIBS = {"click", "typer", "cappa"}
-IMPORTERS = {"import_module", "import_module_cached", "__import__"}
+IMPORTERS = {"import_module", "__import__"}
 
 
 def _last(node: ast.AST) -> str:
@@ -108,8 +124,16 @@ def _sql(node: ast.AST) -> bool:
 
 
 class _File:
-    def __init__(self, path: str, entry: dict, tree: ast.Module):
+    def __init__(self, path: str, entry: dict, tree: ast.Module, libs: dict | None = None,
+                 providers: set | None = None):
         self.path, self.tree = path, tree
+        self.names = entry.get("names", {})          # Pyright: (line, col) -> (file, top-level name)
+        self.providers = providers or set()          # (file, function) that yield or return a database session
+        self.wired = set()                           # functions FastAPI registers for start-up or shut-down
+        # library roles: v8 uses the tables above; v9 passes its own (a seed table plus the model's answers)
+        self.io_libs = libs["io"] if libs else IO_LIBS
+        self.cli_libs = libs["cli"] if libs else CLI_LIBS
+        self.admin_libs = libs["admin"] if libs else {"sqladmin"}
         self.out = {"calls": [], "funcs": {}, "signals": {}, "sure": {}, "io": [], "db_use": [], "objects": {},
                     "config_refs": [], "dynamic": [], "strings": [], "state_set": {}, "state_get": {}}
         self.env = {r["local"]: {"target": r["target"], "symbol": r["symbol"], "lib": r["external"]}
@@ -121,6 +145,20 @@ class _File:
         self.classes = {}
 
     # --- resolution -------------------------------------------------------------------------------
+    def pick(self, node: ast.AST, got: dict | None) -> dict | None:
+        """Pyright's answer for the name `node` ends with, else this module's own reading `got`."""
+        while isinstance(node, (ast.Call, ast.Await, ast.Subscript)):
+            node = node.func if isinstance(node, ast.Call) else node.value
+        if isinstance(node, ast.Name):
+            hit = self.names.get((node.lineno, node.col_offset))
+        elif isinstance(node, ast.Attribute):
+            hit = self.names.get((node.end_lineno, node.end_col_offset - len(node.attr)))
+        else:
+            hit = None
+        if not hit:
+            return got
+        return {**(got or {}), "target": hit[0], "symbol": hit[1], "lib": None}
+
     def resolve(self, node: ast.AST, env: dict, cls: dict | None) -> dict | None:
         if isinstance(node, ast.Await):
             return self.resolve(node.value, env, cls)
@@ -180,6 +218,8 @@ class _File:
                 self.function(node, node.name, self.env, None)
             elif isinstance(node, ast.ClassDef):
                 self.klass(node)
+        for name in self.wired & set(self.out["funcs"]):
+            self.out["funcs"][name]["wiring"] = True
         return self.out
 
     def prepare_class(self, node: ast.ClassDef) -> None:
@@ -223,11 +263,12 @@ class _File:
         for arg, default in zip(params, defaults):
             got = self.annotation(arg.annotation, env)
             if isinstance(default, ast.Call) and _last(default.func) == "Depends" and default.args:
-                got = got or self.resolve(default.args[0], env, None)
-            if got:
-                env[arg.arg] = got
-            elif arg.arg in SESSION_NAMES:
-                env[arg.arg] = {"session": True}
+                dep = self.pick(default.args[0], self.resolve(default.args[0], env, None))
+                if dep and (dep.get("target"), dep.get("symbol")) in self.providers:
+                    got = {**(got or {}), "session": True}      # Depends(f) where f yields a session
+                got = got or dep
+            # every parameter hides an outer name of the same spelling, known or not
+            env[arg.arg] = got or {"session": arg.arg in SESSION_NAMES}
 
     def bind_locals(self, nodes: list, env: dict, cls: dict | None, module: bool = False) -> None:
         for node in nodes:
@@ -235,8 +276,10 @@ class _File:
                 targets = node.targets if isinstance(node, ast.Assign) else [node.target]
                 got = self.resolve(node.value, env, cls)
                 for t in targets:
+                    if isinstance(t, ast.Name):          # an assignment hides an outer name, known or not
+                        got_ = got or {}
+                        env[t.id] = {**got_, "session": bool(got_.get("session") or t.id in SESSION_NAMES)}
                     if isinstance(t, ast.Name) and got:
-                        env[t.id] = {**got, "session": got.get("session") or t.id in SESSION_NAMES}
                         if module and got.get("lib") and isinstance(node.value, (ast.Call, ast.Await)):
                             self.out["objects"][t.id] = [node.lineno, got["lib"]]
                     if isinstance(t, ast.Attribute) and isinstance(t.value, ast.Attribute) and t.value.attr == "state":
@@ -261,8 +304,11 @@ class _File:
         stubs = [s for s in node.body if not (isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant))]
         if "abstractmethod" in decorators or all(isinstance(s, (ast.Pass, ast.Raise)) for s in stubs):
             rec["abstract"] = True
-        if node.name in LIFESPAN_NAMES or any(d.endswith("contextmanager") for d in decorators):
+        if STARTUP_DECORATORS & set(decorators) or any(d.endswith("contextmanager") for d in decorators):
             rec["wiring"] = True
+        given = [n.value for n in ast.walk(node) if isinstance(n, (ast.Yield, ast.Return)) and isinstance(n.value, ast.Name)]
+        if any(env.get(n.id, {}).get("session") for n in given):
+            rec["gives_session"] = True
         defaults = [d for d in node.args.defaults + node.args.kw_defaults if d is not None]
         self.scope(qual, body + _direct(node.decorator_list + defaults), env, cls)
         self.function_signals(node, body)
@@ -295,7 +341,7 @@ class _File:
 
     def call(self, node: ast.Call, qual: str, env: dict, cls: dict | None, func: dict | None) -> None:
         last = _last(node.func)
-        got = self.resolve(node.func, env, cls)
+        got = self.pick(node.func, self.resolve(node.func, env, cls))
         values = list(node.args) + [k.value for k in node.keywords]
         session_arg = any(self.is_session(v, env, cls) for v in values)
         text = ast.unparse(node.func)
@@ -317,27 +363,41 @@ class _File:
                     ref = self.resolve(kw.value, env, cls)
                     if ref and ref.get("target"):
                         self.out["config_refs"].append([getattr(kw, "lineno", node.lineno), ref["target"]])
-        # signals and I/O
-        self.call_signals(node, last, lib, text)
+        # signals and I/O; a library name imported under another name counts by its own name (FastAPI as Api)
+        own = got.get("symbol") if lib and got and isinstance(node.func, ast.Name) and got.get("symbol") else last
+        self.call_signals(node, own, lib, text)
+        # a library that runs the function given to it: the call goes on into that function. The receiver is a
+        # library object, often of unknown type (bg: BackgroundTasks); a method of the repository is excluded.
+        runs = RUNS_FOR_YOU.get(own) if not (got and got.get("target")) else None
+        if runs is not None:
+            given = next((k.value for k in node.keywords if k.arg == runs), None) if runs == "target" else \
+                (node.args[runs] if len(node.args) > runs else None)
+            if isinstance(given, (ast.Name, ast.Attribute)):
+                self.record(node.lineno, ast.unparse(given), _last(given),
+                            self.pick(given, self.resolve(given, env, cls)), qual, "call")
+        # start-up registration: app.add_event_handler("startup", f), FastAPI(lifespan=f)
+        handed = node.args[1:2] if last in STARTUP_CALLS else [k.value for k in node.keywords if k.arg == "lifespan"]
+        self.wired |= {v.id for v in handed if isinstance(v, ast.Name)}
         # routing, Depends, dependencies=[...], names handed to a library
         if last in ROUTING:
             if func is not None:
                 func["routing"] = True
             for v in values:
-                self.record(node.lineno, ast.unparse(v), _last(v), self.resolve(v, env, cls), qual, "routing")
+                self.record(node.lineno, ast.unparse(v), _last(v), self.pick(v, self.resolve(v, env, cls)), qual,
+                            "routing")
         if last == "Depends" and node.args:
             self.record(node.lineno, ast.unparse(node.args[0]), _last(node.args[0]),
-                        self.resolve(node.args[0], env, cls), qual, "depends")
+                        self.pick(node.args[0], self.resolve(node.args[0], env, cls)), qual, "depends")
         for kw in node.keywords:
             if kw.arg == "dependencies":
                 for el in getattr(kw.value, "elts", []):
                     inner = el.args[0] if isinstance(el, ast.Call) and _last(el.func) == "Depends" and el.args else el
-                    self.record(el.lineno, ast.unparse(inner), _last(inner), self.resolve(inner, env, cls), qual,
-                                "route_dep")
+                    self.record(el.lineno, ast.unparse(inner), _last(inner),
+                                self.pick(inner, self.resolve(inner, env, cls)), qual, "route_dep")
         if lib and last not in ROUTING | HTTP_VERBS and last != "Depends":
             for v in values:
                 if isinstance(v, (ast.Name, ast.Attribute)):
-                    ref = self.resolve(v, env, cls)
+                    ref = self.pick(v, self.resolve(v, env, cls))
                     if ref and ref.get("target") and ref["target"] != self.path:
                         self.record(node.lineno, ast.unparse(v), _last(v), ref, qual, "arg_ref")
         # names given as strings
@@ -384,13 +444,13 @@ class _File:
             self.signal("entry", node.lineno, "uvicorn.run(")
         elif last == "add_job":
             self.signal("entry", node.lineno, "add_job(")
-        elif last in {"APIRouter", "include_router", "add_api_route"} or (lib == "sqladmin" and last == "Admin") \
+        elif last in {"APIRouter", "include_router", "add_api_route"} or (lib in self.admin_libs and last == "Admin") \
                 or (lib == "socketio" and last in {"AsyncServer", "Server"}):
             self.signal("api", node.lineno, last, sure=last == "include_router")
         elif last in {"select", "insert", "update", "delete"} and lib in {"sqlalchemy", "sqlmodel"}:
             self.signal("data", node.lineno, last)
-        if lib in IO_LIBS:
-            kind, opens = IO_LIBS[lib]
+        if lib in self.io_libs:
+            kind, opens = self.io_libs[lib]
             if opens is None or last in opens:
                 self.out["io"].append([node.lineno, lib, kind])
                 if kind != "monitoring":
@@ -406,7 +466,7 @@ class _File:
                 self.signal("api", dec.lineno, f"@{ast.unparse(dec.func)}", sure=True)
             elif last in {"event", "on"} and (root_lib == "socketio" or "sio" in ast.unparse(dec)):
                 self.signal("api", dec.lineno, f"@{last}")
-            elif last in {"command", "group", "callback"} and (root_lib in CLI_LIBS or self.libs & CLI_LIBS):
+            elif last in {"command", "group", "callback"} and (root_lib in self.cli_libs or self.libs & self.cli_libs):
                 self.signal("entry", dec.lineno, f"@{last}")
         if isinstance(node, ast.AsyncFunctionDef):
             for sub in body:
@@ -427,7 +487,8 @@ class _File:
         base_names = [_last(b) for b in node.bases]
         if any(b.endswith("Middleware") for b in base_names):
             self.signal("entry", node.lineno, "middleware")
-        if any(b == "ModelView" for b in base_names):
+        if any(b == "ModelView" for b in base_names) or any(
+                self.env.get(b.id, {}).get("lib") in self.admin_libs for b in node.bases if isinstance(b, ast.Name)):
             self.signal("api", node.lineno, "ModelView")
         for item in node.body:
             if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -437,13 +498,15 @@ class _File:
                     self.signal("entry", node.lineno, "middleware")
 
 
-def facts(idx: dict) -> dict:
-    out = {}
-    for path, entry in idx.items():
-        if entry.get("error") or entry.get("empty"):
-            continue
-        tree = ast.parse("\n".join(entry["lines"]), filename=path)
-        out[path] = _File(path, entry, tree).run()
+def facts(idx: dict, libs: dict | None = None) -> dict:
+    """libs: {"io": {lib: (kind, opens)}, "cli": set, "admin": set}; None = the tables of this module.
+    Two passes: the first finds the functions that yield or return a database session, so that the second knows a
+    parameter `x = Depends(that function)` is a session whatever its name."""
+    trees = {p: ast.parse("\n".join(e["lines"]), filename=p) for p, e in idx.items()
+             if not (e.get("error") or e.get("empty"))}
+    first = {p: _File(p, idx[p], t, libs).run() for p, t in trees.items()}
+    providers = {(p, n) for p, f in first.items() for n, r in f["funcs"].items() if r.get("gives_session")}
+    out = first if not providers else {p: _File(p, idx[p], t, libs, providers).run() for p, t in trees.items()}
     for f in out.values():
         for name, rec in f["funcs"].items():
             rec["calls"] = sorted(rec["calls"])

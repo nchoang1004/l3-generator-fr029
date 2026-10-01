@@ -1,0 +1,18 @@
+flowchart LR
+  C1["Khởi tạo FastAPI"]
+  C2["Định nghĩa API routes"]
+  C3["Xử lý nghiệp vụ"]
+  C4["Truy cập dữ liệu"]
+  C5["Cơ sở hạ tầng DB"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C6["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+  end
+  C2 -->|"kiểm tra tồn tại bài viết"| C3
+  C2 -->|"lấy bài viết theo slug"| C4
+  C1 -->|"đăng ký exception handler"| C2
+  C3 -->|"lấy bài viết từ repo"| C4
+  C4 -->|"truy vấn tham số DB"| C5
+  C4 -.->|"truy vấn"| X1

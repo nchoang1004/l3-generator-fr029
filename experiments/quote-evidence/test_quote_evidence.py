@@ -242,6 +242,15 @@ class QuoteEvidenceTests(unittest.TestCase):
         again.json("sys", "user", {"type": "object"}, step="top-1", max_tokens=100, effort="low")   # from cache
         self.assertEqual((again.reasoning, len(sent)), ({"top-1": "why: x"}, 1))
 
+    def test_gpt6_gets_no_temperature_but_an_effort(self):
+        client = llm.Groq("test-key", budget=100_000, state=self.root.parent / "state6", url=llm.OPENROUTER_URL,
+                          model="openai/gpt-6-luna")
+        reply = {"choices": [{"finish_reason": "stop", "message": {"content": '{"a": 1}'}}], "usage": {"total_tokens": 3}}
+        sent = []
+        client._post = lambda body: (sent.append(body), (200, {}, reply))[1]
+        client.json("sys", "user", {"type": "object"}, step="s", max_tokens=100, effort="low")
+        self.assertEqual(("temperature" in sent[0], sent[0]["reasoning"]), (False, {"effort": "low"}))
+
     def test_body_of_blank_lines_is_a_network_failure_retried(self):
         client = llm.Groq("test-key", budget=100_000, state=self.root.parent / "state7", url=llm.OPENROUTER_URL)
         bodies = [b"\n" * 600, b'{"choices": [{"finish_reason": "stop", "message": {"content": "{\\"a\\": 3}"}}], '

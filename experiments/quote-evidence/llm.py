@@ -19,6 +19,10 @@ REQUEST_CAP = 7_000         # estimated prompt + max completion; above TPM the p
 STATE = Path(__file__).resolve().parents[2] / "evaluation" / "quote-evidence"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+# Reasoning models that take an effort setting; those in NO_TEMPERATURE refuse a temperature (OpenRouter lists no
+# temperature parameter for them, and require_parameters would then find no provider). Checked 01/10/2026.
+REASONING_MODELS = ("gpt-oss", "openai/gpt-6")
+NO_TEMPERATURE = ("openai/gpt-6",)
 
 
 class BudgetExceeded(RuntimeError):
@@ -103,7 +107,7 @@ class Groq:
 
     def _effort(self, body: dict, effort: str) -> dict:
         """How long the model reasons before it answers (gpt-oss: low, medium, high; it cannot be switched off)."""
-        if "gpt-oss" not in self.model:
+        if not any(m in self.model for m in REASONING_MODELS):
             return body
         if self.open:
             return {**body, "reasoning": {"effort": effort}}
@@ -122,6 +126,8 @@ class Groq:
                 "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
                 "response_format": {"type": "json_schema",
                                     "json_schema": {"name": "out", "strict": True, "schema": schema}}}
+        if self.model.startswith(NO_TEMPERATURE):
+            del body["temperature"]
         body = self._effort(body, effort)
         if self.open:              # only providers that honour the schema; report the cost
             body.update(max_tokens=max_tokens, provider={"require_parameters": True}, usage={"include": True})

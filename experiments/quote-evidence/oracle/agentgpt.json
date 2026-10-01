@@ -1,0 +1,65 @@
+{
+ "repo": "reworkd/AgentGPT",
+ "source": "commit 18b073a",
+ "local_dir": "sample-repos/reworkd_AgentGPT-18b073a",
+ "set": "held-out",
+ "rev": 4,
+ "written": "2026-10-01",
+ "note": "Chỉ phần Python trong platform/ (FastAPI). Luồng chính: __main__ chạy uvicorn với chuỗi 'reworkd_platform.web.application:get_app' -> get_app dựng FastAPI, include_router api_router -> các router agent/auth/models/monitoring/metadata. Luồng agent: route -> validator trong agent/dependancies.py ghi AgentRun/AgentTask qua AgentCRUD -> get_agent_service dựng OpenAIAgentService (LLM qua langchain ChatOpenAI, base URL OpenAI/Helicone/Azure) -> tool theo tên (Search/serper, SID/sid.ai, Image/replicate hoặc DALL-E, Code, Reason). Luồng OAuth: auth/views -> OAuthInstaller (SID) -> OAuthCrud + auth.sid.ai. Dữ liệu: db/crud + db/models qua session từ get_db_session (db/dependencies.py), engine create_async_engine MySQL (aiomysql) ở db/utils.py. Không có worker, CLI hay tác vụ nền. Bỏ (không ai import ngoài test): web/api/memory/, services/pinecone/, services/aws/, services/anthropic.py, timer.py, tools/conclude.py, tools/wikipedia_search.py. Dùng chung: settings, logging, schemas, errors, http_responses, prompts (hằng PromptTemplate), stream_mock (helper stream chuỗi), analysis.py (model pydantic; validator chỉ tra danh sách tên tool), security (Fernet), ssl, tokenizer (đếm token tiktoken). Chọn tầng: agent_tools và oauth_service có dòng mở aiohttp.ClientSession tới URL ngoài (dấu hiệu infra) nhưng chứa nghiệp vụ và đọc ghi qua crud; xếp service để sơ đồ đi một chiều. Tương tự agent_service tạo client ChatOpenAI.",
+ "components": {
+  "startup": ["platform/reworkd_platform/__main__.py", "platform/reworkd_platform/web/application.py", "platform/reworkd_platform/web/lifetime.py"],
+  "api": ["platform/reworkd_platform/web/api/router.py", "platform/reworkd_platform/web/api/__init__.py", "platform/reworkd_platform/web/api/dependencies.py", "platform/reworkd_platform/web/api/error_handling.py", "platform/reworkd_platform/web/api/metadata.py", "platform/reworkd_platform/web/api/agent/__init__.py", "platform/reworkd_platform/web/api/agent/views.py", "platform/reworkd_platform/web/api/agent/dependancies.py", "platform/reworkd_platform/web/api/auth/", "platform/reworkd_platform/web/api/models/", "platform/reworkd_platform/web/api/monitoring/"],
+  "agent_service": ["platform/reworkd_platform/web/api/agent/agent_service/", "platform/reworkd_platform/web/api/agent/helpers.py", "platform/reworkd_platform/web/api/agent/model_factory.py", "platform/reworkd_platform/web/api/agent/task_output_parser.py"],
+  "agent_tools": ["platform/reworkd_platform/web/api/agent/tools/__init__.py", "platform/reworkd_platform/web/api/agent/tools/tools.py", "platform/reworkd_platform/web/api/agent/tools/tool.py", "platform/reworkd_platform/web/api/agent/tools/code.py", "platform/reworkd_platform/web/api/agent/tools/image.py", "platform/reworkd_platform/web/api/agent/tools/search.py", "platform/reworkd_platform/web/api/agent/tools/sidsearch.py", "platform/reworkd_platform/web/api/agent/tools/reason.py", "platform/reworkd_platform/web/api/agent/tools/utils.py", "platform/reworkd_platform/web/api/agent/tools/open_ai_function.py"],
+  "oauth_service": ["platform/reworkd_platform/services/oauth_installers.py"],
+  "db_data": ["platform/reworkd_platform/db/crud/", "platform/reworkd_platform/db/models/", "platform/reworkd_platform/db/base.py", "platform/reworkd_platform/db/meta.py", "platform/reworkd_platform/db/__init__.py"],
+  "db_infra": ["platform/reworkd_platform/db/utils.py", "platform/reworkd_platform/db/dependencies.py"],
+  "config": ["platform/reworkd_platform/settings.py", "platform/reworkd_platform/constants.py", "platform/reworkd_platform/logging.py", "platform/reworkd_platform/__init__.py", "platform/reworkd_platform/web/__init__.py"],
+  "common": ["platform/reworkd_platform/schemas/", "platform/reworkd_platform/web/api/errors.py", "platform/reworkd_platform/web/api/http_responses.py", "platform/reworkd_platform/web/api/agent/analysis.py", "platform/reworkd_platform/web/api/agent/prompts.py", "platform/reworkd_platform/web/api/agent/stream_mock.py", "platform/reworkd_platform/services/__init__.py", "platform/reworkd_platform/services/security.py", "platform/reworkd_platform/services/ssl.py", "platform/reworkd_platform/services/tokenizer/"]
+ },
+ "shared": ["config", "common"],
+ "layers": {
+  "startup": ["entry", "platform/reworkd_platform/web/application.py:28 app = FastAPI("],
+  "api": ["api", "platform/reworkd_platform/web/api/router.py:5 api_router = APIRouter()"],
+  "agent_service": ["service", "platform/reworkd_platform/web/api/agent/views.py:41 new_tasks = await agent_service.start_goal_agent(goal=req_body.goal)"],
+  "agent_tools": ["service", "platform/reworkd_platform/web/api/agent/agent_service/open_ai_agent_service.py:138 return await tool_class(self.model, self.settings.language).call("],
+  "oauth_service": ["service", "platform/reworkd_platform/web/api/auth/views.py:32 return await installer.install(user, redirect)"],
+  "db_data": ["data", "platform/reworkd_platform/db/models/agent.py:7 class AgentRun(Base):"],
+  "db_infra": ["infra", "platform/reworkd_platform/db/utils.py:17 return create_async_engine("]
+ },
+ "externals": {
+  "mysql": ["mysql", "aiomysql", "database", "db", "sql"],
+  "openai": ["openai", "llm", "gpt", "chatopenai", "helicone", "azure openai", "langchain"],
+  "serper": ["serper", "google search", "google"],
+  "sid": ["sid", "sid.ai"],
+  "replicate": ["replicate", "stable diffusion", "image generation"],
+  "web": ["web page", "url", "metadata", "httpx"]
+ },
+ "required": [
+  ["startup", "api", "platform/reworkd_platform/web/application.py:51 app.include_router(router=api_router, prefix=\"/api\")"],
+  ["api", "agent_service", "platform/reworkd_platform/web/api/agent/views.py:41 new_tasks = await agent_service.start_goal_agent(goal=req_body.goal)"],
+  ["api", "oauth_service", "platform/reworkd_platform/web/api/auth/views.py:32 return await installer.install(user, redirect)"],
+  ["api", "db_data", "platform/reworkd_platform/web/api/agent/dependancies.py:44 id_ = (await crud.create_run(body.goal)).id"],
+  ["agent_service", "agent_tools", "platform/reworkd_platform/web/api/agent/agent_service/open_ai_agent_service.py:138 return await tool_class(self.model, self.settings.language).call("],
+  ["agent_tools", "db_data", "platform/reworkd_platform/web/api/agent/tools/sidsearch.py:103 installation = await oauth_crud.get_installation_by_user_id("],
+  ["oauth_service", "db_data", "platform/reworkd_platform/services/oauth_installers.py:50 installation = await self.crud.get_installation_by_user_id("],
+  ["db_data", "db_infra", "platform/reworkd_platform/db/crud/oauth.py:18 session: AsyncSession = Depends(get_db_session),"],
+  ["db_infra", "ext:mysql", "platform/reworkd_platform/db/utils.py:17 return create_async_engine("],
+  ["agent_service", "ext:openai", "platform/reworkd_platform/web/api/agent/model_factory.py:44 \"openai_api_base\": base,"],
+  ["agent_tools", "ext:openai", "platform/reworkd_platform/web/api/agent/tools/image.py:37 response = openai.Image.create("],
+  ["agent_tools", "ext:serper", "platform/reworkd_platform/web/api/agent/tools/search.py:35 f\"https://google.serper.dev/{search_type}\", headers=headers, params=params"],
+  ["agent_tools", "ext:sid", "platform/reworkd_platform/web/api/agent/tools/sidsearch.py:29 \"https://api.sid.ai/v1/users/me/query\","],
+  ["agent_tools", "ext:replicate", "platform/reworkd_platform/web/api/agent/tools/image.py:19 client = replicate.Client(settings.replicate_api_key)"],
+  ["oauth_service", "ext:sid", "platform/reworkd_platform/services/oauth_installers.py:85 \"https://auth.sid.ai/oauth/token\","]
+ ],
+ "acceptable": [
+  ["startup", "db_infra", "wiring", "platform/reworkd_platform/web/lifetime.py:22 engine = create_engine()"],
+  ["startup", "db_data", "wiring", "platform/reworkd_platform/web/lifetime.py:33 load_all_models()"],
+  ["api", "db_infra", "pass", "platform/reworkd_platform/web/api/agent/dependancies.py:28 session: AsyncSession = Depends(get_db_session),"],
+  ["agent_service", "db_data", "pass", "platform/reworkd_platform/web/api/agent/agent_service/agent_service_provider.py:31 oauth_crud: OAuthCrud = Depends(OAuthCrud.inject),"],
+  ["agent_service", "api", "check", "platform/reworkd_platform/web/api/agent/agent_service/agent_service_provider.py:29 user: UserBase = Depends(get_current_user),"],
+  ["db_data", "api", "check", "platform/reworkd_platform/db/crud/organization.py:39 user: UserBase = Depends(get_current_user),"],
+  ["api", "ext:web", "hand"],
+  ["api", "agent_tools"]
+ ]
+}

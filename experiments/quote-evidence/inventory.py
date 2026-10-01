@@ -9,22 +9,25 @@ import re
 import sys
 from pathlib import Path
 
-# Directory names skipped anywhere in the path: tooling, dependencies, tests, migrations.
-EXCLUDED_DIRS = {".git", "node_modules", "venv", ".venv", "env", "__pycache__", "build", "dist",
-                 "site-packages", "tests", "test", "testing", "migrations", "alembic", "docs", "examples"}
-# Scripts and seed data start side flows (create the first user, send reminders): in scope only when they
-# import the repository's own code; a script that imports nothing of the repository is a separate tool.
-SIDE_DIRS = {"scripts", "seeds"}
+# Directory names skipped anywhere in the path: dependencies, caches, tests, database migrations. A directory
+# holding pyvenv.cfg is a virtual environment, whatever its name.
+EXCLUDED_DIRS = {".git", "node_modules", "__pycache__", "site-packages", "tests", "test", "migrations", "alembic"}
+# Names that usually hold no application code but sometimes do (an app in build/ or env/): a file there is in scope
+# only when it imports the repository's own code. Scripts and seed data start side flows (create the first user,
+# send reminders) under the same rule; a script that imports nothing of the repository is a separate tool.
+SIDE_DIRS = {"scripts", "seeds", "env", "venv", "build", "dist", "docs", "examples", "testing"}
 IMPORT_LINE = re.compile(r"^\s*(?:from\s+(\.*)([\w.]*)\s+import|import\s+([\w.]+))", re.M)
 TEST_FILE = re.compile(r"(^test_.*|.*_test|^conftest)\.py$")
 LANGUAGES = {".py": "python"}          # add ".ts": "typescript" etc. when an indexer exists
 
 
-def excluded_reason(rel: str) -> str | None:
+def excluded_reason(rel: str, root: Path | None = None) -> str | None:
     parts = rel.split("/")
-    for part in parts[:-1]:
+    for i, part in enumerate(parts[:-1]):
         if part in EXCLUDED_DIRS or part.startswith("."):
             return "dir:" + part
+        if root is not None and (root / "/".join(parts[:i + 1]) / "pyvenv.cfg").exists():
+            return "venv:" + part
     if TEST_FILE.match(parts[-1]):
         return "test_file"
     return None
@@ -52,7 +55,7 @@ def scan(root: Path) -> dict:
         files[rel] = {"sha256": hashlib.sha256(raw).hexdigest(), "bytes": len(raw)}
         if path.suffix not in LANGUAGES:
             continue
-        reason = excluded_reason(rel)
+        reason = excluded_reason(rel, root)
         if reason:
             key = reason.split(":")[0] + ":" + reason.split(":")[-1]
             excluded[key] = excluded.get(key, 0) + 1

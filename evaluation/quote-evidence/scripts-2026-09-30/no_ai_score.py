@@ -12,7 +12,8 @@ import ai7, calls, evaluate, flow, graph, inventory, pyindex  # noqa: E402
 REPOS = [("rhoboro", "rhoboro-async-fastapi-sqlalchemy"), ("fullstack", "full-stack-fastapi-template"),
          ("realworld", "fastapi-realworld"), ("teamhide", "teamhide-fastapi-boilerplate"),
          ("boilerplate", "fastapi-boilerplate"), ("kibo", "kibo-backend"), ("lnbits", "lnbits"),
-         ("fba", "fastapi-best-architecture")]
+         ("fba", "fastapi-best-architecture"),
+         ("tdd-docker", "fastapi-tdd-docker"), ("agentgpt", "agentgpt")]
 
 
 class Nothing:

@@ -1,0 +1,532 @@
+{
+  "meta": {
+    "repo": "rhoboro_async-fastapi-sqlalchemy-6c08827",
+    "pipeline": "v9",
+    "model": "openai/gpt-oss-120b",
+    "issues": [],
+    "status": "complete",
+    "files": 15,
+    "tokens": 10254,
+    "usd": 0.0023,
+    "requests": 5,
+    "cached": 0,
+    "tokens_by_step": {
+      "sum": 6456,
+      "assemble": 1539,
+      "libs": 657,
+      "name": 970,
+      "refine": 632
+    },
+    "timing_s": 38.1,
+    "calls": [
+      {
+        "at": "2026-10-01T10:21:47",
+        "step": "libs-1",
+        "status": 200,
+        "seconds": 13.45,
+        "estimated": 4714,
+        "prompt_tokens": 427,
+        "completion_tokens": 230,
+        "reasoning_tokens": 94,
+        "total_tokens": 657,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 5.4899e-05
+      },
+      {
+        "at": "2026-10-01T10:21:55",
+        "step": "sum-1",
+        "status": 200,
+        "seconds": 7.42,
+        "estimated": 12899,
+        "prompt_tokens": 5534,
+        "completion_tokens": 922,
+        "reasoning_tokens": 168,
+        "total_tokens": 6456,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.0013833
+      },
+      {
+        "at": "2026-10-01T10:22:00",
+        "step": "assemble-1",
+        "status": 200,
+        "seconds": 4.99,
+        "estimated": 5839,
+        "prompt_tokens": 984,
+        "completion_tokens": 555,
+        "reasoning_tokens": 364,
+        "total_tokens": 1539,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.00051177
+      },
+      {
+        "at": "2026-10-01T10:22:08",
+        "step": "refine-1",
+        "status": 200,
+        "seconds": 8.74,
+        "estimated": 4712,
+        "prompt_tokens": 496,
+        "completion_tokens": 136,
+        "reasoning_tokens": 51,
+        "total_tokens": 632,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 4.1472e-05
+      },
+      {
+        "at": "2026-10-01T10:22:12",
+        "step": "name-1",
+        "status": 200,
+        "seconds": 3.38,
+        "estimated": 32000,
+        "prompt_tokens": 624,
+        "completion_tokens": 346,
+        "reasoning_tokens": 26,
+        "total_tokens": 970,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.00031902
+      }
+    ],
+    "libraries": [
+      {
+        "library": "fastapi",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "pydantic",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "pydantic_settings",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "sqlalchemy",
+        "role": "database",
+        "opens": [
+          "async_sessionmaker",
+          "create_async_engine"
+        ]
+      },
+      {
+        "library": "uvicorn",
+        "role": "none",
+        "opens": []
+      }
+    ],
+    "units": {
+      "U1": [
+        "app/main.py"
+      ],
+      "U2": [
+        "app/api/main.py",
+        "app/api/notebooks/views.py"
+      ],
+      "U3": [
+        "app/api/notes/views.py"
+      ],
+      "U4": [
+        "app/api/notebooks/use_cases.py"
+      ],
+      "U5": [
+        "app/api/notes/use_cases.py"
+      ],
+      "U6": [
+        "app/models/notebooks.py",
+        "app/models/notes.py"
+      ],
+      "U7": [
+        "app/db.py"
+      ],
+      "U8": [
+        "app/api/notebooks/schema.py"
+      ],
+      "U9": [
+        "app/api/notes/schema.py",
+        "app/models/schema.py"
+      ],
+      "U10": [
+        "app/models/__init__.py"
+      ],
+      "U11": [
+        "app/models/base.py"
+      ],
+      "U12": [
+        "app/settings.py"
+      ]
+    },
+    "refine": [
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "app/api/notebooks/use_cases.py",
+        "block": null,
+        "from": "service_notebook_note",
+        "action": "apply",
+        "target": "data_models",
+        "reason": {
+          "file": "app/api/notebooks/use_cases.py",
+          "line": 13,
+          "text": "async def execute(self, title: str, notes: list[int]) -> NotebookSchema:"
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "app/api/notes/use_cases.py",
+        "block": null,
+        "from": "service_notebook_note",
+        "action": "apply",
+        "target": "data_models",
+        "reason": {
+          "file": "app/api/notes/use_cases.py",
+          "line": 14,
+          "text": "async with self.async_session.begin() as session:"
+        }
+      }
+    ],
+    "edge_check": []
+  },
+  "components": [
+    {
+      "id": "C1",
+      "key": "entry_app",
+      "name": "Khởi tạo FastAPI",
+      "layer": "entry",
+      "role": "Tạo đối tượng FastAPI và gắn router API vào.",
+      "role_quote": {
+        "file": "app/main.py",
+        "line": 6,
+        "text": "app = FastAPI(title=\"async-fastapi-sqlalchemy\")"
+      },
+      "shared": false,
+      "files": [
+        "app/main.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C2",
+      "key": "api_routes",
+      "name": "Định nghĩa router API",
+      "layer": "api",
+      "role": "Khai báo các endpoint cho notebooks và notes, và kết nối các router con.",
+      "role_quote": {
+        "file": "app/api/main.py",
+        "line": 7,
+        "text": "router.include_router(notes_router)"
+      },
+      "shared": false,
+      "files": [
+        "app/api/main.py",
+        "app/api/notebooks/views.py",
+        "app/api/notes/views.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C3",
+      "key": "data_models",
+      "name": "Định nghĩa mô hình dữ liệu",
+      "layer": "data",
+      "role": "Mô tả các bảng Notebook và Note, và cung cấp use‑case truy cập DB.",
+      "role_quote": {
+        "file": "app/models/notebooks.py",
+        "line": 15,
+        "text": "class Notebook(Base):"
+      },
+      "shared": false,
+      "files": [
+        "app/models/notebooks.py",
+        "app/models/notes.py",
+        "app/api/notebooks/use_cases.py",
+        "app/api/notes/use_cases.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C4",
+      "key": "infra_database",
+      "name": "Cấu hình database async",
+      "layer": "infra",
+      "role": "Tạo engine async và session để tương tác với cơ sở dữ liệu.",
+      "role_quote": {
+        "file": "app/db.py",
+        "line": 12,
+        "text": "async_engine = create_async_engine("
+      },
+      "shared": false,
+      "files": [
+        "app/db.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C5",
+      "key": "shared",
+      "name": "Dùng chung",
+      "layer": "shared",
+      "role": "",
+      "role_quote": null,
+      "shared": true,
+      "files": [
+        "app/api/notebooks/schema.py",
+        "app/api/notes/schema.py",
+        "app/models/__init__.py",
+        "app/models/base.py",
+        "app/models/schema.py",
+        "app/settings.py"
+      ],
+      "described": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "E1",
+      "source": "C2",
+      "target": "C3",
+      "label": "gọi use‑case dữ liệu",
+      "quote": {
+        "file": "app/api/notebooks/views.py",
+        "line": 22,
+        "text": "use_case: CreateNotebook = Depends(CreateNotebook),"
+      }
+    },
+    {
+      "id": "E2",
+      "source": "C3",
+      "target": "C4",
+      "label": "sử dụng session DB",
+      "quote": {
+        "file": "app/api/notebooks/use_cases.py",
+        "line": 58,
+        "text": "await session.refresh(notebook)"
+      }
+    },
+    {
+      "id": "E3",
+      "source": "C1",
+      "target": "C2",
+      "label": "gắn router API",
+      "quote": {
+        "file": "app/main.py",
+        "line": 8,
+        "text": "app.include_router(api_router, prefix=\"/api\")"
+      }
+    }
+  ],
+  "externals": [
+    {
+      "id": "X1",
+      "name": "Database",
+      "kind": "database",
+      "edges": [
+        {
+          "source": "C4",
+          "label": "truy vấn",
+          "quote": {
+            "file": "app/db.py",
+            "line": 17,
+            "text": "AsyncSessionLocal = async_sessionmaker("
+          }
+        }
+      ]
+    }
+  ],
+  "quotes": {
+    "returned": 4,
+    "valid": 4
+  },
+  "rejected": [],
+  "issues": [],
+  "file_lines": {
+    "app/api/main.py": 8,
+    "app/api/notebooks/schema.py": 29,
+    "app/api/notebooks/use_cases.py": 71,
+    "app/api/notebooks/views.py": 65,
+    "app/api/notes/schema.py": 31,
+    "app/api/notes/use_cases.py": 76,
+    "app/api/notes/views.py": 63,
+    "app/db.py": 31,
+    "app/main.py": 19,
+    "app/models/__init__.py": 4,
+    "app/models/base.py": 23,
+    "app/models/notebooks.py": 70,
+    "app/models/notes.py": 83,
+    "app/models/schema.py": 19,
+    "app/settings.py": 17
+  },
+  "summaries": {
+    "app/settings.py": {
+      "summary": "Loads configuration values from environment files into a Settings object.",
+      "layer": "shared",
+      "quote": {
+        "file": "app/settings.py",
+        "line": 8,
+        "text": "DB_URI: str"
+      }
+    },
+    "app/models/__init__.py": {
+      "summary": "Exports ORM models and their Pydantic schemas for convenient imports.",
+      "layer": "shared",
+      "quote": {
+        "file": "app/models/__init__.py",
+        "line": 1,
+        "text": "from .base import Base"
+      }
+    },
+    "app/api/notes/schema.py": {
+      "summary": "Defines request and response Pydantic models for the notes API endpoints.",
+      "layer": "shared",
+      "quote": {
+        "file": "app/api/notes/schema.py",
+        "line": 6,
+        "text": "class CreateNoteRequest(BaseModel):"
+      }
+    },
+    "app/api/notes/use_cases.py": {
+      "summary": "Implements business‑logic operations for creating, reading, updating and deleting notes.",
+      "layer": "service",
+      "quote": {
+        "file": "app/api/notes/use_cases.py",
+        "line": 14,
+        "text": "async with self.async_session.begin() as session:"
+      }
+    },
+    "app/api/notes/views.py": {
+      "summary": "Exposes FastAPI routes for note CRUD operations and delegates to use‑case classes.",
+      "layer": "api",
+      "quote": {
+        "file": "app/api/notes/views.py",
+        "line": 18,
+        "text": "@router.post(\"\", response_model=CreateNoteResponse)"
+      }
+    },
+    "app/models/schema.py": {
+      "summary": "Provides Pydantic schemas that represent Note and Notebook entities for API responses.",
+      "layer": "shared",
+      "quote": {
+        "file": "app/models/schema.py",
+        "line": 4,
+        "text": "class NoteSchema(BaseModel):"
+      }
+    },
+    "app/api/main.py": {
+      "summary": "Aggregates the notes and notebooks routers into a single API router.",
+      "layer": "api",
+      "quote": {
+        "file": "app/api/main.py",
+        "line": 7,
+        "text": "router.include_router(notes_router)"
+      }
+    },
+    "app/api/notebooks/schema.py": {
+      "summary": "Defines request and response Pydantic models for the notebooks API endpoints.",
+      "layer": "shared",
+      "quote": {
+        "file": "app/api/notebooks/schema.py",
+        "line": 6,
+        "text": "class CreateNotebookRequest(BaseModel):"
+      }
+    },
+    "app/api/notebooks/views.py": {
+      "summary": "Exposes FastAPI routes for notebook CRUD operations and delegates to use‑case classes.",
+      "layer": "api",
+      "quote": {
+        "file": "app/api/notebooks/views.py",
+        "line": 18,
+        "text": "@router.post(\"\", response_model=CreateNotebookResponse)"
+      }
+    },
+    "app/main.py": {
+      "summary": "Creates the FastAPI application, includes the API router, and provides a health check endpoint.",
+      "layer": "entry",
+      "quote": {
+        "file": "app/main.py",
+        "line": 6,
+        "text": "app = FastAPI(title=\"async-fastapi-sqlalchemy\")"
+      }
+    },
+    "app/api/notebooks/use_cases.py": {
+      "summary": "Implements business‑logic operations for creating, reading, updating and deleting notebooks.",
+      "layer": "service",
+      "quote": {
+        "file": "app/api/notebooks/use_cases.py",
+        "line": 13,
+        "text": "async def execute(self, title: str, notes: list[int]) -> NotebookSchema:"
+      }
+    },
+    "app/db.py": {
+      "summary": "Configures the asynchronous SQLAlchemy engine, session factory and FastAPI dependency for DB access.",
+      "layer": "infra",
+      "quote": {
+        "file": "app/db.py",
+        "line": 12,
+        "text": "async_engine = create_async_engine("
+      }
+    },
+    "app/models/base.py": {
+      "summary": "Defines a declarative base class with naming conventions for all ORM models.",
+      "layer": "shared",
+      "quote": {
+        "file": "app/models/base.py",
+        "line": 13,
+        "text": "class Base(DeclarativeBase):"
+      }
+    },
+    "app/models/notebooks.py": {
+      "summary": "Maps the Notebook table, its relationships and provides CRUD helper class methods.",
+      "layer": "data",
+      "quote": {
+        "file": "app/models/notebooks.py",
+        "line": 15,
+        "text": "class Notebook(Base):"
+      }
+    },
+    "app/models/notes.py": {
+      "summary": "Maps the Note table, its relationships and provides CRUD helper class methods.",
+      "layer": "data",
+      "quote": {
+        "file": "app/models/notes.py",
+        "line": 16,
+        "text": "class Note(Base):"
+      }
+    }
+  },
+  "snapshot": {
+    "app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/api/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/api/main.py": "b37e6057071bcd2b405629174df42f3afc96816ceb1bf1a5a5f222a416bbd049",
+    "app/api/notebooks/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/api/notebooks/schema.py": "5a15230c2087a98229a7b51ba3edddd4cab45372c98b80952a5bb68a8ce939c1",
+    "app/api/notebooks/use_cases.py": "d8c6edcb496dadf7c93243c421416a94ef7cbd29898b5ce4dbf8acf54e5de8da",
+    "app/api/notebooks/views.py": "940b8367d388d73d198e3495afb0117ff3c25486498e5d391b35eabbe0b2a3b9",
+    "app/api/notes/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "app/api/notes/schema.py": "0e87f0da13e5a0ca4453185eb0bf480ce9023eea662cfc068305f8fec49b2438",
+    "app/api/notes/use_cases.py": "97e62a74f18d55d74060bee942482d29f4646963ea8ed347fae8e711812259e1",
+    "app/api/notes/views.py": "827d7010fc244ab95786d3174d3e5efd3651af417cf148f07a392ef134c077cc",
+    "app/db.py": "ce6ba97c124c6eb2c6b9f0875b733e52d787b2ea6889d1e6651d68be60566687",
+    "app/main.py": "4ef09bb31843af13d3fbefc05250eb9293c40ee632fd8ac62b663831f3d25b35",
+    "app/models/__init__.py": "129c8edfd0f15eb1c562495aecdb83d4029378e3d2dcfd1cbf63f58ea32c6439",
+    "app/models/base.py": "3e5cfcace1768331f77c80b8c0e2784fc476e8a6329d0b7bced3eb27b080c279",
+    "app/models/notebooks.py": "ab5c89b9b018efd0c8a238a661abb3744527ee447ccc5fe32e74b23c11ef3025",
+    "app/models/notes.py": "99a1f760c8867f86fbbb33a84bb4d5f94b65b965c31a38814d54a03043036321",
+    "app/models/schema.py": "82b39123b635e423449dcf194e6af946182a583c4a398f432b268fdb12cd29d9",
+    "app/settings.py": "707e8f9a086ab902ab496261ed16467cdb7d2c1078e3aac148eec8bd63d3575f"
+  },
+  "excluded": {
+    "dir:tests": 9,
+    "dir:migrations": 3
+  }
+}

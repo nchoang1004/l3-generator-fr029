@@ -1,0 +1,53 @@
+flowchart LR
+  C1["Khởi tạo ứng dụng FastAPI"]
+  C2["Xác thực API và giới hạn tốc độ"]
+  C3["Xử lý nghiệp vụ người dùng"]
+  C4["Quản lý tier"]
+  C5["Triển khai tính năng CLI"]
+  C6["Quản lý khóa API"]
+  C7["Khởi tạo mô-đun dữ liệu"]
+  C8["Cấu hình hạ tầng"]
+  C9["Định danh người dùng"]
+  C10["Chính sách mật khẩu"]
+  C11["Cache hạ tầng"]
+  C12["Kiểm tra backend cache"]
+  C13["Cơ sở dữ liệu & logging"]
+  C14["Cấu hình logging"]
+  C15["TaskIQ broker"]
+  C16["Khám phá plugin CLI"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C17["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+    X2(["OAuth xác thực người dùng"])
+    X3(["OAuth chính sách mật khẩu"])
+    X4(["OAuth xác thực bên ngoài"])
+    X5(["OAuth dịch vụ xác thực"])
+    X6(["Memcached"])
+    X7(["Redis"])
+    X8(["Message broker"])
+    X9(["OAuth tạo mật khẩu băm"])
+  end
+  C2 -->|"lấy dữ liệu rate‑limit"| C6
+  C2 -->|"đăng nhập và ghi log"| C13
+  C6 -->|"sử dụng cấu hình rate‑limit"| C13
+  C1 -->|"hủy engine taskiq"| C13
+  C1 -->|"khám phá plugin lệnh"| C16
+  C1 -->|"cài đặt tính năng"| C5
+  C11 -->|"gọi logger, ghi cảnh báo"| C13
+  C3 -->|"kiểm tra tier tồn tại"| C6
+  C3 -->|"ghi log bảo mật"| C13
+  C4 -->|"kiểm tra rate‑limit tier"| C6
+  C13 -.->|"truy vấn"| X1
+  C6 -.->|"truy vấn"| X1
+  C6 -.->|"đăng nhập"| X2
+  C10 -.->|"đăng nhập"| X3
+  C2 -.->|"đăng nhập"| X4
+  C13 -.->|"đăng nhập"| X5
+  C11 -.->|"đọc ghi"| X6
+  C11 -.->|"đọc ghi"| X7
+  C13 -.->|"đọc ghi"| X7
+  C11 -.->|"gửi tác vụ"| X8
+  C13 -.->|"gửi tác vụ"| X8
+  C3 -.->|"đăng nhập"| X9

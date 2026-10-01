@@ -1,0 +1,3037 @@
+{
+  "meta": {
+    "repo": "fastapi-boilerplate",
+    "pipeline": "v9",
+    "model": "openai/gpt-oss-120b",
+    "issues": [
+      "assemble: 26 units left out, each made a block"
+    ],
+    "status": "partial",
+    "files": 103,
+    "tokens": 100855,
+    "usd": 0.0072,
+    "requests": 19,
+    "cached": 0,
+    "tokens_by_step": {
+      "name": 4831,
+      "edges": 984,
+      "refine": 7852,
+      "libs": 1693,
+      "assemble": 4360,
+      "sum": 81135
+    },
+    "timing_s": 774.5,
+    "calls": [
+      {
+        "at": "2026-10-01T10:21:39",
+        "step": "libs-1",
+        "status": 200,
+        "seconds": 5.4,
+        "estimated": 5801,
+        "prompt_tokens": 873,
+        "completion_tokens": 820,
+        "reasoning_tokens": 375,
+        "total_tokens": 1693,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000185641
+      },
+      {
+        "at": "2026-10-01T10:23:02",
+        "step": "sum-1",
+        "status": 200,
+        "seconds": 82.79,
+        "estimated": 18961,
+        "prompt_tokens": 9217,
+        "completion_tokens": 1533,
+        "reasoning_tokens": 427,
+        "total_tokens": 10750,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000601639
+      },
+      {
+        "at": "2026-10-01T10:23:35",
+        "step": "sum-2",
+        "status": 200,
+        "seconds": 32.87,
+        "estimated": 18007,
+        "prompt_tokens": 9280,
+        "completion_tokens": 585,
+        "reasoning_tokens": 188,
+        "total_tokens": 9865,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.00044281
+      },
+      {
+        "at": "2026-10-01T10:24:20",
+        "step": "sum-3",
+        "status": 200,
+        "seconds": 45.25,
+        "estimated": 18972,
+        "prompt_tokens": 9132,
+        "completion_tokens": 727,
+        "reasoning_tokens": 42,
+        "total_tokens": 9859,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.00040482
+      },
+      {
+        "at": "2026-10-01T10:25:34",
+        "step": "sum-4",
+        "status": 200,
+        "seconds": 73.06,
+        "estimated": 19965,
+        "prompt_tokens": 10112,
+        "completion_tokens": 1354,
+        "reasoning_tokens": 283,
+        "total_tokens": 11466,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000604324
+      },
+      {
+        "at": "2026-10-01T10:25:43",
+        "step": "sum-5",
+        "status": 200,
+        "seconds": 9.91,
+        "estimated": 19250,
+        "prompt_tokens": 9940,
+        "completion_tokens": 675,
+        "reasoning_tokens": 21,
+        "total_tokens": 10615,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000494005
+      },
+      {
+        "at": "2026-10-01T10:25:56",
+        "step": "sum-6",
+        "status": 200,
+        "seconds": 12.19,
+        "estimated": 18551,
+        "prompt_tokens": 9923,
+        "completion_tokens": 587,
+        "reasoning_tokens": 0,
+        "total_tokens": 10510,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.00039748
+      },
+      {
+        "at": "2026-10-01T10:26:02",
+        "step": "sum-7",
+        "status": 200,
+        "seconds": 6.11,
+        "estimated": 18941,
+        "prompt_tokens": 10049,
+        "completion_tokens": 1007,
+        "reasoning_tokens": 0,
+        "total_tokens": 11056,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.0015084
+      },
+      {
+        "at": "2026-10-01T10:26:49",
+        "step": "sum-8",
+        "status": 200,
+        "seconds": 47.24,
+        "estimated": 13414,
+        "prompt_tokens": 6256,
+        "completion_tokens": 758,
+        "reasoning_tokens": 240,
+        "total_tokens": 7014,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000360332
+      },
+      {
+        "at": "2026-10-01T10:26:55",
+        "step": "assemble-1",
+        "status": 200,
+        "seconds": 6.3,
+        "estimated": 11129,
+        "prompt_tokens": 4154,
+        "completion_tokens": 206,
+        "reasoning_tokens": 0,
+        "total_tokens": 4360,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.00015964
+      },
+      {
+        "at": "2026-10-01T10:27:45",
+        "step": "refine-1",
+        "status": 200,
+        "seconds": 49.82,
+        "estimated": 7479,
+        "prompt_tokens": 1987,
+        "completion_tokens": 794,
+        "reasoning_tokens": 453,
+        "total_tokens": 2781,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000208499
+      },
+      {
+        "at": "2026-10-01T10:27:51",
+        "step": "refine-2",
+        "status": 200,
+        "seconds": 6.23,
+        "estimated": 6932,
+        "prompt_tokens": 2002,
+        "completion_tokens": 958,
+        "reasoning_tokens": 0,
+        "total_tokens": 2960,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.0006792
+      },
+      {
+        "at": "2026-10-01T10:27:54",
+        "step": "refine-3",
+        "status": 200,
+        "seconds": 3.03,
+        "estimated": 6039,
+        "prompt_tokens": 1278,
+        "completion_tokens": 833,
+        "reasoning_tokens": 521,
+        "total_tokens": 2111,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.0006915
+      },
+      {
+        "at": "2026-10-01T10:28:11",
+        "step": "edges-1",
+        "status": 200,
+        "seconds": 17.06,
+        "estimated": 32000,
+        "prompt_tokens": 693,
+        "completion_tokens": 291,
+        "reasoning_tokens": 167,
+        "total_tokens": 984,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 7.5111e-05
+      },
+      {
+        "at": "2026-10-01T10:33:33",
+        "step": "name-1",
+        "status": 0,
+        "seconds": 321.75,
+        "estimated": 32000,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "reasoning_tokens": 0,
+        "total_tokens": 0,
+        "error": "network: The read operation timed out",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0
+      },
+      {
+        "at": "2026-10-01T10:34:01",
+        "step": "name-1",
+        "status": 200,
+        "seconds": 7.51,
+        "estimated": 32000,
+        "prompt_tokens": 1317,
+        "completion_tokens": 707,
+        "reasoning_tokens": 0,
+        "total_tokens": 2024,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000180938
+      },
+      {
+        "at": "2026-10-01T10:34:22",
+        "step": "name-2",
+        "status": 200,
+        "seconds": 20.98,
+        "estimated": 32000,
+        "prompt_tokens": 711,
+        "completion_tokens": 406,
+        "reasoning_tokens": 21,
+        "total_tokens": 1117,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 9.5327e-05
+      },
+      {
+        "at": "2026-10-01T10:34:25",
+        "step": "name-3",
+        "status": 200,
+        "seconds": 2.9,
+        "estimated": 32000,
+        "prompt_tokens": 795,
+        "completion_tokens": 394,
+        "reasoning_tokens": 0,
+        "total_tokens": 1189,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.000103093
+      },
+      {
+        "at": "2026-10-01T10:34:28",
+        "step": "name-4",
+        "status": 200,
+        "seconds": 3.38,
+        "estimated": 32000,
+        "prompt_tokens": 421,
+        "completion_tokens": 80,
+        "reasoning_tokens": 0,
+        "total_tokens": 501,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 2.623e-05
+      }
+    ],
+    "libraries": [
+      {
+        "library": "aiomcache",
+        "role": "memcached",
+        "opens": [
+          "Client"
+        ]
+      },
+      {
+        "library": "anyio",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "crudauth",
+        "role": "oauth",
+        "opens": []
+      },
+      {
+        "library": "fastapi",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "fastcrud",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "infrastructure",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "jinja2",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "pydantic",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "pydantic_settings",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "redis",
+        "role": "redis",
+        "opens": [
+          "Redis"
+        ]
+      },
+      {
+        "library": "sqladmin",
+        "role": "admin",
+        "opens": []
+      },
+      {
+        "library": "sqlalchemy",
+        "role": "database",
+        "opens": []
+      },
+      {
+        "library": "starlette",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "taskiq",
+        "role": "broker",
+        "opens": []
+      },
+      {
+        "library": "taskiq_aio_pika",
+        "role": "broker",
+        "opens": [
+          "AioPikaBroker"
+        ]
+      },
+      {
+        "library": "taskiq_redis",
+        "role": "broker",
+        "opens": [
+          "ListQueueBroker",
+          "RedisAsyncResultBackend"
+        ]
+      },
+      {
+        "library": "typer",
+        "role": "cli",
+        "opens": []
+      },
+      {
+        "library": "urllib",
+        "role": "none",
+        "opens": []
+      }
+    ],
+    "units": {
+      "U1": [
+        "backend/scripts/create_first_superuser.py",
+        "backend/scripts/create_first_tier.py",
+        "backend/scripts/setup_initial_data.py"
+      ],
+      "U2": [
+        "backend/scripts/create_tables.py",
+        "backend/src/infrastructure/cache/initialize.py",
+        "backend/src/infrastructure/logging/config.py",
+        "backend/src/infrastructure/taskiq/app.py",
+        "backend/src/infrastructure/taskiq/worker.py"
+      ],
+      "U3": [
+        "backend/src/infrastructure/app_factory.py"
+      ],
+      "U4": [
+        "cli/src/cli/app.py",
+        "cli/src/cli/commands/deploy.py",
+        "cli/src/cli/commands/env.py"
+      ],
+      "U5": [
+        "backend/src/infrastructure/auth/routes.py",
+        "backend/src/interfaces/api/__init__.py",
+        "backend/src/interfaces/api/v1/__init__.py",
+        "backend/src/modules/user/routes.py"
+      ],
+      "U6": [
+        "backend/src/interfaces/admin/auth.py",
+        "backend/src/interfaces/main.py"
+      ],
+      "U7": [
+        "backend/src/interfaces/admin/initialize.py"
+      ],
+      "U8": [
+        "backend/src/interfaces/admin/views/tiers.py",
+        "backend/src/modules/api_keys/dependencies.py",
+        "backend/src/modules/api_keys/routes.py",
+        "backend/src/modules/tier/routes.py"
+      ],
+      "U9": [
+        "backend/src/modules/rate_limit/dependencies.py",
+        "backend/src/modules/rate_limit/routes.py"
+      ],
+      "U10": [
+        "backend/src/infrastructure/cache/decorator.py",
+        "backend/src/infrastructure/cache/provider.py",
+        "backend/src/infrastructure/security/production_validator.py"
+      ],
+      "U11": [
+        "backend/src/infrastructure/taskiq/registry.py"
+      ],
+      "U12": [
+        "backend/src/interfaces/admin/views/users.py",
+        "backend/src/modules/user/service.py"
+      ],
+      "U13": [
+        "backend/src/modules/api_keys/service.py"
+      ],
+      "U14": [
+        "backend/src/modules/rate_limit/service.py"
+      ],
+      "U15": [
+        "backend/src/modules/tier/service.py"
+      ],
+      "U16": [
+        "cli/src/cli/features/_builtins/deploy/feature.py",
+        "cli/src/cli/features/installer.py"
+      ],
+      "U17": [
+        "backend/src/infrastructure/database/models.py",
+        "backend/src/modules/api_keys/crud.py",
+        "backend/src/modules/api_keys/models.py",
+        "backend/src/modules/rate_limit/crud.py",
+        "backend/src/modules/rate_limit/models.py",
+        "backend/src/modules/tier/crud.py",
+        "backend/src/modules/tier/models.py",
+        "backend/src/modules/user/crud.py",
+        "backend/src/modules/user/models.py",
+        "backend/src/interfaces/admin/views/tiers.py",
+        "backend/src/modules/rate_limit/service.py",
+        "backend/src/infrastructure/auth/dependencies.py"
+      ],
+      "U18": [
+        "backend/src/modules/__init__.py"
+      ],
+      "U19": [
+        "backend/src/infrastructure/__init__.py"
+      ],
+      "U20": [
+        "backend/src/infrastructure/auth/__init__.py"
+      ],
+      "U21": [
+        "backend/src/infrastructure/auth/password_policy.py"
+      ],
+      "U22": [
+        "backend/src/infrastructure/cache/__init__.py",
+        "backend/src/infrastructure/cache/backends/memcached.py",
+        "backend/src/infrastructure/cache/backends/redis.py",
+        "backend/src/infrastructure/logging/formatters.py",
+        "backend/src/infrastructure/logging/handlers.py",
+        "backend/src/infrastructure/taskiq/brokers.py",
+        "backend/src/infrastructure/cache/initialize.py",
+        "backend/src/infrastructure/logging/config.py",
+        "backend/src/infrastructure/cache/decorator.py",
+        "backend/src/infrastructure/cache/provider.py"
+      ],
+      "U23": [
+        "backend/src/infrastructure/cache/backends/__init__.py"
+      ],
+      "U24": [
+        "backend/src/infrastructure/database/session.py",
+        "backend/src/infrastructure/redis.py",
+        "backend/src/infrastructure/taskiq/deps.py",
+        "backend/scripts/create_first_superuser.py",
+        "backend/scripts/create_first_tier.py",
+        "backend/scripts/setup_initial_data.py",
+        "backend/src/infrastructure/database/initialize.py",
+        "backend/src/infrastructure/logging/factory.py",
+        "backend/src/modules/api_keys/service.py",
+        "backend/scripts/create_tables.py",
+        "backend/src/interfaces/admin/initialize.py",
+        "backend/src/infrastructure/auth/setup.py"
+      ],
+      "U25": [
+        "backend/src/infrastructure/logging/__init__.py"
+      ],
+      "U26": [
+        "backend/src/infrastructure/taskiq/__init__.py"
+      ],
+      "U27": [
+        "cli/src/cli/plugins.py"
+      ],
+      "U28": [
+        "backend/src/infrastructure/auth/http_exceptions.py",
+        "backend/src/infrastructure/middleware.py",
+        "backend/src/modules/common/constants.py",
+        "backend/src/modules/common/exceptions.py",
+        "backend/src/modules/common/utils/error_handler.py",
+        "backend/src/modules/rate_limit/schemas.py"
+      ],
+      "U29": [
+        "backend/src/infrastructure/cache/base.py",
+        "backend/src/infrastructure/cache/exceptions.py",
+        "backend/src/infrastructure/cache/utils.py",
+        "backend/src/infrastructure/config/enums.py",
+        "backend/src/infrastructure/config/settings.py",
+        "backend/src/modules/common/utils/logger.py"
+      ],
+      "U30": [
+        "backend/src/infrastructure/config/__init__.py"
+      ],
+      "U31": [
+        "backend/src/infrastructure/database/__init__.py",
+        "backend/src/infrastructure/dependencies.py",
+        "backend/src/interfaces/admin/mixins.py"
+      ],
+      "U32": [
+        "backend/src/infrastructure/security/__init__.py"
+      ],
+      "U33": [
+        "backend/src/interfaces/admin/views/__init__.py",
+        "backend/src/modules/user/constants.py",
+        "backend/src/modules/user/dependencies.py",
+        "backend/src/modules/user/enums.py",
+        "backend/src/modules/user/schemas.py"
+      ],
+      "U34": [
+        "backend/src/modules/api_keys/__init__.py"
+      ],
+      "U35": [
+        "backend/src/modules/api_keys/enums.py",
+        "backend/src/modules/api_keys/schemas.py",
+        "backend/src/modules/common/schemas.py",
+        "backend/src/modules/tier/dependencies.py",
+        "backend/src/modules/tier/schemas.py"
+      ],
+      "U36": [
+        "backend/src/modules/rate_limit/__init__.py"
+      ],
+      "U37": [
+        "backend/src/modules/tier/__init__.py"
+      ],
+      "U38": [
+        "backend/src/modules/user/__init__.py"
+      ],
+      "U39": [
+        "cli/src/cli/features/__init__.py"
+      ],
+      "U40": [
+        "cli/src/cli/features/base.py",
+        "cli/src/cli/features/registry.py",
+        "cli/src/cli/lib/project.py",
+        "cli/src/cli/lib/prompts.py",
+        "cli/src/cli/lib/render.py"
+      ]
+    },
+    "refine": [
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/src/modules/api_keys/service.py",
+        "block": null,
+        "from": "service_logic",
+        "action": "apply",
+        "target": "data_u17",
+        "reason": {
+          "file": "backend/src/modules/api_keys/service.py",
+          "line": 38,
+          "text": "class APIKeyService:"
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/scripts/create_first_superuser.py",
+        "block": null,
+        "from": "entry_scripts",
+        "action": "apply",
+        "target": "infra_u24",
+        "reason": {
+          "file": "backend/scripts/create_first_superuser.py",
+          "line": 71,
+          "text": "stmt = update(User).where(User.id == user_id).values(is_superuser=True)"
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/scripts/create_first_tier.py",
+        "block": null,
+        "from": "entry_scripts",
+        "action": "apply",
+        "target": "infra_u24",
+        "reason": {
+          "file": "backend/scripts/create_first_tier.py",
+          "line": 31,
+          "text": "query = select(Tier).where(Tier.name == tier_name)"
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/src/infrastructure/taskiq/deps.py",
+        "block": null,
+        "from": "infra_u24",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/infrastructure/taskiq/deps.py",
+          "line": 58,
+          "text": "DBSession = Annotated[AsyncSession, TaskiqDepends(get_db_session)]"
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/src/infrastructure/logging/factory.py",
+        "block": null,
+        "from": "infra_u22",
+        "action": "apply",
+        "target": "entry_scripts",
+        "reason": {
+          "file": "backend/src/infrastructure/logging/factory.py",
+          "line": 26,
+          "text": "def get_logger(name: str | None = None, **extra_context) -> logging.Logger | logging.LoggerAdapter:"
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/src/infrastructure/auth/setup.py",
+        "block": null,
+        "from": "infra_u21",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/infrastructure/auth/setup.py",
+          "line": 81,
+          "text": "auth = CRUDAuth("
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/src/infrastructure/cache/initialize.py",
+        "block": null,
+        "from": "entry_scripts",
+        "action": "apply",
+        "target": "infra_u22",
+        "reason": {
+          "file": "backend/src/infrastructure/cache/initialize.py",
+          "line": 16,
+          "text": "async def initialize_cache() -> None:"
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/src/interfaces/admin/initialize.py",
+        "block": null,
+        "from": "api_auth",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/interfaces/admin/initialize.py",
+          "line": 11,
+          "text": "def create_admin_interface(app) -> Admin | None:"
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/scripts/create_tables.py",
+        "block": null,
+        "from": "entry_scripts",
+        "action": "apply",
+        "target": "infra_u24",
+        "reason": {
+          "file": "backend/scripts/create_tables.py",
+          "line": 16,
+          "text": "async def main() -> None:"
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/src/infrastructure/logging/config.py",
+        "block": null,
+        "from": "entry_scripts",
+        "action": "apply",
+        "target": "infra_u22",
+        "reason": {
+          "file": "backend/src/infrastructure/logging/config.py",
+          "line": 30,
+          "text": "def setup_logging_configuration() -> None:"
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/src/modules/user/service.py",
+        "block": null,
+        "from": "service_logic",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/modules/user/service.py",
+          "line": 91,
+          "text": "user_internal_dict[\"hashed_password\"] = await get_password_hash_async(user_internal_dict[\"password\"])"
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/src/infrastructure/redis.py",
+        "block": null,
+        "from": "infra_u24",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/infrastructure/redis.py",
+          "line": 11,
+          "text": "return Redis("
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/src/interfaces/admin/views/tiers.py",
+        "block": null,
+        "from": "api_auth",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/interfaces/admin/views/tiers.py",
+          "line": 14,
+          "text": "class TierAdmin(DataclassModelMixin, ModelView, model=Tier):"
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/src/modules/rate_limit/service.py",
+        "block": null,
+        "from": "service_logic",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/modules/rate_limit/service.py",
+          "line": 27,
+          "text": "\"\"\"Service class for rate limit-related operations.\"\"\""
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/src/infrastructure/database/initialize.py",
+        "block": null,
+        "from": "infra_u24",
+        "action": "apply",
+        "target": "entry_scripts",
+        "reason": {
+          "file": "backend/src/infrastructure/database/initialize.py",
+          "line": 6,
+          "text": "async def close_database() -> None:"
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/src/infrastructure/cache/decorator.py",
+        "block": null,
+        "from": "service_logic",
+        "action": "apply",
+        "target": "infra_u22",
+        "reason": {
+          "file": "backend/src/infrastructure/cache/decorator.py",
+          "line": 34,
+          "text": "def cache("
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/scripts/setup_initial_data.py",
+        "block": null,
+        "from": "entry_scripts",
+        "action": "apply",
+        "target": "infra_u24",
+        "reason": {
+          "file": "backend/scripts/setup_initial_data.py",
+          "line": 17,
+          "text": "async def setup_initial_data() -> None:"
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/src/infrastructure/database/initialize.py",
+        "block": null,
+        "from": "entry_scripts",
+        "action": "apply",
+        "target": "infra_u24",
+        "reason": {
+          "file": "backend/src/infrastructure/database/initialize.py",
+          "line": 6,
+          "text": "async def close_database() -> None:"
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/src/infrastructure/auth/setup.py",
+        "block": null,
+        "from": "infra_u21",
+        "action": "apply",
+        "target": "data_u17",
+        "reason": {
+          "file": "backend/src/infrastructure/auth/setup.py",
+          "line": 81,
+          "text": "auth = CRUDAuth("
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/src/infrastructure/logging/factory.py",
+        "block": null,
+        "from": "entry_scripts",
+        "action": "apply",
+        "target": "infra_u24",
+        "reason": {
+          "file": "backend/src/infrastructure/logging/factory.py",
+          "line": 26,
+          "text": "def get_logger(name: str | None = None, **extra_context) -> logging.Logger | logging.LoggerAdapter:"
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/src/interfaces/admin/initialize.py",
+        "block": null,
+        "from": "api_auth",
+        "action": "apply",
+        "target": "data_u17",
+        "reason": {
+          "file": "backend/src/interfaces/admin/initialize.py",
+          "line": 11,
+          "text": "def create_admin_interface(app) -> Admin | None:"
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/src/infrastructure/taskiq/deps.py",
+        "block": null,
+        "from": "infra_u24",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/infrastructure/taskiq/deps.py",
+          "line": 58,
+          "text": "DBSession = Annotated[AsyncSession, TaskiqDepends(get_db_session)]"
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/src/infrastructure/cache/provider.py",
+        "block": null,
+        "from": "service_logic",
+        "action": "apply",
+        "target": "infra_u22",
+        "reason": {
+          "file": "backend/src/infrastructure/cache/provider.py",
+          "line": 8,
+          "text": "\"\"\"Provider for cache backends."
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/src/interfaces/admin/views/tiers.py",
+        "block": null,
+        "from": "api_auth",
+        "action": "apply",
+        "target": "data_u17",
+        "reason": {
+          "file": "backend/src/interfaces/admin/views/tiers.py",
+          "line": 14,
+          "text": "class TierAdmin(DataclassModelMixin, ModelView, model=Tier):"
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/src/modules/rate_limit/service.py",
+        "block": null,
+        "from": "service_logic",
+        "action": "apply",
+        "target": "data_u17",
+        "reason": {
+          "file": "backend/src/modules/rate_limit/service.py",
+          "line": 27,
+          "text": "\"\"\"Service class for rate limit-related operations.\"\"\""
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/src/modules/user/service.py",
+        "block": null,
+        "from": "service_logic",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/modules/user/service.py",
+          "line": 91,
+          "text": "user_internal_dict[\"hashed_password\"] = await get_password_hash_async(user_internal_dict[\"password\"])"
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/scripts/create_first_superuser.py",
+        "block": null,
+        "from": "infra_u24",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/scripts/create_first_superuser.py",
+          "line": 71,
+          "text": "stmt = update(User).where(User.id == user_id).values(is_superuser=True)"
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/scripts/create_first_tier.py",
+        "block": null,
+        "from": "infra_u24",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/scripts/create_first_tier.py",
+          "line": 31,
+          "text": "query = select(Tier).where(Tier.name == tier_name)"
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/src/infrastructure/redis.py",
+        "block": null,
+        "from": "infra_u24",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/infrastructure/redis.py",
+          "line": 11,
+          "text": "return Redis("
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/scripts/create_tables.py",
+        "block": null,
+        "from": "infra_u24",
+        "action": "apply",
+        "target": "entry_scripts",
+        "reason": {
+          "file": "backend/scripts/create_tables.py",
+          "line": 16,
+          "text": "async def main() -> None:"
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/src/modules/api_keys/service.py",
+        "block": null,
+        "from": "data_u17",
+        "action": "apply",
+        "target": "infra_u24",
+        "reason": {
+          "file": "backend/src/modules/api_keys/service.py",
+          "line": 38,
+          "text": "class APIKeyService:"
+        }
+      },
+      {
+        "round": 3,
+        "kind": "move",
+        "file": "backend/scripts/create_tables.py",
+        "block": null,
+        "from": "entry_scripts",
+        "action": "apply",
+        "target": "infra_u24",
+        "reason": {
+          "file": "backend/scripts/create_tables.py",
+          "line": 16,
+          "text": "async def main() -> None:"
+        }
+      },
+      {
+        "round": 3,
+        "kind": "move",
+        "file": "backend/src/modules/user/service.py",
+        "block": null,
+        "from": "service_logic",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/modules/user/service.py",
+          "line": 91,
+          "text": "user_internal_dict[\"hashed_password\"] = await get_password_hash_async(user_internal_dict[\"password\"])"
+        }
+      },
+      {
+        "round": 3,
+        "kind": "move",
+        "file": "backend/src/modules/api_keys/crud.py",
+        "block": null,
+        "from": "data_u17",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/modules/api_keys/crud.py",
+          "line": 5,
+          "text": "crud_api_keys: FastCRUD = FastCRUD(APIKey)"
+        }
+      },
+      {
+        "round": 3,
+        "kind": "move",
+        "file": "backend/src/infrastructure/auth/dependencies.py",
+        "block": null,
+        "from": "infra_u21",
+        "action": "apply",
+        "target": "data_u17",
+        "reason": {
+          "file": "backend/src/infrastructure/auth/dependencies.py",
+          "line": 57,
+          "text": "credentials_exception = UnauthorizedException(\"Not authenticated\")"
+        }
+      },
+      {
+        "round": 3,
+        "kind": "move",
+        "file": "backend/src/modules/user/crud.py",
+        "block": null,
+        "from": "data_u17",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/modules/user/crud.py",
+          "line": 1,
+          "text": "from fastcrud import FastCRUD"
+        }
+      },
+      {
+        "round": 3,
+        "kind": "move",
+        "file": "backend/src/interfaces/admin/initialize.py",
+        "block": null,
+        "from": "data_u17",
+        "action": "apply",
+        "target": "infra_u24",
+        "reason": {
+          "file": "backend/src/interfaces/admin/initialize.py",
+          "line": 11,
+          "text": "def create_admin_interface(app) -> Admin | None:"
+        }
+      },
+      {
+        "round": 3,
+        "kind": "move",
+        "file": "backend/src/interfaces/admin/views/users.py",
+        "block": null,
+        "from": "service_logic",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/interfaces/admin/views/users.py",
+          "line": 49,
+          "text": "async def on_model_change(self, data: dict[str, Any], model: Any, is_created: bool, request: Request) -> None:"
+        }
+      },
+      {
+        "round": 3,
+        "kind": "move",
+        "file": "backend/src/infrastructure/taskiq/deps.py",
+        "block": null,
+        "from": "infra_u24",
+        "action": "keep",
+        "target": "",
+        "reason": {
+          "file": "backend/src/infrastructure/taskiq/deps.py",
+          "line": 58,
+          "text": "DBSession = Annotated[AsyncSession, TaskiqDepends(get_db_session)]"
+        }
+      },
+      {
+        "round": 3,
+        "kind": "move",
+        "file": "backend/src/infrastructure/auth/setup.py",
+        "block": null,
+        "from": "data_u17",
+        "action": "apply",
+        "target": "infra_u24",
+        "reason": {
+          "file": "backend/src/infrastructure/auth/setup.py",
+          "line": 81,
+          "text": "auth = CRUDAuth("
+        }
+      }
+    ],
+    "edge_check": [
+      {
+        "source": "api_auth",
+        "target": "service_logic",
+        "kind": "wiring",
+        "reason": {
+          "file": "backend/src/interfaces/main.py",
+          "line": 19,
+          "text": "if settings.PRODUCTION_SECURITY_VALIDATION_ENABLED:"
+        },
+        "checked": true
+      },
+      {
+        "source": "entry_scripts",
+        "target": "data_u17",
+        "kind": "wiring",
+        "reason": {
+          "file": "backend/src/infrastructure/app_factory.py",
+          "line": 310,
+          "text": "if docs_dependency is not None:"
+        },
+        "checked": true
+      },
+      {
+        "source": "entry_scripts",
+        "target": "infra_u24",
+        "kind": "flow",
+        "reason": {
+          "file": "backend/src/infrastructure/taskiq/app.py",
+          "line": 31,
+          "text": "await dispose_taskiq_engine()"
+        },
+        "checked": true
+      },
+      {
+        "source": "infra_u24",
+        "target": "infra_u22",
+        "kind": "pass",
+        "reason": {
+          "file": "backend/src/infrastructure/logging/factory.py",
+          "line": 60,
+          "text": "base_logger = get_configured_logger(name)"
+        },
+        "checked": true
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "C1",
+      "key": "entry_scripts",
+      "name": "Khởi tạo ứng dụng FastAPI",
+      "layer": "entry",
+      "role": "Tạo đối tượng FastAPI và cấu hình vòng đời.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/app_factory.py",
+        "line": 269,
+        "text": "application = FastAPI(lifespan=lifespan, **kwargs)"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/taskiq/app.py",
+        "backend/src/infrastructure/taskiq/worker.py",
+        "backend/src/infrastructure/app_factory.py",
+        "cli/src/cli/app.py",
+        "cli/src/cli/commands/deploy.py",
+        "cli/src/cli/commands/env.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C2",
+      "key": "api_auth",
+      "name": "Xác thực API và giới hạn tốc độ",
+      "layer": "api",
+      "role": "Xử lý đăng nhập, kiểm tra mật khẩu và áp dụng rate‑limit.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/auth/routes.py",
+        "line": 21,
+        "text": "@router.post("
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/auth/routes.py",
+        "backend/src/interfaces/api/__init__.py",
+        "backend/src/interfaces/api/v1/__init__.py",
+        "backend/src/modules/user/routes.py",
+        "backend/src/interfaces/admin/auth.py",
+        "backend/src/interfaces/main.py",
+        "backend/src/modules/api_keys/dependencies.py",
+        "backend/src/modules/api_keys/routes.py",
+        "backend/src/modules/tier/routes.py",
+        "backend/src/modules/rate_limit/dependencies.py",
+        "backend/src/modules/rate_limit/routes.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C3",
+      "key": "service_logic",
+      "name": "Xử lý nghiệp vụ người dùng",
+      "layer": "service",
+      "role": "Thực hiện các thao tác CRUD và kiểm tra bảo mật cho người dùng.",
+      "role_quote": {
+        "file": "backend/src/interfaces/admin/views/users.py",
+        "line": 49,
+        "text": "async def on_model_change(self, data: dict[str, Any], model: Any, is_created: bool, request: Request) -> None:"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/security/production_validator.py",
+        "backend/src/infrastructure/taskiq/registry.py",
+        "backend/src/interfaces/admin/views/users.py",
+        "backend/src/modules/user/service.py",
+        "backend/src/interfaces/admin/views/users.py",
+        "backend/src/modules/user/service.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C4",
+      "key": "service_u15",
+      "name": "Quản lý tier",
+      "layer": "service",
+      "role": "Cung cấp các hàm nghiệp vụ cho tier và kiểm tra rate limit.",
+      "role_quote": {
+        "file": "backend/src/modules/tier/service.py",
+        "line": 25,
+        "text": "\"\"\"Service class for tier-related operations."
+      },
+      "shared": false,
+      "files": [
+        "backend/src/modules/tier/service.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C5",
+      "key": "service_u16",
+      "name": "Triển khai tính năng CLI",
+      "layer": "service",
+      "role": "Áp dụng kế hoạch triển khai và trả về kết quả cài đặt.",
+      "role_quote": {
+        "file": "cli/src/cli/features/installer.py",
+        "line": 38,
+        "text": "def apply(self, plan: FeaturePlan) -> InstallResult:"
+      },
+      "shared": false,
+      "files": [
+        "cli/src/cli/features/_builtins/deploy/feature.py",
+        "cli/src/cli/features/installer.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C6",
+      "key": "data_u17",
+      "name": "Quản lý khóa API",
+      "layer": "data",
+      "role": "Định nghĩa mô hình và CRUD cho API keys, rate limit và tier.",
+      "role_quote": {
+        "file": "backend/src/modules/api_keys/models.py",
+        "line": 19,
+        "text": "class APIKey(Base, TimestampMixin):"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/database/models.py",
+        "backend/src/modules/api_keys/crud.py",
+        "backend/src/modules/api_keys/models.py",
+        "backend/src/modules/rate_limit/crud.py",
+        "backend/src/modules/rate_limit/models.py",
+        "backend/src/modules/tier/crud.py",
+        "backend/src/modules/tier/models.py",
+        "backend/src/modules/user/crud.py",
+        "backend/src/modules/user/models.py",
+        "backend/src/interfaces/admin/views/tiers.py",
+        "backend/src/modules/rate_limit/service.py",
+        "backend/src/infrastructure/auth/dependencies.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C7",
+      "key": "data_u18",
+      "name": "Khởi tạo mô-đun dữ liệu",
+      "layer": "data",
+      "role": "Xuất khẩu các mô hình API key để các module khác sử dụng.",
+      "role_quote": {
+        "file": "backend/src/modules/__init__.py",
+        "line": 3,
+        "text": "from .api_keys.models import APIKey, KeyPermission, KeyUsage"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/modules/__init__.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C8",
+      "key": "infra_u19",
+      "name": "Cấu hình hạ tầng",
+      "layer": "infra",
+      "role": "Cung cấp hàm lấy cài đặt cấu hình chung cho toàn bộ hệ thống.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/__init__.py",
+        "line": 3,
+        "text": "from .config import get_settings"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/__init__.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C9",
+      "key": "infra_u20",
+      "name": "Định danh người dùng",
+      "layer": "infra",
+      "role": "Xuất khẩu các hàm phụ thuộc để lấy thông tin người dùng hiện tại và siêu‑user.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/auth/__init__.py",
+        "line": 1,
+        "text": "from .dependencies import get_current_superuser, get_current_user, get_optional_user"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/auth/__init__.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C10",
+      "key": "infra_u21",
+      "name": "Chính sách mật khẩu",
+      "layer": "infra",
+      "role": "Khởi tạo đối tượng chính sách mật khẩu dùng cho xác thực.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/auth/password_policy.py",
+        "line": 7,
+        "text": "password_policy = PasswordPolicy("
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/auth/password_policy.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C11",
+      "key": "infra_u22",
+      "name": "Cache hạ tầng",
+      "layer": "infra",
+      "role": "Cung cấp decorator và backend cho bộ nhớ cache.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/cache/__init__.py",
+        "line": 4,
+        "text": "from .decorator import cache"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/cache/__init__.py",
+        "backend/src/infrastructure/cache/backends/memcached.py",
+        "backend/src/infrastructure/cache/backends/redis.py",
+        "backend/src/infrastructure/logging/formatters.py",
+        "backend/src/infrastructure/logging/handlers.py",
+        "backend/src/infrastructure/taskiq/brokers.py",
+        "backend/src/infrastructure/cache/initialize.py",
+        "backend/src/infrastructure/logging/config.py",
+        "backend/src/infrastructure/cache/decorator.py",
+        "backend/src/infrastructure/cache/provider.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C12",
+      "key": "infra_u23",
+      "name": "Kiểm tra backend cache",
+      "layer": "infra",
+      "role": "Xác định xem thư viện memcached có được cài đặt hay không.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/cache/backends/__init__.py",
+        "line": 10,
+        "text": "MEMCACHED_INSTALLED = find_spec(\"aiomcache\") is not None"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/cache/backends/__init__.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C13",
+      "key": "infra_u24",
+      "name": "Cơ sở dữ liệu & logging",
+      "layer": "infra",
+      "role": "Tạo engine DB async và cung cấp hàm lấy logger.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/database/session.py",
+        "line": 28,
+        "text": "return create_async_engine(settings.DATABASE_URL, **options)"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/database/session.py",
+        "backend/src/infrastructure/redis.py",
+        "backend/src/infrastructure/taskiq/deps.py",
+        "backend/scripts/create_first_superuser.py",
+        "backend/scripts/create_first_tier.py",
+        "backend/scripts/setup_initial_data.py",
+        "backend/src/infrastructure/database/initialize.py",
+        "backend/src/infrastructure/logging/factory.py",
+        "backend/src/modules/api_keys/service.py",
+        "backend/scripts/create_tables.py",
+        "backend/src/interfaces/admin/initialize.py",
+        "backend/src/infrastructure/auth/setup.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C14",
+      "key": "infra_u25",
+      "name": "Cấu hình logging",
+      "layer": "infra",
+      "role": "Khởi tạo cấu hình logging cho toàn bộ ứng dụng.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/logging/__init__.py",
+        "line": 27,
+        "text": "from .config import setup_logging_configuration"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/logging/__init__.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C15",
+      "key": "infra_u26",
+      "name": "TaskIQ broker",
+      "layer": "infra",
+      "role": "Cung cấp broker mặc định cho hệ thống task queue.",
+      "role_quote": {
+        "file": "backend/src/infrastructure/taskiq/__init__.py",
+        "line": 3,
+        "text": "from .brokers import default_broker"
+      },
+      "shared": false,
+      "files": [
+        "backend/src/infrastructure/taskiq/__init__.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C16",
+      "key": "infra_u27",
+      "name": "Khám phá plugin CLI",
+      "layer": "infra",
+      "role": "Tải và thu thận các plugin lệnh CLI để đăng ký",
+      "role_quote": {
+        "file": "cli/src/cli/plugins.py",
+        "line": 45,
+        "text": "def discover_command_plugins() -> dict[str, typer.Typer]:"
+      },
+      "shared": false,
+      "files": [
+        "cli/src/cli/plugins.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C17",
+      "key": "shared",
+      "name": "Dùng chung",
+      "layer": "shared",
+      "role": "",
+      "role_quote": null,
+      "shared": true,
+      "files": [
+        "backend/src/infrastructure/auth/http_exceptions.py",
+        "backend/src/infrastructure/cache/base.py",
+        "backend/src/infrastructure/cache/exceptions.py",
+        "backend/src/infrastructure/cache/utils.py",
+        "backend/src/infrastructure/config/__init__.py",
+        "backend/src/infrastructure/config/enums.py",
+        "backend/src/infrastructure/config/settings.py",
+        "backend/src/infrastructure/database/__init__.py",
+        "backend/src/infrastructure/dependencies.py",
+        "backend/src/infrastructure/middleware.py",
+        "backend/src/infrastructure/security/__init__.py",
+        "backend/src/interfaces/admin/mixins.py",
+        "backend/src/interfaces/admin/views/__init__.py",
+        "backend/src/modules/api_keys/__init__.py",
+        "backend/src/modules/api_keys/enums.py",
+        "backend/src/modules/api_keys/schemas.py",
+        "backend/src/modules/common/constants.py",
+        "backend/src/modules/common/exceptions.py",
+        "backend/src/modules/common/schemas.py",
+        "backend/src/modules/common/utils/error_handler.py",
+        "backend/src/modules/common/utils/logger.py",
+        "backend/src/modules/rate_limit/__init__.py",
+        "backend/src/modules/rate_limit/schemas.py",
+        "backend/src/modules/tier/__init__.py",
+        "backend/src/modules/tier/dependencies.py",
+        "backend/src/modules/tier/schemas.py",
+        "backend/src/modules/user/__init__.py",
+        "backend/src/modules/user/constants.py",
+        "backend/src/modules/user/dependencies.py",
+        "backend/src/modules/user/enums.py",
+        "backend/src/modules/user/schemas.py",
+        "cli/src/cli/features/__init__.py",
+        "cli/src/cli/features/base.py",
+        "cli/src/cli/features/registry.py",
+        "cli/src/cli/lib/project.py",
+        "cli/src/cli/lib/prompts.py",
+        "cli/src/cli/lib/render.py"
+      ],
+      "described": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "E1",
+      "source": "C2",
+      "target": "C6",
+      "label": "lấy dữ liệu rate‑limit",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/routes.py",
+        "line": 99,
+        "text": "session_id = principal.metadata.get(\"session_id\")"
+      }
+    },
+    {
+      "id": "E2",
+      "source": "C2",
+      "target": "C13",
+      "label": "đăng nhập và ghi log",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/routes.py",
+        "line": 66,
+        "text": "user = await crud_auth.authenticate_password(db, form_data.username, form_data.password, request=request)"
+      }
+    },
+    {
+      "id": "E3",
+      "source": "C6",
+      "target": "C13",
+      "label": "sử dụng cấu hình rate‑limit",
+      "quote": {
+        "file": "backend/src/modules/api_keys/crud.py",
+        "line": 5,
+        "text": "crud_api_keys: FastCRUD = FastCRUD(APIKey)"
+      }
+    },
+    {
+      "id": "E4",
+      "source": "C1",
+      "target": "C13",
+      "label": "hủy engine taskiq",
+      "quote": {
+        "file": "backend/src/infrastructure/taskiq/app.py",
+        "line": 31,
+        "text": "await dispose_taskiq_engine()"
+      }
+    },
+    {
+      "id": "E5",
+      "source": "C1",
+      "target": "C16",
+      "label": "khám phá plugin lệnh",
+      "quote": {
+        "file": "cli/src/cli/app.py",
+        "line": 32,
+        "text": "for name, sub_app in _plugins.discover_command_plugins().items():"
+      }
+    },
+    {
+      "id": "E6",
+      "source": "C1",
+      "target": "C5",
+      "label": "cài đặt tính năng",
+      "quote": {
+        "file": "cli/src/cli/commands/deploy.py",
+        "line": 69,
+        "text": "installer = FeatureInstaller(dry_run=dry_run, assume_yes=force or yes)"
+      }
+    },
+    {
+      "id": "E7",
+      "source": "C11",
+      "target": "C13",
+      "label": "gọi logger, ghi cảnh báo",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/decorator.py",
+        "line": 71,
+        "text": "logger.warning(f\"Cache backend not available: {str(e)}\")"
+      }
+    },
+    {
+      "id": "E8",
+      "source": "C3",
+      "target": "C6",
+      "label": "kiểm tra tier tồn tại",
+      "quote": {
+        "file": "backend/src/modules/user/service.py",
+        "line": 513,
+        "text": "tier_exists = await crud_tiers.exists(db=db, id=tier_update.tier_id)"
+      }
+    },
+    {
+      "id": "E9",
+      "source": "C3",
+      "target": "C13",
+      "label": "ghi log bảo mật",
+      "quote": {
+        "file": "backend/src/infrastructure/security/production_validator.py",
+        "line": 123,
+        "text": "self.logger.debug(\"Not in production environment, skipping security validation\")"
+      }
+    },
+    {
+      "id": "E10",
+      "source": "C4",
+      "target": "C6",
+      "label": "kiểm tra rate‑limit tier",
+      "quote": {
+        "file": "backend/src/modules/tier/service.py",
+        "line": 98,
+        "text": "if await crud_rate_limits.exists(db=db, tier_id=tier[\"id\"]):"
+      }
+    }
+  ],
+  "externals": [
+    {
+      "id": "X1",
+      "name": "Database",
+      "kind": "database",
+      "edges": [
+        {
+          "source": "C13",
+          "label": "truy vấn",
+          "quote": {
+            "file": "backend/scripts/create_first_superuser.py",
+            "line": 71,
+            "text": "stmt = update(User).where(User.id == user_id).values(is_superuser=True)"
+          }
+        },
+        {
+          "source": "C6",
+          "label": "truy vấn",
+          "quote": {
+            "file": "backend/src/infrastructure/database/models.py",
+            "line": 48,
+            "text": "uuid: Mapped[uuid_pkg.UUID] = mapped_column("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X2",
+      "name": "OAuth xác thực người dùng",
+      "kind": "oauth",
+      "edges": [
+        {
+          "source": "C6",
+          "label": "đăng nhập",
+          "quote": {
+            "file": "backend/src/infrastructure/auth/dependencies.py",
+            "line": 57,
+            "text": "credentials_exception = UnauthorizedException(\"Not authenticated\")"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X3",
+      "name": "OAuth chính sách mật khẩu",
+      "kind": "oauth",
+      "edges": [
+        {
+          "source": "C10",
+          "label": "đăng nhập",
+          "quote": {
+            "file": "backend/src/infrastructure/auth/password_policy.py",
+            "line": 7,
+            "text": "password_policy = PasswordPolicy("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X4",
+      "name": "OAuth xác thực bên ngoài",
+      "kind": "oauth",
+      "edges": [
+        {
+          "source": "C2",
+          "label": "đăng nhập",
+          "quote": {
+            "file": "backend/src/infrastructure/auth/routes.py",
+            "line": 64,
+            "text": "raise ForbiddenException(\"Cross-site login requests are not allowed.\")"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X5",
+      "name": "OAuth dịch vụ xác thực",
+      "kind": "oauth",
+      "edges": [
+        {
+          "source": "C13",
+          "label": "đăng nhập",
+          "quote": {
+            "file": "backend/src/infrastructure/auth/setup.py",
+            "line": 137,
+            "text": "api_rate_limit_dependency = auth.rate_limit(\"api\", resolve_api_rate_limit, key=api_rate_limit_key)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X6",
+      "name": "Memcached",
+      "kind": "memcached",
+      "edges": [
+        {
+          "source": "C11",
+          "label": "đọc ghi",
+          "quote": {
+            "file": "backend/src/infrastructure/cache/backends/memcached.py",
+            "line": 59,
+            "text": "self.client = aiomcache.Client("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X7",
+      "name": "Redis",
+      "kind": "redis",
+      "edges": [
+        {
+          "source": "C11",
+          "label": "đọc ghi",
+          "quote": {
+            "file": "backend/src/infrastructure/cache/backends/redis.py",
+            "line": 51,
+            "text": "self.client = client or Redis("
+          }
+        },
+        {
+          "source": "C13",
+          "label": "đọc ghi",
+          "quote": {
+            "file": "backend/src/infrastructure/redis.py",
+            "line": 11,
+            "text": "return Redis("
+          }
+        }
+      ]
+    },
+    {
+      "id": "X8",
+      "name": "Message broker",
+      "kind": "broker",
+      "edges": [
+        {
+          "source": "C11",
+          "label": "gửi tác vụ",
+          "quote": {
+            "file": "backend/src/infrastructure/taskiq/brokers.py",
+            "line": 37,
+            "text": "RedisAsyncResultBackend(redis_url=redis_url)"
+          }
+        },
+        {
+          "source": "C13",
+          "label": "gửi tác vụ",
+          "quote": {
+            "file": "backend/src/infrastructure/taskiq/deps.py",
+            "line": 58,
+            "text": "DBSession = Annotated[AsyncSession, TaskiqDepends(get_db_session)]"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X9",
+      "name": "OAuth tạo mật khẩu băm",
+      "kind": "oauth",
+      "edges": [
+        {
+          "source": "C3",
+          "label": "đăng nhập",
+          "quote": {
+            "file": "backend/src/interfaces/admin/views/users.py",
+            "line": 53,
+            "text": "data[\"hashed_password\"] = await get_password_hash_async(data[\"hashed_password\"])"
+          }
+        }
+      ]
+    }
+  ],
+  "quotes": {
+    "returned": 16,
+    "valid": 16
+  },
+  "rejected": [],
+  "issues": [],
+  "file_lines": {
+    "backend/scripts/create_first_superuser.py": 89,
+    "backend/scripts/create_first_tier.py": 58,
+    "backend/scripts/create_tables.py": 31,
+    "backend/scripts/setup_initial_data.py": 51,
+    "backend/src/infrastructure/__init__.py": 10,
+    "backend/src/infrastructure/app_factory.py": 332,
+    "backend/src/infrastructure/auth/__init__.py": 7,
+    "backend/src/infrastructure/auth/dependencies.py": 88,
+    "backend/src/infrastructure/auth/http_exceptions.py": 82,
+    "backend/src/infrastructure/auth/password_policy.py": 13,
+    "backend/src/infrastructure/auth/routes.py": 226,
+    "backend/src/infrastructure/auth/setup.py": 137,
+    "backend/src/infrastructure/cache/__init__.py": 38,
+    "backend/src/infrastructure/cache/backends/__init__.py": 32,
+    "backend/src/infrastructure/cache/backends/memcached.py": 155,
+    "backend/src/infrastructure/cache/backends/redis.py": 150,
+    "backend/src/infrastructure/cache/base.py": 243,
+    "backend/src/infrastructure/cache/decorator.py": 124,
+    "backend/src/infrastructure/cache/exceptions.py": 199,
+    "backend/src/infrastructure/cache/initialize.py": 72,
+    "backend/src/infrastructure/cache/provider.py": 166,
+    "backend/src/infrastructure/cache/utils.py": 111,
+    "backend/src/infrastructure/config/__init__.py": 12,
+    "backend/src/infrastructure/config/enums.py": 63,
+    "backend/src/infrastructure/config/settings.py": 422,
+    "backend/src/infrastructure/database/__init__.py": 23,
+    "backend/src/infrastructure/database/initialize.py": 8,
+    "backend/src/infrastructure/database/models.py": 172,
+    "backend/src/infrastructure/database/session.py": 188,
+    "backend/src/infrastructure/dependencies.py": 19,
+    "backend/src/infrastructure/logging/__init__.py": 34,
+    "backend/src/infrastructure/logging/config.py": 350,
+    "backend/src/infrastructure/logging/factory.py": 240,
+    "backend/src/infrastructure/logging/formatters.py": 189,
+    "backend/src/infrastructure/logging/handlers.py": 77,
+    "backend/src/infrastructure/middleware.py": 53,
+    "backend/src/infrastructure/redis.py": 38,
+    "backend/src/infrastructure/security/__init__.py": 5,
+    "backend/src/infrastructure/security/production_validator.py": 786,
+    "backend/src/infrastructure/taskiq/__init__.py": 12,
+    "backend/src/infrastructure/taskiq/app.py": 43,
+    "backend/src/infrastructure/taskiq/brokers.py": 52,
+    "backend/src/infrastructure/taskiq/deps.py": 58,
+    "backend/src/infrastructure/taskiq/registry.py": 65,
+    "backend/src/infrastructure/taskiq/worker.py": 13,
+    "backend/src/interfaces/admin/auth.py": 45,
+    "backend/src/interfaces/admin/initialize.py": 36,
+    "backend/src/interfaces/admin/mixins.py": 64,
+    "backend/src/interfaces/admin/views/__init__.py": 18,
+    "backend/src/interfaces/admin/views/tiers.py": 57,
+    "backend/src/interfaces/admin/views/users.py": 72,
+    "backend/src/interfaces/api/__init__.py": 10,
+    "backend/src/interfaces/api/v1/__init__.py": 16,
+    "backend/src/interfaces/main.py": 74,
+    "backend/src/modules/__init__.py": 15,
+    "backend/src/modules/api_keys/__init__.py": 74,
+    "backend/src/modules/api_keys/crud.py": 7,
+    "backend/src/modules/api_keys/dependencies.py": 12,
+    "backend/src/modules/api_keys/enums.py": 70,
+    "backend/src/modules/api_keys/models.py": 86,
+    "backend/src/modules/api_keys/routes.py": 322,
+    "backend/src/modules/api_keys/schemas.py": 189,
+    "backend/src/modules/api_keys/service.py": 632,
+    "backend/src/modules/common/constants.py": 48,
+    "backend/src/modules/common/exceptions.py": 73,
+    "backend/src/modules/common/schemas.py": 35,
+    "backend/src/modules/common/utils/error_handler.py": 109,
+    "backend/src/modules/common/utils/logger.py": 43,
+    "backend/src/modules/rate_limit/__init__.py": 17,
+    "backend/src/modules/rate_limit/crud.py": 5,
+    "backend/src/modules/rate_limit/dependencies.py": 12,
+    "backend/src/modules/rate_limit/models.py": 24,
+    "backend/src/modules/rate_limit/routes.py": 174,
+    "backend/src/modules/rate_limit/schemas.py": 97,
+    "backend/src/modules/rate_limit/service.py": 116,
+    "backend/src/modules/tier/__init__.py": 27,
+    "backend/src/modules/tier/crud.py": 5,
+    "backend/src/modules/tier/dependencies.py": 12,
+    "backend/src/modules/tier/models.py": 31,
+    "backend/src/modules/tier/routes.py": 51,
+    "backend/src/modules/tier/schemas.py": 95,
+    "backend/src/modules/tier/service.py": 106,
+    "backend/src/modules/user/__init__.py": 34,
+    "backend/src/modules/user/constants.py": 5,
+    "backend/src/modules/user/crud.py": 5,
+    "backend/src/modules/user/dependencies.py": 12,
+    "backend/src/modules/user/enums.py": 15,
+    "backend/src/modules/user/models.py": 64,
+    "backend/src/modules/user/routes.py": 400,
+    "backend/src/modules/user/schemas.py": 190,
+    "backend/src/modules/user/service.py": 637,
+    "cli/src/cli/app.py": 55,
+    "cli/src/cli/commands/deploy.py": 91,
+    "cli/src/cli/commands/env.py": 111,
+    "cli/src/cli/features/__init__.py": 25,
+    "cli/src/cli/features/_builtins/deploy/feature.py": 78,
+    "cli/src/cli/features/base.py": 98,
+    "cli/src/cli/features/installer.py": 87,
+    "cli/src/cli/features/registry.py": 44,
+    "cli/src/cli/lib/project.py": 70,
+    "cli/src/cli/lib/prompts.py": 32,
+    "cli/src/cli/lib/render.py": 33,
+    "cli/src/cli/plugins.py": 109
+  },
+  "summaries": {
+    "backend/src/infrastructure/__init__.py": {
+      "summary": "Exports the main infrastructure components such as the async DB session, table‑creation helper and settings accessor.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/__init__.py",
+        "line": 3,
+        "text": "from .config import get_settings"
+      }
+    },
+    "backend/src/infrastructure/auth/__init__.py": {
+      "summary": "Re‑exports authentication dependency helpers for retrieving the current user or super‑user.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/__init__.py",
+        "line": 1,
+        "text": "from .dependencies import get_current_superuser, get_current_user, get_optional_user"
+      }
+    },
+    "backend/src/infrastructure/cache/backends/__init__.py": {
+      "summary": "Detects which cache back‑ends (Memcached, Redis) are installed and conditionally imports their implementations.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/backends/__init__.py",
+        "line": 10,
+        "text": "MEMCACHED_INSTALLED = find_spec(\"aiomcache\") is not None"
+      }
+    },
+    "backend/src/infrastructure/config/__init__.py": {
+      "summary": "Exports configuration enums and the settings accessor used throughout the application.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/infrastructure/config/__init__.py",
+        "line": 1,
+        "text": "from .enums import CacheBackend, LogFormat, LogLevel, SessionBackend, TaskiqBrokerType"
+      }
+    },
+    "backend/src/infrastructure/logging/__init__.py": {
+      "summary": "Provides a centralized logger factory that configures logging according to application settings.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/logging/__init__.py",
+        "line": 27,
+        "text": "from .config import setup_logging_configuration"
+      }
+    },
+    "backend/src/infrastructure/security/__init__.py": {
+      "summary": "Exports production‑security validation utilities and related exception types.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/infrastructure/security/__init__.py",
+        "line": 3,
+        "text": "from .production_validator import ProductionSecurityError, ProductionSecurityValidator, validate_production_security"
+      }
+    },
+    "backend/src/infrastructure/taskiq/__init__.py": {
+      "summary": "Exports the default Taskiq broker, a DB session dependency and the task registry utilities.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/taskiq/__init__.py",
+        "line": 3,
+        "text": "from .brokers import default_broker"
+      }
+    },
+    "backend/src/infrastructure/taskiq/registry.py": {
+      "summary": "Implements an in‑memory registry that tracks registered background tasks and their statistics.",
+      "layer": "service",
+      "quote": {
+        "file": "backend/src/infrastructure/taskiq/registry.py",
+        "line": 11,
+        "text": "class TaskRegistry:"
+      }
+    },
+    "backend/src/modules/__init__.py": {
+      "summary": "Imports all domain models so that SQLAlchemy registers them on import.",
+      "layer": "data",
+      "quote": {
+        "file": "backend/src/modules/__init__.py",
+        "line": 3,
+        "text": "from .api_keys.models import APIKey, KeyPermission, KeyUsage"
+      }
+    },
+    "backend/src/modules/api_keys/__init__.py": {
+      "summary": "Aggregates API‑key related models, schemas, CRUD helpers and the service class for external use.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/api_keys/__init__.py",
+        "line": 15,
+        "text": "from .crud import crud_api_keys, crud_key_permissions, crud_key_usage"
+      }
+    },
+    "backend/src/modules/rate_limit/__init__.py": {
+      "summary": "Exports the RateLimit model, its CRUD helper and related Pydantic schemas.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/rate_limit/__init__.py",
+        "line": 7,
+        "text": "from .crud import crud_rate_limits"
+      }
+    },
+    "backend/src/modules/tier/__init__.py": {
+      "summary": "Exports the Tier model and its Pydantic schemas for tier management.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/tier/__init__.py",
+        "line": 1,
+        "text": "from .models import Tier as TierModel"
+      }
+    },
+    "backend/src/modules/user/__init__.py": {
+      "summary": "Exports the User model, OAuth enum and all user‑related Pydantic schemas.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/user/__init__.py",
+        "line": 3,
+        "text": "from .enums import OAuthProvider"
+      }
+    },
+    "cli/src/cli/features/__init__.py": {
+      "summary": "Exports the core Feature framework classes used to define and install project‑modifying features.",
+      "layer": "shared",
+      "quote": {
+        "file": "cli/src/cli/features/__init__.py",
+        "line": 13,
+        "text": "from .base import Codemod, Feature, FeatureManifest, FeaturePlan, FileOp, Hook"
+      }
+    },
+    "backend/scripts/create_tables.py": {
+      "summary": "Entry‑point script that creates all database tables using the SQLAlchemy models.",
+      "layer": "entry",
+      "quote": {
+        "file": "backend/scripts/create_tables.py",
+        "line": 16,
+        "text": "async def main() -> None:"
+      }
+    },
+    "backend/src/infrastructure/cache/__init__.py": {
+      "summary": "Provides the public cache API, selecting the appropriate backend and exposing helper functions.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/__init__.py",
+        "line": 4,
+        "text": "from .decorator import cache"
+      }
+    },
+    "backend/src/infrastructure/cache/backends/memcached.py": {
+      "summary": "Implements a Memcached‑based cache backend conforming to the CacheBackend interface.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/backends/memcached.py",
+        "line": 59,
+        "text": "self.client = aiomcache.Client("
+      }
+    },
+    "backend/src/infrastructure/cache/backends/redis.py": {
+      "summary": "Implements a Redis‑based cache backend conforming to the CacheBackend interface.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/backends/redis.py",
+        "line": 51,
+        "text": "self.client = client or Redis("
+      }
+    },
+    "backend/src/infrastructure/cache/base.py": {
+      "summary": "Defines the abstract CacheBackend class that specifies the cache operations contract.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/base.py",
+        "line": 5,
+        "text": "class CacheBackend(ABC):"
+      }
+    },
+    "backend/src/infrastructure/cache/decorator.py": {
+      "summary": "Provides a FastAPI route decorator that automatically caches GET responses and invalidates cache on mutating requests.",
+      "layer": "service",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/decorator.py",
+        "line": 34,
+        "text": "def cache("
+      }
+    },
+    "backend/src/infrastructure/cache/exceptions.py": {
+      "summary": "Defines a hierarchy of cache‑related exception classes for uniform error handling.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/exceptions.py",
+        "line": 1,
+        "text": "class CacheException(Exception):"
+      }
+    },
+    "backend/src/infrastructure/cache/initialize.py": {
+      "summary": "Initialises the configured cache backend at application start‑up and closes it on shutdown.",
+      "layer": "entry",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/initialize.py",
+        "line": 16,
+        "text": "async def initialize_cache() -> None:"
+      }
+    },
+    "backend/src/infrastructure/cache/provider.py": {
+      "summary": "Manages registration and access to cache backends and exposes high‑level cache operations.",
+      "layer": "service",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/provider.py",
+        "line": 8,
+        "text": "\"\"\"Provider for cache backends."
+      }
+    },
+    "backend/src/infrastructure/cache/utils.py": {
+      "summary": "Utility functions for inferring resource IDs and formatting cache keys/prefixes.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/infrastructure/cache/utils.py",
+        "line": 7,
+        "text": "def infer_resource_id(kwargs: dict[str, Any], resource_id_type: type | tuple[type, ...]) -> int | str:"
+      }
+    },
+    "backend/src/infrastructure/config/enums.py": {
+      "summary": "Defines enumeration types for various infrastructure configuration options (cache, session, rate‑limiter, etc.).",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/infrastructure/config/enums.py",
+        "line": 6,
+        "text": "class CacheBackend(StrEnum):"
+      }
+    },
+    "backend/src/infrastructure/config/settings.py": {
+      "summary": "Loads and validates application settings from environment files and provides typed configuration objects.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/infrastructure/config/settings.py",
+        "line": 1,
+        "text": "import logging"
+      }
+    },
+    "backend/src/infrastructure/logging/config.py": {
+      "summary": "Configures the logging system based on the current environment and settings during application start‑up.",
+      "layer": "entry",
+      "quote": {
+        "file": "backend/src/infrastructure/logging/config.py",
+        "line": 30,
+        "text": "def setup_logging_configuration() -> None:"
+      }
+    },
+    "backend/src/infrastructure/logging/factory.py": {
+      "summary": "Provides a central factory for obtaining properly configured loggers with automatic module detection and context handling.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/logging/factory.py",
+        "line": 26,
+        "text": "def get_logger(name: str | None = None, **extra_context) -> logging.Logger | logging.LoggerAdapter:"
+      }
+    },
+    "backend/src/infrastructure/logging/formatters.py": {
+      "summary": "Defines custom logging formatter classes for various output styles (simple, detailed, structured, JSON) and a helper to select them.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/logging/formatters.py",
+        "line": 165,
+        "text": "def get_formatter(format_type: str) -> logging.Formatter:"
+      }
+    },
+    "backend/src/infrastructure/logging/handlers.py": {
+      "summary": "Implements custom logging handlers (colored console, rotating file) and factory functions to create configured handlers.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/logging/handlers.py",
+        "line": 47,
+        "text": "def create_console_handler("
+      }
+    },
+    "backend/src/infrastructure/security/production_validator.py": {
+      "summary": "Runs comprehensive security checks on production settings and raises errors for critical misconfigurations.",
+      "layer": "service",
+      "quote": {
+        "file": "backend/src/infrastructure/security/production_validator.py",
+        "line": 91,
+        "text": "def validate_production_security(self) -> None:"
+      }
+    },
+    "backend/src/infrastructure/taskiq/app.py": {
+      "summary": "Defines startup/shutdown hooks for a Taskiq worker and registers them with the broker lifecycle.",
+      "layer": "entry",
+      "quote": {
+        "file": "backend/src/infrastructure/taskiq/app.py",
+        "line": 14,
+        "text": "async def startup_taskiq_worker(state: TaskiqState) -> None:"
+      }
+    },
+    "backend/src/infrastructure/taskiq/brokers.py": {
+      "summary": "Creates and configures the default Taskiq broker (Redis or RabbitMQ) based on application settings.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/taskiq/brokers.py",
+        "line": 37,
+        "text": "RedisAsyncResultBackend(redis_url=redis_url)"
+      }
+    },
+    "backend/src/infrastructure/taskiq/worker.py": {
+      "summary": "Entry‑point script that configures the Taskiq broker lifecycle for the worker process.",
+      "layer": "entry",
+      "quote": {
+        "file": "backend/src/infrastructure/taskiq/worker.py",
+        "line": 4,
+        "text": "from .app import configure_broker_lifecycle"
+      }
+    },
+    "backend/src/interfaces/admin/auth.py": {
+      "summary": "Implements session‑based authentication for the SQLAdmin interface using credentials from settings.",
+      "layer": "api",
+      "quote": {
+        "file": "backend/src/interfaces/admin/auth.py",
+        "line": 21,
+        "text": "async def login(self, request: Request) -> bool:"
+      }
+    },
+    "backend/src/interfaces/main.py": {
+      "summary": "Creates the FastAPI application, adds middleware, admin UI, and defines the health‑check endpoint.",
+      "layer": "api",
+      "quote": {
+        "file": "backend/src/interfaces/main.py",
+        "line": 71,
+        "text": "@app.get(\"/health\", tags=[\"System\"])"
+      }
+    },
+    "backend/src/modules/common/utils/logger.py": {
+      "summary": "Provides a backward‑compatible wrapper that forwards logger requests to the new centralized logging factory.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/common/utils/logger.py",
+        "line": 15,
+        "text": "def get_logger(name: str, level: int | None = None) -> logging.Logger | logging.LoggerAdapter[logging.Logger]:"
+      }
+    },
+    "backend/scripts/create_first_superuser.py": {
+      "summary": "Script that ensures a superuser exists in the database, creating or promoting one as needed.",
+      "layer": "entry",
+      "quote": {
+        "file": "backend/scripts/create_first_superuser.py",
+        "line": 71,
+        "text": "stmt = update(User).where(User.id == user_id).values(is_superuser=True)"
+      }
+    },
+    "backend/scripts/create_first_tier.py": {
+      "summary": "Script that creates a default tier record in the database if it does not already exist.",
+      "layer": "entry",
+      "quote": {
+        "file": "backend/scripts/create_first_tier.py",
+        "line": 31,
+        "text": "query = select(Tier).where(Tier.name == tier_name)"
+      }
+    },
+    "backend/scripts/setup_initial_data.py": {
+      "summary": "Runs a one‑off script that creates database tables, a default tier and an admin superuser.",
+      "layer": "entry",
+      "quote": {
+        "file": "backend/scripts/setup_initial_data.py",
+        "line": 17,
+        "text": "async def setup_initial_data() -> None:"
+      }
+    },
+    "backend/src/infrastructure/database/__init__.py": {
+      "summary": "Exports the main database objects (engine, session factory, Base) for convenient imports.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/infrastructure/database/__init__.py",
+        "line": 4,
+        "text": "from .session import Base, async_session, build_engine, dispose_engine, get_engine, get_session_factory, local_session"
+      }
+    },
+    "backend/src/infrastructure/database/initialize.py": {
+      "summary": "Provides a helper to close and dispose of the async database engine on shutdown.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/database/initialize.py",
+        "line": 6,
+        "text": "async def close_database() -> None:"
+      }
+    },
+    "backend/src/infrastructure/database/models.py": {
+      "summary": "Defines reusable SQLAlchemy mixins for UUID primary keys, timestamps and soft‑delete fields.",
+      "layer": "data",
+      "quote": {
+        "file": "backend/src/infrastructure/database/models.py",
+        "line": 48,
+        "text": "uuid: Mapped[uuid_pkg.UUID] = mapped_column("
+      }
+    },
+    "backend/src/infrastructure/database/session.py": {
+      "summary": "Creates and manages the async SQLAlchemy engine, session factory and helper functions for DB sessions.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/database/session.py",
+        "line": 28,
+        "text": "return create_async_engine(settings.DATABASE_URL, **options)"
+      }
+    },
+    "backend/src/infrastructure/dependencies.py": {
+      "summary": "Collects FastAPI dependency definitions for DB sessions and authenticated user objects.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/infrastructure/dependencies.py",
+        "line": 7,
+        "text": "from .auth.dependencies import get_current_superuser, get_current_user, get_optional_user"
+      }
+    },
+    "backend/src/infrastructure/redis.py": {
+      "summary": "Instantiates shared Redis clients for caching and rate‑limiting purposes.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/redis.py",
+        "line": 11,
+        "text": "return Redis("
+      }
+    },
+    "backend/src/infrastructure/taskiq/deps.py": {
+      "summary": "Provides TaskIQ‑specific engine, session factory and a DB session dependency for background workers.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/taskiq/deps.py",
+        "line": 58,
+        "text": "DBSession = Annotated[AsyncSession, TaskiqDepends(get_db_session)]"
+      }
+    },
+    "backend/src/interfaces/admin/initialize.py": {
+      "summary": "Creates and configures the SQLAdmin admin UI if the feature is enabled.",
+      "layer": "api",
+      "quote": {
+        "file": "backend/src/interfaces/admin/initialize.py",
+        "line": 11,
+        "text": "def create_admin_interface(app) -> Admin | None:"
+      }
+    },
+    "backend/src/interfaces/admin/mixins.py": {
+      "summary": "Adds a mixin that makes SQLAdmin work with dataclass‑based SQLAlchemy models.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/interfaces/admin/mixins.py",
+        "line": 30,
+        "text": "async def insert_model(self, request: Request, data: dict[str, Any]) -> Any:"
+      }
+    },
+    "backend/src/modules/api_keys/crud.py": {
+      "summary": "Exposes FastCRUD objects for the API‑key, permission and usage tables.",
+      "layer": "data",
+      "quote": {
+        "file": "backend/src/modules/api_keys/crud.py",
+        "line": 5,
+        "text": "crud_api_keys: FastCRUD = FastCRUD(APIKey)"
+      }
+    },
+    "backend/src/modules/api_keys/models.py": {
+      "summary": "Defines the database tables for API keys, their usage logs and permission entries.",
+      "layer": "data",
+      "quote": {
+        "file": "backend/src/modules/api_keys/models.py",
+        "line": 19,
+        "text": "class APIKey(Base, TimestampMixin):"
+      }
+    },
+    "backend/src/modules/api_keys/service.py": {
+      "summary": "Implements the business logic for creating, retrieving, validating and tracking API keys.",
+      "layer": "service",
+      "quote": {
+        "file": "backend/src/modules/api_keys/service.py",
+        "line": 38,
+        "text": "class APIKeyService:"
+      }
+    },
+    "backend/src/modules/rate_limit/crud.py": {
+      "summary": "Provides a FastCRUD instance for the rate‑limit configuration table.",
+      "layer": "data",
+      "quote": {
+        "file": "backend/src/modules/rate_limit/crud.py",
+        "line": 1,
+        "text": "from fastcrud import FastCRUD"
+      }
+    },
+    "backend/src/modules/rate_limit/models.py": {
+      "summary": "Defines the RateLimit model storing per‑tier endpoint limits.",
+      "layer": "data",
+      "quote": {
+        "file": "backend/src/modules/rate_limit/models.py",
+        "line": 8,
+        "text": "class RateLimit(Base, TimestampMixin, SoftDeleteMixin):"
+      }
+    },
+    "backend/src/modules/tier/crud.py": {
+      "summary": "Exposes a FastCRUD object for the Tier model.",
+      "layer": "data",
+      "quote": {
+        "file": "backend/src/modules/tier/crud.py",
+        "line": 1,
+        "text": "from fastcrud import FastCRUD"
+      }
+    },
+    "backend/src/modules/tier/models.py": {
+      "summary": "Defines the Tier model used to categorize users, without any pricing logic.",
+      "layer": "data",
+      "quote": {
+        "file": "backend/src/modules/tier/models.py",
+        "line": 13,
+        "text": "class Tier(Base, TimestampMixin, SoftDeleteMixin):"
+      }
+    },
+    "backend/src/modules/user/crud.py": {
+      "summary": "Provides a FastCRUD instance for the User model.",
+      "layer": "data",
+      "quote": {
+        "file": "backend/src/modules/user/crud.py",
+        "line": 1,
+        "text": "from fastcrud import FastCRUD"
+      }
+    },
+    "backend/src/modules/user/models.py": {
+      "summary": "Defines the User table with authentication fields, soft‑delete support and a relationship to Tier.",
+      "layer": "data",
+      "quote": {
+        "file": "backend/src/modules/user/models.py",
+        "line": 15,
+        "text": "class User(Base, TimestampMixin, SoftDeleteMixin):"
+      }
+    },
+    "backend/src/infrastructure/app_factory.py": {
+      "summary": "Creates and configures the FastAPI application, wiring middleware, lifespan events, and settings.",
+      "layer": "entry",
+      "quote": {
+        "file": "backend/src/infrastructure/app_factory.py",
+        "line": 269,
+        "text": "application = FastAPI(lifespan=lifespan, **kwargs)"
+      }
+    },
+    "backend/src/infrastructure/auth/http_exceptions.py": {
+      "summary": "Defines authentication‑specific HTTP exception classes and re‑exports common FastCRUD exceptions.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/http_exceptions.py",
+        "line": 36,
+        "text": "class CSRFException(HTTPException):"
+      }
+    },
+    "backend/src/infrastructure/middleware.py": {
+      "summary": "Implements custom FastAPI middleware for cache‑control and security response headers.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/infrastructure/middleware.py",
+        "line": 11,
+        "text": "class ClientCacheMiddleware(BaseHTTPMiddleware):"
+      }
+    },
+    "backend/src/modules/common/constants.py": {
+      "summary": "Provides application‑wide constant values and maps domain errors to HTTP exceptions.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/common/constants.py",
+        "line": 36,
+        "text": "EXCEPTION_MAPPING: dict[type[DomainError], Callable[[str], HTTPException]] = {"
+      }
+    },
+    "backend/src/modules/common/exceptions.py": {
+      "summary": "Declares domain‑specific exception classes used throughout business logic.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/common/exceptions.py",
+        "line": 4,
+        "text": "class DomainError(Exception):"
+      }
+    },
+    "backend/src/modules/common/utils/error_handler.py": {
+      "summary": "Registers global exception handlers and middleware to translate domain errors into HTTP responses with support IDs.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/common/utils/error_handler.py",
+        "line": 45,
+        "text": "class CatchAllErrorMiddleware(BaseHTTPMiddleware):"
+      }
+    },
+    "backend/src/modules/rate_limit/dependencies.py": {
+      "summary": "Provides a FastAPI dependency that supplies a RateLimitService instance to route handlers.",
+      "layer": "api",
+      "quote": {
+        "file": "backend/src/modules/rate_limit/dependencies.py",
+        "line": 8,
+        "text": "def get_rate_limit_service() -> RateLimitService:"
+      }
+    },
+    "backend/src/modules/rate_limit/routes.py": {
+      "summary": "Defines the HTTP endpoints for listing, retrieving, updating, and deleting rate‑limit configurations.",
+      "layer": "api",
+      "quote": {
+        "file": "backend/src/modules/rate_limit/routes.py",
+        "line": 16,
+        "text": "@router.get("
+      }
+    },
+    "backend/src/modules/rate_limit/schemas.py": {
+      "summary": "Defines Pydantic models for rate‑limit request/response payloads and validation.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/rate_limit/schemas.py",
+        "line": 10,
+        "text": "class RateLimitBase(BaseModel):"
+      }
+    },
+    "backend/src/modules/rate_limit/service.py": {
+      "summary": "Implements business‑logic operations for creating, reading, updating, and deleting rate‑limit records.",
+      "layer": "service",
+      "quote": {
+        "file": "backend/src/modules/rate_limit/service.py",
+        "line": 27,
+        "text": "\"\"\"Service class for rate limit-related operations.\"\"\""
+      }
+    },
+    "backend/src/interfaces/admin/views/tiers.py": {
+      "summary": "Configures an admin UI view for managing Tier entities, including custom delete logic.",
+      "layer": "api",
+      "quote": {
+        "file": "backend/src/interfaces/admin/views/tiers.py",
+        "line": 14,
+        "text": "class TierAdmin(DataclassModelMixin, ModelView, model=Tier):"
+      }
+    },
+    "backend/src/modules/api_keys/dependencies.py": {
+      "summary": "Provides a FastAPI dependency that supplies an APIKeyService instance to route handlers.",
+      "layer": "api",
+      "quote": {
+        "file": "backend/src/modules/api_keys/dependencies.py",
+        "line": 8,
+        "text": "def get_api_key_service() -> APIKeyService:"
+      }
+    },
+    "backend/src/modules/api_keys/enums.py": {
+      "summary": "Defines enumeration types for API key status, permissions, types, and HTTP methods.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/api_keys/enums.py",
+        "line": 6,
+        "text": "class KeyStatus(StrEnum):"
+      }
+    },
+    "backend/src/modules/api_keys/routes.py": {
+      "summary": "Exposes FastAPI endpoints for creating, reading, updating, and deleting API keys.",
+      "layer": "api",
+      "quote": {
+        "file": "backend/src/modules/api_keys/routes.py",
+        "line": 20,
+        "text": "@router.post("
+      }
+    },
+    "backend/src/modules/api_keys/schemas.py": {
+      "summary": "Provides Pydantic models for validating and serializing API key data and related usage records.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/api_keys/schemas.py",
+        "line": 14,
+        "text": "class APIKeyBase(BaseModel):"
+      }
+    },
+    "backend/src/modules/common/schemas.py": {
+      "summary": "Defines reusable Pydantic base models for timestamps and soft‑deletion metadata.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/common/schemas.py",
+        "line": 7,
+        "text": "class TimestampSchema(BaseModel):"
+      }
+    },
+    "backend/src/modules/tier/dependencies.py": {
+      "summary": "Creates a FastAPI dependency that supplies a TierService instance to route handlers.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/tier/dependencies.py",
+        "line": 8,
+        "text": "def get_tier_service() -> TierService:"
+      }
+    },
+    "backend/src/modules/tier/routes.py": {
+      "summary": "Provides API endpoints for listing tiers and retrieving a tier by name.",
+      "layer": "api",
+      "quote": {
+        "file": "backend/src/modules/tier/routes.py",
+        "line": 13,
+        "text": "@router.get("
+      }
+    },
+    "backend/src/modules/tier/schemas.py": {
+      "summary": "Defines Pydantic schemas for tier creation, reading, updating and deletion.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/tier/schemas.py",
+        "line": 9,
+        "text": "class TierBase(BaseModel):"
+      }
+    },
+    "backend/src/modules/tier/service.py": {
+      "summary": "Implements business logic for creating, retrieving, updating, and deleting tier records.",
+      "layer": "service",
+      "quote": {
+        "file": "backend/src/modules/tier/service.py",
+        "line": 25,
+        "text": "\"\"\"Service class for tier-related operations."
+      }
+    },
+    "backend/src/infrastructure/auth/dependencies.py": {
+      "summary": "Resolves the current authenticated user or principal from session cookies for use in routes.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/dependencies.py",
+        "line": 57,
+        "text": "credentials_exception = UnauthorizedException(\"Not authenticated\")"
+      }
+    },
+    "backend/src/infrastructure/auth/password_policy.py": {
+      "summary": "Creates a password‑policy object from configuration settings for use by the auth system.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/password_policy.py",
+        "line": 7,
+        "text": "password_policy = PasswordPolicy("
+      }
+    },
+    "backend/src/infrastructure/auth/routes.py": {
+      "summary": "Implements authentication endpoints for login, logout, session management and CSRF token handling.",
+      "layer": "api",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/routes.py",
+        "line": 21,
+        "text": "@router.post("
+      }
+    },
+    "backend/src/infrastructure/auth/setup.py": {
+      "summary": "Configures the authentication system, session transport, rate limiting and OAuth providers for the application.",
+      "layer": "infra",
+      "quote": {
+        "file": "backend/src/infrastructure/auth/setup.py",
+        "line": 81,
+        "text": "auth = CRUDAuth("
+      }
+    },
+    "backend/src/interfaces/admin/views/__init__.py": {
+      "summary": "Registers the admin model views with the SQLAdmin interface.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/interfaces/admin/views/__init__.py",
+        "line": 15,
+        "text": "def register_admin_views(admin: Admin) -> None:"
+      }
+    },
+    "backend/src/interfaces/admin/views/users.py": {
+      "summary": "Provides an admin UI for managing User records, including password hashing and GDPR‑compliant anonymization.",
+      "layer": "service",
+      "quote": {
+        "file": "backend/src/interfaces/admin/views/users.py",
+        "line": 49,
+        "text": "async def on_model_change(self, data: dict[str, Any], model: Any, is_created: bool, request: Request) -> None:"
+      }
+    },
+    "backend/src/interfaces/api/__init__.py": {
+      "summary": "Creates the top‑level FastAPI router and includes versioned API routers and optional OAuth routes.",
+      "layer": "api",
+      "quote": {
+        "file": "backend/src/interfaces/api/__init__.py",
+        "line": 7,
+        "text": "router.include_router(v1_router, prefix=\"/api\")"
+      }
+    },
+    "backend/src/interfaces/api/v1/__init__.py": {
+      "summary": "Aggregates version‑1 API routers, applying rate‑limit dependencies to protected routes.",
+      "layer": "api",
+      "quote": {
+        "file": "backend/src/interfaces/api/v1/__init__.py",
+        "line": 12,
+        "text": "router.include_router(users_router, prefix=\"/users\", dependencies=rate_limit_dependencies)"
+      }
+    },
+    "backend/src/modules/user/constants.py": {
+      "summary": "Defines constant values used across the user module such as name and username length limits.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/user/constants.py",
+        "line": 3,
+        "text": "NAME_MAX_LENGTH = 30"
+      }
+    },
+    "backend/src/modules/user/dependencies.py": {
+      "summary": "Provides FastAPI dependency that supplies a UserService instance to route handlers.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/user/dependencies.py",
+        "line": 8,
+        "text": "def get_user_service() -> UserService:"
+      }
+    },
+    "backend/src/modules/user/enums.py": {
+      "summary": "Enumerates supported OAuth providers for user authentication.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/user/enums.py",
+        "line": 6,
+        "text": "class OAuthProvider(StrEnum):"
+      }
+    },
+    "backend/src/modules/user/routes.py": {
+      "summary": "Exposes HTTP endpoints for creating, reading, updating and managing user accounts.",
+      "layer": "api",
+      "quote": {
+        "file": "backend/src/modules/user/routes.py",
+        "line": 23,
+        "text": "@router.post("
+      }
+    },
+    "backend/src/modules/user/schemas.py": {
+      "summary": "Defines Pydantic models for user data transfer objects and validation rules.",
+      "layer": "shared",
+      "quote": {
+        "file": "backend/src/modules/user/schemas.py",
+        "line": 1,
+        "text": "from datetime import datetime"
+      }
+    },
+    "backend/src/modules/user/service.py": {
+      "summary": "Implements business logic for user operations such as creation, lookup, tier changes and anonymization.",
+      "layer": "service",
+      "quote": {
+        "file": "backend/src/modules/user/service.py",
+        "line": 91,
+        "text": "user_internal_dict[\"hashed_password\"] = await get_password_hash_async(user_internal_dict[\"password\"])"
+      }
+    },
+    "cli/src/cli/app.py": {
+      "summary": "Sets up the root Typer CLI application and mounts built‑in and plugin commands.",
+      "layer": "entry",
+      "quote": {
+        "file": "cli/src/cli/app.py",
+        "line": 16,
+        "text": "app = typer.Typer("
+      }
+    },
+    "cli/src/cli/commands/deploy.py": {
+      "summary": "Provides the ``bp deploy generate`` command to create Docker‑compose and optional Nginx configuration files.",
+      "layer": "entry",
+      "quote": {
+        "file": "cli/src/cli/commands/deploy.py",
+        "line": 29,
+        "text": "@app.command(\"generate\")"
+      }
+    },
+    "cli/src/cli/commands/env.py": {
+      "summary": "Provides CLI commands to generate a secret key and validate the runtime environment against production security rules.",
+      "layer": "entry",
+      "quote": {
+        "file": "cli/src/cli/commands/env.py",
+        "line": 32,
+        "text": "app = typer.Typer(no_args_is_help=True, help=\"Inspect and prepare the runtime environment.\")"
+      }
+    },
+    "cli/src/cli/features/_builtins/deploy/feature.py": {
+      "summary": "Implements the Deploy feature that creates docker‑compose files (and optional nginx config) for various deployment modes.",
+      "layer": "service",
+      "quote": {
+        "file": "cli/src/cli/features/_builtins/deploy/feature.py",
+        "line": 27,
+        "text": "class DeployFeature(Feature):"
+      }
+    },
+    "cli/src/cli/features/base.py": {
+      "summary": "Defines the shared contracts and data structures (manifest, plan, file operations, etc.) used by all CLI features.",
+      "layer": "shared",
+      "quote": {
+        "file": "cli/src/cli/features/base.py",
+        "line": 20,
+        "text": "@dataclass(frozen=True)"
+      }
+    },
+    "cli/src/cli/features/installer.py": {
+      "summary": "Executes a FeaturePlan by rendering templates to disk, handling overwrites, dry‑run, and file permissions.",
+      "layer": "service",
+      "quote": {
+        "file": "cli/src/cli/features/installer.py",
+        "line": 38,
+        "text": "def apply(self, plan: FeaturePlan) -> InstallResult:"
+      }
+    },
+    "cli/src/cli/features/registry.py": {
+      "summary": "Collects built‑in and plugin features, resolves name collisions, and provides lookup helpers.",
+      "layer": "shared",
+      "quote": {
+        "file": "cli/src/cli/features/registry.py",
+        "line": 17,
+        "text": "def _builtin_features() -> dict[str, Feature]:"
+      }
+    },
+    "cli/src/cli/lib/project.py": {
+      "summary": "Detects the user's project repository, resolves key paths, and reads values from .env files.",
+      "layer": "shared",
+      "quote": {
+        "file": "cli/src/cli/lib/project.py",
+        "line": 15,
+        "text": "@dataclass(frozen=True)"
+      }
+    },
+    "cli/src/cli/lib/prompts.py": {
+      "summary": "Provides consistent CLI prompting utilities (confirm overwrite, info, success, warn, error).",
+      "layer": "shared",
+      "quote": {
+        "file": "cli/src/cli/lib/prompts.py",
+        "line": 12,
+        "text": "def confirm_overwrite(path: str, *, assume_yes: bool) -> bool:"
+      }
+    },
+    "cli/src/cli/lib/render.py": {
+      "summary": "Renders Jinja2 templates from a feature's template directory using a sandboxed environment.",
+      "layer": "shared",
+      "quote": {
+        "file": "cli/src/cli/lib/render.py",
+        "line": 16,
+        "text": "class Renderer:"
+      }
+    },
+    "cli/src/cli/plugins.py": {
+      "summary": "Discovers and safely loads external CLI command and feature plugins via entry points.",
+      "layer": "infra",
+      "quote": {
+        "file": "cli/src/cli/plugins.py",
+        "line": 45,
+        "text": "def discover_command_plugins() -> dict[str, typer.Typer]:"
+      }
+    }
+  },
+  "snapshot": {
+    "backend/scripts/create_first_superuser.py": "fafa28ef81e315f4d18823ac4f240a9fd7690ebee627aaa2ded95dfaceb3dd20",
+    "backend/scripts/create_first_tier.py": "e2438029e27613e6181e3400c5c2c10fd50c34a19def3fafa4a65b27344c123b",
+    "backend/scripts/create_tables.py": "9c6dab282e3aeb85b6e64741af50f4b6257193cdede86a7cfdd732793c129417",
+    "backend/scripts/setup_initial_data.py": "e33650ca07cdc6d1a2771fe0e771278a7e4f08db371f718f9d02ada928a76de9",
+    "backend/src/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/src/infrastructure/__init__.py": "2244b2eade02c96a573a3623d5c4c51424fec2f18a8c98f8b0b276fb950725f6",
+    "backend/src/infrastructure/app_factory.py": "60bde490baf2104f82c19611da27af03b58440e0c0bac9c9209bf3379d0e98c8",
+    "backend/src/infrastructure/auth/__init__.py": "86e86a1dad0f8e0d1c04dec8f1fbd4d0ce7b07cd07ea405201a347aecd578519",
+    "backend/src/infrastructure/auth/dependencies.py": "a169da380143b304c6cd87a54516452f848a754dbed6fe13a7d452d3772b0026",
+    "backend/src/infrastructure/auth/http_exceptions.py": "a4aa4cae965b229990303fba31501d42aa7046652742caba78dd45bfb0658584",
+    "backend/src/infrastructure/auth/password_policy.py": "28f62c6c81c492abe2c13a1506f8b3e8290c5c694fa49502543972fc4d254b4e",
+    "backend/src/infrastructure/auth/routes.py": "f0f362d647a20af01af44a904680e1fbc5dba7aa1cc66213ff2be227a8215544",
+    "backend/src/infrastructure/auth/setup.py": "43ad256a06981dacd542c4c22e4a36cc79ae3318d111471a32fee67206af7842",
+    "backend/src/infrastructure/cache/__init__.py": "fd62fed3fe3f6a95d43a41f7389f5bda1838c31cbe74878ba7782e90464d7128",
+    "backend/src/infrastructure/cache/backends/__init__.py": "cfb821a9ef6b2e50c29358ba3f0ad41fed3e0ea878d6d925204b4399484268b8",
+    "backend/src/infrastructure/cache/backends/memcached.py": "00c407762d27dc0efe814676fd6024c7a3c96ae37baa52a689ea04307a6710cf",
+    "backend/src/infrastructure/cache/backends/redis.py": "486a0b3b376e11eb8c023be5128a747742b1c411bd5a95b83bcc6b93883843c2",
+    "backend/src/infrastructure/cache/base.py": "3b874c946756a57bdbe53aa7dbc205b165a300e6bad5215787947f38bc9cc3c7",
+    "backend/src/infrastructure/cache/decorator.py": "b27a0f7441725743612419fd0ba9a1c37c864e00cf83db1700345c660378a839",
+    "backend/src/infrastructure/cache/exceptions.py": "309a48ace3a7ba14dba3639395d062587d0f968bffd861c6ae7eeb67c35529d9",
+    "backend/src/infrastructure/cache/initialize.py": "0279818fc55f4de7c0c2dbf526aaf30f94b96b86eb703454c6b8fbb243bb2fc8",
+    "backend/src/infrastructure/cache/provider.py": "0d66ad7d5a644a38b8b130f5e7d45eabd05ae3a80e97bc178559295f41a811b2",
+    "backend/src/infrastructure/cache/utils.py": "8e37402d3da54488a06df04289bb73c178ca63cc275305c88d9071d378347cf7",
+    "backend/src/infrastructure/config/__init__.py": "426ad9ce08f6b60a28e48fdbcc3f347032e476de8d057f6b689bb8bbc06a5249",
+    "backend/src/infrastructure/config/enums.py": "ae74b04237c1fd5eb0f4f337d6aea4e9f302f8137e0e0c6d4bae434f3e20e7c1",
+    "backend/src/infrastructure/config/settings.py": "916bd14062f850806f8afad1d5c6ed4853b5df935c9c789726a705f644e4a3b3",
+    "backend/src/infrastructure/database/__init__.py": "d852f7a1112c1a660f6e9712131d2d4cb5669d8443561b65e0b5e28089c4ed34",
+    "backend/src/infrastructure/database/initialize.py": "c36ec3a7756b5347b5a4589d73075e4555292688335b28468527b0d902183972",
+    "backend/src/infrastructure/database/models.py": "94214f76a4c9f505b76c4cc2d74aa997f9bc4389a243fd5551cb36247770c78e",
+    "backend/src/infrastructure/database/session.py": "cc60e7c4aafab5e9eb6b24512ebac69a8cc6447ddb4796953a0a25206b11b59f",
+    "backend/src/infrastructure/dependencies.py": "ac559c496446ecc06c0358d802bb2eb5a2182ebe1d7fd3f73975e78255ddff72",
+    "backend/src/infrastructure/logging/__init__.py": "765c03fd09bfaa97a088cef9fc9fa42d762ccd77e15567adbb1fff56446e9760",
+    "backend/src/infrastructure/logging/config.py": "29854ba42e350b988a21f9955fb37cbe1b4aa59ea2558f7ad2874b2ec9212d48",
+    "backend/src/infrastructure/logging/factory.py": "af55e0b4f88e9c7cc15da06f9c709277302b494952a83670ae2f9f8b856d3149",
+    "backend/src/infrastructure/logging/formatters.py": "52b4368f901729bca0c951b92099ee802fe4351c7c04bc4a922a03d4ada678ca",
+    "backend/src/infrastructure/logging/handlers.py": "d5e1969baf93015385ef3951408f8c0f570142668c2bdddc1b399ae72671bd56",
+    "backend/src/infrastructure/middleware.py": "53bc94080dd2c53fe50eafa3dfd0ac17da473829fd44daaf13c1f38f3a8b3cbf",
+    "backend/src/infrastructure/redis.py": "d1e298d363b1b930abeb3cfa71967393ae7040a01af297aa6f2970188fef4732",
+    "backend/src/infrastructure/security/__init__.py": "8270944bcc6afaabb3c5bc1254e7fcc8838b2e13efb93deb94de48f6addb1dcc",
+    "backend/src/infrastructure/security/production_validator.py": "19ae56cdb0c8afab2484eb5279f7a0c17b985a68e4bb70416332eb3c791d4486",
+    "backend/src/infrastructure/taskiq/__init__.py": "b04555df2e127e8e30de09ed5082693bcd40f044aaa04850a042da79b516cb02",
+    "backend/src/infrastructure/taskiq/app.py": "c5288abcf3f2def6fe3740dab7d55a6a9bac17f7e955b6c6421f3b2f2ab11ccd",
+    "backend/src/infrastructure/taskiq/brokers.py": "3efbe18598cb91d0d78133c14783adfde94a92119cf391eba04be672458c5d11",
+    "backend/src/infrastructure/taskiq/deps.py": "37e1f72b0ddb46ff7363fedf6b64229b8b4f621f77ef290fdc038a63ffc38f60",
+    "backend/src/infrastructure/taskiq/registry.py": "dc51f18d6fa0362cc45df0ad4f19365160cc715d51870f07fb8b4390827867b3",
+    "backend/src/infrastructure/taskiq/worker.py": "334fec5428959d5b1b2865dad4991ddcbbe9452778d15dfb59d02b9a5960beb3",
+    "backend/src/interfaces/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/src/interfaces/admin/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/src/interfaces/admin/auth.py": "e4dcbdaf0946bf463058bfdfc843913514804748fe06fa5bc5a7983d0f8c280f",
+    "backend/src/interfaces/admin/initialize.py": "d82a829caeee639c187e825827edeac873dbc51f8c041c1fc66c925684371bd8",
+    "backend/src/interfaces/admin/mixins.py": "6a5bc21d8ab17efe282623ea1c3b95312cbf0f20be2322157f6b99d60a6e72b3",
+    "backend/src/interfaces/admin/views/__init__.py": "ece6cdb2c3d52c516b13e5ecf0f5f9924d3d59f6d19832aac49a0577c87c0111",
+    "backend/src/interfaces/admin/views/tiers.py": "8a97c5fbb6a0f06525fc9af4596481a7d7a5ace8637f12a9ad724f58d72c5b90",
+    "backend/src/interfaces/admin/views/users.py": "04d558568ca4139be8ec694058ea0bca9a86a4ee08e3805206f555737845d004",
+    "backend/src/interfaces/api/__init__.py": "635ceebe9de86b30c37852517e9185c8cdb69d5a016f1a88fec35a450d4df2cd",
+    "backend/src/interfaces/api/v1/__init__.py": "077bd2d5a435f5e3c4a8fe699be01ec5b50bd76cf04d8f6f5323152eadf320b2",
+    "backend/src/interfaces/main.py": "850ed53b3696e5daba7dfe8eff23da968900b73d9828c555d9642f9ff42490fb",
+    "backend/src/modules/__init__.py": "908c32eece136e75ae6054d32b9472d1c452bfc6e0e80de19c395539aabb67d4",
+    "backend/src/modules/api_keys/__init__.py": "46daa311ad2e059bd5763ebf0f2e2a2b86c38ca730cdec33135a56abde68c4fd",
+    "backend/src/modules/api_keys/crud.py": "8be744aa11bebf54ca22bcd0671abe7bb30e3718c8a980a95e946f7a5111f702",
+    "backend/src/modules/api_keys/dependencies.py": "2c3322a2ddad10048078241dac441b3442b0fb62288c797a4e7a7135bfd259c4",
+    "backend/src/modules/api_keys/enums.py": "98782664b8b018790f86ba3d95880c4c997481aafa0d842a90ed797e9a963ba9",
+    "backend/src/modules/api_keys/models.py": "0aba5114ba756237ee592203fd4ddbd5f7bd6f4c32a2f2c8599bb38945d8ab7e",
+    "backend/src/modules/api_keys/routes.py": "7033c94b9cf592e334277eadefbc0b689b593e481bfd7902b1713bb2a76307ba",
+    "backend/src/modules/api_keys/schemas.py": "75f7088cb2d3492e7150d68c729f21421b0fac8258846a0b653428a023498180",
+    "backend/src/modules/api_keys/service.py": "6d995a8414722977f37fbb47e4f50c5fa2676d4c8229c44913bd3d9ac0fc59d8",
+    "backend/src/modules/common/__init__.py": "60c63ab5be4be4399a22032384243266829326590388ebb8767ae646d8386e00",
+    "backend/src/modules/common/constants.py": "f9f30002e0f7f055f6018ed90d6c6fe593d6064c4d5f02501a1d1bc4ade5df25",
+    "backend/src/modules/common/exceptions.py": "dfb09cf2915c5556a4a9ac601b47eddefa301d3fe592b145947312217aedd396",
+    "backend/src/modules/common/schemas.py": "7d4ad15fbba2ac60c27fdbbabcc8f69a6c1c97d0d821d6581f961569f008484d",
+    "backend/src/modules/common/utils/__init__.py": "b6ac8d7601aa66b708492836bc1b4c955c6c3afc1a2e8df38ea224e5fdd09213",
+    "backend/src/modules/common/utils/error_handler.py": "437859a5553773b78581ac89d0e80043912f0c731bd977ff6f532133282014e5",
+    "backend/src/modules/common/utils/logger.py": "77c8fcc6ace103f0ae89f5c4f9d9508c5e3410e58d371a08afb1ed773dbb40b3",
+    "backend/src/modules/rate_limit/__init__.py": "ead67684f6e59b1a53ed3a2058a317f234676566270e68b9b45a11abea57829d",
+    "backend/src/modules/rate_limit/crud.py": "5d898214acf1d5bcb423219acd2fba68c992bd46c64e12462050d44829ef478d",
+    "backend/src/modules/rate_limit/dependencies.py": "9f3b766238c70d609823f0cf30b6fa88c8257d41ad0ced6a0c5de6290d421124",
+    "backend/src/modules/rate_limit/models.py": "41d1654d0cb53b4a1f85869ac3fabc6262aff54da668b7eeff7e8b3819c9160b",
+    "backend/src/modules/rate_limit/routes.py": "7e6e9122533d5045f68f4aaef76f2a4c81ee380a3645d43f93fd1adbbe13a581",
+    "backend/src/modules/rate_limit/schemas.py": "3ef200eec9eeda0a45ce3be11b2683abf9e0d096eddb4ff3d69bb4d311572f3c",
+    "backend/src/modules/rate_limit/service.py": "a5292003859083469c39c02b98de5cd93bf19bf623449d0ffd2c9921a6011ad9",
+    "backend/src/modules/tier/__init__.py": "04531f0f1ede009549b0ef047582b24e18243c5a3b63468ad4ecec41a35762a9",
+    "backend/src/modules/tier/crud.py": "ac1af25c87790ca3906492408af5460fd4378cb59494ca7a89ec1a75caae976d",
+    "backend/src/modules/tier/dependencies.py": "1d807ab61f2dfd6f15fac0954c2a2b715e4d485cb453dbb3ea287c2df80f65b0",
+    "backend/src/modules/tier/models.py": "116d300933b906496903586488b356587dffed4bc9c1112d74b32c71dba61cb4",
+    "backend/src/modules/tier/routes.py": "2401136114aa156e611fd2b14d7b622e9ba20c204d1a9f25a5890ac1e7a763ac",
+    "backend/src/modules/tier/schemas.py": "28fcc80143fc2becebecbee200e31a012eea2d027b9b318637874f2f6b73598b",
+    "backend/src/modules/tier/service.py": "88cc7095e1f152696fd06ebeb6c2165921ae7f40c972192e80fc307c854aa043",
+    "backend/src/modules/user/__init__.py": "e44614286cbf41026ab65939e1e7b6ac28f2edfc70ec91533edc9eb825f27294",
+    "backend/src/modules/user/constants.py": "7db88f0719ce54df288bc2a9b6a0c7c537e5662ba476b3417dd875bc26bc30cb",
+    "backend/src/modules/user/crud.py": "31ac21f9b30cc8eb89f483b88be2bf78540e087606ba6d3e942842d360646dbf",
+    "backend/src/modules/user/dependencies.py": "8bd7dd20496f7765f9ad9a9ba35feaed55cce371869970f6e72bf671fad37250",
+    "backend/src/modules/user/enums.py": "49a59df52a206607953cf8de094aa41896629f89f2c57bfefa19e259101d2aa3",
+    "backend/src/modules/user/models.py": "1d93551f8cde1ad8ba02ef196276e250b39d57b1dbfecc2df411c6d312547303",
+    "backend/src/modules/user/routes.py": "1cbfda659bb764acea3268cc7a17963b7e7aecf79c96fcfae128b5dd40fcf899",
+    "backend/src/modules/user/schemas.py": "bb6771e6048fcfc509570bd13699184e1a42f02b87858e176a9f678ee8b11cdc",
+    "backend/src/modules/user/service.py": "993d5ad80062b1cc170c034d3df9244f820477104fd6ed4224bf05d2dc8f26dc",
+    "cli/src/cli/__init__.py": "c3063ca886d3c561c4e5b9158e82869865490c49d369154e5c42e65a0082eb38",
+    "cli/src/cli/app.py": "f6f6cf611f0ad297fbc2feb2f66243dc571132983dc51328dd965637f5ff9d5b",
+    "cli/src/cli/commands/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cli/src/cli/commands/deploy.py": "2a5a6dfc9071e22adb1d1cb157bedba02910de45640fd05ccc44a95ba2c35ea0",
+    "cli/src/cli/commands/env.py": "f00a01f48b946defcec6c9831f08df4a8303c26f70001f96cb737b2bc634d46f",
+    "cli/src/cli/features/__init__.py": "0cd1745a97f150a9e1596a4bf27518a902dad28826f48f97622421169847a090",
+    "cli/src/cli/features/_builtins/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cli/src/cli/features/_builtins/deploy/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cli/src/cli/features/_builtins/deploy/feature.py": "6efc8b6e94edcd316fc24161422ee5ce000f37270c255916a93b622e5520e0e0",
+    "cli/src/cli/features/base.py": "5c526c078eddd7434245054c4ccaa028a92695d718f3cda88b5d95499e6f8a02",
+    "cli/src/cli/features/installer.py": "55cfa15c13ddfa76b9849fd8c5774f2343ed5073902f435654fb41891f672f0a",
+    "cli/src/cli/features/registry.py": "875529d9692d3829673d7eeb834ab2590f26e4840cd8a78b4f6db69d8a875cbc",
+    "cli/src/cli/lib/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cli/src/cli/lib/project.py": "d3dc2965ec4358682bb3f4286063495053575f78fc98d9a25037d89ddc5014e6",
+    "cli/src/cli/lib/prompts.py": "f6edb4794a9d5ed5bd1d66fa3ae515db812f9adaf0592fc2a7655d860fedb634",
+    "cli/src/cli/lib/render.py": "cf1635c9b5b6f4c242af9118fcc42e13db66052173d8e08adf9ab653adaf6f98",
+    "cli/src/cli/plugins.py": "b2e2ba2f5eef6c7cfaed761c923ad1ae26ebceb35b4ee16e77f669cb86e5e835"
+  },
+  "excluded": {
+    "dir:migrations": 1,
+    "dir:tests": 61
+  }
+}

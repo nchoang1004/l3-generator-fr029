@@ -1,0 +1,30 @@
+{
+  "status": "complete",
+  "files": 15,
+  "tokens": 10254,
+  "usd": 0.0023,
+  "requests": 5,
+  "tokens_by_step": {
+    "sum": 6456,
+    "assemble": 1539,
+    "libs": 657,
+    "name": 970,
+    "refine": 632
+  },
+  "components": 5,
+  "edges": 3,
+  "issues": 0,
+  "score": {
+    "internal": {
+      "precision": 1.0,
+      "precision_strict": 0.667,
+      "recall": 0.5
+    },
+    "external": {
+      "precision": 1.0,
+      "precision_strict": 1.0,
+      "recall": 1.0
+    },
+    "ari": 0.45
+  }
+}

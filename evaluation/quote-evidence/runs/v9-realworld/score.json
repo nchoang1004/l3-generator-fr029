@@ -1,0 +1,149 @@
+{
+  "all": {
+    "precision": 0.667,
+    "precision_strict": 0.4,
+    "recall": 0.5,
+    "drawn": 5,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "routes",
+        "repos"
+      ]
+    ],
+    "wrong": [
+      [
+        "repos",
+        "ext:postgres"
+      ]
+    ],
+    "not_counted": [
+      [
+        "routes",
+        "services"
+      ],
+      [
+        "services",
+        "repos"
+      ]
+    ],
+    "missed": [
+      [
+        "pool",
+        "ext:postgres"
+      ],
+      [
+        "repos",
+        "pool"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 1.0,
+    "precision_strict": 0.5,
+    "recall": 0.667,
+    "drawn": 4,
+    "hits": [
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "routes",
+        "repos"
+      ]
+    ],
+    "wrong": [],
+    "not_counted": [
+      [
+        "routes",
+        "services"
+      ],
+      [
+        "services",
+        "repos"
+      ]
+    ],
+    "missed": [
+      [
+        "repos",
+        "pool"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 0.0,
+    "precision_strict": 0.0,
+    "recall": 0.0,
+    "drawn": 1,
+    "hits": [],
+    "wrong": [
+      [
+        "repos",
+        "ext:postgres"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "pool",
+        "ext:postgres"
+      ]
+    ]
+  },
+  "quote_validity": 0.8,
+  "grouping_agreement": 0.889,
+  "components": 6,
+  "mapping": {
+    "C1": [
+      "Khởi tạo FastAPI",
+      "app"
+    ],
+    "C2": [
+      "Định nghĩa API routes",
+      "routes"
+    ],
+    "C3": [
+      "Xử lý nghiệp vụ",
+      "services"
+    ],
+    "C4": [
+      "Truy cập dữ liệu",
+      "repos"
+    ],
+    "C5": [
+      "Cơ sở hạ tầng DB",
+      "repos"
+    ],
+    "C6": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [],
+  "flow": {
+    "flow_recall": 0.667,
+    "flow_precision": 0.667,
+    "shown": 2,
+    "merged": 0,
+    "missed": [
+      [
+        "repos",
+        "pool"
+      ]
+    ],
+    "required": 3,
+    "right": 2,
+    "wrong": [
+      [
+        "C4",
+        "C5"
+      ]
+    ],
+    "neutral": 2,
+    "ari": 0.791
+  }
+}

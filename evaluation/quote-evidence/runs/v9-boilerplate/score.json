@@ -1,0 +1,469 @@
+{
+  "all": {
+    "precision": 0.222,
+    "precision_strict": 0.211,
+    "recall": 0.235,
+    "drawn": 19,
+    "hits": [
+      [
+        "auth",
+        "ext:google"
+      ],
+      [
+        "cache",
+        "ext:memcached"
+      ],
+      [
+        "cache",
+        "ext:redis"
+      ],
+      [
+        "services",
+        "crud"
+      ]
+    ],
+    "wrong": [
+      [
+        "cache",
+        "ext:broker"
+      ],
+      [
+        "cache",
+        "scripts"
+      ],
+      [
+        "crud",
+        "ext:google"
+      ],
+      [
+        "crud",
+        "ext:postgres"
+      ],
+      [
+        "crud",
+        "scripts"
+      ],
+      [
+        "routes",
+        "ext:google"
+      ],
+      [
+        "routes",
+        "scripts"
+      ],
+      [
+        "scripts",
+        "ext:broker"
+      ],
+      [
+        "scripts",
+        "ext:google"
+      ],
+      [
+        "scripts",
+        "ext:postgres"
+      ],
+      [
+        "scripts",
+        "ext:redis"
+      ],
+      [
+        "services",
+        "ext:google"
+      ],
+      [
+        "services",
+        "scripts"
+      ],
+      [
+        "taskiq",
+        "scripts"
+      ]
+    ],
+    "not_counted": [
+      [
+        "routes",
+        "crud"
+      ]
+    ],
+    "missed": [
+      [
+        "admin",
+        "db"
+      ],
+      [
+        "admin",
+        "services"
+      ],
+      [
+        "app",
+        "admin"
+      ],
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "auth",
+        "db"
+      ],
+      [
+        "auth",
+        "ext:redis"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "routes",
+        "auth"
+      ],
+      [
+        "routes",
+        "services"
+      ],
+      [
+        "scripts",
+        "db"
+      ],
+      [
+        "scripts",
+        "services"
+      ],
+      [
+        "taskiq",
+        "ext:broker"
+      ]
+    ]
+  },
+  "internal": {
+    "precision": 0.167,
+    "precision_strict": 0.143,
+    "recall": 0.091,
+    "drawn": 7,
+    "hits": [
+      [
+        "services",
+        "crud"
+      ]
+    ],
+    "wrong": [
+      [
+        "cache",
+        "scripts"
+      ],
+      [
+        "crud",
+        "scripts"
+      ],
+      [
+        "routes",
+        "scripts"
+      ],
+      [
+        "services",
+        "scripts"
+      ],
+      [
+        "taskiq",
+        "scripts"
+      ]
+    ],
+    "not_counted": [
+      [
+        "routes",
+        "crud"
+      ]
+    ],
+    "missed": [
+      [
+        "admin",
+        "db"
+      ],
+      [
+        "admin",
+        "services"
+      ],
+      [
+        "app",
+        "admin"
+      ],
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "auth",
+        "db"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "routes",
+        "auth"
+      ],
+      [
+        "routes",
+        "services"
+      ],
+      [
+        "scripts",
+        "db"
+      ],
+      [
+        "scripts",
+        "services"
+      ]
+    ]
+  },
+  "external": {
+    "precision": 0.25,
+    "precision_strict": 0.25,
+    "recall": 0.5,
+    "drawn": 12,
+    "hits": [
+      [
+        "auth",
+        "ext:google"
+      ],
+      [
+        "cache",
+        "ext:memcached"
+      ],
+      [
+        "cache",
+        "ext:redis"
+      ]
+    ],
+    "wrong": [
+      [
+        "cache",
+        "ext:broker"
+      ],
+      [
+        "crud",
+        "ext:google"
+      ],
+      [
+        "crud",
+        "ext:postgres"
+      ],
+      [
+        "routes",
+        "ext:google"
+      ],
+      [
+        "scripts",
+        "ext:broker"
+      ],
+      [
+        "scripts",
+        "ext:google"
+      ],
+      [
+        "scripts",
+        "ext:postgres"
+      ],
+      [
+        "scripts",
+        "ext:redis"
+      ],
+      [
+        "services",
+        "ext:google"
+      ]
+    ],
+    "not_counted": [],
+    "missed": [
+      [
+        "auth",
+        "ext:redis"
+      ],
+      [
+        "db",
+        "ext:postgres"
+      ],
+      [
+        "taskiq",
+        "ext:broker"
+      ]
+    ]
+  },
+  "quote_validity": 1.0,
+  "grouping_agreement": 0.59,
+  "components": 17,
+  "mapping": {
+    "C1": [
+      "Khởi tạo ứng dụng FastAPI",
+      "taskiq"
+    ],
+    "C2": [
+      "Xác thực API và giới hạn tốc độ",
+      "routes"
+    ],
+    "C3": [
+      "Xử lý nghiệp vụ người dùng",
+      "services"
+    ],
+    "C4": [
+      "Quản lý tier",
+      "services"
+    ],
+    "C5": [
+      "Triển khai tính năng CLI",
+      null
+    ],
+    "C6": [
+      "Quản lý khóa API",
+      "crud"
+    ],
+    "C7": [
+      "Khởi tạo mô-đun dữ liệu",
+      null
+    ],
+    "C8": [
+      "Cấu hình hạ tầng",
+      null
+    ],
+    "C9": [
+      "Định danh người dùng",
+      "auth"
+    ],
+    "C10": [
+      "Chính sách mật khẩu",
+      "auth"
+    ],
+    "C11": [
+      "Cache hạ tầng",
+      "cache"
+    ],
+    "C12": [
+      "Kiểm tra backend cache",
+      "cache"
+    ],
+    "C13": [
+      "Cơ sở dữ liệu & logging",
+      "scripts"
+    ],
+    "C14": [
+      "Cấu hình logging",
+      "common"
+    ],
+    "C15": [
+      "TaskIQ broker",
+      "taskiq"
+    ],
+    "C16": [
+      "Khám phá plugin CLI",
+      null
+    ],
+    "C17": [
+      "Dùng chung",
+      "common"
+    ]
+  },
+  "files_outside_oracle": [
+    "backend/src/infrastructure/__init__.py",
+    "backend/src/modules/__init__.py",
+    "backend/src/modules/api_keys/__init__.py",
+    "backend/src/modules/api_keys/enums.py",
+    "backend/src/modules/api_keys/schemas.py",
+    "backend/src/modules/rate_limit/__init__.py",
+    "backend/src/modules/rate_limit/schemas.py",
+    "backend/src/modules/tier/__init__.py",
+    "backend/src/modules/tier/schemas.py",
+    "backend/src/modules/user/__init__.py",
+    "backend/src/modules/user/constants.py",
+    "backend/src/modules/user/enums.py",
+    "backend/src/modules/user/schemas.py",
+    "cli/src/cli/app.py",
+    "cli/src/cli/commands/deploy.py",
+    "cli/src/cli/commands/env.py",
+    "cli/src/cli/features/__init__.py",
+    "cli/src/cli/features/_builtins/deploy/feature.py",
+    "cli/src/cli/features/base.py",
+    "cli/src/cli/features/installer.py",
+    "cli/src/cli/features/registry.py",
+    "cli/src/cli/lib/project.py",
+    "cli/src/cli/lib/prompts.py",
+    "cli/src/cli/lib/render.py",
+    "cli/src/cli/plugins.py"
+  ],
+  "flow": {
+    "flow_recall": 0.091,
+    "flow_precision": 0.375,
+    "shown": 1,
+    "merged": 1,
+    "missed": [
+      [
+        "admin",
+        "db"
+      ],
+      [
+        "app",
+        "admin"
+      ],
+      [
+        "app",
+        "routes"
+      ],
+      [
+        "auth",
+        "db"
+      ],
+      [
+        "crud",
+        "db"
+      ],
+      [
+        "routes",
+        "auth"
+      ],
+      [
+        "routes",
+        "services"
+      ],
+      [
+        "scripts",
+        "db"
+      ],
+      [
+        "scripts",
+        "services"
+      ]
+    ],
+    "required": 11,
+    "right": 3,
+    "wrong": [
+      [
+        "C1",
+        "C13"
+      ],
+      [
+        "C11",
+        "C13"
+      ],
+      [
+        "C2",
+        "C13"
+      ],
+      [
+        "C3",
+        "C13"
+      ],
+      [
+        "C6",
+        "C13"
+      ]
+    ],
+    "neutral": 2,
+    "ari": 0.266
+  }
+}

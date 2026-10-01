@@ -1,5 +1,8 @@
 """Python indexer: symbols, imports resolved to repository files, how imported names are used.
 
+Where an imported name points is Pyright's answer (names.py) when it has one: it follows re-exports through any
+number of __init__ files. A name Pyright cannot place keeps the file the import statement names.
+
 Knows Python only, not any framework. Another language needs its own indexer returning the same
 shape: {path: {lines, error, symbols, signals, imports, uses, external_calls}}.
 """
@@ -8,6 +11,8 @@ from __future__ import annotations
 import ast
 import sys
 from pathlib import Path, PurePosixPath
+
+import names
 
 STDLIB = set(sys.stdlib_module_names)
 
@@ -80,7 +85,7 @@ def _imports(tree: ast.Module, rel: str, res: _Resolver) -> list[dict]:
             for alias in node.names:
                 target = sub(alias.name) if alias.name != "*" else None
                 target = target or module_file
-                rows.append({"line": node.lineno, "local": alias.asname or alias.name,
+                rows.append({"line": node.lineno, "col": alias.col_offset, "local": alias.asname or alias.name,
                              "symbol": alias.name, "target": target,
                              "external": None if target else external})
     return rows
@@ -163,6 +168,7 @@ def _signals(tree: ast.Module, stdlib_locals: set[str]) -> tuple[list[dict], lis
 
 def index(root: Path, snapshot: dict) -> dict[str, dict]:
     res = _Resolver(snapshot["scope"], snapshot["files"])
+    pointed = names.occurrences(root, snapshot["scope"])
     out = {}
     for rel in snapshot["scope"]:
         text = (root / rel).read_text(encoding="utf-8", errors="replace")
@@ -177,6 +183,11 @@ def index(root: Path, snapshot: dict) -> dict[str, dict]:
         body = [n for n in tree.body if not (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant))]
         entry["empty"] = not body
         entry["imports"] = _imports(tree, rel, res)
+        entry["names"] = pointed.get(rel, {})
+        for row in entry["imports"]:           # 'from pkg import X': the file that defines X, per Pyright
+            hit = entry["names"].get((row["line"], row.get("col")))
+            if row["symbol"] and hit:
+                row["target"], row["external"] = hit[0], None
         stdlib_locals = {r["local"] for r in entry["imports"] if r["external"] in STDLIB}
         entry["symbols"], entry["signals"] = _signals(tree, stdlib_locals)
         locals_ = {row["local"]: row for row in entry["imports"]}
@@ -190,18 +201,5 @@ def index(root: Path, snapshot: dict) -> dict[str, dict]:
         for rows in entry["uses"].values():
             rows.sort()
         entry["external_calls"].sort()
-    _follow_reexports(out)
     return out
 
-
-def _follow_reexports(files: dict) -> None:
-    """'from pkg import X' where pkg/__init__.py only re-exports X: point at the file defining X."""
-    for entry in files.values():
-        for row in entry["imports"]:
-            target = row["target"]
-            if not target or not target.endswith("__init__.py") or not row["symbol"]:
-                continue
-            hop = next((r["target"] for r in files[target]["imports"]
-                        if r["local"] == row["symbol"] and r["target"]), None)
-            if hop:
-                row["target"] = hop

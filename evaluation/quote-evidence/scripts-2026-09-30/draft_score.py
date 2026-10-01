@@ -17,7 +17,8 @@ import calls, draft, evaluate, flow, graph, inventory, pyindex  # noqa: E402
 REPOS = [("rhoboro", "rhoboro-async-fastapi-sqlalchemy", True), ("fullstack", "full-stack-fastapi-template", True),
          ("realworld", "fastapi-realworld", True), ("teamhide", "teamhide-fastapi-boilerplate", True),
          ("boilerplate", "fastapi-boilerplate", False), ("kibo", "kibo-backend", False),
-         ("lnbits", "lnbits", False), ("fba", "fastapi-best-architecture", False)]
+         ("lnbits", "lnbits", False), ("fba", "fastapi-best-architecture", False),
+         ("tdd-docker", "fastapi-tdd-docker", False), ("agentgpt", "agentgpt", False)]
 f2 = lambda x: "-" if x is None else f"{x:.2f}".replace(".", ",")
 
 parser = argparse.ArgumentParser()

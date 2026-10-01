@@ -1,0 +1,609 @@
+{
+  "meta": {
+    "repo": "full-stack-fastapi-template-cb740b6",
+    "pipeline": "v9",
+    "model": "openai/gpt-oss-120b",
+    "issues": [
+      "sum-1 failed: sum-1: incomplete answer (length)",
+      "sum-1: 16 files without a summary"
+    ],
+    "status": "partial",
+    "files": 16,
+    "tokens": 21642,
+    "usd": 0.002,
+    "requests": 8,
+    "cached": 0,
+    "tokens_by_step": {
+      "refine": 1912,
+      "sum": 15812,
+      "assemble": 1280,
+      "name": 1633,
+      "libs": 1005
+    },
+    "timing_s": 745.7,
+    "calls": [
+      {
+        "at": "2026-10-01T10:21:59",
+        "step": "libs-1",
+        "status": 200,
+        "seconds": 25.65,
+        "estimated": 5130,
+        "prompt_tokens": 562,
+        "completion_tokens": 443,
+        "reasoning_tokens": 110,
+        "total_tokens": 1005,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 9.6104e-05
+      },
+      {
+        "at": "2026-10-01T10:23:42",
+        "step": "sum-1",
+        "status": 200,
+        "seconds": 102.2,
+        "estimated": 18821,
+        "prompt_tokens": 10052,
+        "completion_tokens": 5760,
+        "reasoning_tokens": 0,
+        "total_tokens": 15812,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.00128076
+      },
+      {
+        "at": "2026-10-01T10:24:17",
+        "step": "assemble-1",
+        "status": 200,
+        "seconds": 35.77,
+        "estimated": 5349,
+        "prompt_tokens": 769,
+        "completion_tokens": 511,
+        "reasoning_tokens": 334,
+        "total_tokens": 1280,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.00011505
+      },
+      {
+        "at": "2026-10-01T10:24:19",
+        "step": "refine-1",
+        "status": 200,
+        "seconds": 1.89,
+        "estimated": 4615,
+        "prompt_tokens": 457,
+        "completion_tokens": 184,
+        "reasoning_tokens": 87,
+        "total_tokens": 641,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 5.1317e-05
+      },
+      {
+        "at": "2026-10-01T10:24:23",
+        "step": "refine-2",
+        "status": 200,
+        "seconds": 3.26,
+        "estimated": 4626,
+        "prompt_tokens": 470,
+        "completion_tokens": 251,
+        "reasoning_tokens": 0,
+        "total_tokens": 721,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 6.4327e-05
+      },
+      {
+        "at": "2026-10-01T10:24:26",
+        "step": "refine-3",
+        "status": 200,
+        "seconds": 3.42,
+        "estimated": 4626,
+        "prompt_tokens": 470,
+        "completion_tokens": 80,
+        "reasoning_tokens": 0,
+        "total_tokens": 550,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 2.77e-05
+      },
+      {
+        "at": "2026-10-01T10:33:36",
+        "step": "name-1",
+        "status": 0,
+        "seconds": 549.96,
+        "estimated": 32000,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "reasoning_tokens": 0,
+        "total_tokens": 0,
+        "error": "network: The read operation timed out",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0
+      },
+      {
+        "at": "2026-10-01T10:33:59",
+        "step": "name-1",
+        "status": 200,
+        "seconds": 3.35,
+        "estimated": 32000,
+        "prompt_tokens": 1115,
+        "completion_tokens": 518,
+        "reasoning_tokens": 0,
+        "total_tokens": 1633,
+        "error": "",
+        "effort": "low",
+        "model": "openai/gpt-oss-120b",
+        "usd": 0.0003705
+      }
+    ],
+    "libraries": [
+      {
+        "library": "emails",
+        "role": "smtp",
+        "opens": [
+          "send"
+        ]
+      },
+      {
+        "library": "fastapi",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "jinja2",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "jwt",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "pwdlib",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "pydantic",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "pydantic_settings",
+        "role": "none",
+        "opens": []
+      },
+      {
+        "library": "sentry_sdk",
+        "role": "monitoring",
+        "opens": [
+          "init"
+        ]
+      },
+      {
+        "library": "sqlalchemy",
+        "role": "database",
+        "opens": []
+      },
+      {
+        "library": "sqlmodel",
+        "role": "database",
+        "opens": [
+          "Session",
+          "add",
+          "col",
+          "commit",
+          "count",
+          "create_engine",
+          "delete",
+          "desc",
+          "exec",
+          "first",
+          "limit",
+          "offset",
+          "order_by",
+          "refresh",
+          "select",
+          "select_from",
+          "where"
+        ]
+      },
+      {
+        "library": "starlette",
+        "role": "none",
+        "opens": []
+      }
+    ],
+    "units": {
+      "U1": [
+        "backend/app/main.py"
+      ],
+      "U2": [
+        "backend/app/api/main.py",
+        "backend/app/api/routes/login.py",
+        "backend/app/api/routes/utils.py"
+      ],
+      "U3": [
+        "backend/app/api/routes/items.py",
+        "backend/app/api/routes/private.py",
+        "backend/app/api/routes/users.py"
+      ],
+      "U4": [
+        "backend/app/models.py"
+      ],
+      "U5": [
+        "backend/app/api/deps.py",
+        "backend/app/core/db.py",
+        "backend/app/crud.py",
+        "backend/app/initial_data.py"
+      ],
+      "U6": [
+        "backend/app/utils.py"
+      ],
+      "U7": [
+        "backend/app/core/config.py"
+      ],
+      "U8": [
+        "backend/app/core/security.py"
+      ],
+      "U9": [
+        "hooks/post_gen_project.py"
+      ]
+    },
+    "refine": [
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/app/api/deps.py",
+        "block": null,
+        "from": "infra_database",
+        "action": "apply",
+        "target": "api_routes",
+        "reason": {
+          "file": "backend/app/api/deps.py",
+          "line": 16,
+          "text": "reusable_oauth2 = OAuth2PasswordBearer("
+        }
+      },
+      {
+        "round": 1,
+        "kind": "move",
+        "file": "backend/app/core/config.py",
+        "block": null,
+        "from": "entry_start",
+        "action": "apply",
+        "target": "api_routes",
+        "reason": {
+          "file": "backend/app/core/config.py",
+          "line": 15,
+          "text": "class Settings(BaseSettings):"
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/app/crud.py",
+        "block": null,
+        "from": "infra_database",
+        "action": "apply",
+        "target": "api_routes",
+        "reason": {
+          "file": "backend/app/crud.py",
+          "line": 10,
+          "text": "def create_user(*, session: Session, user_create: UserCreate) -> User:"
+        }
+      },
+      {
+        "round": 2,
+        "kind": "move",
+        "file": "backend/app/api/deps.py",
+        "block": null,
+        "from": "api_routes",
+        "action": "apply",
+        "target": "infra_database",
+        "reason": {
+          "file": "backend/app/api/deps.py",
+          "line": 16,
+          "text": "reusable_oauth2 = OAuth2PasswordBearer("
+        }
+      },
+      {
+        "round": 3,
+        "kind": "move",
+        "file": "backend/app/api/deps.py",
+        "block": null,
+        "from": "infra_database",
+        "action": "apply",
+        "target": "api_routes",
+        "reason": {
+          "file": "backend/app/api/deps.py",
+          "line": 16,
+          "text": "reusable_oauth2 = OAuth2PasswordBearer("
+        }
+      },
+      {
+        "round": 3,
+        "kind": "move",
+        "file": "backend/app/crud.py",
+        "block": null,
+        "from": "api_routes",
+        "action": "apply",
+        "target": "infra_database",
+        "reason": {
+          "file": "backend/app/crud.py",
+          "line": 10,
+          "text": "def create_user(*, session: Session, user_create: UserCreate) -> User:"
+        }
+      }
+    ],
+    "edge_check": []
+  },
+  "components": [
+    {
+      "id": "C1",
+      "key": "entry_start",
+      "name": "Khởi tạo FastAPI ứng dụng",
+      "layer": "entry",
+      "role": "Tạo đối tượng FastAPI và cấu hình cơ bản.",
+      "role_quote": {
+        "file": "backend/app/main.py",
+        "line": 21,
+        "text": "app = FastAPI("
+      },
+      "shared": false,
+      "files": [
+        "backend/app/main.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C2",
+      "key": "api_routes",
+      "name": "Định nghĩa router API",
+      "layer": "api",
+      "role": "Khai báo các endpoint và gắn router con.",
+      "role_quote": {
+        "file": "backend/app/api/main.py",
+        "line": 7,
+        "text": "api_router.include_router(login.router)"
+      },
+      "shared": false,
+      "files": [
+        "backend/app/api/main.py",
+        "backend/app/api/routes/login.py",
+        "backend/app/api/routes/utils.py",
+        "backend/app/api/routes/items.py",
+        "backend/app/api/routes/private.py",
+        "backend/app/api/routes/users.py",
+        "backend/app/core/config.py",
+        "backend/app/api/deps.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C3",
+      "key": "data_models",
+      "name": "Mô hình dữ liệu người dùng",
+      "layer": "data",
+      "role": "Định nghĩa lớp User và các hàm hỗ trợ thời gian.",
+      "role_quote": {
+        "file": "backend/app/models.py",
+        "line": 52,
+        "text": "class User(UserBase, table=True):"
+      },
+      "shared": false,
+      "files": [
+        "backend/app/models.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C4",
+      "key": "infra_database",
+      "name": "Kết nối và thao tác DB",
+      "layer": "infra",
+      "role": "Tạo engine DB, khởi tạo dữ liệu và CRUD người dùng.",
+      "role_quote": {
+        "file": "backend/app/core/db.py",
+        "line": 7,
+        "text": "engine = create_engine(str(settings.DATABASE_URL), pool_pre_ping=True)"
+      },
+      "shared": false,
+      "files": [
+        "backend/app/core/db.py",
+        "backend/app/initial_data.py",
+        "backend/app/crud.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C5",
+      "key": "infra_smtp",
+      "name": "Gửi email SMTP",
+      "layer": "infra",
+      "role": "Định nghĩa cấu trúc dữ liệu email và hàm gửi.",
+      "role_quote": {
+        "file": "backend/app/utils.py",
+        "line": 20,
+        "text": "class EmailData:"
+      },
+      "shared": false,
+      "files": [
+        "backend/app/utils.py"
+      ],
+      "described": true
+    },
+    {
+      "id": "C6",
+      "key": "shared",
+      "name": "Dùng chung",
+      "layer": "shared",
+      "role": "",
+      "role_quote": null,
+      "shared": true,
+      "files": [
+        "backend/app/core/security.py",
+        "hooks/post_gen_project.py"
+      ],
+      "described": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "E1",
+      "source": "C2",
+      "target": "C3",
+      "label": "chuyển đổi token payload",
+      "quote": {
+        "file": "backend/app/api/deps.py",
+        "line": 35,
+        "text": "token_data = TokenPayload(**payload)"
+      }
+    },
+    {
+      "id": "E2",
+      "source": "C2",
+      "target": "C4",
+      "label": "truy xuất người dùng DB",
+      "quote": {
+        "file": "backend/app/api/deps.py",
+        "line": 41,
+        "text": "user = session.get(User, token_data.sub)"
+      }
+    },
+    {
+      "id": "E3",
+      "source": "C2",
+      "target": "C5",
+      "label": "gửi email khôi phục",
+      "quote": {
+        "file": "backend/app/api/routes/login.py",
+        "line": 64,
+        "text": "email_data = generate_reset_password_email("
+      }
+    },
+    {
+      "id": "E4",
+      "source": "C1",
+      "target": "C2",
+      "label": "đăng ký router API",
+      "quote": {
+        "file": "backend/app/main.py",
+        "line": 35,
+        "text": "app.include_router(api_router, prefix=settings.API_V1_STR)"
+      }
+    }
+  ],
+  "externals": [
+    {
+      "id": "X1",
+      "name": "Database",
+      "kind": "database",
+      "edges": [
+        {
+          "source": "C2",
+          "label": "truy vấn",
+          "quote": {
+            "file": "backend/app/api/deps.py",
+            "line": 22,
+            "text": "with Session(engine) as session:"
+          }
+        },
+        {
+          "source": "C4",
+          "label": "truy vấn",
+          "quote": {
+            "file": "backend/app/core/db.py",
+            "line": 7,
+            "text": "engine = create_engine(str(settings.DATABASE_URL), pool_pre_ping=True)"
+          }
+        },
+        {
+          "source": "C3",
+          "label": "truy vấn",
+          "quote": {
+            "file": "backend/app/models.py",
+            "line": 57,
+            "text": "sa_type=DateTime(timezone=True),  # type: ignore"
+          }
+        }
+      ]
+    },
+    {
+      "id": "X2",
+      "name": "SMTP",
+      "kind": "smtp",
+      "edges": [
+        {
+          "source": "C5",
+          "label": "gửi email",
+          "quote": {
+            "file": "backend/app/utils.py",
+            "line": 56,
+            "text": "response = message.send(to=email_to, smtp=smtp_options)"
+          }
+        }
+      ]
+    }
+  ],
+  "quotes": {
+    "returned": 5,
+    "valid": 5
+  },
+  "rejected": [],
+  "issues": [],
+  "file_lines": {
+    "backend/app/api/deps.py": 57,
+    "backend/app/api/main.py": 14,
+    "backend/app/api/routes/items.py": 113,
+    "backend/app/api/routes/login.py": 123,
+    "backend/app/api/routes/private.py": 38,
+    "backend/app/api/routes/users.py": 232,
+    "backend/app/api/routes/utils.py": 31,
+    "backend/app/core/config.py": 91,
+    "backend/app/core/db.py": 33,
+    "backend/app/core/security.py": 36,
+    "backend/app/crud.py": 68,
+    "backend/app/initial_data.py": 23,
+    "backend/app/main.py": 36,
+    "backend/app/models.py": 133,
+    "backend/app/utils.py": 125,
+    "hooks/post_gen_project.py": 8
+  },
+  "summaries": {},
+  "snapshot": {
+    "backend/app/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/api/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/api/deps.py": "84c30966b3b862c643009c14146d1924dec50be5b0efb9f56798e2fda5189daa",
+    "backend/app/api/main.py": "9e9d533bea7c8616a1d9dd3d7e7cdfefa36726fb221bb289fd102654b7e93b3f",
+    "backend/app/api/routes/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/api/routes/items.py": "7f0fa55d1f7b02188c4abd4f88aa6db92fe03de38258b765ed050ec72032b410",
+    "backend/app/api/routes/login.py": "3c7f7c395b74cea54e505a16052679614b4fd92325d88b761385df8d952af642",
+    "backend/app/api/routes/private.py": "f5df74cc276f0d8d83337922fb8e05e69ecbc885d466d90d2e3de54ba5e4c8f4",
+    "backend/app/api/routes/users.py": "566f253330d75bdbf04f2fd59b380dd2c51041d931bd7af6b2064ee66ea96e6d",
+    "backend/app/api/routes/utils.py": "5e77b59fab0bfcb1cef581938dcc8a47afb7518664a497763d4c50711898e925",
+    "backend/app/core/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "backend/app/core/config.py": "ef306f8b68c64f1864269891d353c23807d5685d62e514066598b33ee099ca08",
+    "backend/app/core/db.py": "22b8642606ae619a1ea07b5e3c3bee49c2fc0ded5d0e583e810fba6e7ffadfc9",
+    "backend/app/core/security.py": "adb90882929ab33c238e2e9fa81b03fa0364c1a8cce0e9e70b98c68c321f468f",
+    "backend/app/crud.py": "f69d79e858ee22cee7792494b0df0370afaed20439ed16bbf6f70767926254d1",
+    "backend/app/initial_data.py": "29b51ebdd3c8cb9fde80a426f9c10af08c606ad0ffcec39a23fddc6587ab812c",
+    "backend/app/main.py": "e8b28b639d86c76dcf60348185c91125a789951ff085a5289d9f5add0854dfda",
+    "backend/app/models.py": "1b7384d0dc779cca9ebc9d2b05ccd1864988c2043a3692384ff7a731819050f0",
+    "backend/app/utils.py": "61fbc8476b1c1247b80e2220d28f89e33370434e2eb172f325ed0a6643e433b3",
+    "hooks/post_gen_project.py": "ea8320797206afea47fbb6b243e7e71d849977ce762c8ec630c0512f12ce3799"
+  },
+  "excluded": {
+    "dir:alembic": 6,
+    "dir:tests": 15,
+    "side:no_own_import": 2
+  }
+}
