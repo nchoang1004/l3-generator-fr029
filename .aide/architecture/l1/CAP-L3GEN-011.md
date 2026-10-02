@@ -6,11 +6,11 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 1
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
-relations: {"covers":["FR-L3GEN-023","FR-L3GEN-024"]}
-verified_at: 2026-09-23
-verified_against: [{"key":"FR-L3GEN-023","revision":1},{"key":"FR-L3GEN-024","revision":1},{"key":"GLOSS-L3GEN-001","revision":5}]
+relations: {"covers":["FR-L3GEN-028","FR-L3GEN-029","FR-L3GEN-030","FR-L3GEN-031"]}
+verified_at: 2026-10-02
+verified_against: [{"key":"FR-L3GEN-028","revision":3},{"key":"FR-L3GEN-029","revision":3},{"key":"FR-L3GEN-030","revision":2},{"key":"FR-L3GEN-031","revision":2},{"key":"GLOSS-L3GEN-001","revision":9}]
 classification: "internal"
 ai_assisted: true
 ---
@@ -30,10 +30,12 @@ Cửa kiểm cuối cho mọi kết luận, dù do code dựng hay do model đ�
 
 ## FR được phủ
 
-| FR key | Tên |
-|---|---|
-| [FR-L3GEN-023](../../requirements/fr/FR-L3GEN-023.md) | Bằng chứng và nhãn mức chắc chắn |
-| [FR-L3GEN-024](../../requirements/fr/FR-L3GEN-024.md) | Công bố giới hạn của lần chạy |
+| FR key | Tên | Phần dựa vào năng lực này |
+|---|---|---|
+| [FR-L3GEN-028](../../requirements/fr/FR-L3GEN-028.md) | Sơ đồ kiến trúc có bằng chứng | Kiểm bằng chứng và nhãn của khối, mũi tên; phần giới hạn |
+| [FR-L3GEN-029](../../requirements/fr/FR-L3GEN-029.md) | Tài liệu L3 API và cấu trúc component | Kiểm bằng chứng từng dòng contract; nhãn `exact`/`inferred`/`unknown` |
+| [FR-L3GEN-030](../../requirements/fr/FR-L3GEN-030.md) | Tài liệu L3 bảng dữ liệu | Như FR-029, cho bảng và cột |
+| [FR-L3GEN-031](../../requirements/fr/FR-L3GEN-031.md) | Tài liệu L3 sự kiện và tác vụ nền | Như FR-029, cho sự kiện |
 
 ## Ràng buộc chính
 

@@ -6,7 +6,7 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 8
+revision: 10
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {}
 verified_at: null
@@ -34,6 +34,10 @@ bất biến #6, #8 và mục 7.
 
 **Revision 8 (02/10/2026):** sửa theo recovery review REVIEW-SCOPE-L3GEN-2026-003: bỏ `mapped_column` khỏi danh sách không mang sang (FR-L3GEN-030 đọc nó); `add_api_route` ghi ở phần giới hạn; định nghĩa tên dùng chung khớp cách xếp file của FR-L3GEN-028.
 
+**Revision 9 (02/10/2026):** bước 5 (domain design) cho FR-L3GEN-029. Thêm mục 3a (module, package, vai trò file, lời gọi HTTP ra ngoài) và bất biến #11. Mục "Service" cũ đổi tên thành "Đơn vị triển khai" (Khiêm quyết 02/10/2026); chữ Service chỉ còn là vai trò file.
+
+**Revision 10 (02/10/2026):** sửa theo review REVIEW-ARCH-L3GEN-2026-001 (A19): mục 3a đủ chín vai trò của FR-L3GEN-029; định nghĩa Service trỏ đúng thứ tự xét của FR.
+
 ## 1. Nguồn và lần phân tích
 
 | Thuật ngữ | Nghĩa dùng trong hệ thống |
@@ -43,7 +47,7 @@ bất biến #6, #8 và mục 7.
 | Analysis run | Một lần engine xử lý đúng một source snapshot với một bộ cấu hình, tool version và rule version xác định |
 | Analysis unit | Phần source được kiểm kê và phân tích chung. Manifest, source root, entry point và cấu trúc thư mục là evidence để xác định phạm vi, không tự chứng minh deployment boundary |
 | Application | Điểm hợp thành/chạy ứng dụng được framework hoặc cấu hình hỗ trợ chứng minh. Một analysis unit có thể có không, một hoặc nhiều application |
-| Service | Đơn vị triển khai chỉ khi có bằng chứng phù hợp. Khi chưa đủ bằng chứng, sản phẩm phải dùng `analysis unit` hoặc boundary candidate, không gọi chắc chắn là service |
+| Đơn vị triển khai | Phần được triển khai riêng, chỉ khẳng định khi có bằng chứng phù hợp. Khi chưa đủ bằng chứng, sản phẩm dùng `analysis unit` hoặc boundary candidate. Trước revision 9 mục này tên là "Service"; chữ Service nay chỉ dùng cho vai trò file (mục 3a) |
 | Entry point | Vị trí source/config có bằng chứng khởi tạo hoặc cấu hình application; không đồng nghĩa mọi code từ đó chắc chắn đã chạy |
 
 ## 2. Dữ kiện, kết luận và bằng chứng
@@ -83,6 +87,26 @@ bất biến #6, #8 và mục 7.
 | External system | Đích tích hợp bên ngoài application/component, ví dụ HTTP service, datastore hay broker đã xác định đủ để lập quan hệ kiến trúc |
 | External library | Gói phụ thuộc được khai báo hoặc có dấu vết sử dụng trong code; không phải external system và không phải component dependency |
 | Export artifact | Biểu diễn Markdown, diagram-as-code hoặc JSON được sinh từ cùng architecture model; không phải một lần phân tích độc lập |
+
+## 3a. Cấu trúc bên trong component
+
+Mục này đặt tên cho những gì nằm bên trong một component. Đề bài 3.6 yêu cầu phát hiện chúng nhưng chúng không phải contract. FR-L3GEN-029 ghi chúng ở mục "Cấu trúc component" của README.
+
+| Thuật ngữ | Nghĩa dùng trong hệ thống |
+|---|---|
+| Module | Một file `.py` |
+| Package | Thư mục chứa module. Trong README, module của một component được liệt kê dưới package của nó |
+| Vai trò file | Việc một file làm bên trong component, lấy từ dấu hiệu trong code kèm một dòng bằng chứng. Mỗi file đúng một vai trò. Danh sách vai trò, dấu hiệu và thứ tự xét ở FR-L3GEN-029 mục "Cấu trúc component trong README" |
+| Điểm vào (vai trò) | Vai trò file: file tạo app, chạy chương trình hoặc khai lệnh dòng lệnh; dấu hiệu như mục "Phạm vi đọc" của FR-L3GEN-028 |
+| Route | Vai trò file: file khai route bằng decorator của `FastAPI` hoặc `APIRouter` |
+| Schema API | Vai trò file: file khai lớp mà route dùng làm request hoặc response model |
+| Cấu hình | Vai trò file: file khai lớp kế thừa `BaseSettings` hoặc đọc `os.environ`, `os.getenv` |
+| Model bảng | Vai trò file: file khai model ánh xạ bảng dữ liệu |
+| Hạ tầng | Vai trò file: file có dòng tạo engine hoặc client tới hệ thống ngoài |
+| Truy cập dữ liệu | Vai trò file: file gọi method trên session CSDL hoặc dựng truy vấn. Đề bài 3.6 gọi là repository/data access |
+| Service | Vai trò file: file không mang dấu hiệu của bảy vai trò xét trước nó (thứ tự ở FR-L3GEN-029), nhưng nằm trên đường gọi từ route tới file truy cập dữ liệu hoặc hạ tầng. Luôn mang nhãn `inferred`. Không phải đơn vị triển khai |
+| Khác (vai trò) | Vai trò file khi file không mang dấu hiệu nào. Khác với loại component "Khác" (file không có code) |
+| Lời gọi HTTP ra ngoài | Lời gọi qua `httpx`, `requests` hoặc `aiohttp` tới một URL. Ghi trong README kèm đích và bằng chứng; không phải contract L3 |
 
 ## 4. Nhãn chất lượng và trạng thái
 
@@ -147,6 +171,8 @@ Các bất biến sau phải giữ dù sau này chọn phương án kiến trúc
 10. Khi run dừng vì hết ngân sách thời gian, bộ nhớ hoặc trần tiếp nhận, kết quả phải là
     `partial` kèm phạm vi đã mất và nguyên nhân dừng. Không đánh dấu `completed` cho bộ
     kết quả thiếu phạm vi, và không đánh dấu `failed` khi phần đã xét vẫn dùng được.
+11. Vai trò file chỉ lấy từ dấu hiệu trong code, kèm dòng làm bằng chứng. Không suy vai trò
+    từ tên file hay tên thư mục. File không mang dấu hiệu nào ghi "Khác".
 
 ## 7. Ghi chú về tài liệu thiết kế cũ
 

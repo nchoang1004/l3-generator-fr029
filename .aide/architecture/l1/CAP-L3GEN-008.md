@@ -6,11 +6,11 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 1
+revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
-relations: {"covers":["FR-L3GEN-020"]}
-verified_at: 2026-09-23
-verified_against: [{"key":"FR-L3GEN-020","revision":1},{"key":"GLOSS-L3GEN-001","revision":5}]
+relations: {"covers":["FR-L3GEN-028","FR-L3GEN-029","FR-L3GEN-030","FR-L3GEN-031"]}
+verified_at: 2026-10-02
+verified_against: [{"key":"FR-L3GEN-028","revision":3},{"key":"FR-L3GEN-029","revision":3},{"key":"FR-L3GEN-030","revision":2},{"key":"FR-L3GEN-031","revision":2},{"key":"GLOSS-L3GEN-001","revision":9}]
 classification: "internal"
 ai_assisted: true
 ---
@@ -29,9 +29,12 @@ Từ snapshot, xác định đơn vị phân tích, ngôn ngữ và framework c�
 
 ## FR được phủ
 
-| FR key | Tên |
-|---|---|
-| [FR-L3GEN-020](../../requirements/fr/FR-L3GEN-020.md) | Xác định phạm vi phân tích |
+| FR key | Tên | Phần dựa vào năng lực này |
+|---|---|---|
+| [FR-L3GEN-028](../../requirements/fr/FR-L3GEN-028.md) | Sơ đồ kiến trúc có bằng chứng | Bảng "Phạm vi đọc": file được xét, file bị loại kèm lý do |
+| [FR-L3GEN-029](../../requirements/fr/FR-L3GEN-029.md) | Tài liệu L3 API và cấu trúc component | Route trong file test hoặc ngoài phạm vi không vào tài liệu (AC-05) |
+| [FR-L3GEN-030](../../requirements/fr/FR-L3GEN-030.md) | Tài liệu L3 bảng dữ liệu | Bảng khai trong file ngoài phạm vi không vào tài liệu |
+| [FR-L3GEN-031](../../requirements/fr/FR-L3GEN-031.md) | Tài liệu L3 sự kiện và tác vụ nền | Như FR-030, cho điểm gửi và nhận |
 
 ## Ràng buộc chính
 
