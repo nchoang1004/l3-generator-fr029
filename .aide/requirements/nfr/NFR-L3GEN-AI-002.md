@@ -6,9 +6,9 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 3
+revision: 6
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
-relations: {"constrains":["FR-L3GEN-021","FR-L3GEN-022","FR-L3GEN-024"],"measured_by":["OBS-L3GEN-001"]}
+relations: {"constrains":["FR-L3GEN-028"],"measured_by":["OBS-L3GEN-001"]}
 verified_at: null
 verified_against: []
 classification: "internal"
@@ -18,52 +18,56 @@ ai_assisted: true
 # NFR-L3GEN-AI-002 — Ranh giới, chi phí và truy vết của mô hình ngôn ngữ
 
 - **Nhóm:** AI reliability.
-- **Trạng thái:** hướng đã chốt ngày 22/09/2026; provider, model và trần mỗi lần chạy chốt tại OQ-L3GEN-008 ngày 23/09/2026. Chưa đo nghiệm thu.
-- **Áp dụng:** [FR-L3GEN-021](../fr/FR-L3GEN-021.md), [FR-L3GEN-022](../fr/FR-L3GEN-022.md), [FR-L3GEN-024](../fr/FR-L3GEN-024.md).
+- **Trạng thái:** revision 4 theo quyết định của Khiêm ngày 02/10/2026 (CR-L3GEN-2026-004, OQ-L3GEN-009): model bắt buộc, trả phí ít, qua OpenRouter. Revision 5 (02/10/2026) sửa theo review REVIEW-SCOPE-L3GEN-2026-002: trần chi phí và token do Khiêm chốt khi đóng OQ-L3GEN-009; bỏ việc chọn chủ bảng (bảng theo file khai báo model, FR-L3GEN-028); mỗi loại lỗi câu trả lời một đường xử lý. Revision 6 (02/10/2026): Khiêm chốt số request, độ dài câu trả lời và timeout (finding F13 của REVIEW-SCOPE-L3GEN-2026-003). Chưa đo nghiệm thu.
+- **Áp dụng:** [FR-L3GEN-028](../fr/FR-L3GEN-028.md).
 
 ## Yêu cầu có thể kiểm chứng
 
-Thay cho NFR-L3GEN-AI-001 và NFR-L3GEN-DET-001 của BL-r14; tái lập hạ xuống mức ghi nhận.
+Thay revision 3 (Groq và Google, gói miễn phí, trần chi phí 0 đồng).
 
-**Ranh giới.** Mô hình ngôn ngữ chỉ nhận tập dữ kiện code đã trích kèm vị trí file, không nhận toàn bộ source repository. Model đặt tên, mô tả, vai trò cho component đã được code chia, gắn nhãn cạnh, và đề xuất cạnh mà phân tích tĩnh không thấy. Chỉ với repository phẳng, model mới đề xuất cách chia component (AC-L3GEN-022-05). Model không sửa dữ kiện code và không tự công bố kết luận.
+**Việc của model.** Model nhận kết quả code đã lần theo và trả về: các nhóm route cùng trách nhiệm nghiệp vụ cần gộp; tên và một câu trách nhiệm cho mỗi component; tên dùng chung nào thuộc riêng một component. Mỗi quyết định trỏ một mã dòng code đã hiện cho model. Model không tách nhóm route, không thêm mũi tên, không sửa dữ kiện code và không tự công bố kết luận.
 
-**Đọc thêm code.** Đầu vào mặc định là tập dữ kiện, danh sách file của từng component, lời gọi giữa component, và chữ ký hàm (tên, tham số, kiểu, decorator, docstring). Khi cần xem thân hàm, model gọi công cụ đọc code của engine; công cụ chỉ trả đoạn code thuộc snapshot và phạm vi đang xét, đã che bí mật. Model phải hỗ trợ gọi công cụ; với `gpt-oss-120b` trên Groq điều này **chưa kiểm**, kiểm ở M1. Kết quả model trả về phải đúng schema đã định; phần sai schema, trỏ tới file không có trong snapshot, tham chiếu định danh không tồn tại, hoặc không qua bước kiểm bằng chứng của NFR-L3GEN-ACC-002 thì bị loại và ghi lý do loại.
+**Đầu vào gửi cho model.** Danh sách nhóm route (method, path, bảng và hệ thống ngoài mỗi route chạm, dòng khai báo route), tên dùng chung kèm dòng khai báo, số lời gọi giữa các nhóm. Mỗi dòng code gửi đi mang một mã `[L12]`; model trả mã, code tra ra `file:dòng` và nguyên văn. Không gửi nguyên file source hoặc cả repository.
 
-**Provider và model phase đầu.** Hai model, chia theo việc, đều dùng gói miễn phí:
+**Kiểm câu trả lời.** Code kiểm: câu trả lời đúng schema; mỗi nhóm route thuộc đúng một component và không bị tách; tên dùng chung dùng tối đa một lần; mã dòng có trong danh sách đã gửi. Mỗi loại lỗi một đường xử lý:
 
-| Việc | Model | Số request mỗi lần chạy |
-|---|---|---|
-| Đọc code qua công cụ, đặt tên, mô tả, vai trò component, gắn nhãn cạnh | Groq `openai/gpt-oss-120b`, `reasoning_effort` trung bình | Nhiều, trong trần token bên dưới |
-| Đề xuất cạnh bổ sung cho cả repository, gộp trong một request, không đọc thêm code | Google `gemini-3.5-flash` | 1 |
-| Chia component khi repository phẳng (AC-L3GEN-022-05) | Google `gemini-3.5-flash` | 1, chỉ khi repository phẳng |
+| Lỗi | Xử lý |
+|---|---|
+| JSON hỏng hoặc sai schema | Gửi lại một lần kèm lỗi. Vẫn sai thì bỏ cả câu trả lời, giữ cách chia của code, trạng thái partial (AC-L3GEN-028-08) |
+| Đúng schema nhưng vi phạm luật kiểm | Gửi lại một lần kèm danh sách lỗi. Vẫn sai thì loại phần vi phạm, giữ phần hợp lệ, ghi lý do (AC-L3GEN-028-05) |
 
-Giới hạn gói do Khiêm cung cấp ngày 23/09/2026. Groq `gpt-oss-120b`: 30 request/phút, 1.000 request/ngày, 8.000 token/phút, 200.000 token/ngày. Google `gemini-3.5-flash`: 5 request/phút, 250.000 token/phút, 20 request/ngày. Giới hạn do provider đặt và có thể đổi; công cụ đọc lỗi rate limit thực tế thay vì tin con số ghi ở đây.
+**Provider và model.**
 
-Mỗi việc luôn do đúng model đã ghi ở bảng. Model của một việc lỗi hoặc hết quota thì việc đó dừng và báo, không chuyển sang model kia. Provenance ghi model của từng phần kết quả.
+| Thuộc tính | Giá trị |
+|---|---|
+| Provider | OpenRouter |
+| Model | `openai/gpt-6-luna` |
+| Mức suy luận | trung bình |
+| Tham số `temperature` | không gửi (model không nhận) |
+
+Đổi model hoặc provider bằng cấu hình, không sửa code; mỗi lần đổi ghi vào provenance và chạy lại phép đo của OBS-L3GEN-001.
 
 **Trần mỗi lần chạy.**
 
-| Trần | Giá trị | Lý do |
-|---|---|---|
-| Token mỗi lần chạy với `gpt-oss-120b`, vào và ra cộng lại | ≤ 100.000 | Một nửa quota ngày, chừa chỗ cho một lần chạy lại |
-| Request mỗi lần chạy với `gemini-3.5-flash` | ≤ 2 | Quota 20 request/ngày; cho khoảng 10 lần chạy mỗi ngày |
-| Token mỗi request với `gemini-3.5-flash` | ≤ 50.000 | Dưới trần 250.000 token/phút; chưa đo trên repo thật |
-| Token mỗi request | ≤ 6.000 | Dưới trần 8.000 token/phút của gói |
-| Request mỗi lần chạy | ≤ 40 | Chặn vòng gọi không dừng |
-| Timeout và thử lại | 30 giây mỗi request, thử lại tối đa 2 lần | Giữ từ BL-r14 |
-| Lần đọc code theo yêu cầu model | ≤ 6 lần mỗi phạm vi, mỗi lần ≤ 60 dòng | 6 lần theo CodeBoarding; 60 dòng để vừa trần token mỗi request |
+| Trần | Giá trị |
+|---|---|
+| Chi phí | ≤ 0,20 USD |
+| Token vào và ra cộng lại | ≤ 300.000 |
+| Request | ≤ 4 (một lần hỏi, một lần gửi lại, mỗi lần thử lại tối đa một lần khi lỗi mạng) |
+| Độ dài câu trả lời | ≤ 12.000 token mỗi request |
+| Timeout | 300 giây mỗi request |
 
-Công cụ ước tính số token của tập dữ kiện trước request đầu tiên; vượt trần thì không gọi model và xử lý theo AC-L3GEN-022-03. Trần token thay cho "trần kích thước repository": model nhận tập dữ kiện chứ không nhận source, nên đơn vị đo là token. Quy đổi sang số file hoặc số dòng code chưa đo; M1 đo và công bố.
+Chi phí và token do Khiêm chốt tại OQ-L3GEN-009 ngày 02/10/2026. Số request, độ dài câu trả lời và timeout: Khiêm chốt ngày 02/10/2026, giữ như revision 4. Công cụ ước tính token trước request đầu tiên; vượt trần thì không gọi model và xử lý theo AC-L3GEN-028-08. Số tham khảo khi phát triển: 7 request trên 5 repo nhỏ, khoảng 25.000 token, 0,008 USD (02/10/2026).
 
-**Chi phí.** Chỉ dùng model qua API. Phase đầu giới hạn ở quota miễn phí với trần chi phí trả phí bằng 0 đồng. Hết quota, bị rate limit, thiếu key hoặc chạm trần thì dừng bước dựng quan hệ kiến trúc và báo rõ, không tự chuyển sang phương án tính tiền, không tự đổi sang model khác, và không đoán để lấp chỗ trống.
+**Thiếu model.** Thiếu khóa, hết ngân sách, chạm trần, provider lỗi, hoặc vẫn sai schema sau lần gửi lại thì dừng bước dùng model, giữ kết quả do code chia, trạng thái partial kèm nguyên nhân (AC-L3GEN-028-08). Không tự đổi sang model khác, không đoán để lấp chỗ trống.
 
-**Bí mật.** Khóa API do người dùng cung cấp lúc chạy, không được ghi vào output, log, bằng chứng hay bộ kết quả lưu lại. Công cụ không phát biểu thay người dùng về mức an toàn dữ liệu của provider họ chọn.
+**Bí mật.** Khóa API do người dùng cung cấp lúc chạy, không được ghi vào output, log, bằng chứng hay bộ kết quả lưu lại. Dòng code chứa giá trị bí mật được che trước khi vào payload gửi model, theo NFR-L3GEN-SEC-002.
 
-**Tái lập.** Kết quả không bắt buộc giống hệt giữa các lần chạy. Bù lại, mỗi lần chạy phải ghi lại provider, tên model, phiên bản prompt, phiên bản tool và định danh snapshot, đủ để dựng lại bối cảnh của một kết quả cũ. Đây là yêu cầu ghi nhận, không phải ngưỡng chặn phát hành.
+**Tái lập.** Kết quả không bắt buộc giống hệt giữa các lần chạy. Mỗi lần chạy ghi provider, tên model, phiên bản prompt, phiên bản tool, định danh snapshot, số request, token và chi phí. Đây là yêu cầu ghi nhận, không phải ngưỡng chặn phát hành.
 
 ## Điều kiện và cách kiểm
 
-Dùng provider giả trả về JSON hỏng, định danh lạ, đường dẫn không tồn tại, timeout và lỗi rate limit; kiểm rằng phần không hợp lệ bị loại và lý do được ghi. Đặt khóa API dạng đánh dấu rồi kiểm toàn bộ output, log và bằng chứng không chứa giá trị đó. Kiểm đổi provider bằng cấu hình mà không sửa code. Kiểm mỗi bộ kết quả có đủ trường truy vết đã nêu. Không dùng giá hoặc model giả định để kết luận về chi phí.
+Dùng provider giả trả về JSON hỏng, mã dòng lạ, nhóm route dùng hai lần, timeout và lỗi mạng; kiểm phần không hợp lệ bị loại, lý do được ghi, và lần gửi lại có kèm lỗi. Đặt khóa API dạng đánh dấu rồi kiểm toàn bộ output, log và bằng chứng không chứa giá trị đó. Kiểm mỗi bộ kết quả có đủ trường truy vết. Chi phí lấy từ số provider trả về, không ước bằng giá giả định.
 
 ## Người chốt và ngoại lệ
 
@@ -73,3 +77,4 @@ Product cùng Tech Lead/QA chốt ở Scope Gate. Không có waiver nào đượ
 
 - [Phương pháp đo](../../observability/OBS-L3GEN-001.md)
 - [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
+- [OQ-L3GEN-009](../../lifecycle/change-sets/CHG-L3GEN-2026-002/open-questions/OQ-L3GEN-009.md)

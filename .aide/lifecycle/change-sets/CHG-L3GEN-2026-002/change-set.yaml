@@ -11,13 +11,14 @@ affected_teams: [TEAM-L3GEN]
 flow: new-system
 tier: T1
 proposed_tier: T1
-tier_reason: "Hệ thống chưa có người dùng thật nên vẫn là new-system. T1 vì nhận source từ xa và gửi dữ liệu ra provider model bên ngoài."
+tier_reason: "Hệ thống chưa có người dùng thật nên vẫn là new-system. T1 vì gửi dòng code của repository ra provider model bên ngoài (OpenRouter). Đợt này chỉ nhận thư mục cục bộ; nhận source từ xa (ZIP, GitHub) thuộc phase sau."
 coordination:
   mode: independent
   integration_gate_required: false
 derived_from: []
 supersedes: CHG-L3GEN-2026-001
 change_request: CR-L3GEN-2026-002
+follow_up_requests: [CR-L3GEN-2026-003, CR-L3GEN-2026-004]
 intake_status: done
 impact_status: done_local_graph
 scope_gate_status: pending
@@ -27,5 +28,5 @@ intake:
   role_confirmed: true
   date: "2026-09-23"
   decisions: "Mở Change Set mới thay cho CHG-L3GEN-2026-001; mọi GOAL/KPI/FR/NFR mang key mới, không dùng lại key cũ; PRD là nguồn đúng, tài liệu khác chỉ để tham khảo."
-baseline_candidate: baseline/BL-r5.yaml
-note: "Chưa qua Scope Gate. Approval 18/09/2026 của CHG-L3GEN-2026-001 giữ nguyên làm lịch sử. Impact dùng graph cục bộ từ frontmatter."
+baseline_candidate: baseline/BL-r8.yaml
+note: "Chưa qua Scope Gate. Từ 02/10/2026 (CR-L3GEN-2026-004): FR chia theo chiều dọc FR-L3GEN-028 đến 031. BL-r6 đã review (REVIEW-SCOPE-L3GEN-2026-002, changes_needed); BL-r7 recovery review (REVIEW-SCOPE-L3GEN-2026-003, changes_needed); candidate BL-r8 sửa theo finding, Khiêm quyết ký không review lại; OQ-L3GEN-009 closed. Approval 18/09/2026 của CHG-L3GEN-2026-001 giữ nguyên làm lịch sử. Impact dùng graph cục bộ từ frontmatter."

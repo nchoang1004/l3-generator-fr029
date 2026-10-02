@@ -5,7 +5,7 @@ type: "functional-requirement"
 group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
-status: "draft"
+status: "deprecated"
 revision: 3
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"satisfies":["GOAL-L3GEN-006"],"constrained_by":["NFR-L3GEN-ACC-002","NFR-L3GEN-ABST-002"],"measured_by":["OBS-L3GEN-001"]}
@@ -98,7 +98,7 @@ Xuất phần biết được; tài liệu và kết quả ghi rõ `partial`, tr
 
 ## Tài liệu liên quan
 
-- [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
-- [Thuật ngữ](../../domain/glossary-core.md)
-- [Quyết định về chia tài liệu và dữ liệu thiếu](../../evidence/requests/CR-L3GEN-2026-003-decisions-01.yaml)
-- [Execution guide](../../../docs/agentic-sdlc-execution-guide.md), mục A.1 và B.10 — định nghĩa L3 và định dạng API/TBL/EVT
+- [PRD](../../../product/prd/PRD-L3GEN-2609-001.md)
+- [Thuật ngữ](../../../domain/glossary-core.md)
+- [Quyết định về chia tài liệu và dữ liệu thiếu](../../../evidence/requests/CR-L3GEN-2026-003-decisions-01.yaml)
+- [Execution guide](../../../../docs/agentic-sdlc-execution-guide.md), mục A.1 và B.10 — định nghĩa L3 và định dạng API/TBL/EVT

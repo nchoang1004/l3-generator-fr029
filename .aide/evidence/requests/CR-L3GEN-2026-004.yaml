@@ -1,0 +1,45 @@
+key: CR-L3GEN-2026-004
+type: change-request
+group: evidence
+scope: lifecycle
+captured_at_date: "2026-10-02"
+source: "Tin nhắn của Khiêm trong phiên làm việc 02/10/2026; giữ nguyên chữ, kể cả lỗi gõ. Câu trả lời cho câu hỏi chọn phương án ghi ở decisions_verbatim."
+requests_verbatim:
+  - "tôi muốn thử nghiệm ở hướng mới, khi có vẻ những gì mình đang làm là sai với mô tả, đầu tiên phải biết component là gì, đọc ở folder Quy_tac từ đó mới xác định được"
+  - "phần prd tạm thời bỏ đi, vì phần định nghĩa đó chưa chốt, quan trọng là theo quy tắc và đề bài của mentor"
+  - "với những gì chúng ta đã, hãy xem luôn trong nhánh để xem cả phần L3 nữa, toàn bộ memory bạn đã có rồi, giờ cần phải làm để ít nhất là xong bước 11, hoặc thậm chí còn cần tới tận bước 14, ban đầu tôi không dịnh làm là vì muốn cải thiện pipline cho đến khi tốt vì khi pipline kém sẽ phải sửa lại các phần trước như mục tiêu, phạm vi rồi nhiều thứ khác xoay quanh nữa, việc của bạn bây giờ là xem lại, cứ coi code hiện tại, những gì chúng ta làm là gốc, nếu mà prd và các file khác trong .aide lệch thì cứ lấy đây làm chuẩn,"
+  - "bây giờ còn thế này nữ này: thứ nhát chưa biết luồng thế nào chạy nếu cần sinh ra cả L3 và archdia, hơn nữa việc mentor bảo làm theo chiều dọc fr thì tôi nghĩ các fr sẽ là giống kiểu mục tiêu to còn như của prd hiện tịa thì bị băm nhỏ quá rồi đúng không"
+  - "được, vậy giờ phần L3 những cái dễ như bạn nói vừa rồi thì có 6 cái ổn rồi, giờ có thể viết lại để cho ra được kết quả như thế không, nếu ghép được thành 1 bộ thì ghép\nphần fr bạn gợi ý tôi chấp nhận"
+  - "được, vậy thì cần rà soát lại từ prd, vì tất cả các phần ở gate 1 đều từ prd mà ra, viết lịa fr để ít nhất những phần dễ của L3 mà mình đã cong là 1 lát cắt dọc, xong đi đi theo các phần đáy để haonf thiện doc quy tình ở các bước tiếp theo"
+  - "viết fr thì viết với phong cách như hiện tại không khong phải hứa hay cái gì cả, lựa phần mà làm như 3 phần fr của L3 thì tôi thấy ok rồi, còn thêm 1 fr nữa như là sinh archdia với evidence đầy đủ, kiểu vậy"
+  - "1, bỏ\n2, nội dùng các fr kai cũng phải viết đầy đủ chứ khoogn sơ sài thế được\n3, chuyển xuống đúng như trong các file handoff lịch sử mà chúng ta làm với nhau, tôi đã bảo lấy đấy làm chuẩn cơ mà"
+  - "ok"
+decisions_verbatim:
+  - { question: "Vai trò và chi phí của mô hình ngôn ngữ trong PRD mới?", answer: "Bắt buộc, trả tiền ít" }
+  - { question: "FR nào là Must của phase đầu (lát cắt dọc phải hoàn thiện)?", answer: "ít nhất ở gate 1 bạn cần viest ra tất cả các fr như nói ở trên kia kìa, quan trọng là chia thế nào để các phần đã xong của L3 cần bao phủ ít nhất 1 fr" }
+  - { question: "Xử lý 9 FR cũ (FR-019..027) thế nào?", answer: "Key mới, cũ superseded (Recommended)" }
+  - { question: "Các yêu cầu cắt ngang (bằng chứng, báo giới hạn, phạm vi phân tích, read-only) đặt ở đâu?", answer: "theo quy tắc như nào thì làm như thế" }
+  - { question: "FR-032 (web) giữ hay bỏ; ngưỡng NFR-ACC-002 cho sơ đồ", answer: "1, bỏ ... 3, chuyển xuống đúng như trong các file handoff lịch sử" }
+  - { question: "KPI-009: nhận đề xuất của Hoàng (chỉ đo tỷ lệ dữ kiện L3 gắn exact mà sai, máy chấm theo đáp án KPI-008)?", answer: "Theo Hoàng (Recommended)", date: "2026-10-02" }
+  - { question: "KPI-006 và KPI-008 nghiệm thu trên repo kín nào?", answer: "Từng repo nhỏ, vừa (Recommended)", date: "2026-10-02" }
+  - { question: "Sửa câu chữ GOAL-004 và GOAL-006?", answer: "Sửa cả hai (Recommended)", date: "2026-10-02" }
+  - { question: "Chấm từng repo đụng cỡ mẫu tối thiểu của OBS; gỡ thế nào?", answer: "cái tối thiểu đấy từ đâu ra, chi tiết thế nào, có thể bỏ nếu cần thiết", date: "2026-10-02", applied: "Bỏ cỡ mẫu tối thiểu; mọi tỷ lệ báo kèm số đếm" }
+  - { question: "Trần chi phí mỗi lần chạy (OQ-L3GEN-009)", answer: "0,20 USD và 300.000 token", date: "2026-10-02", note: "Ghi lại từ HANDOFF phiên 10, không phải nguyên văn" }
+  - { question: "Sau recovery review REVIEW-SCOPE-L3GEN-2026-003 (changes_needed): làm thế nào?", answer: "Sửa rồi ký BL-r8 (Recommended)", date: "2026-10-02" }
+  - { question: "R8: thư mục output đã có file thì làm gì?", answer: "Từ chối nếu không rỗng (Recommended)", date: "2026-10-02" }
+  - { question: "R6: route khai bằng add_api_route bị bỏ sót im lặng, xử lý thế nào?", answer: "Báo ở giới hạn (Recommended)", date: "2026-10-02" }
+  - { question: "F13: trần số request ≤ 4, độ dài câu trả lời ≤ 12.000 token, timeout 300 giây", answer: "chốt 1", date: "2026-10-02" }
+  - { question: "Mũi tên giữa component do ai quyết", answer: "Cạnh do code vẽ từ import đã phân giải; AI không quyết cạnh có tồn tại hay không (bản AI phân loại cạnh v2 cho recall thấp hơn)", date: "2026-09-28", note: "Ghi lại từ bảng quyết định đã chốt của nhóm ngày 28/09, không phải nguyên văn" }
+  - { question: "Đáp án dữ kiện L3 (KPI-008) do ai lập?", answer: "Subagent viết mù, anh duyệt (Recommended)", date: "2026-10-02" }
+  - { question: "Anh ký Scope Gate trên BL-r8 không?", answer: "Ký BL-r8", date: "2026-10-02" }
+decision_context:
+  accepted: >-
+    Bốn FR dọc mang key mới FR-L3GEN-028 (sơ đồ kiến trúc có bằng chứng, Must), 029 (L3 API, Must),
+    030 (L3 TBL, Must), 031 (L3 EVT và tác vụ nền, Should); FR-L3GEN-019 đến 027 superseded. Component theo
+    định nghĩa mentor (gánh một trách nhiệm nghiệp vụ, sở hữu API/TBL/EVT). Model bắt buộc, trả phí ít.
+    Ngưỡng sơ đồ theo tiêu chí nhóm dùng khi phát triển: P ≥ 0,8, R ≥ 0,6, báo Pk, bằng chứng model trỏ hợp lệ ≥ 90%.
+    Web không thuộc đợt này.
+  limits: "Không phải chữ ký Scope Gate. Code thử nghiệm hiện có là cơ sở viết yêu cầu, không phải bằng chứng đã đạt AC."
+mentor_request_verbatim: null
+mentor_request_as_relayed: "Theo quy tắc mentor (Quy_tac/, docs/sdlc-sources/) và Đề bài mục 3.6; triển khai dọc theo từng chức năng."
+related_change_set: CHG-L3GEN-2026-002

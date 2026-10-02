@@ -1,0 +1,40 @@
+key: REVIEW-SCOPE-L3GEN-2026-002
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+gate: GATE-SCOPE
+review_class: advisory
+change_set: CHG-L3GEN-2026-002
+baseline: BL-CHG-L3GEN-2026-002-r6
+baseline_commit: null
+reviewer: "Subagent Claude (phiên mới, chỉ nhận artifact của BL-r6, CSV, CR-L3GEN-2026-004, Đề bài 3.6 và Quy_tac; không nhận HANDOFF, memory hay hội thoại của người viết)"
+author: "Phiên Claude chính, theo yêu cầu của Khiêm"
+decision: changes_needed
+reported_at: "2026-10-02"
+evidence_mode: agent_review
+note: "Review advisory một lượt, không có vòng sửa tự động. Finding tới Khiêm quyết. baseline_commit để null vì BL-r6 chưa commit."
+findings:
+  - { id: F1, severity: high, route: bad_spec, location: "FR-030 'Chia theo component' ↔ FR-028 'Component là gì', NFR-AI-002, glossary", summary: "Hai luật sở hữu bảng mâu thuẫn (file khai báo model vs nhóm dùng nhiều nhất); glossary nói component dùng chung không sở hữu contract nhưng FR-029 lấy 'Dữ liệu dùng chung' làm ví dụ thư mục tech-specs" }
+  - { id: F2, severity: high, route: bad_spec, location: "NFR-SEC-002 ↔ AC-028-05, NFR-ACC-002", summary: "Che bí mật trong mọi đầu ra xung đột với bằng chứng nguyên văn 100%: dòng create_engine chứa mật khẩu hoặc lộ hoặc trượt kiểm" }
+  - { id: F3, severity: medium, route: intent_gap, location: "PRD I bảng nguồn ↔ FR-028", summary: "PRD còn ghi hướng mentor 22/09 'cho AI đề xuất quan hệ'; FR-028 cấm model thêm mũi tên; CR-004 không ghi việc thay hướng này" }
+  - { id: F4, severity: medium, route: patch, location: "PRD I, IV.1; CSV mục 4", summary: "PRD tự mâu thuẫn: web ZIP/GitHub vs chỉ dòng lệnh; 'code không quyết định phạm vi' vs 'lấy code làm chuẩn'; mọi component có ở mọi artifact vs chỉ component có contract có thư mục" }
+  - { id: F5, severity: medium, route: intent_gap, location: "KPI-009, NFR-ACC-002 ↔ FR-028/030/031", summary: "Không có AC gắn nhãn exact/inferred cho khối, mũi tên, tên do model đặt; KPI-009 chỉ đo được phần API" }
+  - { id: F6, severity: medium, route: bad_spec, location: "FR-028", summary: "Thiếu 'phạm vi đọc' cho điểm vào, khóa cấu hình, thư viện, hệ thống ngoài; 'thư mục ngoài phạm vi', 'môi trường ảo' chưa định nghĩa" }
+  - { id: F7, severity: medium, route: intent_gap, location: "Đề bài 3.6 ↔ FR-028, PRD IV.2", summary: "Lời gọi HTTP ra ngoài, service/business, repository/data access, module/package không có đầu ra và không được khai ngoài phạm vi" }
+  - { id: F8, severity: medium, route: intent_gap, location: "NFR-ACC-002 ↔ OQ-007, OBS-001", summary: "R ≥ 0,6 thấp hơn 80% của OQ-007 mà OQ-007 chưa sửa; ngưỡng 90% bằng chứng model trỏ chưa có cách tính; OBS còn cỡ mẫu cho nhóm đã bỏ" }
+  - { id: F9, severity: medium, route: intent_gap, location: "OBS-001, PRD VIII", summary: "Đáp án theo định nghĩa component mới chưa có người lập và hạn; danh sách repo kín nằm ngoài .aide; FR-028 có thể nghiệm thu khi KPI-006 chưa đo" }
+  - { id: F10, severity: medium, route: bad_spec, location: "NFR-ABST-002 ↔ AC-029-04, 030-05, 031-04", summary: "Trần 50 node xung đột với 'mỗi thư mục tech-specs là một khối'; chưa có luật cắt node; route/bảng không phải node; FR-028 không có mũi tên gửi→nhận tác vụ nền mà AC-031-04 dựa vào" }
+  - { id: F11, severity: medium, route: bad_spec, location: "AC-028-03, AC-028-06 ↔ NFR-AI-002", summary: "AC-028-03 gom nhiều hành vi và mô tả cách làm; lỗi schema: AC-028-06 cho partial ngay, AI-002 cho gửi lại một lần" }
+  - { id: F12, severity: medium, route: intent_gap, location: "PRD IV.1, persona Platform engineer", summary: "JSON có schema version và định danh ổn định không có AC; quan hệ archdia.json và result.json chưa rõ" }
+  - { id: F13, severity: low, route: patch, location: "OQ-009, FR, impact.yaml, PRD IX", summary: "OQ-009 chặn FR nhưng FR không khai blocked_by; bảng trần AI-002 không ghi 'đề xuất'; PRD IX chép lại con số trần" }
+  - { id: F14, severity: low, route: patch, location: "FR-030, FR-031", summary: "Thiếu NFR-SEC-002 trong constrained_by dù SEC-002 khai constrains" }
+  - { id: F15, severity: low, route: patch, location: "OPS-001, SEC-002, change-set, glossary mục 7 và bất biến #8, ADR-001", summary: "Nội dung cũ: quota Groq, xếp hàng, ba hình thức đầu vào, kiểm ZIP, tier_reason 'nhận source từ xa', glossary cấm SQLModel, ADR-001 gọi sơ đồ là L3" }
+  - { id: F16, severity: low, route: patch, location: "glossary", summary: "Thiếu thuật ngữ: tên dùng chung, bảng có chủ hòa, mã dòng/mã dữ kiện, khóa cấu hình, lớp bằng chứng, loại component Dùng chung/Khởi động/Chưa xếp" }
+checked:
+  - "SHA-256 của 16 artifact khớp BL-r6"
+  - "CSV derived_from BL-r6, đủ 7 mục, có dòng nguồn thắng"
+  - "23 AC khớp PRD IV.3, AC nào cũng Given/When/Then, FR nào cũng có AC"
+  - "constrained_by trỏ NFR có thật; Áp dụng của NFR trỏ FR có thật"
+  - "KPI-006 đến 010 nối OBS-001 hai chiều; ba OQ có owner và due; chưa FR nào approved"
+  - "Frontmatter A.4 đủ trường; lifecycle/ chỉ chứa file A.2 cho phép"

@@ -6,7 +6,7 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 5
+revision: 8
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {}
 verified_at: null
@@ -28,6 +28,12 @@ bất biến #6, #8 và mục 7.
 
 **Revision 5 (23/09/2026):** code chia component tất định, model chỉ chia khi repository phẳng; L3 là contract (API, TBL, EVT), sơ đồ component là mức L2.
 
+**Revision 6 (02/10/2026):** component theo định nghĩa của quy trình mentor (CR-L3GEN-2026-004): gánh một trách nhiệm nghiệp vụ và sở hữu contract. Code lần theo route để nhóm file; model gộp nhóm và đặt tên, code kiểm. Bỏ thuật ngữ "repository phẳng". Đổi mục 3, mục 5 và bất biến #8.
+
+**Revision 7 (02/10/2026):** sửa theo review REVIEW-SCOPE-L3GEN-2026-002. Component dùng chung được sở hữu contract khi file khai báo nằm trong nó. Bỏ việc model chọn chủ bảng. Thêm thuật ngữ: mã dòng, mã dữ kiện, khóa cấu hình, tên dùng chung, loại component, lớp bằng chứng. Sửa bất biến #8 và mục 7.
+
+**Revision 8 (02/10/2026):** sửa theo recovery review REVIEW-SCOPE-L3GEN-2026-003: bỏ `mapped_column` khỏi danh sách không mang sang (FR-L3GEN-030 đọc nó); `add_api_route` ghi ở phần giới hạn; định nghĩa tên dùng chung khớp cách xếp file của FR-L3GEN-028.
+
 ## 1. Nguồn và lần phân tích
 
 | Thuật ngữ | Nghĩa dùng trong hệ thống |
@@ -48,8 +54,11 @@ bất biến #6, #8 và mục 7.
 | Candidate | Đối tượng hoặc quan hệ có tín hiệu ban đầu nhưng chưa đủ điều kiện để công bố thành architecture claim |
 | Resolution result | Kết quả nối một tham chiếu/call tới một đích: `resolved`, `ambiguous`, `unresolved` hoặc `runtime-dependent` |
 | Architecture claim | Thực thể hoặc quan hệ ở mức application/component được công bố trong architecture model |
-| Model proposal | Tên, mô tả, vai trò, nhãn cạnh, cạnh bổ sung, hoặc cách chia component với repository phẳng, do mô hình ngôn ngữ đề xuất. Cạnh và cách chia chưa là architecture claim cho tới khi qua bước kiểm bằng chứng của code |
+| Model proposal | Cách gộp nhóm route, tên và trách nhiệm component, tên dùng chung thuộc riêng một component, do mô hình ngôn ngữ đề xuất kèm mã dòng. Chưa là architecture claim cho tới khi qua bước kiểm của code |
 | Evidence | Các code fact trong tập fact của lần chạy, mỗi fact nằm ở file/range thuộc chính source snapshot, kèm lý do khi cần. Với cạnh A→B, evidence phải có ít nhất một fact đã xác định đích, vị trí thuộc A và đích thuộc B. Lời khẳng định của model không phải evidence |
+| Mã dòng | Nhãn ngắn, ví dụ `[L12]`, gắn cho mỗi dòng code gửi model. Model trả mã; code tra ra `file:dòng` và nguyên văn. Mã không có trong danh sách đã gửi thì đề xuất đó bị loại |
+| Mã dữ kiện | Định danh của một code fact trong `result.json`. Tài liệu L3 trỏ tới mã này làm bằng chứng |
+| Khóa cấu hình | Tên một giá trị cấu hình đọc được trong code: trường của lớp kế thừa `BaseSettings`, khóa trong `os.environ[...]` hoặc `os.getenv(...)` |
 | Diagnostic | Dữ liệu giải thích quá trình phân tích, candidate, raw call, budget hoặc nguyên nhân không kết luận được; không phải architecture claim |
 | Limitation | Phần engine không đọc, không hỗ trợ, không resolve hoặc phải dừng do budget/runtime; không đồng nghĩa repository không có dữ kiện đó |
 | Coverage | Bản kê phần đã xét, bị loại, lỗi hoặc ngoài phạm vi. Coverage mô tả phạm vi quan sát, không phải confidence của từng claim |
@@ -59,14 +68,17 @@ bất biến #6, #8 và mục 7.
 
 | Thuật ngữ | Nghĩa dùng trong hệ thống |
 |---|---|
-| Component | Nhóm file source có cùng trách nhiệm kiến trúc. Code chia tất định theo cây thư mục, tên và lời gọi giữa nhóm; mỗi file thuộc đúng một component. Với repository phẳng, tức cây thư mục không chia được thành ít nhất hai nhóm, mô hình ngôn ngữ đề xuất cách chia và component mang nhãn `inferred` |
-| Repository phẳng | Repository mà cây thư mục không chia được file source trong phạm vi thành ít nhất hai nhóm |
-| Component role | Nhãn như API, service/business, repository/data-access hoặc integration dựa trên framework marker, registration hay effect đã hỗ trợ; khi thiếu bằng chứng dùng unknown/candidate |
+| Component | Theo quy trình mentor: phần của hệ thống gánh một trách nhiệm nghiệp vụ và sở hữu contract của nó (API, bảng, sự kiện). Route, service, repository, model là cấu trúc bên trong một component. Phần nhiều component cùng dùng (kết nối CSDL, cấu hình, gửi email...) là component dùng chung; nó sở hữu contract khi file khai báo nằm trong nó, ví dụ bảng khai trong `models.py` dùng chung. Mỗi file thuộc đúng một component. Cách chia ở FR-L3GEN-028 |
+| Loại component | Nghiệp vụ, Dùng chung, Khởi động, Chưa xếp, Kiểm thử, Migration, Khác. Nghĩa từng loại ở FR-L3GEN-028 mục "Component là gì". Ba loại cuối không vẽ trên sơ đồ |
+| Nhóm route | Các route khai trong cùng một file, cùng các file chỉ những route đó dùng tới. Code lập nhóm bằng cách lần theo lời gọi từ handler xuống; model gộp các nhóm cùng trách nhiệm thành component |
+| Tên dùng chung | Tên cấp cao nhất (hàm, lớp, biến) mà nhóm route của nhiều component cùng đi tới. Tên đó thuộc component dùng chung theo vai trò file, trừ khi model chọn được một component duy nhất dùng nó và code kiểm được. File theo component chiếm nhiều tên của file nhất (FR-L3GEN-028, mục "Cách xếp file") |
+| Luồng xử lý | Đường đi của request, tác vụ nền hoặc lệnh dòng lệnh qua các component. Sơ đồ chỉ vẽ lời gọi thuộc luồng; lắp ráp (DI, tạo app, khởi động), kiểm tra rồi quay về (xác thực, quyền) và chỉ truyền session không vẽ |
 | Architecture model | Tập application, component, interface, data, external system, event, configuration và quan hệ L3; đây là nguồn cấu trúc chung cho CLI, web và artifact xuất |
+| Lớp bằng chứng | Phần của bộ kết quả giữ dữ kiện mức file, class, function, lời gọi, và component bị cắt khỏi hình sơ đồ. Không vẽ ở sơ đồ mặc định (NFR-L3GEN-ABST-002) |
 | Evidence/diagnostic model | Dữ kiện chi tiết mức file/class/function/call dùng để kiểm chứng hoặc chẩn đoán; không được UI/diagram coi là lớp kiến trúc mặc định |
 | IAM | Tên lịch sử của mô hình trung gian. Trong thiết kế mới phải nói rõ đang chỉ architecture model hay evidence/diagnostic model; không dùng `IAM` như một schema gộp mơ hồ cả hai |
 | L2 | Mức component: sơ đồ component và dependency bên trong một application. Theo quy trình mentor, L2 nằm ở `architecture/l2/` |
-| L3 | Mức contract, theo quy trình mentor: API, bảng dữ liệu (TBL) và sự kiện (EVT), chia theo component sở hữu, đặt ở `tech-specs/<component>/`. Sản phẩm sinh bản L3 ban đầu để review cho repository được phân tích (FR-L3GEN-027) |
+| L3 | Mức contract, theo quy trình mentor: API, bảng dữ liệu (TBL) và sự kiện (EVT), chia theo component sở hữu, đặt ở `tech-specs/<component>/`. Sản phẩm sinh bản L3 ban đầu để review cho repository được phân tích (FR-L3GEN-029 đến 031) |
 | Dependency | Architecture claim có hướng giữa hai thực thể kiến trúc, được tổng hợp từ evidence; không tự đồng nghĩa thứ tự thực thi hay mọi hành vi runtime |
 | External system | Đích tích hợp bên ngoài application/component, ví dụ HTTP service, datastore hay broker đã xác định đủ để lập quan hệ kiến trúc |
 | External library | Gói phụ thuộc được khai báo hoặc có dấu vết sử dụng trong code; không phải external system và không phải component dependency |
@@ -90,7 +102,7 @@ bất biến #6, #8 và mục 7.
 | Thuật ngữ | Nghĩa dùng trong hệ thống |
 |---|---|
 | Tầng tất định | Phần không dùng AI: tạo code fact, kiểm evidence của model proposal, ghi limitation và xuất artifact. Cùng snapshot và cùng phiên bản tool thì cho cùng tập code fact |
-| Mô hình ngôn ngữ | Phần dùng AI, bắt buộc từ PRD revision 25. Nhận tập code fact, danh sách file của component và chữ ký hàm; đọc thêm đoạn code qua công cụ có giới hạn. Không nhận toàn bộ source. Chỉ tạo model proposal; không sửa code fact và không tự công bố claim |
+| Mô hình ngôn ngữ | Phần dùng AI, bắt buộc. Nhận kết quả code đã lần theo (nhóm route, tên dùng chung) kèm các dòng code mang mã; gộp nhóm, đặt tên, viết trách nhiệm và trỏ mã dòng làm bằng chứng. Không nhận toàn bộ source. Chỉ tạo model proposal; không sửa code fact và không tự công bố claim. Provider, model, trần ở NFR-L3GEN-AI-002 |
 | Provenance | Thông tin cho biết một claim đến từ đâu: provider, model, phiên bản prompt, phiên bản tool và snapshot. Ghi cho mỗi lần chạy |
 
 `FR`, `AC`, `NFR`, `OBS` và `Baseline` là thuật ngữ quy trình, không phải thuật ngữ miền
@@ -124,11 +136,12 @@ Các bất biến sau phải giữ dù sau này chọn phương án kiến trúc
    trình bày phải đến từ cùng architecture model của lần chạy đó.
 7. Phân tích có thể đi xuống file/class/function/call, nhưng lớp mặc định cho người đọc
    dừng ở application/component theo ADR-2026-001.
-8. Mô hình ngôn ngữ chỉ đề xuất. Code chia component; model chỉ chia khi repository phẳng.
-   Một model proposal về cạnh hoặc cách chia chỉ thành architecture claim khi tầng tất định
-   kiểm được evidence của nó. Model không được sửa code fact, evidence hoặc
+8. Mô hình ngôn ngữ chỉ đề xuất. Code lập nhóm route và xếp file; model gộp nhóm và đặt tên,
+   không tách nhóm và không thêm cạnh. Một model proposal chỉ thành architecture claim khi
+   tầng tất định kiểm được evidence của nó. Model không được sửa code fact, evidence hoặc
    limitation, và không được bỏ qua bước kiểm. Hết quota hoặc lỗi model thì dừng bước
-   dựng quan hệ và báo rõ, không đoán để lấp chỗ trống.
+   dùng model, giữ cách chia của code với tên theo đường dẫn, trạng thái partial kèm nguyên
+   nhân, không đoán để lấp chỗ trống.
 9. Lỗi một file hoặc một adapter không được che mất phần hợp lệ của run; kết quả phải giữ
    phần dùng được và nói chính xác phạm vi đã mất.
 10. Khi run dừng vì hết ngân sách thời gian, bộ nhớ hoặc trần tiếp nhận, kết quả phải là
@@ -144,7 +157,7 @@ cho hướng AI tắt; phần "AI chỉ viết mô tả" và "chế độ không
 đúng. Các nội dung sau không được mang sang thiết kế phase đầu nếu không có quyết định mới:
 
 - lịch sử nhiều phiên và retention của FR-L3GEN-017 cũ;
-- SQLModel, `mapped_column`, `add_api_route` và resolution động ngoài ma trận phase đầu;
+- đọc route khai qua `add_api_route` (phase đầu chỉ ghi ở phần giới hạn, FR-L3GEN-029) và resolution động ngoài ma trận phase đầu;
 - local folder như đầu vào web hoặc Git/ZIP như đầu vào CLI;
 - một schema `IAM` gộp dữ liệu kỹ thuật với public architecture contract;
 - pipeline/component split của spec cũ như thể đã qua Architecture Gate.

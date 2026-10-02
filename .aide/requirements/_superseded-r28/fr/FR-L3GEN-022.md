@@ -5,7 +5,7 @@ type: "functional-requirement"
 group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
-status: "draft"
+status: "deprecated"
 revision: 2
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"product-owner","affected_teams":[]}
 relations: {"satisfies":["GOAL-L3GEN-004"],"constrained_by":["NFR-L3GEN-ACC-002","NFR-L3GEN-ABST-002","NFR-L3GEN-AI-002"],"measured_by":["OBS-L3GEN-001"]}
@@ -90,5 +90,5 @@ Cách chia này học từ CodeBoarding: cho model tự chia component cho kết
 
 ## Tài liệu liên quan
 
-- [PRD](../../product/prd/PRD-L3GEN-2609-001.md)
-- [Thuật ngữ](../../domain/glossary-core.md)
+- [PRD](../../../product/prd/PRD-L3GEN-2609-001.md)
+- [Thuật ngữ](../../../domain/glossary-core.md)

@@ -12,6 +12,9 @@ Hai lệnh:
 `.aide/generated/change-set-views/CSV-<CHG-key>.md` theo bảy mục ở EXEC §D.1b.
 `check` không ghi gì, chỉ đối chiếu baseline với file nguồn và báo lệch.
 
+Recovery review (EXEC §B.17): đã sửa artifact sau review thì lập baseline mới và chạy
+`render --recovery`. View ghi ra `CSV-<CHG-key>-<rN>.md`, view đã review giữ nguyên.
+
 Ràng buộc đã áp:
 
 - View là `group: derived`, `non_normative: true`; nguồn thắng khi bất đồng.
@@ -199,24 +202,33 @@ def verify(baseline: dict) -> list[str]:
     return issues
 
 
-def guard_review_freeze(chg_key: str) -> None:
+def guard_review_freeze(chg_key: str, baseline_key: str | None = None) -> None:
     """Có review hoặc approval của Change Set này rồi thì không ghi đè view.
 
     EXEC §B.17: từ lúc ghi receipt tới lúc approve, cấm ghi vào artifact đã
     review. Xoá evidence để vượt kiểm là sai quy trình, nên script chỉ dừng
     và báo, không tự xử lý. Evidence của Change Set khác không chặn.
+
+    `baseline_key` dùng cho recovery review: view ghi ra file riêng, nên chỉ
+    chặn khi review hoặc approval đã nhắm đúng baseline đó.
     """
     for name in ("reviews", "approvals"):
         folder = AIDE / "evidence" / name
-        if folder.exists() and any(
-            f"change_set: {chg_key}" in p.read_text(encoding="utf-8")
-            for p in folder.iterdir()
-            if p.is_file()
-        ):
-            raise Problem(
-                f"có file trong evidence/{name}/ — đang trong vòng review.\n"
-                "  Dùng quy trình re-review chính thức, không ghi đè view."
-            )
+        if not folder.exists():
+            continue
+        for p in folder.iterdir():
+            if not p.is_file():
+                continue
+            text = p.read_text(encoding="utf-8")
+            if f"change_set: {chg_key}" not in text:
+                continue
+            if baseline_key is None or re.search(
+                rf"^baseline: {re.escape(baseline_key)}\s*$", text, re.M
+            ):
+                raise Problem(
+                    f"có file trong evidence/{name}/ — đang trong vòng review.\n"
+                    "  Dùng quy trình re-review chính thức (--recovery với baseline mới), không ghi đè view."
+                )
 
 
 # --------------------------------------------------------------------------
@@ -296,7 +308,7 @@ def pick_change_set(key: str | None) -> Path:
     return chg_dirs[0]
 
 
-def render(baseline_name: str, chg_key: str | None) -> Path:
+def render(baseline_name: str, chg_key: str | None, recovery: bool = False) -> Path:
     chg_dir = pick_change_set(chg_key)
     chg = parse_change_set(chg_dir / "change-set.yaml")
 
@@ -310,7 +322,11 @@ def render(baseline_name: str, chg_key: str | None) -> Path:
             + "\n".join(f"  - {i}" for i in issues)
         )
 
-    guard_review_freeze(chg["key"])
+    bl_key = baseline["head"].get("key", baseline_name)
+    guard_review_freeze(chg["key"], bl_key if recovery else None)
+    view_key = f"CSV-{chg['key']}"
+    if recovery:
+        view_key += "-" + Path(baseline_name).stem.removeprefix("BL-")
 
     arts = baseline["artifacts"]
     frs = [a for a in arts if FR_RE.match(a["key"])]
@@ -319,18 +335,18 @@ def render(baseline_name: str, chg_key: str | None) -> Path:
     frs.sort(key=lambda a: a["key"])
     nfrs.sort(key=lambda a: a["key"])
 
-    bl_key = baseline["head"].get("key", baseline_name)
     label = chg.get("label", chg.get("key", "Change Set"))
 
     out: list[str] = []
     out.append("---")
-    out.append(f"key: CSV-{chg['key']}")
+    out.append(f"key: {view_key}")
     out.append("group: derived")
     out.append("non_normative: true")
     out.append(f"derived_from: [{bl_key}]")
     out.append("hand_written: false")
     out.append("status: candidate")
-    out.append(f"generated_by: scripts/prd_package.py render --baseline {baseline_name}")
+    out.append(f"generated_by: scripts/prd_package.py render --baseline {baseline_name}"
+               + (" --recovery" if recovery else ""))
     out.append("---")
     out.append("")
     out.append(f"# {label}")
@@ -366,8 +382,16 @@ def render(baseline_name: str, chg_key: str | None) -> Path:
     if chg.get("supersedes"):
         out.append(
             f"Change Set này thay cho `{chg['supersedes']}`. Mọi GOAL/KPI mang key mới; "
-            "GOAL/KPI của Change Set cũ không còn hiệu lực. Ánh xạ cũ sang mới ở PRD."
+            "GOAL/KPI của Change Set cũ không còn hiệu lực. GOAL hiện hành ở mục 1, KPI hiện hành dưới đây."
         )
+        if prd:
+            kpis = section(
+                rebase_links(body_after_frontmatter(read_bytes(REPO / prd["path"])), prd["path"]),
+                "4. Chỉ số thành công",
+            )
+            if kpis:
+                out.append("")
+                out.append(kpis)
     else:
         out.append(
             "Chưa có baseline đã approved để so diff — đây là baseline candidate đầu tiên "
@@ -389,13 +413,11 @@ def render(baseline_name: str, chg_key: str | None) -> Path:
     if chg.get("supersedes"):
         out.append(
             "Không có FR nào bump revision: mọi FR trong baseline này mang key mới. "
-            f"FR của `{chg['supersedes']}` đã deprecated; ánh xạ cũ sang mới ở PRD mục IV.3. "
-            "PRD không lấy hành vi code hiện tại làm chuẩn."
+            f"FR của `{chg['supersedes']}` đã deprecated; ánh xạ cũ sang mới ở PRD mục IV.3."
         )
     else:
         out.append(
-            "Không có baseline sản phẩm đã approved để so diff. "
-            "PRD không lấy hành vi code hiện tại làm chuẩn."
+            "Không có baseline sản phẩm đã approved để so diff."
         )
     out.append("")
 
@@ -431,7 +453,7 @@ def render(baseline_name: str, chg_key: str | None) -> Path:
     out.append(render_open_questions(chg_dir))
 
     VIEWS.mkdir(parents=True, exist_ok=True)
-    target = VIEWS / f"CSV-{chg['key']}.md"
+    target = VIEWS / f"{view_key}.md"
     target.write_bytes("\n".join(out).encode("utf-8"))
     return target
 
@@ -448,6 +470,9 @@ def main(argv: list[str]) -> int:
         p = sub.add_parser(name)
         p.add_argument("--baseline", required=True, help="tên file trong baseline/, ví dụ BL-r9.yaml")
         p.add_argument("--change-set", help="key Change Set; bắt buộc khi có nhiều Change Set")
+        if name == "render":
+            p.add_argument("--recovery", action="store_true",
+                           help="recovery review: ghi view ra file riêng theo baseline")
     args = ap.parse_args(argv)
 
     try:
@@ -465,7 +490,7 @@ def main(argv: list[str]) -> int:
             print("Hash, revision, key và UID: khớp toàn bộ.")
             return 0
 
-        target = render(args.baseline, args.change_set)
+        target = render(args.baseline, args.change_set, args.recovery)
         print(f"Đã ghi {rel(target)}")
         return 0
     except Problem as exc:

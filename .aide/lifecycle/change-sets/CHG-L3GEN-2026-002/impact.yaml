@@ -5,19 +5,14 @@
 change_request: CR-L3GEN-2026-002
 flow: new-system
 tier: T1
-baseline_analyzed: BL-r5.yaml
+baseline_analyzed: BL-r8.yaml
 
 touches:
   - ADR-2026-001
-  - FR-L3GEN-019
-  - FR-L3GEN-020
-  - FR-L3GEN-021
-  - FR-L3GEN-022
-  - FR-L3GEN-023
-  - FR-L3GEN-024
-  - FR-L3GEN-025
-  - FR-L3GEN-026
-  - FR-L3GEN-027
+  - FR-L3GEN-028
+  - FR-L3GEN-029
+  - FR-L3GEN-030
+  - FR-L3GEN-031
   - GLOSS-L3GEN-001
   - NFR-L3GEN-ABST-002
   - NFR-L3GEN-ACC-002
@@ -27,15 +22,10 @@ touches:
   - OBS-L3GEN-001
   - OQ-L3GEN-007
   - OQ-L3GEN-008
+  - OQ-L3GEN-009
   - PRD-L3GEN-2609-001
 
-stale_artifacts:
-  - CAP-L3GEN-007
-  - CAP-L3GEN-008
-  - CAP-L3GEN-009
-  - CAP-L3GEN-010
-  - CAP-L3GEN-011
-  - CAP-L3GEN-012
+stale_artifacts: []
 
 affected_teams:
   - TEAM-L3GEN
@@ -44,7 +34,7 @@ external_consumers: []
 
 risk_signals:
   source_code_ingestion: true
-  remote_fetch: true
+  remote_fetch: false
   third_party_ai: true
   user_data_retention: true
   pii: null
@@ -68,7 +58,7 @@ confidence:
   graph_coverage: local-frontmatter-only
   level: low
   basis: >-
-    Tính từ 73 artifact có frontmatter trong .aide/. Quan hệ đọc từ trường relations, không qua graph tập trung.
+    Tính từ 78 artifact có frontmatter trong .aide/. Quan hệ đọc từ trường relations, không qua graph tập trung.
   not_established: >-
     Tính đủ của bộ yêu cầu so với đề bài; ảnh hưởng tới hệ thống ngoài; ảnh hưởng tới code.
 
