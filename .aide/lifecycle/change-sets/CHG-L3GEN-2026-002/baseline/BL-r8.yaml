@@ -1,14 +1,14 @@
 key: BL-CHG-L3GEN-2026-002-r8
 group: normative
 scope: lifecycle
-status: candidate
-candidate_only: true
+status: approved
+candidate_only: false
 change_set: CHG-L3GEN-2026-002
-approval: null
-commit_sha: null
+approval: APPROVAL-SCOPE-L3GEN-2026-002
+commit_sha: c736c11c82631c62dcfc09b0be1a2b0f42f5e0f8
 supersedes: BL-CHG-L3GEN-2026-002-r7
 hash_algorithm: sha256-full-file-bytes-local-pilot-not-official-hash-artifact
-note: Candidate thứ tám, lập ngày 2026-10-02 sau recovery review REVIEW-SCOPE-L3GEN-2026-003 của BL-r7 (changes_needed, R1 medium, R2-R8 low). PRD revision 31; FR-L3GEN-028 và 029 revision 3 (vẫn 28 AC); NFR, OBS, glossary, OQ-009 sửa theo finding và quyết định của Khiêm. Khiêm quyết ký bản này không review lại (EXEC B.17 chỉ cho một recovery review). Thay BL-r7, giữ bản cũ làm lịch sử. 16 artifact.
+note: Candidate thứ tám, lập ngày 2026-10-02 sau recovery review REVIEW-SCOPE-L3GEN-2026-003 của BL-r7 (changes_needed, R1 medium, R2-R8 low). PRD revision 31; FR-L3GEN-028 và 029 revision 3 (vẫn 28 AC); NFR, OBS, glossary, OQ-009 sửa theo finding và quyết định của Khiêm. Khiêm duyệt Scope Gate ngày 2026-10-02 không review lại (EXEC B.17 chỉ cho một recovery review). Baseline khóa 16 artifact tại commit đã ghi. Thay BL-r7, giữ bản cũ làm lịch sử. 16 artifact.
 artifacts:
 - key: PRD-L3GEN-2609-001
   revision: 31

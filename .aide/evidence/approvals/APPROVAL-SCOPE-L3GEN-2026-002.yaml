@@ -1,0 +1,54 @@
+key: APPROVAL-SCOPE-L3GEN-2026-002
+type: approval
+group: evidence
+scope: lifecycle
+status: approved
+gate: GATE-SCOPE
+change_set: CHG-L3GEN-2026-002
+baseline: BL-CHG-L3GEN-2026-002-r8
+baseline_commit: c736c11c82631c62dcfc09b0be1a2b0f42f5e0f8
+review: [REVIEW-SCOPE-L3GEN-2026-002, REVIEW-SCOPE-L3GEN-2026-003]
+approved_by: "Khiêm"
+reviewed_by: "Subagent Claude ngữ cảnh trống (advisory): REVIEW-SCOPE-L3GEN-2026-002 trên BL-r6, recovery review REVIEW-SCOPE-L3GEN-2026-003 trên BL-r7"
+decision: approved
+approved_at: "2026-10-02"
+human_presence:
+  mode: interactive
+  evidence_id: USER-ATTESTATION-2026-10-02-GATE1
+  note: "Khiêm trả lời 'Ký BL-r8' trong phiên làm việc 02/10/2026; ghi nguyên văn ở CR-L3GEN-2026-004 decisions_verbatim."
+captured_against:
+  code_tree: c736c11c82631c62dcfc09b0be1a2b0f42f5e0f8
+  artifacts: 16
+approved_artifacts:
+  - { key: PRD-L3GEN-2609-001, revision: 31 }
+  - { key: FR-L3GEN-028, revision: 3 }
+  - { key: FR-L3GEN-029, revision: 3 }
+  - { key: FR-L3GEN-030, revision: 2 }
+  - { key: FR-L3GEN-031, revision: 2 }
+  - { key: NFR-L3GEN-ABST-002, revision: 5 }
+  - { key: NFR-L3GEN-ACC-002, revision: 4 }
+  - { key: NFR-L3GEN-AI-002, revision: 6 }
+  - { key: NFR-L3GEN-OPS-001, revision: 3 }
+  - { key: NFR-L3GEN-SEC-002, revision: 6 }
+  - { key: OBS-L3GEN-001, revision: 9 }
+  - { key: GLOSS-L3GEN-001, revision: 8 }
+  - { key: ADR-2026-001, revision: 7 }
+  - { key: OQ-L3GEN-007, revision: 2 }
+  - { key: OQ-L3GEN-008, revision: 2 }
+  - { key: OQ-L3GEN-009, revision: 3 }
+checks:
+  baseline_integrity: pass
+  fr_count: 4
+  ac_count: 28
+  nfr_count: 5
+  open_questions: 0
+  markdown_links_missing: 0
+  blocked_fr_by_open_question: 0
+  impact_stale_artifacts: 0
+conditions:
+  - "Mọi thay đổi PRD/FR/AC sau approval phải đi qua change request và baseline mới."
+  - "implementation_target và validated_by phải hoàn tất trước Definition of Ready cho code."
+  - "Benchmark, threat-model test, product test và UAT vẫn phải ghi pass/failed/not_run ở các gate tương ứng."
+  - "Đáp án sơ đồ (KPI-006) và đáp án dữ kiện L3 (KPI-008) do subagent viết mù, Khiêm duyệt, lập trước nghiệm thu M3. Chưa có thì KPI ghi not_run; FR-L3GEN-028 không nghiệm thu khi KPI-006 chưa đạt."
+  - "Code hiện có lệch FR ở các điểm đã biết (vẽ mũi tên depends, vai 'Nghiệp vụ' mặc định, chưa kiểm đường dẫn đầu vào, chưa che bí mật, chưa có trần node, chưa có schema version); xử lý thành task ở bước 11."
+note: "Sau recovery review REVIEW-SCOPE-L3GEN-2026-003 (changes_needed: R1 medium, R2–R8 low, 7 finding cũ đóng một phần), tác giả sửa theo finding và quyết định của Khiêm, lập BL-r8. Theo EXEC §B.17 chỉ có một recovery review và review advisory không có vòng sửa, nên Khiêm ký BL-r8 không review lại. Hoàng (reviewer nội bộ) chưa review revision 31. Approval này duyệt phạm vi và yêu cầu, không tuyên bố sản phẩm đã triển khai hoặc nghiệm thu."
