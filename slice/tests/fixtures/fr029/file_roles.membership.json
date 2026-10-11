@@ -1,0 +1,54 @@
+{
+  "partition_version": "fixture-membership-v1",
+  "components": [
+    {
+      "name": "Khởi động",
+      "kind": "normal",
+      "files": [
+        "app/main.py"
+      ]
+    },
+    {
+      "name": "Đơn hàng",
+      "kind": "normal",
+      "files": [
+        "app/api/orders.py",
+        "app/services.py",
+        "app/repository.py",
+        "app/schemas.py",
+        "app/service_utils.py",
+        "app/config.py"
+      ]
+    },
+    {
+      "name": "Báo cáo",
+      "kind": "normal",
+      "files": [
+        "app/api/reports.py"
+      ]
+    },
+    {
+      "name": "Hạ tầng CSDL",
+      "kind": "normal",
+      "files": [
+        "app/db.py"
+      ]
+    },
+    {
+      "name": "Dữ liệu dùng chung",
+      "kind": "normal",
+      "files": [
+        "app/models.py"
+      ]
+    },
+    {
+      "name": "Khác",
+      "kind": "other",
+      "files": [
+        "app/__init__.py",
+        "app/api/__init__.py",
+        "requirements.txt"
+      ]
+    }
+  ]
+}

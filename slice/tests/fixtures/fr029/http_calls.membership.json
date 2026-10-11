@@ -1,0 +1,31 @@
+{
+  "partition_version": "fixture-membership-v1",
+  "components": [
+    {
+      "name": "Khởi động",
+      "kind": "normal",
+      "files": [
+        "app/main.py"
+      ]
+    },
+    {
+      "name": "Đơn hàng",
+      "kind": "normal",
+      "files": [
+        "app/routes.py",
+        "app/clients.py",
+        "app/inventory_client.py",
+        "app/db.py",
+        "app/config.py"
+      ]
+    },
+    {
+      "name": "Khác",
+      "kind": "other",
+      "files": [
+        "app/__init__.py",
+        "requirements.txt"
+      ]
+    }
+  ]
+}

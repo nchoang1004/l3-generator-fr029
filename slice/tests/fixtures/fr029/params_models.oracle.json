@@ -1,0 +1,1161 @@
+{
+  "oracle": {
+    "target": "app.main:app",
+    "python": "3.11.9",
+    "packages": {
+      "fastapi": "0.115.6",
+      "starlette": "0.41.3",
+      "pydantic": "2.10.4",
+      "pydantic-core": "2.27.2",
+      "pydantic-settings": "2.7.1"
+    },
+    "env": []
+  },
+  "routes": [
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/openapi.json",
+      "mount_prefix": null,
+      "name": "openapi",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.openapi",
+      "endpoint_file": null,
+      "endpoint_first_line": 1003
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs",
+      "mount_prefix": null,
+      "name": "swagger_ui_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1014
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs/oauth2-redirect",
+      "mount_prefix": null,
+      "name": "swagger_ui_redirect",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_redirect",
+      "endpoint_file": null,
+      "endpoint_first_line": 1032
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/redoc",
+      "mount_prefix": null,
+      "name": "redoc_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.redoc_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1042
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/items",
+      "mount_prefix": null,
+      "name": "list_items",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "list_items",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 13,
+      "status_code": null,
+      "response_model": "list[app.schemas.items.ItemPublic]",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/items/{item_id}",
+      "mount_prefix": null,
+      "name": "get_item",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "get_item",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 18,
+      "status_code": null,
+      "response_model": "ItemPublic",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/items/{item_id}/full",
+      "mount_prefix": null,
+      "name": "get_item_full",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "get_item_full",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 27,
+      "status_code": null,
+      "response_model": "Item",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/items",
+      "mount_prefix": null,
+      "name": "create_item",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "create_item",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 32,
+      "status_code": 201,
+      "response_model": "ItemPublic",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "PUT"
+      ],
+      "path": "/items/{item_id}",
+      "mount_prefix": null,
+      "name": "update_item",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "update_item",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 37,
+      "status_code": null,
+      "response_model": "ItemPublic",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "PATCH"
+      ],
+      "path": "/items/{item_id}/tag",
+      "mount_prefix": null,
+      "name": "set_main_tag",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "set_main_tag",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 42,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "DELETE"
+      ],
+      "path": "/items/{item_id}",
+      "mount_prefix": null,
+      "name": "delete_item",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "delete_item",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 47,
+      "status_code": 204,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/uploads",
+      "mount_prefix": null,
+      "name": "upload",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "upload",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 52,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/login",
+      "mount_prefix": null,
+      "name": "login",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "login",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 57,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/legacy/items/{code}",
+      "mount_prefix": null,
+      "name": "legacy_item",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "legacy_item",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 62,
+      "status_code": null,
+      "response_model": "Item",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/go",
+      "mount_prefix": null,
+      "name": "go",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "go",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 67,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "RedirectResponse",
+      "include_in_schema": true
+    }
+  ],
+  "openapi": {
+    "openapi": "3.1.0",
+    "info": {
+      "title": "Params and models",
+      "version": "0.1.0"
+    },
+    "paths": {
+      "/items": {
+        "get": {
+          "summary": "List Items",
+          "operationId": "list_items_items_get",
+          "parameters": [
+            {
+              "name": "q",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Q"
+              }
+            },
+            {
+              "name": "skip",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "default": 0,
+                "title": "Skip"
+              }
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "maximum": 100,
+                "default": 10,
+                "title": "Limit"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/ItemPublic"
+                    },
+                    "title": "Response List Items Items Get"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "summary": "Create Item",
+          "operationId": "create_item_items_post",
+          "parameters": [
+            {
+              "name": "x-tenant-id",
+              "in": "header",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "X-Tenant-Id"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemCreate"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ItemPublic"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/items/{item_id}": {
+        "get": {
+          "summary": "Get Item",
+          "operationId": "get_item_items__item_id__get",
+          "parameters": [
+            {
+              "name": "item_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Item Id"
+              }
+            },
+            {
+              "name": "verbose",
+              "in": "query",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Verbose"
+              }
+            },
+            {
+              "name": "x-token",
+              "in": "header",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "X-Token"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ItemPublic"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "summary": "Update Item",
+          "operationId": "update_item_items__item_id__put",
+          "parameters": [
+            {
+              "name": "item_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Item Id"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Body_update_item_items__item_id__put"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ItemPublic"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "delete": {
+          "summary": "Delete Item",
+          "operationId": "delete_item_items__item_id__delete",
+          "parameters": [
+            {
+              "name": "item_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Item Id"
+              }
+            }
+          ],
+          "responses": {
+            "204": {
+              "description": "Successful Response"
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/items/{item_id}/full": {
+        "get": {
+          "summary": "Get Item Full",
+          "operationId": "get_item_full_items__item_id__full_get",
+          "parameters": [
+            {
+              "name": "item_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Item Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/app__schemas__items__Item"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/items/{item_id}/tag": {
+        "patch": {
+          "summary": "Set Main Tag",
+          "operationId": "set_main_tag_items__item_id__tag_patch",
+          "parameters": [
+            {
+              "name": "item_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Item Id"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Body_set_main_tag_items__item_id__tag_patch"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/uploads": {
+        "post": {
+          "summary": "Upload",
+          "operationId": "upload_uploads_post",
+          "requestBody": {
+            "content": {
+              "multipart/form-data": {
+                "schema": {
+                  "$ref": "#/components/schemas/Body_upload_uploads_post"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/login": {
+        "post": {
+          "summary": "Login",
+          "operationId": "login_login_post",
+          "requestBody": {
+            "content": {
+              "application/x-www-form-urlencoded": {
+                "schema": {
+                  "$ref": "#/components/schemas/Body_login_login_post"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/legacy/items/{code}": {
+        "get": {
+          "summary": "Legacy Item",
+          "operationId": "legacy_item_legacy_items__code__get",
+          "parameters": [
+            {
+              "name": "code",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Code"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/app__schemas__legacy__Item"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/go": {
+        "get": {
+          "summary": "Go",
+          "operationId": "go_go_get",
+          "responses": {
+            "307": {
+              "description": "Successful Response"
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "Body_login_login_post": {
+          "properties": {
+            "username": {
+              "type": "string",
+              "title": "Username"
+            },
+            "password": {
+              "type": "string",
+              "title": "Password"
+            }
+          },
+          "type": "object",
+          "required": [
+            "username",
+            "password"
+          ],
+          "title": "Body_login_login_post"
+        },
+        "Body_set_main_tag_items__item_id__tag_patch": {
+          "properties": {
+            "tag": {
+              "$ref": "#/components/schemas/Tag"
+            }
+          },
+          "type": "object",
+          "required": [
+            "tag"
+          ],
+          "title": "Body_set_main_tag_items__item_id__tag_patch"
+        },
+        "Body_update_item_items__item_id__put": {
+          "properties": {
+            "item": {
+              "$ref": "#/components/schemas/ItemCreate"
+            },
+            "tag": {
+              "$ref": "#/components/schemas/Tag"
+            }
+          },
+          "type": "object",
+          "required": [
+            "item",
+            "tag"
+          ],
+          "title": "Body_update_item_items__item_id__put"
+        },
+        "Body_upload_uploads_post": {
+          "properties": {
+            "title": {
+              "type": "string",
+              "title": "Title"
+            },
+            "file": {
+              "type": "string",
+              "format": "binary",
+              "title": "File"
+            }
+          },
+          "type": "object",
+          "required": [
+            "title",
+            "file"
+          ],
+          "title": "Body_upload_uploads_post"
+        },
+        "HTTPValidationError": {
+          "properties": {
+            "detail": {
+              "items": {
+                "$ref": "#/components/schemas/ValidationError"
+              },
+              "type": "array",
+              "title": "Detail"
+            }
+          },
+          "type": "object",
+          "title": "HTTPValidationError"
+        },
+        "ItemCreate": {
+          "properties": {
+            "name": {
+              "type": "string",
+              "title": "Name"
+            },
+            "price": {
+              "type": "number",
+              "title": "Price"
+            },
+            "quantity": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Quantity"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Description"
+            },
+            "stockKeepingUnit": {
+              "type": "string",
+              "title": "Stockkeepingunit"
+            },
+            "main_tag": {
+              "$ref": "#/components/schemas/Tag"
+            },
+            "tags": {
+              "items": {
+                "$ref": "#/components/schemas/Tag"
+              },
+              "type": "array",
+              "title": "Tags",
+              "default": []
+            }
+          },
+          "type": "object",
+          "required": [
+            "name",
+            "price",
+            "quantity",
+            "stockKeepingUnit",
+            "main_tag"
+          ],
+          "title": "ItemCreate"
+        },
+        "ItemPublic": {
+          "properties": {
+            "id": {
+              "type": "integer",
+              "title": "Id"
+            },
+            "name": {
+              "type": "string",
+              "title": "Name"
+            },
+            "tags": {
+              "items": {
+                "$ref": "#/components/schemas/Tag"
+              },
+              "type": "array",
+              "title": "Tags"
+            }
+          },
+          "type": "object",
+          "required": [
+            "id",
+            "name",
+            "tags"
+          ],
+          "title": "ItemPublic"
+        },
+        "Tag": {
+          "properties": {
+            "name": {
+              "type": "string",
+              "title": "Name"
+            },
+            "color": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Color"
+            }
+          },
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "title": "Tag"
+        },
+        "ValidationError": {
+          "properties": {
+            "loc": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array",
+              "title": "Location"
+            },
+            "msg": {
+              "type": "string",
+              "title": "Message"
+            },
+            "type": {
+              "type": "string",
+              "title": "Error Type"
+            }
+          },
+          "type": "object",
+          "required": [
+            "loc",
+            "msg",
+            "type"
+          ],
+          "title": "ValidationError"
+        },
+        "app__schemas__items__Item": {
+          "properties": {
+            "id": {
+              "type": "integer",
+              "title": "Id"
+            },
+            "name": {
+              "type": "string",
+              "title": "Name"
+            },
+            "secret_cost": {
+              "type": "number",
+              "title": "Secret Cost"
+            }
+          },
+          "type": "object",
+          "required": [
+            "id",
+            "name",
+            "secret_cost"
+          ],
+          "title": "Item"
+        },
+        "app__schemas__legacy__Item": {
+          "properties": {
+            "code": {
+              "type": "string",
+              "title": "Code"
+            },
+            "active": {
+              "type": "boolean",
+              "title": "Active",
+              "default": true
+            }
+          },
+          "type": "object",
+          "required": [
+            "code"
+          ],
+          "title": "Item"
+        }
+      }
+    }
+  },
+  "mounted_openapi": {},
+  "models": [
+    {
+      "name": "Item",
+      "module": "app.schemas.items",
+      "file": "app/schemas/items.py",
+      "class_line": 27,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "annotation": "<class 'int'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "secret_cost",
+          "alias": null,
+          "annotation": "<class 'float'>",
+          "required": true,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "ItemCreate",
+      "module": "app.schemas.items",
+      "file": "app/schemas/items.py",
+      "class_line": 11,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "price",
+          "alias": null,
+          "annotation": "<class 'float'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "quantity",
+          "alias": null,
+          "annotation": "typing.Optional[int]",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "description",
+          "alias": null,
+          "annotation": "str | None",
+          "required": false,
+          "default": "None"
+        },
+        {
+          "name": "sku",
+          "alias": "stockKeepingUnit",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "main_tag",
+          "alias": null,
+          "annotation": "<class 'app.schemas.items.Tag'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "tags",
+          "alias": null,
+          "annotation": "list[app.schemas.items.Tag]",
+          "required": false,
+          "default": "[]"
+        }
+      ]
+    },
+    {
+      "name": "ItemPublic",
+      "module": "app.schemas.items",
+      "file": "app/schemas/items.py",
+      "class_line": 21,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "annotation": "<class 'int'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "tags",
+          "alias": null,
+          "annotation": "list[app.schemas.items.Tag]",
+          "required": true,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "Tag",
+      "module": "app.schemas.items",
+      "file": "app/schemas/items.py",
+      "class_line": 6,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "color",
+          "alias": null,
+          "annotation": "typing.Optional[str]",
+          "required": false,
+          "default": "None"
+        }
+      ]
+    },
+    {
+      "name": "Item",
+      "module": "app.schemas.legacy",
+      "file": "app/schemas/legacy.py",
+      "class_line": 4,
+      "fields": [
+        {
+          "name": "code",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "active",
+          "alias": null,
+          "annotation": "<class 'bool'>",
+          "required": false,
+          "default": "True"
+        }
+      ]
+    }
+  ]
+}

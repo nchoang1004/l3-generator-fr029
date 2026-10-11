@@ -1,0 +1,385 @@
+{
+  "oracle": {
+    "target": "app.main:app",
+    "python": "3.11.9",
+    "packages": {
+      "fastapi": "0.115.6",
+      "starlette": "0.41.3",
+      "pydantic": "2.10.4",
+      "pydantic-core": "2.27.2",
+      "pydantic-settings": "2.7.1"
+    },
+    "env": []
+  },
+  "routes": [
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/openapi.json",
+      "mount_prefix": null,
+      "name": "openapi",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.openapi",
+      "endpoint_file": null,
+      "endpoint_first_line": 1003
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs",
+      "mount_prefix": null,
+      "name": "swagger_ui_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1014
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs/oauth2-redirect",
+      "mount_prefix": null,
+      "name": "swagger_ui_redirect",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_redirect",
+      "endpoint_file": null,
+      "endpoint_first_line": 1032
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/redoc",
+      "mount_prefix": null,
+      "name": "redoc_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.redoc_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1042
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/orders",
+      "mount_prefix": null,
+      "name": "create_order",
+      "endpoint_module": "app.api.orders",
+      "endpoint_qualname": "create_order",
+      "endpoint_file": "app/api/orders.py",
+      "endpoint_first_line": 10,
+      "status_code": 201,
+      "response_model": "OrderOut",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/orders/{order_id}",
+      "mount_prefix": null,
+      "name": "read_order",
+      "endpoint_module": "app.api.orders",
+      "endpoint_qualname": "read_order",
+      "endpoint_file": "app/api/orders.py",
+      "endpoint_first_line": 15,
+      "status_code": null,
+      "response_model": "OrderOut",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/reports/daily",
+      "mount_prefix": null,
+      "name": "daily_report",
+      "endpoint_module": "app.api.reports",
+      "endpoint_qualname": "daily_report",
+      "endpoint_file": "app/api/reports.py",
+      "endpoint_first_line": 10,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    }
+  ],
+  "openapi": {
+    "openapi": "3.1.0",
+    "info": {
+      "title": "File roles",
+      "version": "0.1.0"
+    },
+    "paths": {
+      "/orders": {
+        "post": {
+          "summary": "Create Order",
+          "operationId": "create_order_orders_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderIn"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "201": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/OrderOut"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/orders/{order_id}": {
+        "get": {
+          "summary": "Read Order",
+          "operationId": "read_order_orders__order_id__get",
+          "parameters": [
+            {
+              "name": "order_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Order Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/OrderOut"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/reports/daily": {
+        "get": {
+          "summary": "Daily Report",
+          "operationId": "daily_report_reports_daily_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "HTTPValidationError": {
+          "properties": {
+            "detail": {
+              "items": {
+                "$ref": "#/components/schemas/ValidationError"
+              },
+              "type": "array",
+              "title": "Detail"
+            }
+          },
+          "type": "object",
+          "title": "HTTPValidationError"
+        },
+        "OrderIn": {
+          "properties": {
+            "product": {
+              "type": "string",
+              "title": "Product"
+            },
+            "quantity": {
+              "type": "integer",
+              "title": "Quantity"
+            }
+          },
+          "type": "object",
+          "required": [
+            "product",
+            "quantity"
+          ],
+          "title": "OrderIn"
+        },
+        "OrderOut": {
+          "properties": {
+            "id": {
+              "type": "integer",
+              "title": "Id"
+            },
+            "product": {
+              "type": "string",
+              "title": "Product"
+            },
+            "quantity": {
+              "type": "integer",
+              "title": "Quantity"
+            }
+          },
+          "type": "object",
+          "required": [
+            "id",
+            "product",
+            "quantity"
+          ],
+          "title": "OrderOut"
+        },
+        "ValidationError": {
+          "properties": {
+            "loc": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array",
+              "title": "Location"
+            },
+            "msg": {
+              "type": "string",
+              "title": "Message"
+            },
+            "type": {
+              "type": "string",
+              "title": "Error Type"
+            }
+          },
+          "type": "object",
+          "required": [
+            "loc",
+            "msg",
+            "type"
+          ],
+          "title": "ValidationError"
+        }
+      }
+    }
+  },
+  "mounted_openapi": {},
+  "models": [
+    {
+      "name": "Settings",
+      "module": "app.config",
+      "file": "app/config.py",
+      "class_line": 4,
+      "fields": [
+        {
+          "name": "MAX_ORDER_QUANTITY",
+          "alias": null,
+          "annotation": "<class 'int'>",
+          "required": false,
+          "default": "100"
+        }
+      ]
+    },
+    {
+      "name": "OrderIn",
+      "module": "app.schemas",
+      "file": "app/schemas.py",
+      "class_line": 4,
+      "fields": [
+        {
+          "name": "product",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "quantity",
+          "alias": null,
+          "annotation": "<class 'int'>",
+          "required": true,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "OrderOut",
+      "module": "app.schemas",
+      "file": "app/schemas.py",
+      "class_line": 9,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "annotation": "<class 'int'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "product",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "quantity",
+          "alias": null,
+          "annotation": "<class 'int'>",
+          "required": true,
+          "default": null
+        }
+      ]
+    }
+  ]
+}

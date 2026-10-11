@@ -1,0 +1,40 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "fr029_e2e",
+  "pydantic_major": 2,
+  "routes": [
+    {"method": "POST", "path": "/api/v1/items/", "handler": "app/api/items.py::create_item", "declared_at": "app/api/items.py:9",
+     "params": [],
+     "request_body": {"models": ["ItemIn"], "model_files": ["app/schemas.py"], "required": true, "media_type": "application/json", "embedded": false},
+     "response": {"model": "ItemOut", "model_file": "app/schemas.py", "array": false},
+     "status": [201], "status_source": "declared"},
+    {"method": "GET", "path": "/api/v1/items/{item_id}", "handler": "app/api/items.py::read_item", "declared_at": "app/api/items.py:15",
+     "params": [{"name": "item_id", "in": "path", "type": "integer", "required": true},
+                {"name": "verbose", "in": "query", "type": "boolean", "required": false}],
+     "request_body": null,
+     "response": {"model": "ItemOut", "model_file": "app/schemas.py", "array": false},
+     "status": [200], "status_source": "default"}
+  ],
+  "models": [
+    {"name": "Tag", "file": "app/schemas.py", "line": 4, "fields": [{"name": "label", "alias": null, "type": "string", "required": true, "nullable": false}]},
+    {"name": "ItemIn", "file": "app/schemas.py", "line": 8, "fields": [
+      {"name": "name", "alias": null, "type": "string", "required": true, "nullable": false},
+      {"name": "price", "alias": null, "type": "number", "required": false, "nullable": true}]},
+    {"name": "ItemOut", "file": "app/schemas.py", "line": 13, "fields": [
+      {"name": "id", "alias": null, "type": "integer", "required": true, "nullable": false},
+      {"name": "name", "alias": null, "type": "string", "required": true, "nullable": false},
+      {"name": "tags", "alias": null, "type": "array[Tag]", "required": true, "nullable": false}]}
+  ],
+  "excluded_routes": [{"where": "tests/test_items.py:6", "reason": "test"}],
+  "limitations": [{"kind": "add_api_route", "where": "app/main.py:13", "detail": "app.add_api_route(\"/ping\", ping)"}],
+  "http_calls": [{"where": "app/api/items.py:11", "library": "httpx", "method": "POST",
+                  "target": {"kind": "literal", "value": "https://audit.example.com/log"}}],
+  "file_roles": [
+    {"file": "app/main.py", "role": "Điểm vào", "line": 5, "label": "exact"},
+    {"file": "app/api/__init__.py", "role": "Khác", "line": null, "label": "exact"},
+    {"file": "app/api/items.py", "role": "Route", "line": 9, "alt_lines": [15], "label": "exact"},
+    {"file": "app/schemas.py", "role": "Schema API", "line": 8, "alt_lines": [13], "label": "exact"}
+  ],
+  "out_of_scope": {"test": 1},
+  "notes": ["Gold tay cho ca xuyên suốt; dùng để kiểm bộ chấm, không phải gold độc lập của agent G."]
+}

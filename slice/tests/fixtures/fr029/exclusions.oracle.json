@@ -1,0 +1,174 @@
+{
+  "oracle": {
+    "target": "app.main:app",
+    "python": "3.11.9",
+    "packages": {
+      "fastapi": "0.115.6",
+      "starlette": "0.41.3",
+      "pydantic": "2.10.4",
+      "pydantic-core": "2.27.2",
+      "pydantic-settings": "2.7.1"
+    },
+    "env": []
+  },
+  "routes": [
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/openapi.json",
+      "mount_prefix": null,
+      "name": "openapi",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.openapi",
+      "endpoint_file": null,
+      "endpoint_first_line": 1003
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs",
+      "mount_prefix": null,
+      "name": "swagger_ui_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1014
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs/oauth2-redirect",
+      "mount_prefix": null,
+      "name": "swagger_ui_redirect",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_redirect",
+      "endpoint_file": null,
+      "endpoint_first_line": 1032
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/redoc",
+      "mount_prefix": null,
+      "name": "redoc_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.redoc_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1042
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/orders",
+      "mount_prefix": null,
+      "name": "list_orders",
+      "endpoint_module": "app.routers.orders",
+      "endpoint_qualname": "list_orders",
+      "endpoint_file": "app/routers/orders.py",
+      "endpoint_first_line": 8,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/health",
+      "mount_prefix": null,
+      "name": "health",
+      "endpoint_module": "app.main",
+      "endpoint_qualname": "health",
+      "endpoint_file": "app/main.py",
+      "endpoint_first_line": 10,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/plain",
+      "mount_prefix": null,
+      "name": "plain",
+      "endpoint_module": "app.main",
+      "endpoint_qualname": "plain",
+      "endpoint_file": "app/main.py",
+      "endpoint_first_line": 14
+    },
+    {
+      "kind": "WebSocketRoute",
+      "methods": [],
+      "path": "/ws",
+      "mount_prefix": null,
+      "name": "ws_echo",
+      "endpoint_module": "app.main",
+      "endpoint_qualname": "ws_echo",
+      "endpoint_file": "app/main.py",
+      "endpoint_first_line": 18
+    }
+  ],
+  "openapi": {
+    "openapi": "3.1.0",
+    "info": {
+      "title": "Exclusions",
+      "version": "0.1.0"
+    },
+    "paths": {
+      "/orders": {
+        "get": {
+          "summary": "List Orders",
+          "operationId": "list_orders_orders_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/health": {
+        "get": {
+          "summary": "Health",
+          "operationId": "health_health_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "mounted_openapi": {},
+  "models": []
+}

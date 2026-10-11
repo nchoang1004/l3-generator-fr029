@@ -1,0 +1,3 @@
+{"partition_version": "fixture-membership-v1",
+ "components": [{"name": "Orders API", "files": ["app/main.py", "app/routes.py"]},
+                {"name": "Orders DB", "files": ["db/models.py"]}]}

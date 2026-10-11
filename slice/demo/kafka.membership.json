@@ -1,0 +1,1 @@
+{"partition_version":"fixture-membership-v1","components":[{"name":"Orders","files":["orders.py"]},{"name":"Stock","files":["stock.py"]}]}

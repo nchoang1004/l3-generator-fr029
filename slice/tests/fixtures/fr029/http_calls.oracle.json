@@ -1,0 +1,313 @@
+{
+  "oracle": {
+    "target": "app.main:app",
+    "python": "3.11.9",
+    "packages": {
+      "fastapi": "0.115.6",
+      "starlette": "0.41.3",
+      "pydantic": "2.10.4",
+      "pydantic-core": "2.27.2",
+      "pydantic-settings": "2.7.1"
+    },
+    "env": []
+  },
+  "routes": [
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/openapi.json",
+      "mount_prefix": null,
+      "name": "openapi",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.openapi",
+      "endpoint_file": null,
+      "endpoint_first_line": 1003
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs",
+      "mount_prefix": null,
+      "name": "swagger_ui_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1014
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs/oauth2-redirect",
+      "mount_prefix": null,
+      "name": "swagger_ui_redirect",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_redirect",
+      "endpoint_file": null,
+      "endpoint_first_line": 1032
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/redoc",
+      "mount_prefix": null,
+      "name": "redoc_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.redoc_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1042
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/orders/{order_id}",
+      "mount_prefix": null,
+      "name": "get_order",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "get_order",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 10,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/rates/refresh",
+      "mount_prefix": null,
+      "name": "refresh_rates",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "refresh_rates",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 16,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/orders/{order_id}/reserve",
+      "mount_prefix": null,
+      "name": "reserve",
+      "endpoint_module": "app.routes",
+      "endpoint_qualname": "reserve",
+      "endpoint_file": "app/routes.py",
+      "endpoint_first_line": 21,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    }
+  ],
+  "openapi": {
+    "openapi": "3.1.0",
+    "info": {
+      "title": "HTTP calls",
+      "version": "0.1.0"
+    },
+    "paths": {
+      "/orders/{order_id}": {
+        "get": {
+          "summary": "Get Order",
+          "operationId": "get_order_orders__order_id__get",
+          "parameters": [
+            {
+              "name": "order_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Order Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/rates/refresh": {
+        "post": {
+          "summary": "Refresh Rates",
+          "operationId": "refresh_rates_rates_refresh_post",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/orders/{order_id}/reserve": {
+        "post": {
+          "summary": "Reserve",
+          "operationId": "reserve_orders__order_id__reserve_post",
+          "parameters": [
+            {
+              "name": "order_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Order Id"
+              }
+            },
+            {
+              "name": "sku",
+              "in": "query",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Sku"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "HTTPValidationError": {
+          "properties": {
+            "detail": {
+              "items": {
+                "$ref": "#/components/schemas/ValidationError"
+              },
+              "type": "array",
+              "title": "Detail"
+            }
+          },
+          "type": "object",
+          "title": "HTTPValidationError"
+        },
+        "ValidationError": {
+          "properties": {
+            "loc": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array",
+              "title": "Location"
+            },
+            "msg": {
+              "type": "string",
+              "title": "Message"
+            },
+            "type": {
+              "type": "string",
+              "title": "Error Type"
+            }
+          },
+          "type": "object",
+          "required": [
+            "loc",
+            "msg",
+            "type"
+          ],
+          "title": "ValidationError"
+        }
+      }
+    }
+  },
+  "mounted_openapi": {},
+  "models": [
+    {
+      "name": "Settings",
+      "module": "app.config",
+      "file": "app/config.py",
+      "class_line": 4,
+      "fields": [
+        {
+          "name": "INVENTORY_URL",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": false,
+          "default": "'https://inventory.example.com/reserve'"
+        },
+        {
+          "name": "PAYMENT_URL",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": false,
+          "default": "'https://pay.example.com/charge'"
+        },
+        {
+          "name": "DATABASE_URL",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": false,
+          "default": "'sqlite:///./orders.db'"
+        }
+      ]
+    }
+  ]
+}

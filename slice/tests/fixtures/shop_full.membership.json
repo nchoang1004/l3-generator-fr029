@@ -1,0 +1,3 @@
+{"partition_version": "fixture-membership-v1",
+ "components": [{"name": "Cửa hàng API", "files": ["app/main.py"]},
+                {"name": "Lưu trữ", "files": ["db/models.py"]}]}

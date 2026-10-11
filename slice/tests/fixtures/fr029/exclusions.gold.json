@@ -1,0 +1,85 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "exclusions",
+  "pydantic_major": 2,
+  "fastapi_version": "0.115.6",
+  "oracle_versions": {
+    "fastapi": "0.115.6",
+    "starlette": "0.41.3",
+    "pydantic": "2.10.4",
+    "pydantic-core": "2.27.2",
+    "pydantic-settings": "2.7.1"
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/orders",
+      "handler": "app/routers/orders.py::list_orders",
+      "declared_at": "app/routers/orders.py:8",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    }
+  ],
+  "models": [],
+  "excluded_routes": [
+    {
+      "where": "tests/test_api.py:6",
+      "reason": "test",
+      "detail": "route của app riêng trong thư mục tests/"
+    },
+    {
+      "where": "app/routers/test_selfcheck.py:6",
+      "reason": "test",
+      "detail": "file test_*.py nằm trong package production; router không được gắn vào app"
+    },
+    {
+      "where": "app/routers/internal.py:6",
+      "reason": "test",
+      "detail": "router production chỉ được gắn trong conftest.py:10"
+    },
+    {
+      "where": "examples/standalone.py:6",
+      "reason": "out_of_scope",
+      "detail": "examples/ chỉ được xét khi import code của repository; file này không import code repository"
+    },
+    {
+      "where": "app/routers/orders.py:13",
+      "reason": "not_fastapi",
+      "detail": "registry là đối tượng Registry tự viết (app/hooks.py:13), không phải FastAPI/APIRouter"
+    }
+  ],
+  "limitations": [
+    {
+      "kind": "add_api_route",
+      "where": "app/main.py:23",
+      "detail": "app.add_api_route(\"/health\", health, methods=[\"GET\"])"
+    },
+    {
+      "kind": "add_route",
+      "where": "app/main.py:24",
+      "detail": "app.add_route(\"/plain\", plain)"
+    },
+    {
+      "kind": "add_websocket_route",
+      "where": "app/main.py:25",
+      "detail": "app.add_websocket_route(\"/ws\", ws_echo)"
+    }
+  ],
+  "notes": [
+    "Oracle liệt kê GET /health (add_api_route) trong cả app.routes và OpenAPI, cùng /plain và /ws trong app.routes. FR-029 không đưa các route này vào tài liệu mà ghi ở phần giới hạn; gold làm theo FR-029.",
+    "Chọn examples/ làm thư mục ngoài phạm vi: FR-028 chỉ xét file trong examples/ khi file đó import code của repository; examples/standalone.py chỉ import fastapi.",
+    "app/routers/internal.py là file production nhưng router chỉ được gắn trong conftest.py, nên route không vào tài liệu (A05: route chỉ được gắn qua registration trong test). Lý do ghi test.",
+    "conftest.py import pytest nhưng requirements.txt không ghi pytest; oracle không import conftest.py nên không cần.",
+    "Membership: examples/standalone.py đặt trong component kind other tên \"Ngoài phạm vi\", vì định dạng membership chỉ có normal/test/migration/other.",
+    "Bổ sung 07/10 sau review của Codex: out_of_scope đếm file ngoài phạm vi theo FR-028 (tests/test_api.py, app/routers/test_selfcheck.py, conftest.py là test; examples/standalone.py là conditional_out). Chỗ loại route internal.py đang chờ người dùng quyết: kế hoạch A05 loại, Codex đọc FR-029 cho rằng phải giữ route với path unknown."
+  ],
+  "out_of_scope": {
+    "test": 3,
+    "conditional_out": 1
+  }
+}

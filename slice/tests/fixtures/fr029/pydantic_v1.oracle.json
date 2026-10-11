@@ -1,0 +1,307 @@
+{
+  "oracle": {
+    "target": "app.main:app",
+    "python": "3.11.9",
+    "packages": {
+      "fastapi": "0.99.1",
+      "starlette": "0.27.0",
+      "pydantic": "1.10.19",
+      "pydantic-core": null,
+      "pydantic-settings": null
+    },
+    "env": []
+  },
+  "routes": [
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/openapi.json",
+      "mount_prefix": null,
+      "name": "openapi",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.openapi",
+      "endpoint_file": null,
+      "endpoint_first_line": 239
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs",
+      "mount_prefix": null,
+      "name": "swagger_ui_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 250
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs/oauth2-redirect",
+      "mount_prefix": null,
+      "name": "swagger_ui_redirect",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_redirect",
+      "endpoint_file": null,
+      "endpoint_first_line": 268
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/redoc",
+      "mount_prefix": null,
+      "name": "redoc_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.redoc_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 278
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/notes",
+      "mount_prefix": null,
+      "name": "create_note",
+      "endpoint_module": "app.main",
+      "endpoint_qualname": "create_note",
+      "endpoint_file": "app/main.py",
+      "endpoint_first_line": 15,
+      "status_code": 201,
+      "response_model": "Note",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/notes/{note_id}",
+      "mount_prefix": null,
+      "name": "get_note",
+      "endpoint_module": "app.main",
+      "endpoint_qualname": "get_note",
+      "endpoint_file": "app/main.py",
+      "endpoint_first_line": 20,
+      "status_code": null,
+      "response_model": "Note",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    }
+  ],
+  "openapi": {
+    "openapi": "3.1.0",
+    "info": {
+      "title": "Pydantic v1",
+      "version": "0.1.0"
+    },
+    "paths": {
+      "/notes": {
+        "post": {
+          "summary": "Create Note",
+          "operationId": "create_note_notes_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "201": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Note"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/notes/{note_id}": {
+        "get": {
+          "summary": "Get Note",
+          "operationId": "get_note_notes__note_id__get",
+          "parameters": [
+            {
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Note Id"
+              },
+              "name": "note_id",
+              "in": "path"
+            },
+            {
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "title": "Q"
+              },
+              "name": "q",
+              "in": "query"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Note"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "HTTPValidationError": {
+          "properties": {
+            "detail": {
+              "items": {
+                "$ref": "#/components/schemas/ValidationError"
+              },
+              "type": "array",
+              "title": "Detail"
+            }
+          },
+          "type": "object",
+          "title": "HTTPValidationError"
+        },
+        "Note": {
+          "properties": {
+            "title": {
+              "type": "string",
+              "title": "Title"
+            },
+            "priority": {
+              "type": "integer",
+              "title": "Priority"
+            },
+            "body": {
+              "type": "string",
+              "title": "Body"
+            }
+          },
+          "type": "object",
+          "required": [
+            "title"
+          ],
+          "title": "Note"
+        },
+        "ValidationError": {
+          "properties": {
+            "loc": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array",
+              "title": "Location"
+            },
+            "msg": {
+              "type": "string",
+              "title": "Message"
+            },
+            "type": {
+              "type": "string",
+              "title": "Error Type"
+            }
+          },
+          "type": "object",
+          "required": [
+            "loc",
+            "msg",
+            "type"
+          ],
+          "title": "ValidationError"
+        }
+      }
+    }
+  },
+  "mounted_openapi": {},
+  "models": [
+    {
+      "name": "Note",
+      "module": "app.main",
+      "file": "app/main.py",
+      "class_line": 9,
+      "fields": [
+        {
+          "name": "title",
+          "alias": "title",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "priority",
+          "alias": "priority",
+          "annotation": "<class 'int'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "body",
+          "alias": "body",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        }
+      ]
+    }
+  ]
+}

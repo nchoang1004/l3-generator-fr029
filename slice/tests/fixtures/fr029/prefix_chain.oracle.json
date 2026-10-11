@@ -1,0 +1,670 @@
+{
+  "oracle": {
+    "target": "app.main:create_app()",
+    "python": "3.11.9",
+    "packages": {
+      "fastapi": "0.115.6",
+      "starlette": "0.41.3",
+      "pydantic": "2.10.4",
+      "pydantic-core": "2.27.2",
+      "pydantic-settings": "2.7.1"
+    },
+    "env": [
+      "ADMIN_PREFIX=/__ENV_ADMIN_PREFIX__"
+    ]
+  },
+  "routes": [
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/openapi.json",
+      "mount_prefix": null,
+      "name": "openapi",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.openapi",
+      "endpoint_file": null,
+      "endpoint_first_line": 1003
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs",
+      "mount_prefix": null,
+      "name": "swagger_ui_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1014
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs/oauth2-redirect",
+      "mount_prefix": null,
+      "name": "swagger_ui_redirect",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_redirect",
+      "endpoint_file": null,
+      "endpoint_first_line": 1032
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/redoc",
+      "mount_prefix": null,
+      "name": "redoc_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.redoc_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1042
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/",
+      "mount_prefix": null,
+      "name": "root",
+      "endpoint_module": "app.main",
+      "endpoint_qualname": "create_app.<locals>.root",
+      "endpoint_file": "app/main.py",
+      "endpoint_first_line": 14,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/v1/items/",
+      "mount_prefix": null,
+      "name": "list_items",
+      "endpoint_module": "app.api.items",
+      "endpoint_qualname": "list_items",
+      "endpoint_file": "app/api/items.py",
+      "endpoint_first_line": 6,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/v1/items/{item_id}",
+      "mount_prefix": null,
+      "name": "get_item",
+      "endpoint_module": "app.api.items",
+      "endpoint_qualname": "get_item",
+      "endpoint_file": "app/api/items.py",
+      "endpoint_first_line": 11,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "path": "/api/v1/items/{item_id}/sync",
+      "mount_prefix": null,
+      "name": "sync_item",
+      "endpoint_module": "app.api.items",
+      "endpoint_qualname": "sync_item",
+      "endpoint_file": "app/api/items.py",
+      "endpoint_first_line": 16,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/v1/accounts/users/me",
+      "mount_prefix": null,
+      "name": "read_me",
+      "endpoint_module": "app.api.users",
+      "endpoint_qualname": "read_me",
+      "endpoint_file": "app/api/users.py",
+      "endpoint_first_line": 6,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/public/status/ping",
+      "mount_prefix": null,
+      "name": "ping",
+      "endpoint_module": "app.api.health",
+      "endpoint_qualname": "ping",
+      "endpoint_file": "app/api/health.py",
+      "endpoint_first_line": 6,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/internal/status/ping",
+      "mount_prefix": null,
+      "name": "ping",
+      "endpoint_module": "app.api.health",
+      "endpoint_qualname": "ping",
+      "endpoint_file": "app/api/health.py",
+      "endpoint_first_line": 6,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/v1/api/items/{item_id}",
+      "mount_prefix": null,
+      "name": "legacy_get_item",
+      "endpoint_module": "app.api.legacy",
+      "endpoint_qualname": "legacy_get_item",
+      "endpoint_file": "app/api/legacy.py",
+      "endpoint_first_line": 6,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/__ENV_ADMIN_PREFIX__/stats",
+      "mount_prefix": null,
+      "name": "admin_stats",
+      "endpoint_module": "app.api.admin",
+      "endpoint_qualname": "admin_stats",
+      "endpoint_file": "app/api/admin.py",
+      "endpoint_first_line": 6,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "Mount",
+      "path": "/sub",
+      "app": "FastAPI"
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/sub/openapi.json",
+      "mount_prefix": "/sub",
+      "name": "openapi",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.openapi",
+      "endpoint_file": null,
+      "endpoint_first_line": 1003
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/sub/docs",
+      "mount_prefix": "/sub",
+      "name": "swagger_ui_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1014
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/sub/docs/oauth2-redirect",
+      "mount_prefix": "/sub",
+      "name": "swagger_ui_redirect",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_redirect",
+      "endpoint_file": null,
+      "endpoint_first_line": 1032
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/sub/redoc",
+      "mount_prefix": "/sub",
+      "name": "redoc_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.redoc_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1042
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/sub/hello",
+      "mount_prefix": "/sub",
+      "name": "sub_hello",
+      "endpoint_module": "app.sub",
+      "endpoint_qualname": "sub_hello",
+      "endpoint_file": "app/sub.py",
+      "endpoint_first_line": 6,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    }
+  ],
+  "openapi": {
+    "openapi": "3.1.0",
+    "info": {
+      "title": "Prefix chain",
+      "version": "0.1.0"
+    },
+    "paths": {
+      "/": {
+        "get": {
+          "summary": "Root",
+          "operationId": "root__get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/items/": {
+        "get": {
+          "tags": [
+            "items"
+          ],
+          "summary": "List Items",
+          "operationId": "list_items_api_v1_items__get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/items/{item_id}": {
+        "get": {
+          "tags": [
+            "items"
+          ],
+          "summary": "Get Item",
+          "operationId": "get_item_api_v1_items__item_id__get",
+          "parameters": [
+            {
+              "name": "item_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Item Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/items/{item_id}/sync": {
+        "get": {
+          "tags": [
+            "items"
+          ],
+          "summary": "Sync Item",
+          "operationId": "sync_item_api_v1_items__item_id__sync_get",
+          "parameters": [
+            {
+              "name": "item_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Item Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "items"
+          ],
+          "summary": "Sync Item",
+          "operationId": "sync_item_api_v1_items__item_id__sync_get",
+          "parameters": [
+            {
+              "name": "item_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Item Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/accounts/users/me": {
+        "get": {
+          "summary": "Read Me",
+          "operationId": "read_me_api_v1_accounts_users_me_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/public/status/ping": {
+        "get": {
+          "summary": "Ping",
+          "operationId": "ping_public_status_ping_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/internal/status/ping": {
+        "get": {
+          "summary": "Ping",
+          "operationId": "ping_internal_status_ping_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/v1/api/items/{item_id}": {
+        "get": {
+          "summary": "Legacy Get Item",
+          "operationId": "legacy_get_item_v1_api_items__item_id__get",
+          "parameters": [
+            {
+              "name": "item_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "title": "Item Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/__ENV_ADMIN_PREFIX__/stats": {
+        "get": {
+          "summary": "Admin Stats",
+          "operationId": "admin_stats___ENV_ADMIN_PREFIX___stats_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "HTTPValidationError": {
+          "properties": {
+            "detail": {
+              "items": {
+                "$ref": "#/components/schemas/ValidationError"
+              },
+              "type": "array",
+              "title": "Detail"
+            }
+          },
+          "type": "object",
+          "title": "HTTPValidationError"
+        },
+        "ValidationError": {
+          "properties": {
+            "loc": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array",
+              "title": "Location"
+            },
+            "msg": {
+              "type": "string",
+              "title": "Message"
+            },
+            "type": {
+              "type": "string",
+              "title": "Error Type"
+            }
+          },
+          "type": "object",
+          "required": [
+            "loc",
+            "msg",
+            "type"
+          ],
+          "title": "ValidationError"
+        }
+      }
+    }
+  },
+  "mounted_openapi": {
+    "/sub": {
+      "openapi": "3.1.0",
+      "info": {
+        "title": "Sub app",
+        "version": "0.1.0"
+      },
+      "paths": {
+        "/hello": {
+          "get": {
+            "summary": "Sub Hello",
+            "operationId": "sub_hello_hello_get",
+            "responses": {
+              "200": {
+                "description": "Successful Response",
+                "content": {
+                  "application/json": {
+                    "schema": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "models": [
+    {
+      "name": "Settings",
+      "module": "app.config",
+      "file": "app/config.py",
+      "class_line": 4,
+      "fields": [
+        {
+          "name": "API_V1_STR",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": false,
+          "default": "'/api/v1'"
+        },
+        {
+          "name": "PROJECT_NAME",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": false,
+          "default": "'Prefix chain'"
+        }
+      ]
+    }
+  ]
+}

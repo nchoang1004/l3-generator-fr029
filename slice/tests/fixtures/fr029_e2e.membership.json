@@ -1,0 +1,5 @@
+{"partition_version": "fixture-membership-v1",
+ "components": [{"name": "Mục hàng", "kind": "normal", "files": ["app/api/items.py", "app/schemas.py"]},
+                {"name": "Khởi động", "kind": "normal", "files": ["app/main.py", "app/api/__init__.py"]},
+                {"name": "Kiểm thử", "kind": "test", "files": ["tests/test_items.py"]},
+                {"name": "Khác", "kind": "other", "files": ["requirements.txt"]}]}

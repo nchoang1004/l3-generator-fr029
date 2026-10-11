@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tài liệu L3 | L3Generator</title>
+  <link rel="stylesheet" href="/ui/app.css">
+  <script src="/ui/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#workspace">Đến nội dung</a>
+  <header><a class="brand" href="/">L3Generator<span>Tài liệu</span></a><span class="local">Chạy trên máy của bạn</span></header>
+  <main id="workspace">
+    <div class="intro"><p class="eyebrow">FR-029 / Không gian làm việc</p><h1>Từ source đến tài liệu.</h1><p>Agent đọc mã nguồn, đối chiếu bằng chứng và xuất tài liệu API cùng README.</p></div>
+    <div class="workspace">
+      <section class="inputs" aria-labelledby="input-title">
+        <h2 id="input-title">Đầu vào</h2>
+        <p class="muted">Dùng đường dẫn tuyệt đối trên máy chạy server.</p>
+        <form id="run-form">
+          <label for="source">Thư mục mã nguồn <span aria-hidden="true">*</span></label>
+          <input id="source" name="source" required placeholder="D:\repos\my-service" spellcheck="false" autocomplete="off">
+          <label for="membership">File membership JSON <span aria-hidden="true">*</span></label>
+          <input id="membership" name="membership" required placeholder="D:\inputs\membership.json" spellcheck="false" autocomplete="off" aria-describedby="membership-help">
+          <p id="membership-help" class="hint">Danh sách component và file do bước kiến trúc cung cấp.</p>
+          <label for="name">Tên dự án <span class="optional">tùy chọn</span></label>
+          <input id="name" name="name" maxlength="128" placeholder="Mặc định theo tên thư mục" autocomplete="off">
+          <details><summary>Đầu vào kiến trúc bổ sung</summary>
+            <label for="archdia">File archdia.json</label><input id="archdia" name="archdia" placeholder="Đường dẫn dữ liệu cùng snapshot" spellcheck="false" autocomplete="off">
+            <label for="diagram">File sơ đồ Mermaid</label><input id="diagram" name="diagram" placeholder="Đường dẫn sơ đồ đã có" spellcheck="false" autocomplete="off">
+            <p class="hint">Thiếu các đầu vào này, kết quả sẽ ghi rõ giới hạn đối chiếu và mục sơ đồ trong README.</p>
+          </details>
+          <div class="provider"><span class="muted">Model đã cấu hình</span><strong id="model">Đang tải cấu hình…</strong><p id="notice" class="hint"></p></div>
+          <label class="consent"><input type="checkbox" id="consent" required><span id="consent-label">Tôi đồng ý xử lý source theo thông báo trên.</span></label>
+          <p id="form-error" class="error" role="alert"></p>
+          <button class="primary" id="submit" disabled>Sinh tài liệu</button>
+        </form>
+      </section>
+      <section class="output" aria-labelledby="output-title">
+        <div class="section-heading"><h2 id="output-title">Kết quả</h2><span id="status" class="badge" role="status">Chưa có lần chạy</span></div>
+        <label for="history" class="sr-only">Lần chạy trong phiên server</label>
+        <select id="history" hidden><option value="">Chọn lần chạy</option></select>
+        <div id="empty" class="empty"><span class="empty-mark" aria-hidden="true">L3</span><h3>Tài liệu sẽ xuất hiện tại đây</h3><p>Chọn source, cấp membership và bắt đầu.<br>Bạn có thể xem nội dung rồi tải từng file.</p></div>
+        <div id="run" hidden>
+          <p id="run-message" role="status"></p><p id="run-id" class="mono muted"></p>
+          <button id="retry" type="button" hidden>Thử kết nối lại</button>
+          <div id="result" hidden>
+            <dl class="metrics"><div><dt>Agent</dt><dd id="agent-status"></dd></div><div><dt>Đọc source</dt><dd id="coverage"></dd></div><div><dt>Đối chiếu kiến trúc</dt><dd id="parity"></dd></div></dl>
+            <p id="coverage-note" class="hint"></p>
+            <p class="review-note">Tài liệu sinh tự động cần được kiểm tra. Trạng thái hoàn tất không thay thế nghiệm thu 8 yêu cầu FR-029.</p>
+            <h3>Tài liệu xuất ra</h3><div id="artifacts"></div>
+            <details id="limits-panel"><summary id="limits-title">Giới hạn</summary><ul id="limits"></ul></details>
+            <details><summary>Chi tiết độ phủ đọc</summary><div class="table-wrap"><table><thead><tr><th>File</th><th>Trạng thái</th><th>Khoảng chưa đọc / dòng bị cắt</th></tr></thead><tbody id="coverage-files"></tbody></table></div></details>
+            <p class="hint">Thư mục kết quả: <span id="output-path" class="mono"></span></p>
+          </div>
+        </div>
+      </section>
+    </div>
+    <section id="preview" hidden aria-labelledby="preview-title"><div class="section-heading"><h2 id="preview-title">Nội dung tài liệu</h2><button type="button" id="close-preview">Đóng</button></div><p id="preview-path" class="mono muted"></p><pre id="preview-text" tabindex="0"></pre></section>
+    <footer>API · README · Bằng chứng nguồn<span>Component và sơ đồ được nhận từ bước kiến trúc.</span></footer>
+  </main>
+</body>
+</html>

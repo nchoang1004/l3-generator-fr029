@@ -1,0 +1,321 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "prefix_chain",
+  "pydantic_major": 2,
+  "fastapi_version": "0.115.6",
+  "oracle_versions": {
+    "fastapi": "0.115.6",
+    "starlette": "0.41.3",
+    "pydantic": "2.10.4",
+    "pydantic-core": "2.27.2",
+    "pydantic-settings": "2.7.1"
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "handler": "app/main.py::root",
+      "declared_at": "app/main.py:14",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": []
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/items/",
+      "handler": "app/api/items.py::list_items",
+      "declared_at": "app/api/items.py:6",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:18",
+          "prefix": "/api/v1",
+          "prefix_source": "app/config.py:5"
+        },
+        {
+          "where": "app/api/api.py:6",
+          "prefix": ""
+        },
+        {
+          "where": "app/api/items.py:3",
+          "prefix": "/items"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/items/{item_id}",
+      "handler": "app/api/items.py::get_item",
+      "declared_at": "app/api/items.py:11",
+      "params": [
+        {
+          "name": "item_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:18",
+          "prefix": "/api/v1",
+          "prefix_source": "app/config.py:5"
+        },
+        {
+          "where": "app/api/api.py:6",
+          "prefix": ""
+        },
+        {
+          "where": "app/api/items.py:3",
+          "prefix": "/items"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/items/{item_id}/sync",
+      "handler": "app/api/items.py::sync_item",
+      "declared_at": "app/api/items.py:16",
+      "params": [
+        {
+          "name": "item_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:18",
+          "prefix": "/api/v1",
+          "prefix_source": "app/config.py:5"
+        },
+        {
+          "where": "app/api/api.py:6",
+          "prefix": ""
+        },
+        {
+          "where": "app/api/items.py:3",
+          "prefix": "/items"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/items/{item_id}/sync",
+      "handler": "app/api/items.py::sync_item",
+      "declared_at": "app/api/items.py:16",
+      "params": [
+        {
+          "name": "item_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:18",
+          "prefix": "/api/v1",
+          "prefix_source": "app/config.py:5"
+        },
+        {
+          "where": "app/api/api.py:6",
+          "prefix": ""
+        },
+        {
+          "where": "app/api/items.py:3",
+          "prefix": "/items"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/accounts/users/me",
+      "handler": "app/api/users.py::read_me",
+      "declared_at": "app/api/users.py:6",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:18",
+          "prefix": "/api/v1",
+          "prefix_source": "app/config.py:5"
+        },
+        {
+          "where": "app/api/api.py:7",
+          "prefix": "/accounts"
+        },
+        {
+          "where": "app/api/users.py:3",
+          "prefix": "/users"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/public/status/ping",
+      "handler": "app/api/health.py::ping",
+      "declared_at": "app/api/health.py:6",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:19",
+          "prefix": "/public"
+        },
+        {
+          "where": "app/api/health.py:3",
+          "prefix": "/status"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/internal/status/ping",
+      "handler": "app/api/health.py::ping",
+      "declared_at": "app/api/health.py:6",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:20",
+          "prefix": "/internal"
+        },
+        {
+          "where": "app/api/health.py:3",
+          "prefix": "/status"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/api/items/{item_id}",
+      "handler": "app/api/legacy.py::legacy_get_item",
+      "declared_at": "app/api/legacy.py:6",
+      "params": [
+        {
+          "name": "item_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:21",
+          "prefix": "/v1"
+        },
+        {
+          "where": "app/api/legacy.py:3",
+          "prefix": "/api"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": null,
+      "path_unknown_reason": "prefix đọc từ os.environ[\"ADMIN_PREFIX\"] ở app/main.py:22, code không khai giá trị mặc định",
+      "handler": "app/api/admin.py::admin_stats",
+      "declared_at": "app/api/admin.py:6",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "path_known_suffix": "/stats",
+      "registration": [
+        {
+          "where": "app/main.py:22",
+          "prefix": null
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/sub/hello",
+      "handler": "app/sub.py::sub_hello",
+      "declared_at": "app/sub.py:6",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:23",
+          "prefix": "/sub",
+          "kind": "mount"
+        }
+      ]
+    }
+  ],
+  "models": [],
+  "excluded_routes": [],
+  "limitations": [],
+  "notes": [
+    "Oracle chạy với ADMIN_PREFIX=/__ENV_ADMIN_PREFIX__ để app import được. Gold ghi path của route admin là null vì code không có giá trị mặc định (FR-029 mục \"Khi chưa đủ dữ kiện\"). Phần biết được ghi ở path_known_suffix.",
+    "Prefix /api/v1 lấy từ giá trị mặc định của Settings.API_V1_STR (app/config.py:5). Oracle chạy khi không đặt biến môi trường API_V1_STR.",
+    "api_route(methods=[\"GET\",\"POST\"]) ở app/api/items.py:16 là hai route trong gold, cùng declared_at.",
+    "health.router được gắn hai lần (app/main.py:19 và :20): hai route khác path, cùng handler và declared_at.",
+    "/api/v1/items/{item_id} và /v1/api/items/{item_id} là hai route khác nhau; chỉ khác thứ tự đoạn prefix.",
+    "Route /sub/hello thuộc sub app gắn bằng app.mount (app/main.py:23); app.openapi() của app chính không chứa route này, oracle lấy từ sub_app.openapi() (mounted_openapi).",
+    "Handler của route / là hàm lồng root trong create_app (qualname create_app.<locals>.root); gold ghi tên hàm root.",
+    "Bỏ các route tài liệu do FastAPI tự sinh (/openapi.json, /docs, /docs/oauth2-redirect, /redoc, kể cả bản dưới /sub): không khai trong code repository.",
+    "registration là trường thêm (không bắt buộc): chuỗi nơi gắn prefix từ app tới decorator, theo thứ tự ngoài vào trong; prefix \"\" là include_router không có prefix; prefix null là chưa biết."
+  ]
+}

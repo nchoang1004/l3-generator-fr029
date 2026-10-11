@@ -1,0 +1,53 @@
+{
+  "partition_version": "fixture-membership-v1",
+  "components": [
+    {
+      "name": "Khởi động",
+      "kind": "normal",
+      "files": [
+        "app/main.py",
+        "app/api/api.py",
+        "app/config.py"
+      ]
+    },
+    {
+      "name": "Mặt hàng",
+      "kind": "normal",
+      "files": [
+        "app/api/items.py",
+        "app/api/legacy.py"
+      ]
+    },
+    {
+      "name": "Tài khoản",
+      "kind": "normal",
+      "files": [
+        "app/api/users.py"
+      ]
+    },
+    {
+      "name": "Hệ thống",
+      "kind": "normal",
+      "files": [
+        "app/api/health.py",
+        "app/api/admin.py"
+      ]
+    },
+    {
+      "name": "Ứng dụng phụ",
+      "kind": "normal",
+      "files": [
+        "app/sub.py"
+      ]
+    },
+    {
+      "name": "Khác",
+      "kind": "other",
+      "files": [
+        "app/__init__.py",
+        "app/api/__init__.py",
+        "requirements.txt"
+      ]
+    }
+  ]
+}

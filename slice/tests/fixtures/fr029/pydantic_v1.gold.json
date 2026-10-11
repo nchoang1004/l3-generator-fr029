@@ -1,0 +1,109 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "pydantic_v1",
+  "pydantic_major": 1,
+  "fastapi_version": "0.99.1",
+  "oracle_versions": {
+    "fastapi": "0.99.1",
+    "starlette": "0.27.0",
+    "pydantic": "1.10.19",
+    "pydantic-core": null,
+    "pydantic-settings": null
+  },
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/notes",
+      "handler": "app/main.py::create_note",
+      "declared_at": "app/main.py:15",
+      "params": [],
+      "request_body": {
+        "models": [
+          "Note"
+        ],
+        "model_files": [
+          "app/main.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": {
+        "model": "Note",
+        "model_file": "app/main.py",
+        "array": false
+      },
+      "status": [
+        201
+      ],
+      "status_source": "declared"
+    },
+    {
+      "method": "GET",
+      "path": "/notes/{note_id}",
+      "handler": "app/main.py::get_note",
+      "declared_at": "app/main.py:20",
+      "params": [
+        {
+          "name": "note_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "q",
+          "in": "query",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "Note",
+        "model_file": "app/main.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    }
+  ],
+  "models": [
+    {
+      "name": "Note",
+      "file": "app/main.py",
+      "line": 9,
+      "fields": [
+        {
+          "name": "title",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "priority",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "body",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    }
+  ],
+  "excluded_routes": [],
+  "limitations": [],
+  "notes": [
+    "Pydantic 1.10.19 / FastAPI 0.99.1. Note.priority là Optional[int] không có default: Pydantic v1 coi là không bắt buộc (required=false) và nhận None (nullable=true). Cùng khai báo này ở v2 là bắt buộc (xem fixture params_models).",
+    "OpenAPI của FastAPI 0.99 với Pydantic v1 không thể hiện nullable (chỉ ghi type integer). Gold lấy nullable từ ModelField.allow_none mà oracle ghi trong models.",
+    "Tham số query q: Optional[int] = None ghi kiểu integer, không bắt buộc."
+  ]
+}

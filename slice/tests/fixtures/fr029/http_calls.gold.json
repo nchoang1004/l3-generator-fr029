@@ -1,0 +1,201 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "http_calls",
+  "pydantic_major": 2,
+  "fastapi_version": "0.115.6",
+  "oracle_versions": {
+    "fastapi": "0.115.6",
+    "starlette": "0.41.3",
+    "pydantic": "2.10.4",
+    "pydantic-core": "2.27.2",
+    "pydantic-settings": "2.7.1"
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/orders/{order_id}",
+      "handler": "app/routes.py::get_order",
+      "declared_at": "app/routes.py:10",
+      "params": [
+        {
+          "name": "order_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "POST",
+      "path": "/rates/refresh",
+      "handler": "app/routes.py::refresh_rates",
+      "declared_at": "app/routes.py:16",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "POST",
+      "path": "/orders/{order_id}/reserve",
+      "handler": "app/routes.py::reserve",
+      "declared_at": "app/routes.py:21",
+      "params": [
+        {
+          "name": "order_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "sku",
+          "in": "query",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    }
+  ],
+  "models": [],
+  "excluded_routes": [],
+  "limitations": [
+    {
+      "kind": "unsupported_http_library",
+      "where": "app/clients.py:64",
+      "detail": "urllib.request.urlopen(\"https://legacy.example.com/feed\")"
+    }
+  ],
+  "http_calls": [
+    {
+      "where": "app/clients.py:13",
+      "library": "httpx",
+      "method": "GET",
+      "target": {
+        "kind": "literal",
+        "value": "https://rates.example.com/v1/latest"
+      }
+    },
+    {
+      "where": "app/clients.py:18",
+      "library": "httpx",
+      "method": "POST",
+      "target": {
+        "kind": "literal",
+        "value": "https://ship.example.com/orders"
+      }
+    },
+    {
+      "where": "app/clients.py:23",
+      "library": "httpx",
+      "method": "PUT",
+      "target": {
+        "kind": "config",
+        "value": "INVENTORY_URL"
+      }
+    },
+    {
+      "where": "app/clients.py:28",
+      "library": "httpx",
+      "method": "PATCH",
+      "target": {
+        "kind": "literal",
+        "value": "https://users.example.com/profile"
+      }
+    },
+    {
+      "where": "app/clients.py:33",
+      "library": "httpx",
+      "method": "unknown",
+      "method_reason": "method là tham số hàm call_dynamic, chỉ biết lúc chạy",
+      "target": {
+        "kind": "unknown",
+        "value": null,
+        "reason": "url là tham số hàm call_dynamic, chỉ biết lúc chạy"
+      }
+    },
+    {
+      "where": "app/clients.py:37",
+      "library": "httpx",
+      "method": "GET",
+      "target": {
+        "kind": "literal",
+        "value": "https://reports.example.com/daily.csv"
+      }
+    },
+    {
+      "where": "app/clients.py:42",
+      "library": "requests",
+      "method": "GET",
+      "target": {
+        "kind": "literal",
+        "value": "https://audit.example.com/ping"
+      }
+    },
+    {
+      "where": "app/clients.py:46",
+      "library": "requests",
+      "method": "POST",
+      "target": {
+        "kind": "config",
+        "value": "PAYMENT_URL"
+      }
+    },
+    {
+      "where": "app/clients.py:51",
+      "library": "aiohttp",
+      "method": "GET",
+      "target": {
+        "kind": "literal",
+        "value": "https://weather.example.com/today"
+      }
+    },
+    {
+      "where": "app/clients.py:56",
+      "library": "httpx",
+      "method": "GET",
+      "target": {
+        "kind": "unknown",
+        "value": null,
+        "reason": "URL ghép lúc chạy f\"{base}/users/{user_id}\", base là tham số hàm"
+      }
+    },
+    {
+      "where": "app/clients.py:60",
+      "library": "httpx",
+      "method": "DELETE",
+      "target": {
+        "kind": "literal",
+        "value": "https://cache.example.com/purge"
+      }
+    }
+  ],
+  "non_http_calls": [
+    {
+      "where": "app/routes.py:12",
+      "detail": "db.get(Order, order_id) là Session.get của SQLAlchemy, không phải HTTP"
+    }
+  ],
+  "notes": [
+    "app/clients.py:23: client là InventoryClient, lớp con của httpx.AsyncClient khai ở file khác (app/inventory_client.py:4); thư viện ghi httpx.",
+    "Đích kind config ghi tên khóa cấu hình (trường của Settings): INVENTORY_URL khai ở app/config.py:5, PAYMENT_URL ở app/config.py:6.",
+    "app/clients.py:60: hx là alias của httpx (import httpx as hx, dòng 5); thư viện ghi httpx.",
+    "Các dòng tạo client (httpx.Client() dòng 17, 27, 32; InventoryClient() dòng 22; aiohttp.ClientSession() dòng 50) không phải lời gọi HTTP và không có URL, nên không có dòng riêng trong http_calls.",
+    "non_http_calls là trường thêm: lời gọi trông giống HTTP nhưng không phải; công cụ không được ghi vào mục HTTP.",
+    "app/db.py:6 tạo engine CSDL: thuộc hệ thống ngoài của FR-028, không thuộc mục HTTP của FR-029."
+  ]
+}

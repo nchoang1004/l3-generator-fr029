@@ -1,0 +1,223 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "file_roles",
+  "pydantic_major": 2,
+  "fastapi_version": "0.115.6",
+  "oracle_versions": {
+    "fastapi": "0.115.6",
+    "starlette": "0.41.3",
+    "pydantic": "2.10.4",
+    "pydantic-core": "2.27.2",
+    "pydantic-settings": "2.7.1"
+  },
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/orders",
+      "handler": "app/api/orders.py::create_order",
+      "declared_at": "app/api/orders.py:10",
+      "params": [],
+      "request_body": {
+        "models": [
+          "OrderIn"
+        ],
+        "model_files": [
+          "app/schemas.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": {
+        "model": "OrderOut",
+        "model_file": "app/schemas.py",
+        "array": false
+      },
+      "status": [
+        201
+      ],
+      "status_source": "declared"
+    },
+    {
+      "method": "GET",
+      "path": "/orders/{order_id}",
+      "handler": "app/api/orders.py::read_order",
+      "declared_at": "app/api/orders.py:15",
+      "params": [
+        {
+          "name": "order_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "OrderOut",
+        "model_file": "app/schemas.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/reports/daily",
+      "handler": "app/api/reports.py::daily_report",
+      "declared_at": "app/api/reports.py:10",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    }
+  ],
+  "models": [
+    {
+      "name": "OrderIn",
+      "file": "app/schemas.py",
+      "line": 4,
+      "fields": [
+        {
+          "name": "product",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "quantity",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "OrderOut",
+      "file": "app/schemas.py",
+      "line": 9,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "product",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "quantity",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    }
+  ],
+  "excluded_routes": [],
+  "limitations": [],
+  "file_roles": [
+    {
+      "file": "app/main.py",
+      "role": "Điểm vào",
+      "line": 5,
+      "label": "exact"
+    },
+    {
+      "file": "app/api/orders.py",
+      "role": "Route",
+      "line": 10,
+      "alt_lines": [
+        15
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/api/reports.py",
+      "role": "Route",
+      "line": 10,
+      "label": "exact"
+    },
+    {
+      "file": "app/models.py",
+      "role": "Model bảng",
+      "line": 10,
+      "alt_lines": [
+        9
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/db.py",
+      "role": "Hạ tầng",
+      "line": 8,
+      "label": "exact"
+    },
+    {
+      "file": "app/repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 9,
+      "alt_lines": [
+        10,
+        15
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas.py",
+      "role": "Schema API",
+      "line": 4,
+      "alt_lines": [
+        9
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/config.py",
+      "role": "Cấu hình",
+      "line": 4,
+      "label": "exact"
+    },
+    {
+      "file": "app/services.py",
+      "role": "Service",
+      "line": 7,
+      "alt_lines": [
+        11
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi"
+    },
+    {
+      "file": "app/service_utils.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    }
+  ],
+  "notes": [
+    "line là dòng bằng chứng gold chọn; alt_lines (trường thêm) là các dòng khác cũng mang đúng dấu hiệu của vai trò đó, chấm đúng nếu công cụ chọn một trong số này.",
+    "app/api/reports.py có dấu hiệu Route (dòng 10) và Truy cập dữ liệu (dòng 12 db.scalar, select): Route đứng trước trên thang nên thắng.",
+    "app/db.py có dấu hiệu Hạ tầng (dòng 8 create_engine), Cấu hình (dòng 6 os.getenv) và gọi method session (dòng 17 db.close()): Hạ tầng đứng trước nên thắng.",
+    "app/models.py: dòng 10 (__tablename__) là dấu hiệu; dòng 9 (class Order) chấp nhận làm alt.",
+    "app/services.py không có dấu hiệu nào (đọc settings.MAX_ORDER_QUANTITY không phải dấu hiệu Cấu hình theo bảng FR-029; chỉ truyền db đi, không gọi method session). Nằm trên đường gọi route app/api/orders.py:12 -> services.place_order -> repository.save_order (app/repository.py:9 db.add). Bằng chứng: dòng gọi repository (7, hoặc 11).",
+    "app/service_utils.py không có dấu hiệu và không nằm trên đường gọi nào: Khác, dù tên có chữ service. line=null.",
+    "app/__init__.py và app/api/__init__.py rỗng, thuộc component kind other (Khác) nên không có trong bảng Cấu trúc component; gold không liệt kê.",
+    "Nhãn của Khác: FR-029 nói mọi vai trò trừ Service mang exact; gold ghi exact.",
+    "GET /orders/{order_id} có raise HTTPException(status_code=404) trong thân hàm (app/api/orders.py:19). Đây không phải status khai trên route; gold chỉ ghi 200 (default).",
+    "Bổ sung 07/10 sau review của Codex: vai trò Khác vẫn phải có dòng bằng chứng (AC-029-07). line null ở đây nghĩa là dòng nào trong file cũng được; bộ chấm chỉ yêu cầu công cụ có ghi dòng."
+  ]
+}

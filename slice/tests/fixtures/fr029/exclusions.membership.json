@@ -1,0 +1,46 @@
+{
+  "partition_version": "fixture-membership-v1",
+  "components": [
+    {
+      "name": "Khởi động",
+      "kind": "normal",
+      "files": [
+        "app/main.py"
+      ]
+    },
+    {
+      "name": "Đơn hàng",
+      "kind": "normal",
+      "files": [
+        "app/routers/orders.py",
+        "app/hooks.py",
+        "app/routers/internal.py"
+      ]
+    },
+    {
+      "name": "Kiểm thử",
+      "kind": "test",
+      "files": [
+        "tests/test_api.py",
+        "conftest.py",
+        "app/routers/test_selfcheck.py"
+      ]
+    },
+    {
+      "name": "Ngoài phạm vi",
+      "kind": "other",
+      "files": [
+        "examples/standalone.py"
+      ]
+    },
+    {
+      "name": "Khác",
+      "kind": "other",
+      "files": [
+        "app/__init__.py",
+        "app/routers/__init__.py",
+        "requirements.txt"
+      ]
+    }
+  ]
+}

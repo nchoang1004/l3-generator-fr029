@@ -1,0 +1,20 @@
+{
+  "partition_version": "fixture-membership-v1",
+  "components": [
+    {
+      "name": "Ghi chú",
+      "kind": "normal",
+      "files": [
+        "app/main.py"
+      ]
+    },
+    {
+      "name": "Khác",
+      "kind": "other",
+      "files": [
+        "app/__init__.py",
+        "requirements.txt"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,524 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "params_models",
+  "pydantic_major": 2,
+  "fastapi_version": "0.115.6",
+  "oracle_versions": {
+    "fastapi": "0.115.6",
+    "starlette": "0.41.3",
+    "pydantic": "2.10.4",
+    "pydantic-core": "2.27.2",
+    "pydantic-settings": "2.7.1"
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/items",
+      "handler": "app/routes.py::list_items",
+      "declared_at": "app/routes.py:13",
+      "params": [
+        {
+          "name": "q",
+          "in": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "skip",
+          "in": "query",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "ItemPublic",
+        "model_file": "app/schemas/items.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/items/{item_id}",
+      "handler": "app/routes.py::get_item",
+      "declared_at": "app/routes.py:18",
+      "params": [
+        {
+          "name": "item_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "verbose",
+          "in": "query",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "x-token",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "ItemPublic",
+        "model_file": "app/schemas/items.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/items/{item_id}/full",
+      "handler": "app/routes.py::get_item_full",
+      "declared_at": "app/routes.py:27",
+      "params": [
+        {
+          "name": "item_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "Item",
+        "model_file": "app/schemas/items.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "POST",
+      "path": "/items",
+      "handler": "app/routes.py::create_item",
+      "declared_at": "app/routes.py:32",
+      "params": [
+        {
+          "name": "x-tenant-id",
+          "in": "header",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_body": {
+        "models": [
+          "ItemCreate"
+        ],
+        "model_files": [
+          "app/schemas/items.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": {
+        "model": "ItemPublic",
+        "model_file": "app/schemas/items.py",
+        "array": false
+      },
+      "status": [
+        201
+      ],
+      "status_source": "declared"
+    },
+    {
+      "method": "PUT",
+      "path": "/items/{item_id}",
+      "handler": "app/routes.py::update_item",
+      "declared_at": "app/routes.py:37",
+      "params": [
+        {
+          "name": "item_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": {
+        "models": [
+          "ItemCreate",
+          "Tag"
+        ],
+        "model_files": [
+          "app/schemas/items.py",
+          "app/schemas/items.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": true,
+        "fields": [
+          {
+            "name": "item",
+            "type": "ItemCreate",
+            "required": true
+          },
+          {
+            "name": "tag",
+            "type": "Tag",
+            "required": true
+          }
+        ]
+      },
+      "response": {
+        "model": "ItemPublic",
+        "model_file": "app/schemas/items.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "PATCH",
+      "path": "/items/{item_id}/tag",
+      "handler": "app/routes.py::set_main_tag",
+      "declared_at": "app/routes.py:42",
+      "params": [
+        {
+          "name": "item_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": {
+        "models": [
+          "Tag"
+        ],
+        "model_files": [
+          "app/schemas/items.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": true,
+        "fields": [
+          {
+            "name": "tag",
+            "type": "Tag",
+            "required": true
+          }
+        ]
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "DELETE",
+      "path": "/items/{item_id}",
+      "handler": "app/routes.py::delete_item",
+      "declared_at": "app/routes.py:47",
+      "params": [
+        {
+          "name": "item_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        204
+      ],
+      "status_source": "declared"
+    },
+    {
+      "method": "POST",
+      "path": "/uploads",
+      "handler": "app/routes.py::upload",
+      "declared_at": "app/routes.py:52",
+      "params": [],
+      "request_body": {
+        "models": [],
+        "model_files": [],
+        "required": true,
+        "media_type": "multipart/form-data",
+        "embedded": false,
+        "fields": [
+          {
+            "name": "title",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "file",
+            "type": "string",
+            "required": true
+          }
+        ]
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "POST",
+      "path": "/login",
+      "handler": "app/routes.py::login",
+      "declared_at": "app/routes.py:57",
+      "params": [],
+      "request_body": {
+        "models": [],
+        "model_files": [],
+        "required": true,
+        "media_type": "application/x-www-form-urlencoded",
+        "embedded": false,
+        "fields": [
+          {
+            "name": "username",
+            "type": "string",
+            "required": true
+          },
+          {
+            "name": "password",
+            "type": "string",
+            "required": true
+          }
+        ]
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/legacy/items/{code}",
+      "handler": "app/routes.py::legacy_item",
+      "declared_at": "app/routes.py:62",
+      "params": [
+        {
+          "name": "code",
+          "in": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "Item",
+        "model_file": "app/schemas/legacy.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/go",
+      "handler": "app/routes.py::go",
+      "declared_at": "app/routes.py:67",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        307
+      ],
+      "status_source": "default"
+    }
+  ],
+  "models": [
+    {
+      "name": "Tag",
+      "file": "app/schemas/items.py",
+      "line": 6,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "color",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "ItemCreate",
+      "file": "app/schemas/items.py",
+      "line": 11,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "price",
+          "alias": null,
+          "type": "number",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "quantity",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": true
+        },
+        {
+          "name": "description",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "sku",
+          "alias": "stockKeepingUnit",
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "main_tag",
+          "alias": null,
+          "type": "Tag",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "tags",
+          "alias": null,
+          "type": "array[Tag]",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "ItemPublic",
+      "file": "app/schemas/items.py",
+      "line": 21,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "tags",
+          "alias": null,
+          "type": "array[Tag]",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "Item",
+      "file": "app/schemas/items.py",
+      "line": 27,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "secret_cost",
+          "alias": null,
+          "type": "number",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "Item",
+      "file": "app/schemas/legacy.py",
+      "line": 4,
+      "fields": [
+        {
+          "name": "code",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "active",
+          "alias": null,
+          "type": "boolean",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    }
+  ],
+  "excluded_routes": [],
+  "limitations": [],
+  "notes": [
+    "Tên tham số header là tên HTTP như OpenAPI ghi: x-token (biến Python x_token), x-tenant-id (biến x_tenant_id trong dependency tenant, app/deps.py:18). FastAPI tự đổi _ thành -.",
+    "GET /items: q, skip, limit đến từ dependency search_filter -> pagination (app/deps.py), lồng hai tầng; tham số filters của handler không phải tham số HTTP.",
+    "POST /items: tham số header x-tenant-id đến từ Depends(tenant).",
+    "GET /items/{item_id}: response_model=ItemPublic ghi đè kiểu trả về Item, nên response là ItemPublic.",
+    "GET /items/{item_id}/full: không có response_model, response lấy từ kiểu trả về Item của app/schemas/items.py.",
+    "Hai lớp cùng tên Item ở app/schemas/items.py và app/schemas/legacy.py; OpenAPI đặt tên app__schemas__items__Item và app__schemas__legacy__Item. Gold phân biệt bằng file.",
+    "PUT /items/{item_id} có hai tham số body (item, tag) nên body bị bọc theo tên tham số: embedded=true. PATCH /items/{item_id}/tag có Body(embed=True) nên cũng bọc.",
+    "request_body.fields là trường thêm: các khóa cấp trên cùng của body khi body bị bọc hoặc là form. File upload có kiểu string (OpenAPI format binary, gold bỏ format).",
+    "POST /uploads có File nên media type multipart/form-data; POST /login chỉ có Form nên application/x-www-form-urlencoded. Cả hai không có model riêng (models rỗng).",
+    "DELETE /items/{item_id}: status_code=status.HTTP_204_NO_CONTENT, ghi 204 declared.",
+    "GET /go: không khai status_code, response_class=RedirectResponse nên status mặc định 307 (status_source default), không phải 200.",
+    "ItemCreate.quantity là Optional[int] không có default: Pydantic v2 coi là bắt buộc và nhận null (required=true, nullable=true).",
+    "ItemCreate.sku có alias stockKeepingUnit; tên trong JSON là alias.",
+    "Model Item của app/schemas/items.py không xuất hiện ở GET /items/{item_id} (bị response_model ghi đè) nhưng có ở GET /items/{item_id}/full.",
+    "Response {} của OpenAPI (handler không khai kiểu trả về) ghi response=null."
+  ]
+}
