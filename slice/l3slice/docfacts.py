@@ -441,8 +441,9 @@ class Claims:
 
     def _handler_fn(self, dec):
         tree = self._tree(dec[0])
+        # The cited range runs from the decorator to the def line, or on through a multi-line signature.
         return next((n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-                     and n.lineno == dec[2]), None) if tree is not None else None
+                     and dec[1] < n.lineno <= dec[2]), None) if tree is not None else None
 
     def _node_text(self, path, node) -> str:
         return "\n".join(self.tools.lines[path][node.lineno - 1:node.end_lineno or node.lineno])

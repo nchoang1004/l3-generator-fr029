@@ -1,5 +1,20 @@
 # Bàn giao — L3 Generator
 
+## Chạy thật qua giao diện, repo nhỏ — 12/10/2026
+
+Người dùng: "tự ấn vào tự kiểm đi (kiểm với repo nhỏ) cho đến khi hoạt động". Chạy `docweb` với gpt-5-2025-08-07, đọc một lần, trên tdd-docker (6 file đọc), qua HTTP như giao diện (script `drive.py` ngoài repo). Khóa lấy từ biến `open_ai`, không in.
+
+| Lần | Kết quả | Nguyên nhân | Sửa |
+|---|---|---|---|
+| 1 | "Gặp lỗi: không đọc hoặc ghi được dữ liệu" | Thư mục kết quả chưa tồn tại, checkpoint oneshot ghi vào đó | `DocumentService` tạo `--workdir`; test `test_missing_workdir_is_created...` |
+| 2 | partial, `MODEL_ERROR: URLError` ở request 3 | Mặc định chờ 120 giây/request, gpt-5 chậm hơn | Thêm `--timeout` (chạy với 600); test |
+| 3 | partial, `REPAIR_ROUNDS` | Model khai decorator tới hết chữ ký nhiều dòng; bộ kiểm tìm hàm theo dòng cuối nên từ chối mọi `summary` của route đó | `_handler_fn` nhận dòng `def` nằm trong khoảng đã khai; test `SummaryOnAMultiLineSignature` (đỏ trước) |
+| 4 | **completed**, 2 request | | |
+
+Chi phí đo từ `result.json`: lần 1 chưa gọi model; lần 2 khoảng 0,068 USD, lần 3 khoảng 0,085 USD, lần 4 khoảng 0,077 USD (tổng khoảng 0,23 USD, tính theo bảng giá người dùng khai ở `--prices`). Thêm tham số `docweb`: `--prices`, `--max-cost-usd`, `--reasoning-effort`, `--timeout`.
+
+Kiểm chứng: suite 527 test, 1 lỗi `test_gateway` cũ. Chưa chạy `fr029_checkaudit` sau sửa `_handler_fn`: chưa chạy. Chưa chạy lại repo vừa (nsidnev) sau sửa.
+
 ## Hồ sơ quy trình, hướng dẫn demo, đẩy git — 12/10/2026
 
 Yêu cầu: "viết đầy đủ theo cái bạn đã triển khai và sửa lại cái ux/ui để demo cho chuẩn", "làm đi và viết tài liệu mới luôn", rồi "hoàn thành và đẩy lên git đi".

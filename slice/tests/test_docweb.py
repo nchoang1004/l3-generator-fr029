@@ -176,10 +176,30 @@ class DocumentWebTest(unittest.TestCase):
         with mock.patch.object(docweb, "make_server", side_effect=RuntimeError("stop")) as made,                 mock.patch.dict("os.environ", {"K": "x"}):
             with self.assertRaises(RuntimeError):
                 docweb.main(["--workdir", self.tmp.name, "--base-url", "https://api.example/v1", "--model", "m",
-                             "--key-env", "K", "--prices", "1.25,0.125,10", "--max-cost-usd", "0.35"])
+                             "--key-env", "K", "--prices", "1.25,0.125,10", "--max-cost-usd", "0.35", "--timeout", "600"])
             service = made.call_args.args[0]
             self.assertEqual(service.budget.max_cost_usd, 0.35)
             self.assertEqual(service.factory().prices, (1.25, 0.125, 10.0))
+            self.assertEqual(service.factory().timeout, 600)
+
+    def test_missing_workdir_is_created_and_oneshot_checkpoint_is_writable(self):
+        workdir = Path(self.tmp.name) / "not" / "yet" / "there"
+        service = DocumentService(workdir, lambda: ScriptedProvider(script(bad=False)), model="m", offline=False)
+        self.assertTrue(workdir.is_dir())
+        seen = {}
+
+        def fake_run(*args, mode="agent", checkpoint=None, **kw):
+            checkpoint.write_text("{}", encoding="utf-8")  # what run_oneshot does first
+            seen["ok"] = True
+            return {"agent": {"mode": mode}}
+
+        with mock.patch("l3slice.docweb.run_documents", fake_run):
+            view = service.submit(dict(self.body, mode="oneshot"))
+            deadline = time.monotonic() + 5
+            while service.view(view["run_id"])["status"] == "running" and time.monotonic() < deadline:
+                time.sleep(.01)
+        self.assertEqual(service.view(view["run_id"])["status"], "finished")
+        self.assertTrue(seen["ok"])
 
     def start_with(self, **fields):
         status, _, raw = self.request("/api/runs", "POST", dict(self.body, **fields))

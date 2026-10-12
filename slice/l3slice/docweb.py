@@ -24,6 +24,7 @@ class DocumentService:
 
     def __init__(self, workdir, provider_factory, *, model, offline=False, endpoint=None, defaults=None, budget=None):
         self.workdir = Path(workdir).resolve()
+        self.workdir.mkdir(parents=True, exist_ok=True)  # the oneshot checkpoint is written here before the output exists
         self.factory = provider_factory
         # A recorded script answers agent-mode tool calls only, so offline runs cannot use oneshot.
         self.config = {"model": model, "offline": offline, "endpoint": endpoint, "defaults": defaults or {},
@@ -184,6 +185,7 @@ def main(argv=None):
     p.add_argument("--max-tokens", type=int, default=2_000_000)
     p.add_argument("--max-seconds", type=int, default=1800)
     p.add_argument("--max-output-tokens", type=int)
+    p.add_argument("--timeout", type=float, default=120, help="Giây chờ một request tới model; model suy luận cần 300 trở lên")
     p.add_argument("--reasoning-effort", help="Mức suy luận của model (ví dụ low); bỏ trống thì theo mặc định của model")
     p.add_argument("--prices", help="USD mỗi 1 triệu token: đầu vào,đầu vào từ bộ đệm,đầu ra (ví dụ 1.25,0.125,10)")
     p.add_argument("--max-cost-usd", type=float, help="Dừng trước request kế tiếp khi chi phí đã đạt mức này; cần --prices")
@@ -196,7 +198,7 @@ def main(argv=None):
         p.error("--prices cần đúng 3 số, cách nhau bằng dấu phẩy")
     if a.max_cost_usd is not None and (a.max_cost_usd <= 0 or not prices):
         p.error("--max-cost-usd cần số dương và --prices")
-    if min(a.max_turns, a.max_tokens, a.max_seconds) <= 0:
+    if min(a.max_turns, a.max_tokens, a.max_seconds, a.timeout) <= 0:
         p.error("Ngân sách phải lớn hơn 0")
     if a.script and any((a.base_url, a.model, a.key_env)):
         p.error("Chọn --script hoặc cấu hình model, không dùng đồng thời")
@@ -213,7 +215,7 @@ def main(argv=None):
         endpoint = urlsplit(a.base_url)
         if endpoint.scheme not in ("http", "https") or not endpoint.hostname or endpoint.username or endpoint.password or endpoint.query or endpoint.fragment:
             p.error("--base-url cần HTTP(S) URL không chứa credential, query hoặc fragment")
-        factory = lambda: OpenAICompatProvider(a.base_url, a.model, a.key_env, max_output_tokens=a.max_output_tokens, prices=prices,
+        factory = lambda: OpenAICompatProvider(a.base_url, a.model, a.key_env, timeout=a.timeout, max_output_tokens=a.max_output_tokens, prices=prices,
                                             reasoning_effort=a.reasoning_effort)
         try:
             factory()  # Validate credentials before opening the UI; no network call.

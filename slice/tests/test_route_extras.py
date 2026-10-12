@@ -107,6 +107,30 @@ class TagsDeprecatedSummary(unittest.TestCase):
         self.assertIn("summary", errors_of(FILES, route(summary={"text": "x", "at": "main.py:5"})))
 
 
+MULTI = ('from fastapi import FastAPI\napp = FastAPI()\n\n\n@app.post("/", status_code=201)\nasync def create(\n'
+         '    payload: dict, other: int = 0\n) -> dict:\n    return payload\n')
+
+
+class SummaryOnAMultiLineSignature(unittest.TestCase):
+    """Real run 12/10 (gpt-5, tdd-docker): the model cites the decorator through the end of a multi-line signature
+    (lines 5-8); every summary on such a route was refused because the handler was looked up by the last cited line."""
+
+    def item(self, at):
+        return {"method": "POST", "handler": "main.py::create", "decorator": "main.py:5-8", "application": "main.py:2",
+                "path_parts": [{"kind": "decorator", "value": "/", "at": "main.py:5"}],
+                "params": [], "request_body": None, "response": None,
+                "status": {"codes": [201], "at": "main.py:5", "rule": None}, "dependencies": [],
+                "auth": {"unknown": "chưa rõ"}, "summary": {"text": "Tạo một mục", "at": at}}
+
+    def test_summary_on_the_decorator_or_the_def_line_is_accepted(self):
+        for at in ("main.py:5", "main.py:6", "main.py:9"):
+            with self.subTest(at=at):
+                self.assertEqual(errors_of({"main.py": MULTI}, self.item(at)), "")
+
+    def test_summary_outside_the_route_is_still_refused(self):
+        self.assertIn("summary.at", errors_of({"main.py": MULTI}, self.item("main.py:2")))
+
+
 EX_MAIN = ('from fastapi import FastAPI, Body\nfrom pydantic import BaseModel\napp = FastAPI()\n\n\n'
            'class Out(BaseModel):\n    a: int\n    model_config = {"json_schema_extra": {"examples": [{"a": 2}]}}\n\n\n'
            '@app.post("/x", response_model=Out)\ndef x(payload: dict = Body(..., example={"a": 1})):\n    return payload\n'
