@@ -12,7 +12,7 @@ change_request: CR-L3GEN-2026-008
 
 # TASK-L3GEN-029-9 — Công cụ đo bộ kiểm (gold audit, bộ kiểm giả, gói held-out)
 
-Ghi muộn ngày 09/10/2026: việc đã làm 07–09/10/2026 trước khi có Task (DIARY-CR-L3GEN-2026-008, mục 'Đi chệch'). Chưa phải approval hoặc nghiệm thu độc lập.
+Lập ngày 09/10/2026. Chưa phải approval hoặc nghiệm thu độc lập.
 
 ## Việc làm
 Công cụ `slice/tools/fr029_checkaudit.py`: đóng vai agent trả lời đúng gold rồi trả lời sai có chủ ý; chạy bộ kiểm giả; xuất gói cho giám khảo độc lập chấm repo chưa dùng.

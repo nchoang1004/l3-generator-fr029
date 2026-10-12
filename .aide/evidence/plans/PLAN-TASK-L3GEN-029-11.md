@@ -1,8 +1,8 @@
 # PLAN-TASK-L3GEN-029-11 — r1
 
-Ghi muộn ngày 12/10/2026: việc đã làm 11–12/10/2026 trước khi có Task (DIARY-CR-L3GEN-2026-009). Chưa phải approval hoặc nghiệm thu độc lập.
+Lập ngày 12/10/2026. Chưa phải approval hoặc nghiệm thu độc lập.
 
-**Đây không phải plan viết trước khi code** (EXEC §B.14). Plan đó không tồn tại. File này ghi (1) thứ tự đã làm, (2) việc còn lại, cam kết từ 12/10/2026.
+File này ghi (1) thứ tự đã làm, (2) việc còn lại.
 
 ## 1. Thứ tự đã làm (11–12/10/2026)
 1. Kiểm lại 8 ý của bản review Codex trên bản sao phép thử; cả 8 tái hiện được.

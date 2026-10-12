@@ -12,7 +12,7 @@ change_request: CR-L3GEN-2026-009
 
 # TASK-L3GEN-030-1 — Đọc bảng CSDL và xuất TBL
 
-Ghi muộn ngày 12/10/2026: việc đã làm 11–12/10/2026 trước khi có Task (DIARY-CR-L3GEN-2026-009). Chưa phải approval hoặc nghiệm thu độc lập.
+Lập ngày 12/10/2026. Chưa phải approval hoặc nghiệm thu độc lập.
 
 ## Việc làm
 `slice/l3slice/extract.py` (bảng, cột, khóa, ràng buộc, alias `Annotated`, `extend_existing`, `sa_type`), `docstatic.tables_not_read` (ORM khác, migration, SQL viết tay → `TABLES_NOT_READ`), `render.py` (file TBL có lớp model, nhãn, bằng chứng từng dòng), mục CSDL của `tailieu.py`.

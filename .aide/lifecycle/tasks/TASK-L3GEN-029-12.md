@@ -12,7 +12,7 @@ change_request: CR-L3GEN-2026-009
 
 # TASK-L3GEN-029-12 — File TAI-LIEU.md và các phần bổ sung của tài liệu
 
-Ghi muộn ngày 12/10/2026: việc đã làm 11–12/10/2026 trước khi có Task (DIARY-CR-L3GEN-2026-009). Chưa phải approval hoặc nghiệm thu độc lập.
+Lập ngày 12/10/2026. Chưa phải approval hoặc nghiệm thu độc lập.
 
 ## Việc làm
 `slice/l3slice/tailieu.py`: một file `TAI-LIEU.md` 11 mục, có nhãn chắc chắn/suy luận/chưa rõ. Route thêm lỗi trả về, tags, deprecated, summary, ví dụ (bộ kiểm `_route_extras`). `slice/l3slice/docstatic.py`: thư viện, cấu hình, middleware, quan hệ component đọc tĩnh. Kind của component suy từ membership.

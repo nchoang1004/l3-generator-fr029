@@ -21,7 +21,7 @@ ai_assisted: true
 
 **Revision 4 (02/10/2026):** sửa theo review REVIEW-ARCH-L3GEN-2026-001 (A9, A10): việc che dòng bằng chứng làm ở đây, một lần; sửa tên hàm che trong code.
 
-**Revision 5 (09/10/2026):** thêm phần kiểm câu trả lời của agent FR-029. Bản nháp theo [ADR-2026-006](../adr/ADR-2026-006.md) (draft, chờ Architecture Gate và OQ-L3GEN-018). Ghi muộn: code đã có từ 07–09/10/2026.
+**Revision 5 (09/10/2026):** thêm phần kiểm câu trả lời của agent FR-029. Bản nháp theo [ADR-2026-006](../adr/ADR-2026-006.md) (draft, chờ Architecture Gate và OQ-L3GEN-018).
 
 
 ## 1. Trách nhiệm

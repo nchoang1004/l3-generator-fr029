@@ -25,14 +25,15 @@ class DocumentService:
     def __init__(self, workdir, provider_factory, *, model, offline=False, endpoint=None, defaults=None, budget=None):
         self.workdir = Path(workdir).resolve()
         self.factory = provider_factory
-        self.config = {"model": model, "offline": offline, "endpoint": endpoint,
-                       "defaults": defaults or {}, "notice_version": NOTICE}
+        # A recorded script answers agent-mode tool calls only, so offline runs cannot use oneshot.
+        self.config = {"model": model, "offline": offline, "endpoint": endpoint, "defaults": defaults or {},
+                       "notice_version": NOTICE, "modes": ["agent"] if offline else ["agent", "oneshot"]}
         self.budget = budget or Budget()
         self.lock = threading.Lock()
         self.runs = {}
 
     def submit(self, body):
-        fields = {"source", "membership", "archdia", "diagram", "name", "notice_version"}
+        fields = {"source", "membership", "archdia", "diagram", "name", "notice_version", "mode"}
         if not isinstance(body, dict) or set(body) - fields:
             raise err(422, "invalid_input", "Đầu vào chứa trường không được hỗ trợ.", "Kiểm tra biểu mẫu")
         if body.get("notice_version") != NOTICE:
@@ -54,6 +55,9 @@ class DocumentService:
         if source == self.workdir or source in self.workdir.parents or self.workdir in source.parents:
             raise err(422, "source_output_overlap", "Thư mục kết quả và source không được bao nhau.",
                       "Khởi động server với --workdir nằm ngoài cây source", field="source")
+        mode = body.get("mode", "agent")
+        if mode not in self.config["modes"]:
+            raise err(422, "invalid_mode", "Chế độ đọc không được hỗ trợ ở server này.", "Chọn chế độ khác", field="mode")
         name = body.get("name") or source.name
         if not isinstance(name, str) or len(name) > 128 or not name.strip():
             raise err(422, "invalid_name", "Tên dự án cần từ 1 đến 128 ký tự.", "Sửa tên dự án", field="name")
@@ -61,10 +65,10 @@ class DocumentService:
             if any(r["status"] == "running" for r in self.runs.values()):
                 raise err(409, "run_busy", "Đang có một lần sinh tài liệu.", "Chờ lần hiện tại kết thúc")
             run_id = "run_" + secrets.token_hex(8)
-            self.runs[run_id] = {"run_id": run_id, "name": name, "status": "running", "turns": 0,
+            self.runs[run_id] = {"run_id": run_id, "name": name, "mode": mode, "status": "running", "turns": 0,
                                  "message": "Đang chuẩn bị snapshot và kiểm tra membership."}
             view = copy.deepcopy(self.runs[run_id])
-            threading.Thread(target=self._run, args=(run_id, paths, name), daemon=True).start()
+            threading.Thread(target=self._run, args=(run_id, paths, name, mode), daemon=True).start()
         return view
 
     def view(self, run_id=None):
@@ -79,7 +83,7 @@ class DocumentService:
         with self.lock:
             self.runs[run_id].update(values)
 
-    def _run(self, run_id, paths, name):
+    def _run(self, run_id, paths, name, mode="agent"):
         try:
             provider = self.factory()
             service = self
@@ -88,13 +92,15 @@ class DocumentService:
                 def __getattr__(self, attr):
                     return getattr(provider, attr)
 
-                def chat(self, messages, tools):
+                def chat(self, messages, tools, **options):
                     turn = service.view(run_id)["turns"] + 1
                     service._update(run_id, turns=turn, message="Agent đang đọc và đối chiếu source.")
-                    return provider.chat(messages, tools)
+                    return provider.chat(messages, tools, **options)
 
+            # The output directory must start empty, so the checkpoint lives beside it.
             bundle = run_documents(paths["source"], self.workdir / run_id, paths["membership"], name,
-                                   ObservedProvider(), paths["archdia"], paths["diagram"], self.budget, run_id)
+                                   ObservedProvider(), paths["archdia"], paths["diagram"], self.budget, run_id,
+                                   mode=mode, checkpoint=self.workdir / f"{run_id}.checkpoint.json" if mode == "oneshot" else None)
             # Finished describes the job, not FR-029 acceptance. Preserve all pipeline verdicts.
             self._update(run_id, status="finished", message="Đã xuất kết quả. Cần xem các giới hạn trước khi sử dụng.",
                          result=bundle, output_directory=str(self.workdir / run_id))

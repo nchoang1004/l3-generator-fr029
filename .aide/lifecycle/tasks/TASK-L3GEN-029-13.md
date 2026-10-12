@@ -22,7 +22,7 @@ Sửa giao diện `slice/l3slice/docweb.py` và `slice/l3slice/docui/` để dem
 - Chạy được một lần demo không gọi API (mở kết quả có sẵn) theo `docs/HUONG-DAN-DEMO.md`
 
 ## Hiện trạng (12/10/2026)
-Đang làm (12/10/2026). Chưa qua Component Merge Gate, chưa có MR.
+Đã làm (12/10/2026): xem TAI-LIEU.md dạng tài liệu (bảng, tiêu đề), mở sẵn khi chạy xong, nhóm file theo loại, chọn chế độ agent/oneshot (`mode` ở `docweb.py`). Test DOM 6/6, `test_docweb` 11/11, suite 522/523 (lỗi `test_gateway` cũ). Đã chụp bằng Edge ở 1440/600/390 px. Chế độ oneshot qua giao diện mới chỉ test bằng mock, chưa chạy model thật. Chưa qua Component Merge Gate, chưa có MR.
 
 ## Bộ ba evidence
 `evidence/context/CTX-TASK-L3GEN-029-13.yaml` · `evidence/plans/PLAN-TASK-L3GEN-029-13.md` · `evidence/diaries/DIARY-TASK-L3GEN-029-13.md`

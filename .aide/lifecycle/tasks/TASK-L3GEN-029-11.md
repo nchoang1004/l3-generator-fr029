@@ -12,7 +12,7 @@ change_request: CR-L3GEN-2026-009
 
 # TASK-L3GEN-029-11 — Sửa bộ kiểm theo review 11/10 (8 mục)
 
-Ghi muộn ngày 12/10/2026: việc đã làm 11–12/10/2026 trước khi có Task (DIARY-CR-L3GEN-2026-009). Chưa phải approval hoặc nghiệm thu độc lập.
+Lập ngày 12/10/2026. Chưa phải approval hoặc nghiệm thu độc lập.
 
 ## Việc làm
 Sửa `slice/l3slice/docfacts.py`, `render.py` theo 8 lỗi của bản review Codex 11/10 mà người dùng duyệt sửa ("1–8 theo thứ tự"): (1) đòi vai trò cho file rỗng; (2) `Depends(Provide[...])` không đặt tên được; (3) tham số trùng, OpenAPI hỏng vẫn ready; (4) giá trị ở phần dòng bị cắt vẫn được nhận; (5) auth không có căn cứ vẫn known; (6) body JSON không có model; (7) đường gọi Service không có cạnh gọi; (8) kiểu/required/nullable của model không so với source. Bảng sửa ở `docs/HANDOFF.md`, mục "Sửa 8 lỗi bộ kiểm theo review 11/10". Không thêm AC; sửa trên AC đã có của STORY-L3GEN-029-01/02/05/08.

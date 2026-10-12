@@ -14,11 +14,11 @@ Yêu cầu: "viết đầy đủ theo cái bạn đã triển khai và sửa l�
 
 **Kiểm chứng (đã chạy 12/10):** suite 520/521 (lỗi `test_gateway` cũ); demo offline qua `DocumentService` ra completed, 4 lượt, đủ README/TAI-LIEU/result/API. `gen_uid.py`: 14 uid mới, không file thiếu uid.
 
-**Chưa làm — giao diện demo (TASK-L3GEN-029-13):** skill `taste-skill` chưa cài (`~/.claude/skills/taste-skill/` không có). CLAUDE.md cấm làm UI khi thiếu skill, nên chưa sửa code UI. Plan đã viết trước: `.aide/evidence/plans/PLAN-TASK-L3GEN-029-13.md` (5 việc, chờ người dùng chọn). Cần: cài skill (`git clone https://github.com/leonxlnx/taste-skill` vào `~/.claude/skills/taste-skill`) hoặc người dùng quyết cách khác.
+**Giao diện demo (TASK-L3GEN-029-13), đã làm:** cài `taste-skill`, sửa `docweb.py` (`mode`), `docui/*`; test DOM 6/6, docweb 11/11, suite 522/523. Phần dưới là ghi chú cũ trước khi làm: skill `taste-skill` chưa cài (`~/.claude/skills/taste-skill/` không có). CLAUDE.md cấm làm UI khi thiếu skill, nên chưa sửa code UI. Plan đã viết trước: `.aide/evidence/plans/PLAN-TASK-L3GEN-029-13.md` (5 việc, chờ người dùng chọn). Cần: cài skill (`git clone https://github.com/leonxlnx/taste-skill` vào `~/.claude/skills/taste-skill`) hoặc người dùng quyết cách khác.
 
 **Lỗi còn mở thấy khi viết hồ sơ:** `TAI-LIEU.md` in `>` thành `&gt;` ở mục thư viện (FIND-L3GEN-179).
 
-**Git:** commit gồm `slice/`, `docs/`, `.aide/` của đợt 07–12/10. Không đưa `ket-qua-chay/` (465 MB kết quả chạy), không đưa 2 file `contract-checks` đã stage từ trước (ngoài phạm vi). Commit `3cbe2d8` (300 file). **Push thất bại** (12/10): GitLab trả HTTP 403, nguyên văn `Your top-level group is over the user limit and has been placed in a read-only state.` Giống lần 11/10; chủ group cần gỡ trạng thái chỉ đọc, rồi chạy lại `git push -u origin feature/l3-fr029`.
+**Git:** commit gồm `slice/`, `docs/`, `.aide/` của đợt 07–12/10. Không đưa `ket-qua-chay/` (465 MB kết quả chạy), không đưa 2 file `contract-checks` đã stage từ trước (ngoài phạm vi). Commit `3cbe2d8` (300 file). **Push GitLab thất bại** (12/10): GitLab trả HTTP 403, nguyên văn `Your top-level group is over the user limit and has been placed in a read-only state.` Giống lần 11/10; chủ group cần gỡ trạng thái chỉ đọc, rồi chạy lại `git push -u origin feature/l3-fr029`.
 
 ## Bổ sung tài liệu sinh theo 5 đợt — 11–12/10/2026
 

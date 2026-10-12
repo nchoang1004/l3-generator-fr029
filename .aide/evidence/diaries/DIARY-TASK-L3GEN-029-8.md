@@ -1,6 +1,6 @@
 # DIARY-TASK-L3GEN-029-8
 
-Ghi muộn ngày 09/10/2026; phần chung của cả đợt (CR ghi muộn, không có plan trước, đề bài review có ghi chú tác giả) ở `DIARY-CR-L3GEN-2026-008.md`, mục "Phiên 07/10 tối – 09/10/2026". Dưới đây chỉ ghi phần riêng của task này.
+Lập ngày 09/10/2026; phần chung của cả đợt ở `DIARY-CR-L3GEN-2026-008.md`, mục "Phiên 07/10 tối – 09/10/2026". Dưới đây chỉ ghi phần riêng của task này.
 
 ## Diễn giải
 - "Lời gọi HTTP ra ngoài" hiểu là lời gọi trực tiếp httpx/requests/aiohttp, kể cả `super().request` trong lớp con client và method client truyền làm đối số (`to_thread(c.get, url)`).

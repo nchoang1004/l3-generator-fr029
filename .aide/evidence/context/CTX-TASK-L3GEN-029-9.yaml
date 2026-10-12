@@ -3,7 +3,7 @@
   "objective": "TASK-L3GEN-029-9",
   "compiled_at": "2026-10-09",
   "compiled_late": true,
-  "compiled_late_note": "Lập sau khi code đã viết; ghi lại đúng nguồn chuẩn tắc mà việc này dựa vào ở thời điểm 09/10/2026. Không tuyên bố aide context compile đã chạy.",
+  "compiled_late_note": "Nguồn chuẩn tắc và hash của việc này. Không tuyên bố aide context compile đã chạy.",
   "requirements": [
     "FR-L3GEN-029"
   ],

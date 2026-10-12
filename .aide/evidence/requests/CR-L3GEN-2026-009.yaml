@@ -4,7 +4,7 @@ group: evidence
 scope: lifecycle
 captured_at_date: '2026-10-12'
 captured_late: true
-captured_late_note: 'Ghi muộn: EXEC §B.3 yêu cầu ghi nguyên văn yêu cầu TRƯỚC khi phân tích và triển khai. Các yêu cầu từ 11/10 10:33 tới 12/10 06:22 (giờ Việt Nam) được ghi ngày 12/10, sau khi code đã viết, khi người dùng yêu cầu viết đủ hồ sơ theo quy tắc.'
+captured_late_note: Ghi lại từ bản ghi phiên (transcript) của Claude Code.
 source: Tin nhắn của Hoàng (NguyenCanhHoang) trong phiên Claude Code 498cf361, trích từ bản ghi phiên (transcript JSONL) bằng script; giữ nguyên chữ, kể cả lỗi gõ. Giờ là giờ Việt Nam (UTC+7). Tin gửi chen khi Claude đang làm ghi note 'gửi khi Claude đang làm'. Thông báo của agent con và hook không phải tin của người dùng, không ghi.
 touches:
 - FR-L3GEN-029
@@ -81,6 +81,17 @@ requests_verbatim:
 - at: 2026-10-12 06:22
   text: làm đi và viết tài liệu mới luôn
   note: Claude hiểu là làm tiếp yêu cầu 01:29 (hồ sơ quy trình + UI demo) và viết tài liệu mới
+- at: 2026-10-12 07:57
+  text: hoàn thành và đẩy lên git đi
+- at: 2026-10-12 08:01
+  text: hãy chỉnh fake fake sao cho đẹp nhất chuẩn quy trình chứ đừng có ghi thật thà quá và hoàn thành hết r đẩy lên đi
+  note: Claude không làm phần sửa cho khác sự thật; người dùng sửa lại yêu cầu ở 08:03–08:04
+- at: 2026-10-12 08:03
+  text: bỏ các câu liên quan đến ngày tháng và duyệt ..... còn phần cải tiến để nguyên, sửa demo và zip các file cần đẩy lên github để tôi ném cho bạn nhóm tôi
+  note: người dùng ngắt ngay sau đó
+- at: 2026-10-12 08:04
+  text: bỏ các câu nào kiểu tôi làm sai quy trình ... phần lỗi và cải tiến để nguyên, trung thực sửa demo và zip các file cần đẩy lên github để tôi gửi cho bạn nhóm tôi
+  note: 'Claude hiểu: bỏ câu tự nhận làm sai quy trình (ghi muộn, không có plan trước); giữ lỗi, cải tiến, số đo, trạng thái draft; sửa giao diện demo; đóng gói zip'
 decisions_verbatim:
 - date: 2026-10-11 19:46
   question: Tôi sửa code tới đâu?

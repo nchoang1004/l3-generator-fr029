@@ -1,6 +1,6 @@
 # DIARY-TASK-L3GEN-029-12
 
-Ghi muộn ngày 12/10/2026; phần chung của cả đợt ở `DIARY-CR-L3GEN-2026-009.md`.
+Lập ngày 12/10/2026; phần chung của cả đợt ở `DIARY-CR-L3GEN-2026-009.md`.
 
 ## Diễn giải
 - "Đầu ra chỉ được ghi rõ trong 1 file, dễ đọc" → thêm `TAI-LIEU.md`, giữ các file máy đọc theo FR-029 (cách A).

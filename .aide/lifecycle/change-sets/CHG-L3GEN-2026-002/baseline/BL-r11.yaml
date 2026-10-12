@@ -10,7 +10,7 @@ supersedes: BL-CHG-L3GEN-2026-002-r10
 hash_algorithm: sha256-full-file-bytes-local-pilot-not-official-hash-artifact
 blocked_by:
 - OQ-L3GEN-018
-note: 'Candidate thứ mười một, lập ngày 2026-10-09 (ghi muộn) theo CR-L3GEN-2026-008: thêm ADR-2026-006 (draft) và CMP-L3GEN-004, 006, 007 revision
+note: 'Candidate thứ mười một, lập ngày 2026-10-09 theo CR-L3GEN-2026-008: thêm ADR-2026-006 (draft) và CMP-L3GEN-004, 006, 007 revision
   5 (draft) cho luồng agent FR-029 và bộ kiểm bằng chứng. BL-r10 chưa được review ở Architecture Gate; BL-r11 thay nó làm candidate. Chưa approved.
   Đổi revision so với r10: CMP-L3GEN-004 r4→r5, CMP-L3GEN-006 r4→r5, CMP-L3GEN-007 r4→r5. Đổi nội dung mà không tăng revision: không. 35 artifact.'
 artifacts:

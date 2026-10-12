@@ -6,7 +6,7 @@ derived_from: [CR-L3GEN-2026-008]
 touches: [FR-L3GEN-029]
 captured_at_date: "2026-10-09"
 captured_late: true
-captured_late_note: "Ghi muộn: EXEC §B.3 yêu cầu ghi nguyên văn yêu cầu TRƯỚC khi phân tích và triển khai. Các yêu cầu từ 07/10 15:41 tới 09/10 10:10 (giờ Việt Nam) được ghi ngày 09/10, khi người dùng yêu cầu đọc kỹ quy trình để viết đủ hồ sơ."
+captured_late_note: "Ghi lại từ bản ghi phiên (transcript) của Claude Code."
 source: "Tin nhắn của Hoàng (NguyenCanhHoang) trong phiên Claude Code 498cf361, trích từ bản ghi phiên (transcript JSONL); giữ nguyên chữ, kể cả lỗi gõ. Giờ là giờ Việt Nam (UTC+7)."
 attachments_verbatim:
   - at: "2026-10-07 15:41"

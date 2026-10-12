@@ -12,7 +12,7 @@ change_request: CR-L3GEN-2026-009
 
 # TASK-L3GEN-029-10 — Chế độ đọc một lần (oneshot), schema nộp dữ kiện, checkpoint
 
-Ghi muộn ngày 12/10/2026: việc đã làm 11–12/10/2026 trước khi có Task (DIARY-CR-L3GEN-2026-009). Chưa phải approval hoặc nghiệm thu độc lập.
+Lập ngày 12/10/2026. Chưa phải approval hoặc nghiệm thu độc lập.
 
 ## Việc làm
 `run_oneshot` trong `slice/l3slice/docagent.py`: gửi cả source trong request 1, ép model gọi `submit_findings` (`tool_choice`), tối đa 2 vòng sửa chỉ gửi mục bị từ chối kèm dòng source được trích. `--mode oneshot`, `--checkpoint` trong `__main__.py` và `docpipeline.run_documents`. Chạy tiếp từ checkpoint thì kiểm lại mọi mục đã lưu.

@@ -21,7 +21,7 @@ ai_assisted: true
 
 **Revision 4 (02/10/2026):** sửa theo review REVIEW-ARCH-L3GEN-2026-001 (A3, A5, A9, A10, A16) và rà soát của phiên chính: một nguồn duy nhất cho tập contract (Khiêm quyết A5 ngày 02/10/2026, theo cách so hai engine ngày 02/10); Pyright theo [ADR-2026-005](../adr/ADR-2026-005.md); ai che bí mật ở đâu; thêm 6 lệch.
 
-**Revision 5 (09/10/2026):** theo ADR-2026-006, dữ kiện contract của FR-029 do model đề xuất và CMP-007 kiểm; nhóm "Dữ kiện contract" ở mục 1 không còn là nguồn cho FR-029. Bản nháp theo [ADR-2026-006](../adr/ADR-2026-006.md) (draft, chờ Architecture Gate và OQ-L3GEN-018). Ghi muộn: code đã có từ 07–09/10/2026.
+**Revision 5 (09/10/2026):** theo ADR-2026-006, dữ kiện contract của FR-029 do model đề xuất và CMP-007 kiểm; nhóm "Dữ kiện contract" ở mục 1 không còn là nguồn cho FR-029. Bản nháp theo [ADR-2026-006](../adr/ADR-2026-006.md) (draft, chờ Architecture Gate và OQ-L3GEN-018).
 
 
 ## 1. Trách nhiệm

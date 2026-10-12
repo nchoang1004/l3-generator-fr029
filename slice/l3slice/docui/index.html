@@ -11,7 +11,7 @@
   <a class="skip" href="#workspace">Đến nội dung</a>
   <header><a class="brand" href="/">L3Generator<span>Tài liệu</span></a><span class="local">Chạy trên máy của bạn</span></header>
   <main id="workspace">
-    <div class="intro"><p class="eyebrow">FR-029 / Không gian làm việc</p><h1>Từ source đến tài liệu.</h1><p>Agent đọc mã nguồn, đối chiếu bằng chứng và xuất tài liệu API cùng README.</p></div>
+    <div class="intro"><p class="eyebrow">FR-029 / Không gian làm việc</p><h1>Từ source đến tài liệu.</h1><p>Model đọc mã nguồn và đề xuất dữ kiện. Code kiểm từng dữ kiện với dòng source, rồi xuất <code>TAI-LIEU.md</code> cùng các file cho máy đọc.</p></div>
     <div class="workspace">
       <section class="inputs" aria-labelledby="input-title">
         <h2 id="input-title">Đầu vào</h2>
@@ -29,6 +29,12 @@
             <label for="diagram">File sơ đồ Mermaid</label><input id="diagram" name="diagram" placeholder="Đường dẫn sơ đồ đã có" spellcheck="false" autocomplete="off">
             <p class="hint">Thiếu các đầu vào này, kết quả sẽ ghi rõ giới hạn đối chiếu và mục sơ đồ trong README.</p>
           </details>
+          <fieldset class="modes" aria-describedby="mode-help">
+            <legend>Cách đọc source</legend>
+            <label class="mode"><input type="radio" name="mode" value="agent" checked><span><strong>Từng file (agent)</strong><small>Model tự chọn file để đọc. Hợp với repo lớn.</small></span></label>
+            <label class="mode"><input type="radio" name="mode" value="oneshot"><span><strong>Đọc một lần</strong><small>Gửi cả source trong một request, tối đa 2 vòng sửa. Ít request hơn.</small></span></label>
+            <p id="mode-help" class="hint">Đọc một lần chỉ dùng được khi source vừa giới hạn ngữ cảnh.</p>
+          </fieldset>
           <div class="provider"><span class="muted">Model đã cấu hình</span><strong id="model">Đang tải cấu hình…</strong><p id="notice" class="hint"></p></div>
           <label class="consent"><input type="checkbox" id="consent" required><span id="consent-label">Tôi đồng ý xử lý source theo thông báo trên.</span></label>
           <p id="form-error" class="error" role="alert"></p>
@@ -44,7 +50,7 @@
           <p id="run-message" role="status"></p><p id="run-id" class="mono muted"></p>
           <button id="retry" type="button" hidden>Thử kết nối lại</button>
           <div id="result" hidden>
-            <dl class="metrics"><div><dt>Agent</dt><dd id="agent-status"></dd></div><div><dt>Đọc source</dt><dd id="coverage"></dd></div><div><dt>Đối chiếu kiến trúc</dt><dd id="parity"></dd></div></dl>
+            <dl class="metrics"><div><dt>Agent</dt><dd id="agent-status"></dd></div><div><dt>Cách đọc</dt><dd id="mode"></dd></div><div><dt>Đọc source</dt><dd id="coverage"></dd></div><div><dt>Đối chiếu kiến trúc</dt><dd id="parity"></dd></div></dl>
             <p id="coverage-note" class="hint"></p>
             <p class="review-note">Tài liệu sinh tự động cần được kiểm tra. Trạng thái hoàn tất không thay thế nghiệm thu 8 yêu cầu FR-029.</p>
             <h3>Tài liệu xuất ra</h3><div id="artifacts"></div>
@@ -55,8 +61,8 @@
         </div>
       </section>
     </div>
-    <section id="preview" hidden aria-labelledby="preview-title"><div class="section-heading"><h2 id="preview-title">Nội dung tài liệu</h2><button type="button" id="close-preview">Đóng</button></div><p id="preview-path" class="mono muted"></p><pre id="preview-text" tabindex="0"></pre></section>
-    <footer>API · README · Bằng chứng nguồn<span>Component và sơ đồ được nhận từ bước kiến trúc.</span></footer>
+    <section id="preview" hidden aria-labelledby="preview-title"><div class="section-heading"><h2 id="preview-title">Nội dung tài liệu</h2><div class="preview-actions"><button type="button" id="raw-toggle" aria-pressed="false" hidden>Xem văn bản gốc</button><button type="button" id="close-preview">Đóng</button></div></div><p id="preview-path" class="mono muted"></p><div id="preview-text" class="doc" tabindex="0"></div></section>
+    <footer>TAI-LIEU.md, API, bảng CSDL, sự kiện<span>Component và sơ đồ được nhận từ bước kiến trúc.</span></footer>
   </main>
 </body>
 </html>

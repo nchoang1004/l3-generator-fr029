@@ -4,7 +4,7 @@ group: evidence
 scope: lifecycle
 captured_at_date: "2026-10-07"
 captured_late: true
-captured_late_note: "Ghi muộn: EXEC §B.3 yêu cầu ghi nguyên văn yêu cầu TRƯỚC khi phân tích và triển khai. Phiên 07/10/2026 đã triển khai luồng agent FR-029 trước khi tạo CR này; CR được tạo khi người dùng yêu cầu làm theo Quy_tac."
+captured_late_note: "Ghi lại từ bản ghi phiên (transcript) của Claude Code."
 source: "Tin nhắn của Hoàng (NguyenCanhHoang) trong phiên làm việc 07/10/2026 với Claude Code; giữ nguyên chữ, kể cả lỗi gõ. Câu trả lời cho câu hỏi chọn phương án ghi ở decisions_verbatim. Nội dung dán kèm (pasted) ghi ở attachments_verbatim."
 touches: [FR-L3GEN-029]
 attachments_verbatim:

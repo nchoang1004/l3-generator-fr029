@@ -21,7 +21,7 @@ ai_assisted: true
 
 **Revision 4 (02/10/2026):** sửa theo review REVIEW-ARCH-L3GEN-2026-001 (A2, A16): bỏ cache và sổ chi phí dùng chung khỏi đường chạy sản phẩm, chi phí ghi vào provenance trong output (Khiêm quyết A2 ngày 02/10/2026); provenance ghi phiên bản Pyright.
 
-**Revision 5 (09/10/2026):** ghi vòng agent của FR-029 và các chỗ lệch với mục 1. Bản nháp theo [ADR-2026-006](../adr/ADR-2026-006.md) (draft, chờ Architecture Gate và OQ-L3GEN-018). Ghi muộn: code đã có từ 07–09/10/2026.
+**Revision 5 (09/10/2026):** ghi vòng agent của FR-029 và các chỗ lệch với mục 1. Bản nháp theo [ADR-2026-006](../adr/ADR-2026-006.md) (draft, chờ Architecture Gate và OQ-L3GEN-018).
 
 
 ## 1. Trách nhiệm

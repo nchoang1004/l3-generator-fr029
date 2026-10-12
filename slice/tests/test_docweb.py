@@ -7,6 +7,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
@@ -136,6 +137,42 @@ class DocumentWebTest(unittest.TestCase):
         finally:
             release.set()
         self.assertEqual(self.finished(run_id)["status"], "finished")
+
+    def test_offline_script_offers_only_agent_mode(self):
+        self.assertEqual(json.loads(self.request("/api/config")[2])["modes"], ["agent"])
+        for mode in ("oneshot", "fast", 1):
+            with self.subTest(mode=mode):
+                self.assertEqual(self.request("/api/runs", "POST", dict(self.body, mode=mode))[0], 422)
+        self.assertEqual(self.service.view(), [])
+
+    def test_oneshot_mode_reaches_the_pipeline_with_a_checkpoint(self):
+        seen = {}
+
+        def fake_run(source, output, membership, name, provider, archdia, diagram, budget, run_id, mode="agent", checkpoint=None):
+            seen.update(mode=mode, checkpoint=checkpoint, output=output)
+            provider.chat([], [], tool_choice="submit_findings")  # oneshot forces one tool
+            return {"agent": {"mode": mode}}
+
+        class Provider:
+            def chat(self, messages, tools, tool_choice=None):
+                seen["tool_choice"] = tool_choice
+
+        self.service.config["offline"] = False
+        self.service.config["modes"] = ["agent", "oneshot"]
+        self.service.factory = Provider
+        with mock.patch("l3slice.docweb.run_documents", fake_run):
+            run = self.finished(self.start_with(mode="oneshot"))
+        self.assertEqual(run["status"], "finished", run)
+        self.assertEqual(run["mode"], "oneshot")
+        self.assertEqual(seen["mode"], "oneshot")
+        self.assertEqual(seen["tool_choice"], "submit_findings")
+        self.assertNotEqual(seen["checkpoint"].parent, seen["output"])  # outside the fresh output directory
+        self.assertEqual(seen["checkpoint"].parent, Path(self.tmp.name).resolve())
+
+    def start_with(self, **fields):
+        status, _, raw = self.request("/api/runs", "POST", dict(self.body, **fields))
+        self.assertEqual(status, 202, raw)
+        return json.loads(raw)["run_id"]
 
     def test_unknown_artifact_and_traversal(self):
         run_id = self.start()

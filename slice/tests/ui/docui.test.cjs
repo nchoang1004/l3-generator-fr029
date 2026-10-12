@@ -69,6 +69,31 @@ test('offline source -> rendered verdicts -> preview -> download -> reload', asy
     finally { reloaded.window.close(); }
   } finally { dom.window.close(); }
 });
+test('TAI-LIEU.md comes first, opens by itself and reads as a document', async () => {
+  const dom = await page(); const d = dom.window.document;
+  try {
+    d.getElementById('consent').click(); d.getElementById('submit').click();
+    await waitFor(() => d.getElementById('preview-path').textContent === 'TAI-LIEU.md');
+    await waitFor(() => !!d.querySelector('#preview-text table'));
+    assert.equal(d.querySelector('#artifacts .artifact-name').firstChild.textContent, 'TAI-LIEU.md');
+    const groups = [...d.querySelectorAll('#artifacts .artifact-group h4')].map(h => h.textContent);
+    assert.deepEqual(groups.map(g => g.replace(/ \(\d+\)$/, '')), ['Đọc chính', 'API', 'Cho máy đọc']);
+    assert.ok(d.querySelector('#preview-text h3'));
+    assert.equal(d.querySelector('#preview-text table').rows[0].cells[0].tagName, 'TH');
+    d.getElementById('raw-toggle').click();
+    assert.match(d.getElementById('preview-text').textContent, /^# /);
+    assert.equal(d.querySelector('#preview-text table'), null);
+    assert.equal(d.getElementById('mode').textContent, 'Từng file (agent)');
+  } finally { dom.window.close(); }
+});
+test('a recorded script offers only the agent mode', async () => {
+  const dom = await page(); const d = dom.window.document;
+  try {
+    assert.equal(d.querySelector('input[name=mode][value=oneshot]').disabled, true);
+    assert.equal(d.querySelector('input[name=mode][value=agent]').checked, true);
+    assert.match(d.getElementById('mode-help').textContent, /agent/);
+  } finally { dom.window.close(); }
+});
 test('invalid source displays actionable error and enables retry', async () => {
   const dom = await page(); const d = dom.window.document;
   try {

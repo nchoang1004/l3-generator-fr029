@@ -1,6 +1,6 @@
 # DIARY-TASK-L3GEN-030-1
 
-Ghi muộn ngày 12/10/2026; phần chung của cả đợt ở `DIARY-CR-L3GEN-2026-009.md`.
+Lập ngày 12/10/2026; phần chung của cả đợt ở `DIARY-CR-L3GEN-2026-009.md`.
 
 ## Diễn giải
 - "Chuẩn, đầy đủ, dễ đọc" → ba lớp kiểm: gold, đối chiếu chuẩn FR-030, giám khảo độc lập đọc source.

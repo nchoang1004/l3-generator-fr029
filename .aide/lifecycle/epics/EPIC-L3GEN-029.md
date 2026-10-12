@@ -27,7 +27,7 @@ T1–T5 trong HANDOFF-CODEX-FR029. Giữ nguyên các phần hoãn: archdia.json
 
 ## Bổ sung 09/10/2026
 
-Luồng agent của FR-029 (ADR-2026-006, draft) và bộ kiểm bằng chứng được ghi thành Task muộn, sau khi code đã có. Decomposition do agent đề xuất; người chốt `accountable_team`, thứ tự và `blocked_by` (EXEC §B.12).
+Luồng agent của FR-029 (ADR-2026-006, draft) và bộ kiểm bằng chứng được ghi thành Task. Decomposition do agent đề xuất; người chốt `accountable_team`, thứ tự và `blocked_by` (EXEC §B.12).
 
 | Task | Cha | Việc |
 |---|---|---|
@@ -36,11 +36,11 @@ Luồng agent của FR-029 (ADR-2026-006, draft) và bộ kiểm bằng chứng 
 | TASK-L3GEN-029-8 | STORY-L3GEN-029-08 | Bộ kiểm lời gọi HTTP và dòng nghi ngờ |
 | TASK-L3GEN-029-9 | EPIC (không có AC) | Công cụ đo bộ kiểm |
 
-Vòng agent (CMP-L3GEN-006, `docagent.py`) và prompt của ngày 07/10/2026 chưa có Task; xem DIARY-CR-L3GEN-2026-008.
+Vòng agent (CMP-L3GEN-006, `docagent.py`) và prompt của ngày 07/10/2026 chưa gắn Task (việc còn lại); xem DIARY-CR-L3GEN-2026-008.
 
 ## Bổ sung 12/10/2026
 
-Ghi muộn (CR-L3GEN-2026-009). Decomposition do agent đề xuất; người chốt (EXEC §B.12). Các task dưới không có AC riêng, gắn thẳng Epic.
+Theo CR-L3GEN-2026-009. Decomposition do agent đề xuất; người chốt (EXEC §B.12). Các task dưới không có AC riêng, gắn thẳng Epic.
 
 | Task | Cha | Việc |
 |---|---|---|

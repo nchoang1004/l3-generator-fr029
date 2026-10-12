@@ -35,15 +35,14 @@ Mở `http://127.0.0.1:8001/`.
 
 1. Hai ô source và membership đã điền sẵn. Đánh dấu ô đồng ý, bấm **Sinh tài liệu**.
 2. Trạng thái chạy, rồi "Đã xuất kết quả". Agent: completed, 4 lượt.
-3. Danh sách tài liệu: `README.md`, `TAI-LIEU.md`, `result.json`, file API. Bấm `TAI-LIEU.md` để xem.
+3. `TAI-LIEU.md` tự mở khi chạy xong. Danh sách tài liệu chia nhóm: Đọc chính, API, Cho máy đọc.
 4. Mở "Giới hạn" và "Chi tiết độ phủ đọc": mọi file đã đọc hết.
 
 Nói rõ khi demo: "Kịch bản offline phát lại câu trả lời đã ghi sẵn của agent trên một repo nhỏ. Bộ kiểm và phần xuất tài liệu chạy thật."
 
 Giới hạn của giao diện hiện tại:
-- Chỉ chạy chế độ `agent`; chế độ `oneshot` chỉ có ở CLI.
-- Xem tài liệu dưới dạng văn bản thô, chưa hiển thị bảng Markdown.
-- Chưa sửa giao diện cho demo: chờ skill `taste-skill` (xem HANDOFF).
+- Kịch bản offline chỉ phát lại chế độ `agent`; ô "Đọc một lần" bị khóa. Với model thật (`--base-url`, `--model`, `--key-env`) ô này dùng được; phần này mới test bằng mock.
+- Xem tài liệu dạng Markdown (bảng, tiêu đề). Nút "Xem văn bản gốc" cho bản chưa dựng.
 
 ## 4. Cách B — tài liệu thật đã sinh
 

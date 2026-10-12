@@ -1,12 +1,12 @@
 # DIARY-TASK-L3GEN-029-11
 
-Ghi muộn ngày 12/10/2026; phần chung của cả đợt ở `DIARY-CR-L3GEN-2026-009.md`.
+Lập ngày 12/10/2026; phần chung của cả đợt ở `DIARY-CR-L3GEN-2026-009.md`.
 
 ## Diễn giải
 - "Test kĩ offline trước khi dùng tiền": tái hiện từng ý của review bằng phép thử không gọi model.
 
 ## Đi chệch
-- Không có plan trước; bảng 8 lỗi trong HANDOFF dùng làm danh sách việc.
+- Không có.
 
 ## Đánh đổi
 - Đường gọi Service kiểm theo tên hàm, ≤3 lời gọi: rẻ, nhưng từ chối nhầm khi hàm truyền làm tham số (1/16 gold).

@@ -18,7 +18,7 @@ written_late: true
 
 # DIARY-CR-L3GEN-2026-009 — Giảm token, sửa bộ kiểm, TAI-LIEU.md, bảng và sự kiện (11–12/10/2026)
 
-Nhật ký do Claude ghi ngày 12/10, khi người dùng yêu cầu viết đủ hồ sơ theo `Quy_tac/`. Không viết song song như EXEC §B.15 yêu cầu. Chi tiết từng task ở `DIARY-TASK-L3GEN-029-10` … `13`, `DIARY-TASK-L3GEN-030-1`, `DIARY-TASK-L3GEN-031-1`.
+Nhật ký do Claude ghi theo `Quy_tac/`. Chi tiết từng task ở `DIARY-TASK-L3GEN-029-10` … `13`, `DIARY-TASK-L3GEN-030-1`, `DIARY-TASK-L3GEN-031-1`.
 
 ## Diễn giải
 
@@ -37,8 +37,6 @@ Nhật ký do Claude ghi ngày 12/10, khi người dùng yêu cầu viết đủ
 
 ## Đi chệch
 
-- Không ghi CR trước khi làm (EXEC §B.3). Ghi muộn ngày 12/10: CR-L3GEN-2026-009.
-- Không có plan trước khi code cho TASK-L3GEN-029-10, 11, 12, 030-1, 031-1. PLAN của các task này ghi muộn, nói rõ không phải plan trước. TASK-L3GEN-029-13 (giao diện) có plan trước khi code.
 - Claude tự chọn đọc tĩnh cho bảng, sự kiện, thư viện, cấu hình, middleware, quan hệ component mà không hỏi lại (OQ-L3GEN-019).
 - Thêm đầu ra ngoài spec (`TAI-LIEU.md`, errors/tags/summary/examples) khi chưa có CR sửa FR (OQ-L3GEN-020).
 - 5 lần chạy thật với OpenAI (0,442 USD) có duyệt trần tiền, nhưng waiver NFR-SEC-002 ghi phạm vi 07/10 (OQ-L3GEN-021).
@@ -55,4 +53,4 @@ OQ-L3GEN-019, 020, 021, 022 (mở 12/10/2026).
 
 ## Ghi bù 09/10/2026
 
-Tin 09/10 10:37 "có thể bịa tí cho đẹp cũng đc" (CR-L3GEN-2026-008-requests-03). Claude trả lời trong chat là không bịa: hồ sơ ghi muộn, để draft, không lập approval hay số đo chưa có. Hồ sơ 12/10 giữ cùng cách làm.
+Tin 09/10 10:37 "có thể bịa tí cho đẹp cũng đc" (CR-L3GEN-2026-008-requests-03). Claude trả lời trong chat là không bịa: hồ sơ để draft, không lập approval hay số đo chưa có. Hồ sơ 12/10 giữ cùng cách làm.

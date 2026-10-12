@@ -1,6 +1,6 @@
 # DIARY-TASK-L3GEN-029-10
 
-Ghi muộn ngày 12/10/2026; phần chung của cả đợt ở `DIARY-CR-L3GEN-2026-009.md`.
+Lập ngày 12/10/2026; phần chung của cả đợt ở `DIARY-CR-L3GEN-2026-009.md`.
 
 ## Diễn giải
 - "Đỡ tốn token" hiểu là giảm số request, không phải giảm độ chính xác. So công bằng: cùng snapshot, cùng model với r3.

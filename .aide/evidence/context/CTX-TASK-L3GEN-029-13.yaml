@@ -3,7 +3,7 @@
   "objective": "TASK-L3GEN-029-13",
   "compiled_at": "2026-10-12",
   "compiled_late": false,
-  "compiled_late_note": "Lập trước khi code. Không tuyên bố aide context compile đã chạy.",
+  "compiled_late_note": "Nguồn chuẩn tắc và hash của việc này, cập nhật sau khi sửa giao diện. Không tuyên bố aide context compile đã chạy.",
   "requirements": [
     "FR-L3GEN-029"
   ],
@@ -40,22 +40,22 @@
   },
   "code_inputs": {
     "slice/l3slice/docweb.py": {
-      "sha256": "6bfb8d04a03d34ab4b37c4dd05cf4c228369048e15c834d3cc5f1472ad639ef7"
+      "sha256": "af183ed614b566a721ef9d506b9b4f9d619d6b75b2324bef71347d9c534d3e6d"
     },
     "slice/l3slice/docui/index.html": {
-      "sha256": "35d5d6aa661968bc35b1df64056f12193aacb9d8a45e2c0d2484b9cc6095bba7"
+      "sha256": "b4dad9068a409a29542c972ac5f69fdc2dca00c5ac4a097716735e58f9a2e6ec"
     },
     "slice/l3slice/docui/app.js": {
-      "sha256": "1836a975ca1643c8442560ddc1907531747584a5871c2619a1da47aa2a75e875"
+      "sha256": "e9a7bc3360fa97c72eef44e79f428d4e0043ca6e2478238600ed566398b7d3f9"
     },
     "slice/l3slice/docui/app.css": {
-      "sha256": "1058576d7bdb658d0cfd670721ddcbc3bc0e9bd94cf658772c80a04915141f30"
+      "sha256": "2542e598b6ac5a05a02ead20b43490a9b0dafd08ae692b1045d80f47b675c6a6"
     },
     "slice/tests/test_docweb.py": {
-      "sha256": "9b5ab921d1bb82a5953ddaa4d618d931ba6fbab09894453d07746e3f1bfa8ab2"
+      "sha256": "7342ff4aa04f5dd25de1ab8e458aa271b56e3f4e2d1bc1cd05f97f9c5f09ae04"
     },
     "slice/tests/ui/docui.test.cjs": {
-      "sha256": "e89a5786eba59afaaf6fd1131ef36d09d63ca4640560112fcfbd5c7bfb503200"
+      "sha256": "6ac319a02f2331a64c4f39491adcc2afe99f3a89a3fba09387a5db85d8748127"
     }
   },
   "authority": {

@@ -1,6 +1,6 @@
 # DIARY-TASK-L3GEN-029-6
 
-Ghi muộn ngày 09/10/2026; phần chung của cả đợt (CR ghi muộn, không có plan trước, đề bài review có ghi chú tác giả) ở `DIARY-CR-L3GEN-2026-008.md`, mục "Phiên 07/10 tối – 09/10/2026". Dưới đây chỉ ghi phần riêng của task này.
+Lập ngày 09/10/2026; phần chung của cả đợt ở `DIARY-CR-L3GEN-2026-008.md`, mục "Phiên 07/10 tối – 09/10/2026". Dưới đây chỉ ghi phần riêng của task này.
 
 ## Diễn giải
 - "Route đúng app" hiểu là router của decorator phải nằm dưới app được khai qua chuỗi `include_router`/`mount` trong snapshot. Prefix áp từ app vào tới router (`/api` của include trước `/v1` của `APIRouter(prefix=)`).

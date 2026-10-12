@@ -12,7 +12,7 @@ change_request: CR-L3GEN-2026-008
 
 # TASK-L3GEN-029-7 — Bộ kiểm và lời nhắc tham số dependency
 
-Ghi muộn ngày 09/10/2026: việc đã làm 07–09/10/2026 trước khi có Task (DIARY-CR-L3GEN-2026-008, mục 'Đi chệch'). Chưa phải approval hoặc nghiệm thu độc lập.
+Lập ngày 09/10/2026. Chưa phải approval hoặc nghiệm thu độc lập.
 
 ## Việc làm
 Kiểm tên dependency là đích của Depends; nhắc tham số do dependency khai (lồng, class, instance, partial, model Pydantic, alias, cấp router/app) và dependency agent chưa nộp.

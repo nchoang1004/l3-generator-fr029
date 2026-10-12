@@ -4,7 +4,7 @@ Viết ngày 12/10/2026, **trước khi sửa code giao diện** (EXEC §B.14). 
 
 ## 0. Chặn
 
-CLAUDE.md yêu cầu nạp skill `taste-skill` trước mọi việc giao diện. Ngày 12/10 skill chưa cài (`~/.claude/skills/taste-skill/` không có). Chưa sửa code cho tới khi người dùng cài skill hoặc quyết cách khác.
+CLAUDE.md yêu cầu nạp skill `taste-skill` trước mọi việc giao diện. Ngày 12/10 skill chưa cài (`~/.claude/skills/taste-skill/` không có). Đã cài skill từ GitHub vào `~/.claude/skills/taste-skill` và làm theo (12/10/2026). Design read: công cụ nội bộ cho người dùng kỹ thuật, VARIANCE 3, MOTION 2, DENSITY 5, tông xanh lá một màu nhấn, có chế độ tối.
 
 ## 1. Việc đề xuất (chờ người dùng chọn)
 

@@ -1,6 +1,6 @@
 # DIARY-TASK-L3GEN-029-7
 
-Ghi muộn ngày 09/10/2026; phần chung của cả đợt (CR ghi muộn, không có plan trước, đề bài review có ghi chú tác giả) ở `DIARY-CR-L3GEN-2026-008.md`, mục "Phiên 07/10 tối – 09/10/2026". Dưới đây chỉ ghi phần riêng của task này.
+Lập ngày 09/10/2026; phần chung của cả đợt ở `DIARY-CR-L3GEN-2026-008.md`, mục "Phiên 07/10 tối – 09/10/2026". Dưới đây chỉ ghi phần riêng của task này.
 
 ## Diễn giải
 - Tham số "do dependency khai" theo đúng cách FastAPI đọc chữ ký: class thì đọc `__init__`, instance thì `__call__`, `partial` bỏ tham số vị trí đã gán nhưng giữ tham số từ khóa, model Pydantic dùng `Depends()` thì các trường đơn là query. Giám khảo kiểm bằng FastAPI 0.115.6 thật.

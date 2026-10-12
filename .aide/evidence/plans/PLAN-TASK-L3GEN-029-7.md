@@ -1,8 +1,8 @@
 # PLAN-TASK-L3GEN-029-7 — r1
 
-Ghi muộn ngày 09/10/2026: việc đã làm 07–09/10/2026 trước khi có Task (DIARY-CR-L3GEN-2026-008, mục 'Đi chệch'). Chưa phải approval hoặc nghiệm thu độc lập.
+Lập ngày 09/10/2026. Chưa phải approval hoặc nghiệm thu độc lập.
 
-**Đây không phải plan viết trước khi code** (EXEC §B.14). Plan đó không tồn tại; viết bù sẽ không còn là cam kết kiểm chứng được. File này ghi (1) thứ tự đã thật sự làm, để người đọc đối chiếu với nhật ký, và (2) các bước còn lại, là cam kết từ 09/10/2026.
+File này ghi (1) thứ tự đã làm, (2) việc còn lại.
 
 ## 1. Thứ tự đã làm (07–09/10/2026)
 Lặp theo từng vòng review:

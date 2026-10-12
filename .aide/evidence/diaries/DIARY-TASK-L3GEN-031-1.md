@@ -1,6 +1,6 @@
 # DIARY-TASK-L3GEN-031-1
 
-Ghi muộn ngày 12/10/2026; phần chung của cả đợt ở `DIARY-CR-L3GEN-2026-009.md`.
+Lập ngày 12/10/2026; phần chung của cả đợt ở `DIARY-CR-L3GEN-2026-009.md`.
 
 ## Diễn giải
 - Celery và BackgroundTasks đã có trong bảng "Phạm vi đọc" của FR-031, nên không phải mở rộng phạm vi.

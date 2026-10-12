@@ -47,7 +47,7 @@ Chạy thử offline, từ thư mục `slice`:
 python -m l3slice.docweb --workdir "$env:TEMP/l3-fr029-ui" --script demo/fr029.script.json --source tests/fixtures/fr029_e2e --membership tests/fixtures/fr029_e2e.membership.json
 ```
 
-Mở `http://127.0.0.1:8001/`. Kịch bản chỉ dùng với fixture được điền sẵn; không gọi model. Giao diện cho chạy, xem trạng thái/độ phủ/giới hạn, xem nội dung dạng văn bản và tải từng file.
+Mở `http://127.0.0.1:8001/`. Kịch bản chỉ dùng với fixture được điền sẵn; không gọi model, chỉ phát lại chế độ agent. Giao diện cho chạy, chọn cách đọc (agent hoặc đọc một lần, khi dùng model thật), xem trạng thái/độ phủ/giới hạn, xem `TAI-LIEU.md` dạng tài liệu (có nút xem văn bản gốc) và tải từng file.
 
 Để dùng model thật, đặt khóa trong biến môi trường rồi khởi động server:
 
