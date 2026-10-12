@@ -1,0 +1,26 @@
+{
+  "run_id": "run_fbc6e760c3211c5e",
+  "snapshot_id": null,
+  "state": "queued",
+  "stage": "queue",
+  "analysis_outcome": null,
+  "created_at": "2026-10-02T09:39:20Z",
+  "started_at": null,
+  "finished_at": null,
+  "expires_at": null,
+  "result_available": false,
+  "reasons": [],
+  "metrics": {
+    "intake_ms": null,
+    "static_analysis_ms": null,
+    "model_ms": null,
+    "export_ms": null,
+    "peak_memory_bytes": null,
+    "output_bytes": null
+  },
+  "artifacts": [],
+  "links": {
+    "self": "/api/v1/runs/run_fbc6e760c3211c5e",
+    "result": null
+  }
+}

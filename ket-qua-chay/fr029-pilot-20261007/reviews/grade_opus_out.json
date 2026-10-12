@@ -1,0 +1,16 @@
+{"reviewer": "claude-opus",
+ "checked": {
+  "prefix_chain": {"routes": 11, "models": 0, "http_calls": 0, "files": 9},
+  "params_models": {"routes": 11, "models": 5, "http_calls": 0, "files": 5},
+  "pydantic_v1": {"routes": 2, "models": 1, "http_calls": 0, "files": 1},
+  "exclusions": {"routes": 1, "models": 0, "http_calls": 0, "files": 4},
+  "http_calls": {"routes": 3, "models": 0, "http_calls": 11, "files": 6},
+  "file_roles": {"routes": 3, "models": 2, "http_calls": 0, "files": 10}
+ },
+ "errors": [
+  {"fixture": "file_roles", "kind": "other", "item": "app/service_utils.py",
+   "field": "evidence",
+   "doc_value": "README trích dòng bằng chứng trong code span là `def format_money(cents: int) -&gt; str:` (bị HTML-escape, Markdown hiển thị nguyên chữ '&gt;')",
+   "correct_value": "def format_money(cents: int) -> str: (result.json ghi đúng)",
+   "evidence": "app/service_utils.py:1", "confidence": "chắc"}
+ ]}

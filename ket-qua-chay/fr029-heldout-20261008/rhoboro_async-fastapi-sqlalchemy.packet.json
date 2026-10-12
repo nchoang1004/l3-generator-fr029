@@ -1,0 +1,50 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos\\rhoboro_async-fastapi-sqlalchemy",
+  "files": 20,
+  "route_decorators": 11,
+  "decorators_refused": [],
+  "dependencies": {
+    "CreateNotebook": {
+      "first_use": "app/api/notebooks/views.py:22",
+      "params": []
+    },
+    "ReadAllNotebook": {
+      "first_use": "app/api/notebooks/views.py:29",
+      "params": []
+    },
+    "ReadNotebook": {
+      "first_use": "app/api/notebooks/views.py:41",
+      "params": []
+    },
+    "UpdateNotebook": {
+      "first_use": "app/api/notebooks/views.py:54",
+      "params": []
+    },
+    "DeleteNotebook": {
+      "first_use": "app/api/notebooks/views.py:63",
+      "params": []
+    },
+    "CreateNote": {
+      "first_use": "app/api/notes/views.py:22",
+      "params": []
+    },
+    "ReadAllNote": {
+      "first_use": "app/api/notes/views.py:30",
+      "params": []
+    },
+    "ReadNote": {
+      "first_use": "app/api/notes/views.py:39",
+      "params": []
+    },
+    "UpdateNote": {
+      "first_use": "app/api/notes/views.py:52",
+      "params": []
+    },
+    "DeleteNote": {
+      "first_use": "app/api/notes/views.py:61",
+      "params": []
+    }
+  },
+  "suspects": [],
+  "seconds": 0.28
+}

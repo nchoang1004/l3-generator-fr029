@@ -1,0 +1,52 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "pycg-imports-simple_import",
+  "source_digest": "1a4d7715d77ddff935689c5d5a574189e92f6bf62d651120a4dd5cccb3f82969",
+  "status": "facts_only",
+  "entities": [],
+  "evidence": [
+    {
+      "id": "e43dafb0f482bad02",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 4,
+      "sha256": "d38309d93e1538ca11908768c5f6a8115be740da16e52076308f98d55867944d"
+    },
+    {
+      "id": "e636aae515ac0d994",
+      "path": "requirements.txt",
+      "line_start": 2,
+      "line_end": 2,
+      "sha256": "5a186804fd0c020f245e90ee71fe6ef81fc09e0a0e4ae39ad84e8335fa12dcc5"
+    },
+    {
+      "id": "e6a1b71812e18db37",
+      "path": "main.py",
+      "line_start": 3,
+      "line_end": 4,
+      "sha256": "d38309d93e1538ca11908768c5f6a8115be740da16e52076308f98d55867944d"
+    },
+    {
+      "id": "ed8d663fb4348fc08",
+      "path": "to_import.py",
+      "line_start": 1,
+      "line_end": 2,
+      "sha256": "88743f4983fd27d804cb8662fbda35bb2c2abf0b5add78fdf8134e62e736e0ce"
+    }
+  ],
+  "facts": [],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v3",
+    "unsupported": []
+  }
+}

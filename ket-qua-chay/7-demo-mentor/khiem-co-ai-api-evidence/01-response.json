@@ -1,0 +1,22 @@
+{
+  "id": "chatcmpl-EUBhDPbf7yCMxwTMHfYm4lLwrOUfS",
+  "model": "gpt-5.6-sol",
+  "usage": {
+    "prompt_tokens": 1661,
+    "completion_tokens": 455,
+    "total_tokens": 2116,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 1658,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 288,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "finish_reason": "stop",
+  "content": "{\"blocks\":[{\"name\":\"application\",\"layer\":\"entry\",\"paths\":[\"app/main.py\"],\"reason\":\"L3\"},{\"name\":\"http_api\",\"layer\":\"api\",\"paths\":[\"app/api/main.py\",\"app/api/notebooks/schema.py\",\"app/api/notebooks/views.py\",\"app/api/notes/schema.py\",\"app/api/notes/views.py\"],\"reason\":\"L1\"},{\"name\":\"note_management\",\"layer\":\"service\",\"paths\":[\"app/api/notebooks/use_cases.py\",\"app/api/notes/use_cases.py\"],\"reason\":\"L11\"},{\"name\":\"models\",\"layer\":\"data\",\"paths\":[\"app/models/\"],\"reason\":\"L4\"},{\"name\":\"database\",\"layer\":\"infra\",\"paths\":[\"app/db.py\"],\"reason\":\"L2\"}],\"shared\":[\"app/settings.py\"]}"
+}

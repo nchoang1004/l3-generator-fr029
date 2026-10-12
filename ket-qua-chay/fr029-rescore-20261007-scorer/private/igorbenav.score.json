@@ -1,0 +1,287 @@
+{
+  "routes": {
+    "tp": 30,
+    "fp": [],
+    "fn": [
+      "('GET', '/docs', 'backend/src/infrastructure/app_factory.py::get_swagger_documentation')",
+      "('GET', '/health', 'backend/src/interfaces/main.py::health_check')",
+      "('GET', '/openapi.json', 'backend/src/infrastructure/app_factory.py::openapi')",
+      "('GET', '/redoc', 'backend/src/infrastructure/app_factory.py::get_redoc_documentation')"
+    ]
+  },
+  "models_on_matched_routes": {
+    "correct": 6,
+    "wrong": [
+      {
+        "route": "('DELETE', '/api/v1/api-keys/{key_id}', 'backend/src/modules/api_keys/routes.py::delete_api_key')",
+        "got": [
+          null,
+          null
+        ],
+        "want": [
+          null,
+          "None"
+        ]
+      },
+      {
+        "route": "('DELETE', '/api/v1/rate-limits/{name}', 'backend/src/modules/rate_limit/routes.py::delete_rate_limit')",
+        "got": [
+          null,
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, str]"
+        ]
+      },
+      {
+        "route": "('DELETE', '/api/v1/users/db/{username}', 'backend/src/modules/user/routes.py::gdpr_delete_user')",
+        "got": [
+          null,
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, str]"
+        ]
+      },
+      {
+        "route": "('DELETE', '/api/v1/users/{username}', 'backend/src/modules/user/routes.py::delete_user_account')",
+        "got": [
+          null,
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, str]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/api-keys/', 'backend/src/modules/api_keys/routes.py::get_user_api_keys')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[APIKeyRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/api-keys/summary/user', 'backend/src/modules/api_keys/routes.py::get_user_summary')",
+        "got": [
+          null,
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, Any]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/api-keys/{key_id}', 'backend/src/modules/api_keys/routes.py::get_api_key')",
+        "got": [
+          null,
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, Any]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/api-keys/{key_id}/analytics', 'backend/src/modules/api_keys/routes.py::get_key_analytics')",
+        "got": [
+          null,
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, Any]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/api-keys/{key_id}/usage', 'backend/src/modules/api_keys/routes.py::get_key_usage')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[KeyUsageRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/auth/check-auth', 'backend/src/infrastructure/auth/routes.py::check_auth')",
+        "got": [
+          null,
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, Any]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/rate-limits/', 'backend/src/modules/rate_limit/routes.py::get_rate_limits')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[RateLimitRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/tiers/', 'backend/src/modules/tier/routes.py::get_tiers')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[TierRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/users/', 'backend/src/modules/user/routes.py::get_users')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[UserRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/users/{username}/rate-limits', 'backend/src/modules/user/routes.py::get_user_rate_limits')",
+        "got": [
+          null,
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, Any]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/users/{username}/tier', 'backend/src/modules/user/routes.py::get_user_tier')",
+        "got": [
+          null,
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, Any]"
+        ]
+      },
+      {
+        "route": "('PATCH', '/api/v1/api-keys/{key_id}', 'backend/src/modules/api_keys/routes.py::update_api_key')",
+        "got": [
+          "APIKeyUpdate",
+          "dict"
+        ],
+        "want": [
+          "APIKeyUpdate",
+          "dict[str, Any]"
+        ]
+      },
+      {
+        "route": "('PATCH', '/api/v1/rate-limits/{name}', 'backend/src/modules/rate_limit/routes.py::update_rate_limit')",
+        "got": [
+          "RateLimitUpdate",
+          "dict"
+        ],
+        "want": [
+          "RateLimitUpdate",
+          "dict[str, str]"
+        ]
+      },
+      {
+        "route": "('PATCH', '/api/v1/users/{username}', 'backend/src/modules/user/routes.py::update_user_profile')",
+        "got": [
+          "UserUpdate",
+          "dict"
+        ],
+        "want": [
+          "UserUpdate",
+          "dict[str, str]"
+        ]
+      },
+      {
+        "route": "('PATCH', '/api/v1/users/{username}/tier', 'backend/src/modules/user/routes.py::update_user_tier')",
+        "got": [
+          "UserTierUpdate",
+          "dict"
+        ],
+        "want": [
+          "UserTierUpdate",
+          "dict[str, str]"
+        ]
+      },
+      {
+        "route": "('POST', '/api/v1/api-keys/', 'backend/src/modules/api_keys/routes.py::create_api_key')",
+        "got": [
+          "APIKeyCreate",
+          "dict"
+        ],
+        "want": [
+          "APIKeyCreate",
+          "dict[str, Any]"
+        ]
+      },
+      {
+        "route": "('POST', '/api/v1/auth/login', 'backend/src/infrastructure/auth/routes.py::login')",
+        "got": [
+          "unknown",
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, Any]"
+        ]
+      },
+      {
+        "route": "('POST', '/api/v1/auth/logout', 'backend/src/infrastructure/auth/routes.py::logout')",
+        "got": [
+          null,
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, str]"
+        ]
+      },
+      {
+        "route": "('POST', '/api/v1/auth/logout-all', 'backend/src/infrastructure/auth/routes.py::logout_all')",
+        "got": [
+          null,
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, Any]"
+        ]
+      },
+      {
+        "route": "('POST', '/api/v1/auth/refresh-csrf', 'backend/src/infrastructure/auth/routes.py::refresh_csrf_token')",
+        "got": [
+          null,
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, str]"
+        ]
+      }
+    ]
+  },
+  "http_api": {
+    "tp": 0,
+    "fp": [],
+    "fn": [],
+    "out_of_scope": 0
+  }
+}

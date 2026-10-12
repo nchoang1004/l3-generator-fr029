@@ -1,0 +1,143 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos\\nsidnev_fastapi-realworld-example-app",
+  "files": 71,
+  "route_decorators": 19,
+  "decorators_refused": [],
+  "dependencies": {
+    "get_current_user_authorizer": {
+      "first_use": "app/api/routes/articles/articles_common.py:30",
+      "params": [
+        {
+          "in": "query",
+          "name": "required",
+          "at": "app/api/dependencies/authentication.py:35"
+        }
+      ]
+    },
+    "get_repository": {
+      "first_use": "app/api/routes/articles/articles_common.py:31",
+      "params": []
+    },
+    "get_article_by_slug_from_path": {
+      "first_use": "app/api/routes/articles/articles_common.py:53",
+      "params": [
+        {
+          "in": "path",
+          "name": "slug",
+          "at": "app/api/dependencies/articles.py:38"
+        },
+        {
+          "in": "query",
+          "name": "required",
+          "at": "app/api/dependencies/authentication.py:35"
+        }
+      ]
+    },
+    "get_articles_filters": {
+      "first_use": "app/api/routes/articles/articles_resource.py:32",
+      "params": [
+        {
+          "in": "query",
+          "name": "tag",
+          "at": "app/api/dependencies/articles.py:22"
+        },
+        {
+          "in": "query",
+          "name": "author",
+          "at": "app/api/dependencies/articles.py:23"
+        },
+        {
+          "in": "query",
+          "name": "favorited",
+          "at": "app/api/dependencies/articles.py:24"
+        },
+        {
+          "in": "query",
+          "name": "limit",
+          "at": "app/api/dependencies/articles.py:25"
+        },
+        {
+          "in": "query",
+          "name": "offset",
+          "at": "app/api/dependencies/articles.py:26"
+        }
+      ]
+    },
+    "check_article_modification_permissions": {
+      "first_use": "app/api/routes/articles/articles_resource.py:93",
+      "params": [
+        {
+          "in": "path",
+          "name": "slug",
+          "at": "app/api/dependencies/articles.py:38"
+        },
+        {
+          "in": "query",
+          "name": "required",
+          "at": "app/api/dependencies/authentication.py:35"
+        }
+      ]
+    },
+    "get_app_settings": {
+      "first_use": "app/api/routes/authentication.py:26",
+      "params": []
+    },
+    "get_comment_by_id_from_path": {
+      "first_use": "app/api/routes/comments.py:68",
+      "params": [
+        {
+          "in": "path",
+          "name": "comment_id",
+          "at": "app/api/dependencies/comments.py:17"
+        },
+        {
+          "in": "path",
+          "name": "slug",
+          "at": "app/api/dependencies/articles.py:38"
+        },
+        {
+          "in": "query",
+          "name": "required",
+          "at": "app/api/dependencies/authentication.py:35"
+        }
+      ]
+    },
+    "check_comment_modification_permissions": {
+      "first_use": "app/api/routes/comments.py:64",
+      "params": [
+        {
+          "in": "path",
+          "name": "comment_id",
+          "at": "app/api/dependencies/comments.py:17"
+        },
+        {
+          "in": "path",
+          "name": "slug",
+          "at": "app/api/dependencies/articles.py:38"
+        },
+        {
+          "in": "query",
+          "name": "required",
+          "at": "app/api/dependencies/authentication.py:35"
+        }
+      ]
+    },
+    "get_profile_by_username_from_path": {
+      "first_use": "app/api/routes/profiles.py:22",
+      "params": [
+        {
+          "in": "path",
+          "name": "username",
+          "at": "app/api/dependencies/profiles.py:16"
+        },
+        {
+          "in": "query",
+          "name": "required",
+          "at": "app/api/dependencies/authentication.py:35"
+        }
+      ]
+    }
+  },
+  "suspects": [],
+  "seconds": 0.8
+}

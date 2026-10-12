@@ -1,0 +1,5 @@
+- **model** — `API-PYDANTIC-V1-GHI-CHU-v1.md:37,80`; `result.json:260`: ghi `priority.required=true` → đúng là `false`, mặc định `None` theo [Pydantic v1](https://docs.pydantic.dev/1.10/usage/models/#required-optional-fields). Căn cứ: `app/main.py:11`, `requirements.txt:2`.
+- **route** — `API-PYDANTIC-V1-GHI-CHU-v1.md:24`: POST ghi tham số “không có”, Request chỉ ghi `Note` → bảng thiếu `note` ở body, kiểu `Note`, bắt buộc, `application/json`, không bọc dưới khóa `note`. Căn cứ: `app/main.py:16`.
+- **label** — `API-PYDANTIC-V1-GHI-CHU-v1.md:24,44`: POST ghi `inferred` nhưng không kèm quy tắc → cần nêu `fastapi.model_param_body` như `result.json:476`. Căn cứ: `app/main.py:16` khai `note: Note` không có `Body(...)`.
+
+Đã kiểm: **2 route, 1 model, 0 lời gọi HTTP; 3 file fixture, 3 file đầu ra và 1 file membership; 3 lỗi.**

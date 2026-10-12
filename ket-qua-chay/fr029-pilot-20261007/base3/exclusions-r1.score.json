@@ -1,0 +1,79 @@
+{
+  "routes": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 1,
+    "precision": null,
+    "recall": 0.0,
+    "false_positive": [],
+    "false_negative": [
+      "('GET', '/orders', 'app/routers/orders.py:8')"
+    ],
+    "attributes": {
+      "params": {
+        "correct": 0,
+        "wrong": []
+      },
+      "request_body": {
+        "correct": 0,
+        "wrong": []
+      },
+      "response": {
+        "correct": 0,
+        "wrong": []
+      },
+      "status": {
+        "correct": 0,
+        "wrong": []
+      }
+    }
+  },
+  "models": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "fields": {
+        "correct": 0,
+        "wrong": []
+      }
+    }
+  },
+  "http_calls": {
+    "status": "not_evaluated",
+    "reason": "Gold không có mục này"
+  },
+  "file_roles": {
+    "status": "not_evaluated",
+    "reason": "Gold không có mục này"
+  },
+  "limitations": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 3,
+    "precision": null,
+    "recall": 0.0,
+    "false_positive": [],
+    "false_negative": [
+      "('add_api_route', 'app/main.py:23')",
+      "('add_route', 'app/main.py:24')",
+      "('add_websocket_route', 'app/main.py:25')"
+    ],
+    "attributes": {}
+  },
+  "out_of_scope": {
+    "ok": true,
+    "got": {
+      "test": 3,
+      "conditional_out": 1
+    },
+    "want": {
+      "test": 3,
+      "conditional_out": 1
+    }
+  }
+}

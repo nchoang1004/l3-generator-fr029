@@ -1,0 +1,156 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "pycg-mro-two_parents",
+  "source_digest": "1cecb99bd4336049b801c29e3a4562e31186ba3db41e19735977008354ad9919",
+  "status": "facts_only",
+  "entities": [
+    {
+      "id": "main.py::A.func",
+      "path": "main.py",
+      "line_start": 2,
+      "line_end": 3,
+      "symbol": "A.func",
+      "kind": "function"
+    },
+    {
+      "id": "main.py::C",
+      "path": "main.py",
+      "line_start": 12,
+      "line_end": 13,
+      "symbol": "C",
+      "kind": "class"
+    },
+    {
+      "id": "main.py::__module__",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 16,
+      "symbol": "__module__",
+      "kind": "module"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e0685e6116b0e6a46",
+      "path": "main.py",
+      "line_start": 5,
+      "line_end": 10,
+      "sha256": "cdb0213199ab7297cd18bfc595a2c9b92ec32e94b8e34ba71d13a9c3067032c5"
+    },
+    {
+      "id": "e11089fd5f09d6ce3",
+      "path": "main.py",
+      "line_start": 6,
+      "line_end": 7,
+      "sha256": "cdb0213199ab7297cd18bfc595a2c9b92ec32e94b8e34ba71d13a9c3067032c5"
+    },
+    {
+      "id": "e17cabd028c8a550b",
+      "path": "main.py",
+      "line_start": 2,
+      "line_end": 3,
+      "sha256": "cdb0213199ab7297cd18bfc595a2c9b92ec32e94b8e34ba71d13a9c3067032c5"
+    },
+    {
+      "id": "e2101981cef595c4b",
+      "path": "main.py",
+      "line_start": 16,
+      "line_end": 16,
+      "sha256": "cdb0213199ab7297cd18bfc595a2c9b92ec32e94b8e34ba71d13a9c3067032c5"
+    },
+    {
+      "id": "e34bfa75a6d7703b4",
+      "path": "main.py",
+      "line_start": 9,
+      "line_end": 10,
+      "sha256": "cdb0213199ab7297cd18bfc595a2c9b92ec32e94b8e34ba71d13a9c3067032c5"
+    },
+    {
+      "id": "e43f351766ff7c040",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 3,
+      "sha256": "cdb0213199ab7297cd18bfc595a2c9b92ec32e94b8e34ba71d13a9c3067032c5"
+    },
+    {
+      "id": "e51ca05e009ec6f47",
+      "path": "main.py",
+      "line_start": 12,
+      "line_end": 13,
+      "sha256": "cdb0213199ab7297cd18bfc595a2c9b92ec32e94b8e34ba71d13a9c3067032c5"
+    },
+    {
+      "id": "e760204b8ade8cd26",
+      "path": "requirements.txt",
+      "line_start": 2,
+      "line_end": 2,
+      "sha256": "5a186804fd0c020f245e90ee71fe6ef81fc09e0a0e4ae39ad84e8335fa12dcc5"
+    },
+    {
+      "id": "ee7a3462b457d8500",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 16,
+      "sha256": "cdb0213199ab7297cd18bfc595a2c9b92ec32e94b8e34ba71d13a9c3067032c5"
+    },
+    {
+      "id": "efdbb2b8fb3857135",
+      "path": "main.py",
+      "line_start": 15,
+      "line_end": 15,
+      "sha256": "cdb0213199ab7297cd18bfc595a2c9b92ec32e94b8e34ba71d13a9c3067032c5"
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:33bf6c76ab5e123886cca5d87459763abcb37295eb9aeca6b072b395fe26a1e0",
+      "evidence_refs": [
+        "ee7a3462b457d8500",
+        "efdbb2b8fb3857135"
+      ],
+      "target_id": "main.py::C",
+      "kind": "reference",
+      "source_id": "main.py::__module__",
+      "context": "main.py:15:4",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:58e1538515e1d461fb7aa729ab09627360bcb8fc964c30d9351e56a66f7e0443",
+      "evidence_refs": [
+        "e2101981cef595c4b",
+        "ee7a3462b457d8500"
+      ],
+      "target_id": "main.py::A.func",
+      "kind": "reference",
+      "source_id": "main.py::__module__",
+      "context": "main.py:16:0",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "inferred",
+      "completeness": "full",
+      "reason": "method có ở nhiều class cha; lấy cha khai báo trước"
+    }
+  ],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v3",
+    "unsupported": []
+  }
+}

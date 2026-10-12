@@ -1,0 +1,3 @@
+- **role** — `README.md:30`, `result.json:1773–1828`: ghi `inventory_client.py = Service (inferred)` → đúng là `Khác (exact)`. Đường gọi đã ghép sai bước quay về caller: constructor chỉ gọi `super().__init__(timeout=5.0)`, không gọi sang file hạ tầng; lệnh HTTP nằm ở caller. Căn cứ: `app/inventory_client.py:4–6`, `app/clients.py:22–23`, `app/routes.py:23`.
+
+Đã kiểm: **3 route, 0 model API, 12 lời gọi HTTP (11 được hỗ trợ + 1 urllib), 8 file source và 3 file đầu ra; 1 lỗi.**

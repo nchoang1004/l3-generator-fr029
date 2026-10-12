@@ -1,0 +1,26 @@
+[
+  {
+    "step": "top-1",
+    "reserved_tokens": 10053,
+    "cached": false,
+    "model": "gpt-5.6-sol",
+    "status": 200,
+    "seconds": 8.49,
+    "prompt_tokens": 1661,
+    "completion_tokens": 455,
+    "total_tokens": 2116,
+    "usd_estimate_upper": 0.017405
+  },
+  {
+    "step": "name-1",
+    "reserved_tokens": 9036,
+    "cached": false,
+    "model": "gpt-5.6-sol",
+    "status": 200,
+    "seconds": 4.01,
+    "prompt_tokens": 890,
+    "completion_tokens": 243,
+    "total_tokens": 1133,
+    "usd_estimate_upper": 0.00931
+  }
+]

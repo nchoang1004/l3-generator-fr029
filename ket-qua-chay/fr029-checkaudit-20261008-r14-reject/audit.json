@@ -1,0 +1,4492 @@
+{
+  "mutations": {
+    "route": "method không có trong decorator; handler là hàm route có thật khác của cùng file; tên handler không có",
+    "route_negative": "route gold ghi not_fastapi (receiver không phải FastAPI/APIRouter) phải bị từ chối",
+    "dependency": "dependency có thật khác (dùng ở route khác của repo) không có trên dòng; tên không tồn tại",
+    "http": "URL thêm '/x-audit'; URL cụt 1 ký tự; literal khác có trong cùng file; thư viện khác; method khác",
+    "http_negative": "dòng gold ghi non_http_calls (dict.get, Session.get, BeautifulSoup) nộp như lời gọi HTTP phải bị từ chối",
+    "sanity": "chạy lại với bộ kiểm giả 'luôn nhận' và 'luôn từ chối': phép đo phải báo lỗi lớn"
+  },
+  "rows": [
+    {
+      "case": "tdd-docker",
+      "group": "nghiệm thu",
+      "files": 15,
+      "routes": {
+        "checked": 6,
+        "false_rejection": [
+          {
+            "route": "GET app/api/ping.py::pong",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/summaries.py::read_summary",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/summaries.py::read_all_summaries",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/summaries.py::create_summary",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT app/api/summaries.py::update_summary",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE app/api/summaries.py::delete_summary",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 22,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 6,
+        "dependency_lines": 1,
+        "dependency_false_rejection": [
+          "app/api/ping.py::pong get_settings @ app/api/ping.py:9-9"
+        ],
+        "dependency_false_acceptance": [],
+        "mutations": 1,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 6,
+        "gold_not_flagged": [
+          "route app/api/ping.py::pong",
+          "route app/api/summaries.py::read_summary",
+          "route app/api/summaries.py::read_all_summaries",
+          "route app/api/summaries.py::create_summary",
+          "route app/api/summaries.py::update_summary",
+          "route app/api/summaries.py::delete_summary"
+        ]
+      },
+      "seconds": 0.04
+    },
+    {
+      "case": "agentgpt",
+      "group": "nghiệm thu",
+      "files": 85,
+      "routes": {
+        "checked": 16,
+        "false_rejection": [
+          {
+            "route": "GET reworkd_platform/web/api/monitoring/views.py::health_check",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET reworkd_platform/web/api/monitoring/views.py::error_check",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST reworkd_platform/web/api/agent/views.py::start_tasks",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST reworkd_platform/web/api/agent/views.py::analyze_tasks",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST reworkd_platform/web/api/agent/views.py::execute_tasks",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST reworkd_platform/web/api/agent/views.py::create_tasks",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST reworkd_platform/web/api/agent/views.py::summarize",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST reworkd_platform/web/api/agent/views.py::chat",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET reworkd_platform/web/api/agent/views.py::get_user_tools",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET reworkd_platform/web/api/models/views.py::get_models",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET reworkd_platform/web/api/auth/views.py::organizations",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET reworkd_platform/web/api/auth/views.py::oauth_install",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET reworkd_platform/web/api/auth/views.py::oauth_uninstall",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET reworkd_platform/web/api/auth/views.py::oauth_callback",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET reworkd_platform/web/api/auth/views.py::sid_info",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET reworkd_platform/web/api/metadata.py::extract_metadata",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 61,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 16,
+        "dependency_lines": 21,
+        "dependency_false_rejection": [
+          "reworkd_platform/web/api/auth/views.py::oauth_callback installer_factory @ reworkd_platform/web/api/auth/views.py:50-50",
+          "reworkd_platform/web/api/auth/views.py::oauth_install get_current_user @ reworkd_platform/web/api/auth/views.py:28-28",
+          "reworkd_platform/web/api/auth/views.py::oauth_install installer_factory @ reworkd_platform/web/api/auth/views.py:29-29",
+          "reworkd_platform/web/api/auth/views.py::oauth_uninstall get_current_user @ reworkd_platform/web/api/auth/views.py:37-37",
+          "reworkd_platform/web/api/auth/views.py::oauth_uninstall installer_factory @ reworkd_platform/web/api/auth/views.py:38-38",
+          "reworkd_platform/web/api/auth/views.py::organizations OrganizationCrud.inject @ reworkd_platform/web/api/auth/views.py:18-18",
+          "reworkd_platform/web/api/auth/views.py::sid_info get_current_user @ reworkd_platform/web/api/auth/views.py:64-64",
+          "reworkd_platform/web/api/auth/views.py::sid_info OAuthCrud.inject @ reworkd_platform/web/api/auth/views.py:65-65",
+          "reworkd_platform/web/api/models/views.py::get_models get_current_user @ reworkd_platform/web/api/models/views.py:28-28",
+          "reworkd_platform/web/api/agent/views.py::analyze_tasks agent_analyze_validator @ reworkd_platform/web/api/agent/views.py:47-47",
+          "reworkd_platform/web/api/agent/views.py::analyze_tasks get_agent_service @ reworkd_platform/web/api/agent/views.py:48-48",
+          "reworkd_platform/web/api/agent/views.py::chat agent_chat_validator @ reworkd_platform/web/api/agent/views.py:105-105",
+          "reworkd_platform/web/api/agent/views.py::chat get_agent_service @ reworkd_platform/web/api/agent/views.py:106-112",
+          "reworkd_platform/web/api/agent/views.py::create_tasks agent_create_validator @ reworkd_platform/web/api/agent/views.py:73-73",
+          "reworkd_platform/web/api/agent/views.py::create_tasks get_agent_service @ reworkd_platform/web/api/agent/views.py:74-74",
+          "reworkd_platform/web/api/agent/views.py::execute_tasks agent_execute_validator @ reworkd_platform/web/api/agent/views.py:59-59",
+          "reworkd_platform/web/api/agent/views.py::execute_tasks get_agent_service @ reworkd_platform/web/api/agent/views.py:60-62",
+          "reworkd_platform/web/api/agent/views.py::start_tasks agent_start_validator @ reworkd_platform/web/api/agent/views.py:38-38",
+          "reworkd_platform/web/api/agent/views.py::start_tasks get_agent_service @ reworkd_platform/web/api/agent/views.py:39-39",
+          "reworkd_platform/web/api/agent/views.py::summarize agent_summarize_validator @ reworkd_platform/web/api/agent/views.py:88-88",
+          "reworkd_platform/web/api/agent/views.py::summarize get_agent_service @ reworkd_platform/web/api/agent/views.py:89-95"
+        ],
+        "dependency_false_acceptance": [],
+        "mutations": 42,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 14,
+        "missed": [
+          "GET reworkd_platform/web/api/auth/views.py::oauth_callback: path provider",
+          "GET reworkd_platform/web/api/auth/views.py::oauth_install: header x-organization-id",
+          "GET reworkd_platform/web/api/auth/views.py::oauth_install: path provider",
+          "GET reworkd_platform/web/api/auth/views.py::oauth_uninstall: header x-organization-id",
+          "GET reworkd_platform/web/api/auth/views.py::oauth_uninstall: path provider",
+          "GET reworkd_platform/web/api/auth/views.py::organizations: header x-organization-id",
+          "GET reworkd_platform/web/api/auth/views.py::sid_info: header x-organization-id",
+          "GET reworkd_platform/web/api/models/views.py::get_models: header x-organization-id",
+          "POST reworkd_platform/web/api/agent/views.py::analyze_tasks: header x-organization-id",
+          "POST reworkd_platform/web/api/agent/views.py::chat: header x-organization-id",
+          "POST reworkd_platform/web/api/agent/views.py::create_tasks: header x-organization-id",
+          "POST reworkd_platform/web/api/agent/views.py::execute_tasks: header x-organization-id",
+          "POST reworkd_platform/web/api/agent/views.py::start_tasks: header x-organization-id",
+          "POST reworkd_platform/web/api/agent/views.py::summarize: header x-organization-id"
+        ]
+      },
+      "http": {
+        "calls": 6,
+        "literal": 4,
+        "false_rejection": [
+          {
+            "call": "reworkd_platform/web/api/metadata.py:30",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "reworkd_platform/services/oauth_installers.py:84",
+            "target": "https://auth.sid.ai/oauth/token",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "reworkd_platform/services/oauth_installers.py:114",
+            "target": "https://auth.sid.ai/oauth/revoke",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "reworkd_platform/web/api/agent/tools/search.py:34",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "reworkd_platform/web/api/agent/tools/sidsearch.py:28",
+            "target": "https://api.sid.ai/v1/users/me/query",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "reworkd_platform/web/api/agent/tools/sidsearch.py:47",
+            "target": "https://auth.sid.ai/oauth/token",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 30,
+        "negatives": 12,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 22,
+        "gold_not_flagged": [
+          "route reworkd_platform/web/api/monitoring/views.py::health_check",
+          "route reworkd_platform/web/api/monitoring/views.py::error_check",
+          "route reworkd_platform/web/api/agent/views.py::start_tasks",
+          "route reworkd_platform/web/api/agent/views.py::analyze_tasks",
+          "route reworkd_platform/web/api/agent/views.py::execute_tasks",
+          "route reworkd_platform/web/api/agent/views.py::create_tasks",
+          "route reworkd_platform/web/api/agent/views.py::summarize",
+          "route reworkd_platform/web/api/agent/views.py::chat",
+          "route reworkd_platform/web/api/agent/views.py::get_user_tools",
+          "route reworkd_platform/web/api/models/views.py::get_models",
+          "route reworkd_platform/web/api/auth/views.py::organizations",
+          "route reworkd_platform/web/api/auth/views.py::oauth_install",
+          "route reworkd_platform/web/api/auth/views.py::oauth_uninstall",
+          "route reworkd_platform/web/api/auth/views.py::oauth_callback",
+          "route reworkd_platform/web/api/auth/views.py::sid_info",
+          "route reworkd_platform/web/api/metadata.py::extract_metadata",
+          "http reworkd_platform/web/api/metadata.py:30",
+          "http reworkd_platform/services/oauth_installers.py:84",
+          "http reworkd_platform/services/oauth_installers.py:114",
+          "http reworkd_platform/web/api/agent/tools/search.py:34",
+          "http reworkd_platform/web/api/agent/tools/sidsearch.py:28",
+          "http reworkd_platform/web/api/agent/tools/sidsearch.py:47"
+        ]
+      },
+      "seconds": 0.22
+    },
+    {
+      "case": "kibo",
+      "group": "nghiệm thu",
+      "files": 138,
+      "routes": {
+        "checked": 64,
+        "false_rejection": [
+          {
+            "route": "GET app/api/v1/auth/router.py::get_me",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/auth/router.py::login_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/auth/router.py::register_public_owner",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/auth/router.py::login_super_admin",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/auth/router.py::forgot_password",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/auth/router.py::reset_password",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/auth/router.py::change_password",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/super_admin/router.py::create_super_admin",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/super_admin/router.py::list_super_admins",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/tenant/router.py::create_tenant",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH app/api/v1/tenant/router.py::update_tenant_settings",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH app/api/v1/tenant/router.py::assign_plan",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/tenant/router.py::get_tenant_settings",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/tenant/router.py::get_message_templates",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH app/api/v1/tenant/router.py::update_message_templates",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/tenant/router.py::get_tenant",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/tenant/router.py::list_tenants",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH app/api/v1/tenant/router.py::update_tenant",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/tenant/payments_router.py::register_payment",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/tenant/payments_router.py::list_payments",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/users/router.py::create_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/users/router.py::create_staff_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH app/api/v1/users/router.py::activate_staff_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/users/router.py::get_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/users/router.py::list_users",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH app/api/v1/users/router.py::update_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE app/api/v1/users/router.py::delete_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/clients/router.py::create_client",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/clients/router.py::get_client",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/clients/router.py::list_clients",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH app/api/v1/clients/router.py::update_client",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE app/api/v1/clients/router.py::delete_client",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/services/router.py::create_service",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/services/router.py::get_service",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/services/router.py::list_services",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH app/api/v1/services/router.py::update_service",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE app/api/v1/services/router.py::soft_delete_service",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/appointments/router.py::create_appointment",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/appointments/router.py::get_agenda",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/appointments/router.py::get_weekly_agenda",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/appointments/router.py::list_appointments",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/appointments/router.py::get_availability",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH app/api/v1/appointments/router.py::change_appointment_status",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH app/api/v1/appointments/router.py::reschedule_appointment",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/appointments/router.py::get_appointment",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH app/api/v1/appointments/router.py::update_appointment",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE app/api/v1/appointments/router.py::cancel_appointment",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/waitlists/router.py::create_waitlist",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/waitlists/router.py::list_waitlists",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH app/api/v1/waitlists/router.py::resolve_waitlist",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/whatsapp/router.py::get_outbox_stats",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/whatsapp/router.py::create_whatsapp_instance",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/whatsapp/router.py::get_whatsapp_qr",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/whatsapp/router.py::get_whatsapp_status",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE app/api/v1/whatsapp/router.py::logout_whatsapp_instance",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/whatsapp/router.py::sync_whatsapp_webhook",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/whatsapp/router.py::enqueue_message",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/whatsapp/router.py::list_outbox_messages",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/whatsapp/router.py::retry_outbox_message",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/whatsapp/router.py::evolution_webhook",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/v1/whatsapp/router.py::whatsapp_webhook",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/test.py::trigger_manual_reminder",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/v1/test.py::get_appointment_test_info",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/main.py::health_check",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 244,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 64,
+        "dependency_lines": 120,
+        "dependency_false_rejection": [
+          "app/api/v1/appointments/router.py::cancel_appointment get_db @ app/api/v1/appointments/router.py:184-184",
+          "app/api/v1/appointments/router.py::cancel_appointment get_current_tenant_user @ app/api/v1/appointments/router.py:185-185",
+          "app/api/v1/clients/router.py::delete_client get_db @ app/api/v1/clients/router.py:75-75",
+          "app/api/v1/clients/router.py::delete_client get_current_tenant_user @ app/api/v1/clients/router.py:76-76",
+          "app/api/v1/services/router.py::soft_delete_service get_db @ app/api/v1/services/router.py:74-74",
+          "app/api/v1/services/router.py::soft_delete_service require_owner @ app/api/v1/services/router.py:75-75",
+          "app/api/v1/users/router.py::delete_user get_db @ app/api/v1/users/router.py:118-118",
+          "app/api/v1/users/router.py::delete_user get_tenant_id_from_token @ app/api/v1/users/router.py:119-119",
+          "app/api/v1/whatsapp/router.py::logout_whatsapp_instance get_db @ app/api/v1/whatsapp/router.py:334-334",
+          "app/api/v1/whatsapp/router.py::logout_whatsapp_instance require_owner @ app/api/v1/whatsapp/router.py:335-335",
+          "app/api/v1/appointments/router.py::get_agenda get_db @ app/api/v1/appointments/router.py:50-50",
+          "app/api/v1/appointments/router.py::get_agenda get_current_tenant_user @ app/api/v1/appointments/router.py:51-51",
+          "app/api/v1/appointments/router.py::get_appointment get_db @ app/api/v1/appointments/router.py:150-150",
+          "app/api/v1/appointments/router.py::get_appointment get_current_tenant_user @ app/api/v1/appointments/router.py:151-151",
+          "app/api/v1/appointments/router.py::get_availability get_db @ app/api/v1/appointments/router.py:99-99",
+          "app/api/v1/appointments/router.py::get_availability get_current_tenant_user @ app/api/v1/appointments/router.py:100-100",
+          "app/api/v1/appointments/router.py::get_weekly_agenda get_db @ app/api/v1/appointments/router.py:67-67",
+          "app/api/v1/appointments/router.py::get_weekly_agenda get_current_tenant_user @ app/api/v1/appointments/router.py:68-68",
+          "app/api/v1/appointments/router.py::list_appointments get_db @ app/api/v1/appointments/router.py:83-83",
+          "app/api/v1/appointments/router.py::list_appointments get_current_tenant_user @ app/api/v1/appointments/router.py:84-84",
+          "app/api/v1/auth/router.py::get_me get_db @ app/api/v1/auth/router.py:28-28",
+          "app/api/v1/auth/router.py::get_me get_current_tenant_user @ app/api/v1/auth/router.py:29-29",
+          "app/api/v1/clients/router.py::get_client get_db @ app/api/v1/clients/router.py:35-35",
+          "app/api/v1/clients/router.py::get_client get_current_tenant_user @ app/api/v1/clients/router.py:36-36",
+          "app/api/v1/clients/router.py::list_clients get_db @ app/api/v1/clients/router.py:45-45",
+          "app/api/v1/clients/router.py::list_clients get_current_tenant_user @ app/api/v1/clients/router.py:46-46",
+          "app/api/v1/services/router.py::get_service get_db @ app/api/v1/services/router.py:35-35",
+          "app/api/v1/services/router.py::get_service get_current_tenant_user @ app/api/v1/services/router.py:36-36",
+          "app/api/v1/services/router.py::list_services get_db @ app/api/v1/services/router.py:45-45",
+          "app/api/v1/services/router.py::list_services get_current_tenant_user @ app/api/v1/services/router.py:46-46",
+          "app/api/v1/super_admin/router.py::list_super_admins get_db @ app/api/v1/super_admin/router.py:25-25",
+          "app/api/v1/tenant/payments_router.py::list_payments get_db @ app/api/v1/tenant/payments_router.py:36-36",
+          "app/api/v1/tenant/payments_router.py::list_payments get_tenant_id_from_token @ app/api/v1/tenant/payments_router.py:37-37",
+          "app/api/v1/tenant/router.py::get_message_templates get_db @ app/api/v1/tenant/router.py:98-98",
+          "app/api/v1/tenant/router.py::get_message_templates require_owner @ app/api/v1/tenant/router.py:99-99",
+          "app/api/v1/tenant/router.py::get_message_templates check_plan_permission @ app/api/v1/tenant/router.py:100-100",
+          "app/api/v1/tenant/router.py::get_tenant get_db @ app/api/v1/tenant/router.py:128-128",
+          "app/api/v1/tenant/router.py::get_tenant get_super_admin_id_from_token @ app/api/v1/tenant/router.py:129-129",
+          "app/api/v1/tenant/router.py::get_tenant_settings get_db @ app/api/v1/tenant/router.py:85-85",
+          "app/api/v1/tenant/router.py::get_tenant_settings require_owner @ app/api/v1/tenant/router.py:86-86",
+          "app/api/v1/tenant/router.py::list_tenants get_db @ app/api/v1/tenant/router.py:139-139",
+          "app/api/v1/tenant/router.py::list_tenants get_super_admin_id_from_token @ app/api/v1/tenant/router.py:140-140",
+          "app/api/v1/test.py::get_appointment_test_info get_db @ app/api/v1/test.py:238-238",
+          "app/api/v1/test.py::trigger_manual_reminder get_db @ app/api/v1/test.py:27-27",
+          "app/api/v1/users/router.py::get_user get_db @ app/api/v1/users/router.py:70-70",
+          "app/api/v1/users/router.py::get_user get_tenant_id_from_token @ app/api/v1/users/router.py:71-71",
+          "app/api/v1/users/router.py::list_users get_db @ app/api/v1/users/router.py:83-83",
+          "app/api/v1/users/router.py::list_users get_tenant_id_from_token @ app/api/v1/users/router.py:84-84",
+          "app/api/v1/waitlists/router.py::list_waitlists get_db @ app/api/v1/waitlists/router.py:39-39",
+          "app/api/v1/waitlists/router.py::list_waitlists check_plan_permission @ app/api/v1/waitlists/router.py:40-40",
+          "app/api/v1/whatsapp/router.py::get_outbox_stats get_db @ app/api/v1/whatsapp/router.py:293-293",
+          "app/api/v1/whatsapp/router.py::get_outbox_stats require_owner @ app/api/v1/whatsapp/router.py:294-294",
+          "app/api/v1/whatsapp/router.py::get_outbox_stats check_plan_permission @ app/api/v1/whatsapp/router.py:295-295",
+          "app/api/v1/whatsapp/router.py::get_whatsapp_qr get_db @ app/api/v1/whatsapp/router.py:314-314",
+          "app/api/v1/whatsapp/router.py::get_whatsapp_qr require_owner @ app/api/v1/whatsapp/router.py:315-315",
+          "app/api/v1/whatsapp/router.py::get_whatsapp_status get_db @ app/api/v1/whatsapp/router.py:324-324",
+          "app/api/v1/whatsapp/router.py::get_whatsapp_status require_owner @ app/api/v1/whatsapp/router.py:325-325",
+          "app/api/v1/whatsapp/router.py::list_outbox_messages get_db @ app/api/v1/whatsapp/router.py:371-371",
+          "app/api/v1/whatsapp/router.py::list_outbox_messages require_owner @ app/api/v1/whatsapp/router.py:372-372",
+          "app/api/v1/whatsapp/router.py::list_outbox_messages check_plan_permission @ app/api/v1/whatsapp/router.py:373-373",
+          "app/api/v1/appointments/router.py::change_appointment_status get_db @ app/api/v1/appointments/router.py:116-116",
+          "app/api/v1/appointments/router.py::change_appointment_status get_current_tenant_user @ app/api/v1/appointments/router.py:117-117",
+          "app/api/v1/appointments/router.py::reschedule_appointment get_db @ app/api/v1/appointments/router.py:133-133",
+          "app/api/v1/appointments/router.py::reschedule_appointment get_current_tenant_user @ app/api/v1/appointments/router.py:134-134",
+          "app/api/v1/appointments/router.py::update_appointment get_db @ app/api/v1/appointments/router.py:162-162",
+          "app/api/v1/appointments/router.py::update_appointment get_current_tenant_user @ app/api/v1/appointments/router.py:163-163",
+          "app/api/v1/clients/router.py::update_client get_db @ app/api/v1/clients/router.py:57-57",
+          "app/api/v1/clients/router.py::update_client get_current_tenant_user @ app/api/v1/clients/router.py:58-58",
+          "app/api/v1/services/router.py::update_service get_db @ app/api/v1/services/router.py:57-57",
+          "app/api/v1/services/router.py::update_service require_owner @ app/api/v1/services/router.py:58-58",
+          "app/api/v1/tenant/router.py::assign_plan get_db @ app/api/v1/tenant/router.py:74-74",
+          "app/api/v1/tenant/router.py::assign_plan require_owner @ app/api/v1/tenant/router.py:75-75",
+          "app/api/v1/tenant/router.py::update_message_templates get_db @ app/api/v1/tenant/router.py:113-113",
+          "app/api/v1/tenant/router.py::update_message_templates require_owner @ app/api/v1/tenant/router.py:114-114",
+          "app/api/v1/tenant/router.py::update_message_templates check_plan_permission @ app/api/v1/tenant/router.py:115-115",
+          "app/api/v1/tenant/router.py::update_tenant get_db @ app/api/v1/tenant/router.py:152-152",
+          "app/api/v1/tenant/router.py::update_tenant get_super_admin_id_from_token @ app/api/v1/tenant/router.py:153-153",
+          "app/api/v1/tenant/router.py::update_tenant_settings get_db @ app/api/v1/tenant/router.py:47-47",
+          "app/api/v1/tenant/router.py::update_tenant_settings require_owner @ app/api/v1/tenant/router.py:48-48",
+          "app/api/v1/users/router.py::activate_staff_user get_db @ app/api/v1/users/router.py:59-59",
+          "app/api/v1/users/router.py::activate_staff_user require_owner @ app/api/v1/users/router.py:60-60",
+          "app/api/v1/users/router.py::update_user get_db @ app/api/v1/users/router.py:98-98",
+          "app/api/v1/users/router.py::update_user get_tenant_id_from_token @ app/api/v1/users/router.py:99-99",
+          "app/api/v1/waitlists/router.py::resolve_waitlist get_db @ app/api/v1/waitlists/router.py:50-50",
+          "app/api/v1/waitlists/router.py::resolve_waitlist check_plan_permission @ app/api/v1/waitlists/router.py:51-51",
+          "app/api/v1/appointments/router.py::create_appointment get_db @ app/api/v1/appointments/router.py:28-28",
+          "app/api/v1/appointments/router.py::create_appointment get_current_tenant_user @ app/api/v1/appointments/router.py:29-29",
+          "app/api/v1/auth/router.py::change_password get_db @ app/api/v1/auth/router.py:104-104",
+          "app/api/v1/auth/router.py::forgot_password get_db @ app/api/v1/auth/router.py:84-84",
+          "app/api/v1/auth/router.py::login_super_admin get_db @ app/api/v1/auth/router.py:71-71",
+          "app/api/v1/auth/router.py::login_user get_db @ app/api/v1/auth/router.py:39-39",
+          "app/api/v1/auth/router.py::register_public_owner get_db @ app/api/v1/auth/router.py:56-56",
+          "app/api/v1/auth/router.py::reset_password get_db @ app/api/v1/auth/router.py:94-94",
+          "app/api/v1/clients/router.py::create_client get_db @ app/api/v1/clients/router.py:19-19",
+          "app/api/v1/clients/router.py::create_client get_current_tenant_user @ app/api/v1/clients/router.py:20-20",
+          "app/api/v1/services/router.py::create_service get_db @ app/api/v1/services/router.py:19-19",
+          "app/api/v1/services/router.py::create_service require_owner @ app/api/v1/services/router.py:20-20",
+          "app/api/v1/super_admin/router.py::create_super_admin get_db @ app/api/v1/super_admin/router.py:16-16",
+          "app/api/v1/tenant/payments_router.py::register_payment get_db @ app/api/v1/tenant/payments_router.py:18-18",
+          "app/api/v1/tenant/payments_router.py::register_payment get_tenant_id_from_token @ app/api/v1/tenant/payments_router.py:19-19",
+          "app/api/v1/tenant/router.py::create_tenant get_db @ app/api/v1/tenant/router.py:27-27",
+          "app/api/v1/tenant/router.py::create_tenant get_super_admin_id_from_token @ app/api/v1/tenant/router.py:28-28",
+          "app/api/v1/users/router.py::create_staff_user get_db @ app/api/v1/users/router.py:43-43",
+          "app/api/v1/users/router.py::create_staff_user require_owner @ app/api/v1/users/router.py:44-44",
+          "app/api/v1/users/router.py::create_user get_db @ app/api/v1/users/router.py:25-25",
+          "app/api/v1/users/router.py::create_user require_owner @ app/api/v1/users/router.py:26-26",
+          "app/api/v1/waitlists/router.py::create_waitlist get_db @ app/api/v1/waitlists/router.py:21-21",
+          "app/api/v1/waitlists/router.py::create_waitlist check_plan_permission @ app/api/v1/waitlists/router.py:22-22",
+          "app/api/v1/whatsapp/router.py::create_whatsapp_instance get_db @ app/api/v1/whatsapp/router.py:304-304",
+          "app/api/v1/whatsapp/router.py::create_whatsapp_instance require_owner @ app/api/v1/whatsapp/router.py:305-305",
+          "app/api/v1/whatsapp/router.py::enqueue_message get_db @ app/api/v1/whatsapp/router.py:355-355",
+          "app/api/v1/whatsapp/router.py::enqueue_message require_owner @ app/api/v1/whatsapp/router.py:356-356",
+          "app/api/v1/whatsapp/router.py::enqueue_message check_plan_permission @ app/api/v1/whatsapp/router.py:357-357",
+          "app/api/v1/whatsapp/router.py::evolution_webhook get_db @ app/api/v1/whatsapp/router.py:396-396",
+          "app/api/v1/whatsapp/router.py::retry_outbox_message get_db @ app/api/v1/whatsapp/router.py:383-383",
+          "app/api/v1/whatsapp/router.py::retry_outbox_message require_owner @ app/api/v1/whatsapp/router.py:384-384",
+          "app/api/v1/whatsapp/router.py::retry_outbox_message check_plan_permission @ app/api/v1/whatsapp/router.py:385-385",
+          "app/api/v1/whatsapp/router.py::sync_whatsapp_webhook get_db @ app/api/v1/whatsapp/router.py:344-344",
+          "app/api/v1/whatsapp/router.py::sync_whatsapp_webhook require_owner @ app/api/v1/whatsapp/router.py:345-345",
+          "app/api/v1/whatsapp/router.py::whatsapp_webhook get_db @ app/api/v1/whatsapp/router.py:452-452"
+        ],
+        "dependency_false_acceptance": [],
+        "mutations": 240,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 51,
+        "missed": [
+          "DELETE app/api/v1/appointments/router.py::cancel_appointment: header authorization",
+          "DELETE app/api/v1/clients/router.py::delete_client: header authorization",
+          "DELETE app/api/v1/services/router.py::soft_delete_service: header authorization",
+          "DELETE app/api/v1/users/router.py::delete_user: header authorization",
+          "DELETE app/api/v1/whatsapp/router.py::logout_whatsapp_instance: header authorization",
+          "GET app/api/v1/appointments/router.py::get_agenda: header authorization",
+          "GET app/api/v1/appointments/router.py::get_appointment: header authorization",
+          "GET app/api/v1/appointments/router.py::get_availability: header authorization",
+          "GET app/api/v1/appointments/router.py::get_weekly_agenda: header authorization",
+          "GET app/api/v1/appointments/router.py::list_appointments: header authorization",
+          "GET app/api/v1/auth/router.py::get_me: header authorization",
+          "GET app/api/v1/clients/router.py::get_client: header authorization",
+          "GET app/api/v1/clients/router.py::list_clients: header authorization",
+          "GET app/api/v1/services/router.py::get_service: header authorization",
+          "GET app/api/v1/services/router.py::list_services: header authorization",
+          "GET app/api/v1/tenant/payments_router.py::list_payments: header authorization",
+          "GET app/api/v1/tenant/router.py::get_message_templates: header authorization",
+          "GET app/api/v1/tenant/router.py::get_tenant: header authorization",
+          "GET app/api/v1/tenant/router.py::get_tenant_settings: header authorization",
+          "GET app/api/v1/tenant/router.py::list_tenants: header authorization",
+          "GET app/api/v1/users/router.py::get_user: header authorization",
+          "GET app/api/v1/users/router.py::list_users: header authorization",
+          "GET app/api/v1/waitlists/router.py::list_waitlists: header authorization",
+          "GET app/api/v1/whatsapp/router.py::get_outbox_stats: header authorization",
+          "GET app/api/v1/whatsapp/router.py::get_whatsapp_qr: header authorization",
+          "GET app/api/v1/whatsapp/router.py::get_whatsapp_status: header authorization",
+          "GET app/api/v1/whatsapp/router.py::list_outbox_messages: header authorization",
+          "PATCH app/api/v1/appointments/router.py::change_appointment_status: header authorization",
+          "PATCH app/api/v1/appointments/router.py::reschedule_appointment: header authorization",
+          "PATCH app/api/v1/appointments/router.py::update_appointment: header authorization",
+          "PATCH app/api/v1/clients/router.py::update_client: header authorization",
+          "PATCH app/api/v1/services/router.py::update_service: header authorization",
+          "PATCH app/api/v1/tenant/router.py::assign_plan: header authorization",
+          "PATCH app/api/v1/tenant/router.py::update_message_templates: header authorization",
+          "PATCH app/api/v1/tenant/router.py::update_tenant: header authorization",
+          "PATCH app/api/v1/tenant/router.py::update_tenant_settings: header authorization",
+          "PATCH app/api/v1/users/router.py::activate_staff_user: header authorization",
+          "PATCH app/api/v1/users/router.py::update_user: header authorization",
+          "PATCH app/api/v1/waitlists/router.py::resolve_waitlist: header authorization",
+          "POST app/api/v1/appointments/router.py::create_appointment: header authorization",
+          "POST app/api/v1/clients/router.py::create_client: header authorization",
+          "POST app/api/v1/services/router.py::create_service: header authorization",
+          "POST app/api/v1/tenant/payments_router.py::register_payment: header authorization",
+          "POST app/api/v1/tenant/router.py::create_tenant: header authorization",
+          "POST app/api/v1/users/router.py::create_staff_user: header authorization",
+          "POST app/api/v1/users/router.py::create_user: header authorization",
+          "POST app/api/v1/waitlists/router.py::create_waitlist: header authorization",
+          "POST app/api/v1/whatsapp/router.py::create_whatsapp_instance: header authorization",
+          "POST app/api/v1/whatsapp/router.py::enqueue_message: header authorization",
+          "POST app/api/v1/whatsapp/router.py::retry_outbox_message: header authorization",
+          "POST app/api/v1/whatsapp/router.py::sync_whatsapp_webhook: header authorization"
+        ]
+      },
+      "http": {
+        "calls": 8,
+        "literal": 0,
+        "false_rejection": [
+          {
+            "call": "app/services/whatsapp/evolution_client.py:88",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:104",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:124",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:162",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:182",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:204",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:239",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:275",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "gold_vs_rule": [
+          {
+            "call": "app/services/whatsapp/evolution_client.py:162",
+            "gold_method": "GET"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:182",
+            "gold_method": "GET"
+          }
+        ],
+        "mutations": 21,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 72,
+        "gold_not_flagged": [
+          "route app/api/v1/auth/router.py::get_me",
+          "route app/api/v1/auth/router.py::login_user",
+          "route app/api/v1/auth/router.py::register_public_owner",
+          "route app/api/v1/auth/router.py::login_super_admin",
+          "route app/api/v1/auth/router.py::forgot_password",
+          "route app/api/v1/auth/router.py::reset_password",
+          "route app/api/v1/auth/router.py::change_password",
+          "route app/api/v1/super_admin/router.py::create_super_admin",
+          "route app/api/v1/super_admin/router.py::list_super_admins",
+          "route app/api/v1/tenant/router.py::create_tenant",
+          "route app/api/v1/tenant/router.py::update_tenant_settings",
+          "route app/api/v1/tenant/router.py::assign_plan",
+          "route app/api/v1/tenant/router.py::get_tenant_settings",
+          "route app/api/v1/tenant/router.py::get_message_templates",
+          "route app/api/v1/tenant/router.py::update_message_templates",
+          "route app/api/v1/tenant/router.py::get_tenant",
+          "route app/api/v1/tenant/router.py::list_tenants",
+          "route app/api/v1/tenant/router.py::update_tenant",
+          "route app/api/v1/tenant/payments_router.py::register_payment",
+          "route app/api/v1/tenant/payments_router.py::list_payments",
+          "route app/api/v1/users/router.py::create_user",
+          "route app/api/v1/users/router.py::create_staff_user",
+          "route app/api/v1/users/router.py::activate_staff_user",
+          "route app/api/v1/users/router.py::get_user",
+          "route app/api/v1/users/router.py::list_users",
+          "route app/api/v1/users/router.py::update_user",
+          "route app/api/v1/users/router.py::delete_user",
+          "route app/api/v1/clients/router.py::create_client",
+          "route app/api/v1/clients/router.py::get_client",
+          "route app/api/v1/clients/router.py::list_clients",
+          "route app/api/v1/clients/router.py::update_client",
+          "route app/api/v1/clients/router.py::delete_client",
+          "route app/api/v1/services/router.py::create_service",
+          "route app/api/v1/services/router.py::get_service",
+          "route app/api/v1/services/router.py::list_services",
+          "route app/api/v1/services/router.py::update_service",
+          "route app/api/v1/services/router.py::soft_delete_service",
+          "route app/api/v1/appointments/router.py::create_appointment",
+          "route app/api/v1/appointments/router.py::get_agenda",
+          "route app/api/v1/appointments/router.py::get_weekly_agenda",
+          "route app/api/v1/appointments/router.py::list_appointments",
+          "route app/api/v1/appointments/router.py::get_availability",
+          "route app/api/v1/appointments/router.py::change_appointment_status",
+          "route app/api/v1/appointments/router.py::reschedule_appointment",
+          "route app/api/v1/appointments/router.py::get_appointment",
+          "route app/api/v1/appointments/router.py::update_appointment",
+          "route app/api/v1/appointments/router.py::cancel_appointment",
+          "route app/api/v1/waitlists/router.py::create_waitlist",
+          "route app/api/v1/waitlists/router.py::list_waitlists",
+          "route app/api/v1/waitlists/router.py::resolve_waitlist",
+          "route app/api/v1/whatsapp/router.py::get_outbox_stats",
+          "route app/api/v1/whatsapp/router.py::create_whatsapp_instance",
+          "route app/api/v1/whatsapp/router.py::get_whatsapp_qr",
+          "route app/api/v1/whatsapp/router.py::get_whatsapp_status",
+          "route app/api/v1/whatsapp/router.py::logout_whatsapp_instance",
+          "route app/api/v1/whatsapp/router.py::sync_whatsapp_webhook",
+          "route app/api/v1/whatsapp/router.py::enqueue_message",
+          "route app/api/v1/whatsapp/router.py::list_outbox_messages",
+          "route app/api/v1/whatsapp/router.py::retry_outbox_message",
+          "route app/api/v1/whatsapp/router.py::evolution_webhook",
+          "route app/api/v1/whatsapp/router.py::whatsapp_webhook",
+          "route app/api/v1/test.py::trigger_manual_reminder",
+          "route app/api/v1/test.py::get_appointment_test_info",
+          "route app/main.py::health_check",
+          "http app/services/whatsapp/evolution_client.py:88",
+          "http app/services/whatsapp/evolution_client.py:104",
+          "http app/services/whatsapp/evolution_client.py:124",
+          "http app/services/whatsapp/evolution_client.py:162",
+          "http app/services/whatsapp/evolution_client.py:182",
+          "http app/services/whatsapp/evolution_client.py:204",
+          "http app/services/whatsapp/evolution_client.py:239",
+          "http app/services/whatsapp/evolution_client.py:275"
+        ]
+      },
+      "seconds": 1.58
+    },
+    {
+      "case": "fixture/exclusions",
+      "group": "fixture",
+      "files": 7,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "GET app/routers/orders.py::list_orders",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 4,
+        "negatives": 1,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 1,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route app/routers/orders.py::list_orders"
+        ]
+      },
+      "seconds": 0.02
+    },
+    {
+      "case": "fixture/file_roles",
+      "group": "fixture",
+      "files": 13,
+      "routes": {
+        "checked": 3,
+        "false_rejection": [
+          {
+            "route": "POST app/api/orders.py::create_order",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/orders.py::read_order",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/reports.py::daily_report",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 9,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 3,
+        "dependency_lines": 3,
+        "dependency_false_rejection": [
+          "app/api/orders.py::read_order get_db @ app/api/orders.py:16-16",
+          "app/api/reports.py::daily_report get_db @ app/api/reports.py:11-11",
+          "app/api/orders.py::create_order get_db @ app/api/orders.py:11-11"
+        ],
+        "dependency_false_acceptance": [],
+        "mutations": 3,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 3,
+        "gold_not_flagged": [
+          "route app/api/orders.py::create_order",
+          "route app/api/orders.py::read_order",
+          "route app/api/reports.py::daily_report"
+        ]
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/http_calls",
+      "group": "fixture",
+      "files": 8,
+      "routes": {
+        "checked": 3,
+        "false_rejection": [
+          {
+            "route": "GET app/routes.py::get_order",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/routes.py::refresh_rates",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/routes.py::reserve",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 12,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 3,
+        "dependency_lines": 1,
+        "dependency_false_rejection": [
+          "app/routes.py::get_order get_db @ app/routes.py:11-11"
+        ],
+        "dependency_false_acceptance": [],
+        "mutations": 1,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 11,
+        "literal": 7,
+        "false_rejection": [
+          {
+            "call": "app/clients.py:13",
+            "target": "https://rates.example.com/v1/latest",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/clients.py:18",
+            "target": "https://ship.example.com/orders",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/clients.py:23",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/clients.py:28",
+            "target": "https://users.example.com/profile",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/clients.py:33",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/clients.py:37",
+            "target": "https://reports.example.com/daily.csv",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/clients.py:42",
+            "target": "https://audit.example.com/ping",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/clients.py:46",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/clients.py:51",
+            "target": "https://weather.example.com/today",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/clients.py:56",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "call": "app/clients.py:60",
+            "target": "https://cache.example.com/purge",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 51,
+        "negatives": 1,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 14,
+        "gold_not_flagged": [
+          "route app/routes.py::get_order",
+          "route app/routes.py::refresh_rates",
+          "route app/routes.py::reserve",
+          "http app/clients.py:13",
+          "http app/clients.py:18",
+          "http app/clients.py:23",
+          "http app/clients.py:28",
+          "http app/clients.py:33",
+          "http app/clients.py:37",
+          "http app/clients.py:42",
+          "http app/clients.py:46",
+          "http app/clients.py:51",
+          "http app/clients.py:56",
+          "http app/clients.py:60"
+        ]
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/params_models",
+      "group": "fixture",
+      "files": 8,
+      "routes": {
+        "checked": 11,
+        "false_rejection": [
+          {
+            "route": "GET app/routes.py::list_items",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/routes.py::get_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/routes.py::get_item_full",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/routes.py::create_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT app/routes.py::update_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH app/routes.py::set_main_tag",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE app/routes.py::delete_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/routes.py::upload",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/routes.py::login",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/routes.py::legacy_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/routes.py::go",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 44,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 11,
+        "dependency_lines": 2,
+        "dependency_false_rejection": [
+          "app/routes.py::list_items search_filter @ app/routes.py:14-14",
+          "app/routes.py::create_item tenant @ app/routes.py:33-33"
+        ],
+        "dependency_false_acceptance": [],
+        "mutations": 4,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 4,
+        "missed": [
+          "GET app/routes.py::list_items: query limit",
+          "GET app/routes.py::list_items: query q",
+          "GET app/routes.py::list_items: query skip",
+          "POST app/routes.py::create_item: header x-tenant-id"
+        ]
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 11,
+        "gold_not_flagged": [
+          "route app/routes.py::list_items",
+          "route app/routes.py::get_item",
+          "route app/routes.py::get_item_full",
+          "route app/routes.py::create_item",
+          "route app/routes.py::update_item",
+          "route app/routes.py::set_main_tag",
+          "route app/routes.py::delete_item",
+          "route app/routes.py::upload",
+          "route app/routes.py::login",
+          "route app/routes.py::legacy_item",
+          "route app/routes.py::go"
+        ]
+      },
+      "seconds": 0.05
+    },
+    {
+      "case": "fixture/prefix_chain",
+      "group": "fixture",
+      "files": 12,
+      "routes": {
+        "checked": 10,
+        "false_rejection": [
+          {
+            "route": "GET app/main.py::root",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/items.py::list_items",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/items.py::get_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/items.py::sync_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/api/items.py::sync_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/users.py::read_me",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/health.py::ping",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/legacy.py::legacy_get_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/admin.py::admin_stats",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/sub.py::sub_hello",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 28,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 10,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 11,
+        "gold_not_flagged": [
+          "route app/main.py::root",
+          "route app/api/items.py::list_items",
+          "route app/api/items.py::get_item",
+          "route app/api/items.py::sync_item",
+          "route app/api/items.py::sync_item",
+          "route app/api/users.py::read_me",
+          "route app/api/health.py::ping",
+          "route app/api/health.py::ping",
+          "route app/api/legacy.py::legacy_get_item",
+          "route app/api/admin.py::admin_stats",
+          "route app/sub.py::sub_hello"
+        ]
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/pydantic_v1",
+      "group": "fixture",
+      "files": 3,
+      "routes": {
+        "checked": 2,
+        "false_rejection": [
+          {
+            "route": "POST app/main.py::create_note",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/main.py::get_note",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 8,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 2,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 2,
+        "gold_not_flagged": [
+          "route app/main.py::create_note",
+          "route app/main.py::get_note"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "fixture/fr029_e2e",
+      "group": "fixture",
+      "files": 5,
+      "routes": {
+        "checked": 2,
+        "false_rejection": [
+          {
+            "route": "POST app/api/items.py::create_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/api/items.py::read_item",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 8,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 2,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 1,
+        "literal": 1,
+        "false_rejection": [
+          {
+            "call": "app/api/items.py:11",
+            "target": "https://audit.example.com/log",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 5,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 3,
+        "gold_not_flagged": [
+          "route app/api/items.py::create_item",
+          "route app/api/items.py::read_item",
+          "http app/api/items.py:11"
+        ]
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "teamhide-fastapi-boilerplate",
+      "group": "golden v1",
+      "files": 84,
+      "routes": {
+        "checked": 5,
+        "false_rejection": [
+          {
+            "route": "POST app/auth/adapter/input/api/v1/auth.py::refresh_token",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/auth/adapter/input/api/v1/auth.py::verify_token",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET app/user/adapter/input/api/v1/user.py::get_user_list",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/user/adapter/input/api/v1/user.py::create_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST app/user/adapter/input/api/v1/user.py::login",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 19,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 5,
+        "gold_not_flagged": [
+          "route app/auth/adapter/input/api/v1/auth.py::refresh_token",
+          "route app/auth/adapter/input/api/v1/auth.py::verify_token",
+          "route app/user/adapter/input/api/v1/user.py::get_user_list",
+          "route app/user/adapter/input/api/v1/user.py::create_user",
+          "route app/user/adapter/input/api/v1/user.py::login"
+        ]
+      },
+      "seconds": 0.1
+    },
+    {
+      "case": "full-stack-fastapi-template",
+      "group": "golden v1",
+      "files": 22,
+      "routes": {
+        "checked": 23,
+        "false_rejection": [
+          {
+            "route": "POST backend/app/api/routes/login.py::login_access_token",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/api/routes/login.py::test_token",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/api/routes/login.py::recover_password",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/api/routes/login.py::reset_password",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/api/routes/login.py::recover_password_html_content",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/api/routes/users.py::read_users",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/api/routes/users.py::create_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH backend/app/api/routes/users.py::update_user_me",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH backend/app/api/routes/users.py::update_password_me",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/api/routes/users.py::read_user_me",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/api/routes/users.py::delete_user_me",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/api/routes/users.py::register_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/api/routes/users.py::read_user_by_id",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH backend/app/api/routes/users.py::update_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/api/routes/users.py::delete_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/api/routes/utils.py::test_email",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/api/routes/utils.py::health_check",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/api/routes/items.py::read_items",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/api/routes/items.py::read_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/api/routes/items.py::create_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/api/routes/items.py::update_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/api/routes/items.py::delete_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/api/routes/private.py::create_user",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 90,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 23,
+        "gold_not_flagged": [
+          "route backend/app/api/routes/login.py::login_access_token",
+          "route backend/app/api/routes/login.py::test_token",
+          "route backend/app/api/routes/login.py::recover_password",
+          "route backend/app/api/routes/login.py::reset_password",
+          "route backend/app/api/routes/login.py::recover_password_html_content",
+          "route backend/app/api/routes/users.py::read_users",
+          "route backend/app/api/routes/users.py::create_user",
+          "route backend/app/api/routes/users.py::update_user_me",
+          "route backend/app/api/routes/users.py::update_password_me",
+          "route backend/app/api/routes/users.py::read_user_me",
+          "route backend/app/api/routes/users.py::delete_user_me",
+          "route backend/app/api/routes/users.py::register_user",
+          "route backend/app/api/routes/users.py::read_user_by_id",
+          "route backend/app/api/routes/users.py::update_user",
+          "route backend/app/api/routes/users.py::delete_user",
+          "route backend/app/api/routes/utils.py::test_email",
+          "route backend/app/api/routes/utils.py::health_check",
+          "route backend/app/api/routes/items.py::read_items",
+          "route backend/app/api/routes/items.py::read_item",
+          "route backend/app/api/routes/items.py::create_item",
+          "route backend/app/api/routes/items.py::update_item",
+          "route backend/app/api/routes/items.py::delete_item",
+          "route backend/app/api/routes/private.py::create_user"
+        ]
+      },
+      "seconds": 0.25
+    },
+    {
+      "case": "igorbenav-FastAPI-boilerplate",
+      "group": "golden v1",
+      "files": 112,
+      "routes": {
+        "checked": 34,
+        "false_rejection": [
+          {
+            "route": "POST backend/src/infrastructure/auth/routes.py::login",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/src/infrastructure/auth/routes.py::logout",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/src/infrastructure/auth/routes.py::logout_all",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/src/infrastructure/auth/routes.py::refresh_csrf_token",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/infrastructure/auth/routes.py::check_auth",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/interfaces/main.py::health_check",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/infrastructure/app_factory.py::get_swagger_documentation",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/infrastructure/app_factory.py::get_redoc_documentation",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/infrastructure/app_factory.py::openapi",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/src/modules/api_keys/routes.py::create_api_key",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/api_keys/routes.py::get_user_api_keys",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/api_keys/routes.py::get_api_key",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH backend/src/modules/api_keys/routes.py::update_api_key",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/src/modules/api_keys/routes.py::delete_api_key",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/api_keys/routes.py::get_key_usage",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/api_keys/routes.py::get_key_analytics",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/api_keys/routes.py::get_user_summary",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/rate_limit/routes.py::get_rate_limits",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/rate_limit/routes.py::get_rate_limit",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH backend/src/modules/rate_limit/routes.py::update_rate_limit",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/src/modules/rate_limit/routes.py::delete_rate_limit",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/tier/routes.py::get_tiers",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/tier/routes.py::get_tier_by_name",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/src/modules/user/routes.py::create_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/user/routes.py::get_users",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/user/routes.py::get_current_user_profile",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/user/routes.py::get_user_by_username",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/user/routes.py::get_active_and_inactive_user_by_username",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH backend/src/modules/user/routes.py::update_user_profile",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/src/modules/user/routes.py::delete_user_account",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/src/modules/user/routes.py::gdpr_delete_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/user/routes.py::get_user_rate_limits",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/src/modules/user/routes.py::get_user_tier",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH backend/src/modules/user/routes.py::update_user_tier",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 132,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 34,
+        "gold_not_flagged": [
+          "route backend/src/infrastructure/auth/routes.py::login",
+          "route backend/src/infrastructure/auth/routes.py::logout",
+          "route backend/src/infrastructure/auth/routes.py::logout_all",
+          "route backend/src/infrastructure/auth/routes.py::refresh_csrf_token",
+          "route backend/src/infrastructure/auth/routes.py::check_auth",
+          "route backend/src/interfaces/main.py::health_check",
+          "route backend/src/infrastructure/app_factory.py::get_swagger_documentation",
+          "route backend/src/infrastructure/app_factory.py::get_redoc_documentation",
+          "route backend/src/infrastructure/app_factory.py::openapi",
+          "route backend/src/modules/api_keys/routes.py::create_api_key",
+          "route backend/src/modules/api_keys/routes.py::get_user_api_keys",
+          "route backend/src/modules/api_keys/routes.py::get_api_key",
+          "route backend/src/modules/api_keys/routes.py::update_api_key",
+          "route backend/src/modules/api_keys/routes.py::delete_api_key",
+          "route backend/src/modules/api_keys/routes.py::get_key_usage",
+          "route backend/src/modules/api_keys/routes.py::get_key_analytics",
+          "route backend/src/modules/api_keys/routes.py::get_user_summary",
+          "route backend/src/modules/rate_limit/routes.py::get_rate_limits",
+          "route backend/src/modules/rate_limit/routes.py::get_rate_limit",
+          "route backend/src/modules/rate_limit/routes.py::update_rate_limit",
+          "route backend/src/modules/rate_limit/routes.py::delete_rate_limit",
+          "route backend/src/modules/tier/routes.py::get_tiers",
+          "route backend/src/modules/tier/routes.py::get_tier_by_name",
+          "route backend/src/modules/user/routes.py::create_user",
+          "route backend/src/modules/user/routes.py::get_users",
+          "route backend/src/modules/user/routes.py::get_current_user_profile",
+          "route backend/src/modules/user/routes.py::get_user_by_username",
+          "route backend/src/modules/user/routes.py::get_active_and_inactive_user_by_username",
+          "route backend/src/modules/user/routes.py::update_user_profile",
+          "route backend/src/modules/user/routes.py::delete_user_account",
+          "route backend/src/modules/user/routes.py::gdpr_delete_user",
+          "route backend/src/modules/user/routes.py::get_user_rate_limits",
+          "route backend/src/modules/user/routes.py::get_user_tier",
+          "route backend/src/modules/user/routes.py::update_user_tier"
+        ]
+      },
+      "seconds": 0.79
+    },
+    {
+      "case": "fastapi_best_architecture",
+      "group": "golden v1",
+      "files": 296,
+      "routes": {
+        "checked": 138,
+        "false_rejection": [
+          {
+            "route": "POST backend/app/admin/api/v1/auth/auth.py::login_swagger",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/admin/api/v1/auth/auth.py::login",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/auth/auth.py::get_codes",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/admin/api/v1/auth/auth.py::refresh_token",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/admin/api/v1/auth/auth.py::logout",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/auth/captcha.py::get_captcha",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/log/login_log.py::get_login_logs_paginated",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/admin/api/v1/log/login_log.py::delete_login_logs",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/admin/api/v1/log/login_log.py::delete_all_login_logs",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/log/opera_log.py::get_opera_logs_paginated",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/admin/api/v1/log/opera_log.py::delete_opera_logs",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/admin/api/v1/log/opera_log.py::delete_all_opera_logs",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/monitor/online.py::get_sessions",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/admin/api/v1/monitor/online.py::delete_session",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/monitor/redis.py::get_redis_info",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/monitor/server.py::get_server_info",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/data_rule.py::get_data_rule_models",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/data_rule.py::get_data_rule_model_columns",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/data_rule.py::get_data_rule_value_template_variables",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/data_rule.py::get_all_data_rules",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/data_rule.py::get_data_rule",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/data_rule.py::get_data_rules_paginated",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/admin/api/v1/sys/data_rule.py::create_data_rule",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/data_rule.py::update_data_rule",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/admin/api/v1/sys/data_rule.py::delete_data_rules",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/data_scope.py::get_all_data_scope",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/data_scope.py::get_data_scope",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/data_scope.py::get_data_scope_rules",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/data_scope.py::get_data_scopes_paginated",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/admin/api/v1/sys/data_scope.py::create_data_scope",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/data_scope.py::update_data_scope",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/data_scope.py::update_data_scope_rules",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/admin/api/v1/sys/data_scope.py::delete_data_scopes",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/dept.py::get_dept",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/dept.py::get_dept_tree",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/admin/api/v1/sys/dept.py::create_dept",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/dept.py::update_dept",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/admin/api/v1/sys/dept.py::delete_dept",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/admin/api/v1/sys/file.py::upload_files",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/menu.py::get_user_sidebar",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/menu.py::get_menu",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/menu.py::get_menu_tree",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/admin/api/v1/sys/menu.py::create_menu",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/menu.py::update_menu",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/admin/api/v1/sys/menu.py::delete_menu",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/plugin.py::get_all_plugins",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/plugin.py::plugin_changed",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/admin/api/v1/sys/plugin.py::install_plugin",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/admin/api/v1/sys/plugin.py::uninstall_plugin",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/plugin.py::update_plugin_status",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/plugin.py::download_plugin",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/role.py::get_all_roles",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/role.py::get_role_menu_tree",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/role.py::get_role_scopes",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/role.py::get_role",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/role.py::get_roles_paginated",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/admin/api/v1/sys/role.py::create_role",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/role.py::update_role",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/role.py::update_role_menus",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/role.py::update_role_scopes",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/admin/api/v1/sys/role.py::delete_roles",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/user.py::get_current_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/user.py::get_userinfo",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/user.py::get_user_roles",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/admin/api/v1/sys/user.py::get_users_paginated",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/admin/api/v1/sys/user.py::create_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/user.py::update_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/user.py::update_user_permission",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/user.py::update_user_password",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/user.py::reset_user_password",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/user.py::update_user_nickname",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/user.py::update_user_avatar",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/admin/api/v1/sys/user.py::update_user_email",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/admin/api/v1/sys/user.py::delete_user",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/task/api/v1/control.py::get_task_registered",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/task/api/v1/control.py::revoke_task",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/task/api/v1/result.py::get_task_result",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/task/api/v1/result.py::get_task_results_paginated",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/task/api/v1/result.py::delete_task_result",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/task/api/v1/scheduler.py::get_all_task_schedulers",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/task/api/v1/scheduler.py::get_task_scheduler",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/app/task/api/v1/scheduler.py::get_task_scheduler_paginated",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/task/api/v1/scheduler.py::create_task_scheduler",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/task/api/v1/scheduler.py::update_task_scheduler",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/app/task/api/v1/scheduler.py::update_task_scheduler_status",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/app/task/api/v1/scheduler.py::delete_task_scheduler",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/app/task/api/v1/scheduler.py::execute_task",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/code_generator/api/v1/business.py::get_all_businesses",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/code_generator/api/v1/business.py::get_business",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/code_generator/api/v1/business.py::get_businesses_paginated",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/code_generator/api/v1/business.py::get_business_all_columns",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/plugin/code_generator/api/v1/business.py::create_business",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/plugin/code_generator/api/v1/business.py::update_business",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/plugin/code_generator/api/v1/business.py::delete_business",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/code_generator/api/v1/code_gen.py::get_all_tables",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/plugin/code_generator/api/v1/code_gen.py::import_table",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/code_generator/api/v1/code_gen.py::preview_code",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/code_generator/api/v1/code_gen.py::get_generate_paths",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/plugin/code_generator/api/v1/code_gen.py::generate_code",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/code_generator/api/v1/code_gen.py::download_code",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/code_generator/api/v1/column.py::get_column_types",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/code_generator/api/v1/column.py::get_column",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/plugin/code_generator/api/v1/column.py::create_column",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/plugin/code_generator/api/v1/column.py::update_column",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/plugin/code_generator/api/v1/column.py::delete_column",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/config/api/v1/sys/config.py::get_all_configs",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/config/api/v1/sys/config.py::get_config",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/config/api/v1/sys/config.py::get_configs_paginated",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/plugin/config/api/v1/sys/config.py::create_config",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/plugin/config/api/v1/sys/config.py::bulk_update_config",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/plugin/config/api/v1/sys/config.py::update_config",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/plugin/config/api/v1/sys/config.py::delete_configs",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/dict/api/v1/sys/dict_data.py::get_all_dict_datas",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/dict/api/v1/sys/dict_data.py::get_dict_data",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/dict/api/v1/sys/dict_data.py::get_dict_data_by_type_code",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/dict/api/v1/sys/dict_data.py::get_dict_datas_paginated",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/plugin/dict/api/v1/sys/dict_data.py::create_dict_data",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/plugin/dict/api/v1/sys/dict_data.py::update_dict_data",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/plugin/dict/api/v1/sys/dict_data.py::delete_dict_datas",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/dict/api/v1/sys/dict_type.py::get_all_dict_types",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/dict/api/v1/sys/dict_type.py::get_dict_type",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/dict/api/v1/sys/dict_type.py::get_dict_types_paginated",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/plugin/dict/api/v1/sys/dict_type.py::create_dict_type",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/plugin/dict/api/v1/sys/dict_type.py::update_dict_type",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/plugin/dict/api/v1/sys/dict_type.py::delete_dict_types",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/plugin/email/api/v1/email.py::send_email_captcha",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/notice/api/v1/sys/notice.py::get_notice",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/notice/api/v1/sys/notice.py::get_notices_paginated",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST backend/plugin/notice/api/v1/sys/notice.py::create_notice",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT backend/plugin/notice/api/v1/sys/notice.py::update_notice",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/plugin/notice/api/v1/sys/notice.py::delete_notices",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/oauth2/api/v1/github.py::get_github_oauth2_url",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/oauth2/api/v1/github.py::github_oauth2_callback",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/oauth2/api/v1/google.py::get_google_oauth2_url",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/oauth2/api/v1/google.py::google_oauth2_callback",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/oauth2/api/v1/user_social.py::get_user_bindings",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET backend/plugin/oauth2/api/v1/user_social.py::get_binding_auth_url",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE backend/plugin/oauth2/api/v1/user_social.py::unbinding_user",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 531,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 1,
+        "literal": 0,
+        "false_rejection": [
+          {
+            "call": "backend/utils/request_parse.py:49",
+            "target": null,
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 3,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 139,
+        "gold_not_flagged": [
+          "route backend/app/admin/api/v1/auth/auth.py::login_swagger",
+          "route backend/app/admin/api/v1/auth/auth.py::login",
+          "route backend/app/admin/api/v1/auth/auth.py::get_codes",
+          "route backend/app/admin/api/v1/auth/auth.py::refresh_token",
+          "route backend/app/admin/api/v1/auth/auth.py::logout",
+          "route backend/app/admin/api/v1/auth/captcha.py::get_captcha",
+          "route backend/app/admin/api/v1/log/login_log.py::get_login_logs_paginated",
+          "route backend/app/admin/api/v1/log/login_log.py::delete_login_logs",
+          "route backend/app/admin/api/v1/log/login_log.py::delete_all_login_logs",
+          "route backend/app/admin/api/v1/log/opera_log.py::get_opera_logs_paginated",
+          "route backend/app/admin/api/v1/log/opera_log.py::delete_opera_logs",
+          "route backend/app/admin/api/v1/log/opera_log.py::delete_all_opera_logs",
+          "route backend/app/admin/api/v1/monitor/online.py::get_sessions",
+          "route backend/app/admin/api/v1/monitor/online.py::delete_session",
+          "route backend/app/admin/api/v1/monitor/redis.py::get_redis_info",
+          "route backend/app/admin/api/v1/monitor/server.py::get_server_info",
+          "route backend/app/admin/api/v1/sys/data_rule.py::get_data_rule_models",
+          "route backend/app/admin/api/v1/sys/data_rule.py::get_data_rule_model_columns",
+          "route backend/app/admin/api/v1/sys/data_rule.py::get_data_rule_value_template_variables",
+          "route backend/app/admin/api/v1/sys/data_rule.py::get_all_data_rules",
+          "route backend/app/admin/api/v1/sys/data_rule.py::get_data_rule",
+          "route backend/app/admin/api/v1/sys/data_rule.py::get_data_rules_paginated",
+          "route backend/app/admin/api/v1/sys/data_rule.py::create_data_rule",
+          "route backend/app/admin/api/v1/sys/data_rule.py::update_data_rule",
+          "route backend/app/admin/api/v1/sys/data_rule.py::delete_data_rules",
+          "route backend/app/admin/api/v1/sys/data_scope.py::get_all_data_scope",
+          "route backend/app/admin/api/v1/sys/data_scope.py::get_data_scope",
+          "route backend/app/admin/api/v1/sys/data_scope.py::get_data_scope_rules",
+          "route backend/app/admin/api/v1/sys/data_scope.py::get_data_scopes_paginated",
+          "route backend/app/admin/api/v1/sys/data_scope.py::create_data_scope",
+          "route backend/app/admin/api/v1/sys/data_scope.py::update_data_scope",
+          "route backend/app/admin/api/v1/sys/data_scope.py::update_data_scope_rules",
+          "route backend/app/admin/api/v1/sys/data_scope.py::delete_data_scopes",
+          "route backend/app/admin/api/v1/sys/dept.py::get_dept",
+          "route backend/app/admin/api/v1/sys/dept.py::get_dept_tree",
+          "route backend/app/admin/api/v1/sys/dept.py::create_dept",
+          "route backend/app/admin/api/v1/sys/dept.py::update_dept",
+          "route backend/app/admin/api/v1/sys/dept.py::delete_dept",
+          "route backend/app/admin/api/v1/sys/file.py::upload_files",
+          "route backend/app/admin/api/v1/sys/menu.py::get_user_sidebar",
+          "route backend/app/admin/api/v1/sys/menu.py::get_menu",
+          "route backend/app/admin/api/v1/sys/menu.py::get_menu_tree",
+          "route backend/app/admin/api/v1/sys/menu.py::create_menu",
+          "route backend/app/admin/api/v1/sys/menu.py::update_menu",
+          "route backend/app/admin/api/v1/sys/menu.py::delete_menu",
+          "route backend/app/admin/api/v1/sys/plugin.py::get_all_plugins",
+          "route backend/app/admin/api/v1/sys/plugin.py::plugin_changed",
+          "route backend/app/admin/api/v1/sys/plugin.py::install_plugin",
+          "route backend/app/admin/api/v1/sys/plugin.py::uninstall_plugin",
+          "route backend/app/admin/api/v1/sys/plugin.py::update_plugin_status",
+          "route backend/app/admin/api/v1/sys/plugin.py::download_plugin",
+          "route backend/app/admin/api/v1/sys/role.py::get_all_roles",
+          "route backend/app/admin/api/v1/sys/role.py::get_role_menu_tree",
+          "route backend/app/admin/api/v1/sys/role.py::get_role_scopes",
+          "route backend/app/admin/api/v1/sys/role.py::get_role",
+          "route backend/app/admin/api/v1/sys/role.py::get_roles_paginated",
+          "route backend/app/admin/api/v1/sys/role.py::create_role",
+          "route backend/app/admin/api/v1/sys/role.py::update_role",
+          "route backend/app/admin/api/v1/sys/role.py::update_role_menus",
+          "route backend/app/admin/api/v1/sys/role.py::update_role_scopes",
+          "route backend/app/admin/api/v1/sys/role.py::delete_roles",
+          "route backend/app/admin/api/v1/sys/user.py::get_current_user",
+          "route backend/app/admin/api/v1/sys/user.py::get_userinfo",
+          "route backend/app/admin/api/v1/sys/user.py::get_user_roles",
+          "route backend/app/admin/api/v1/sys/user.py::get_users_paginated",
+          "route backend/app/admin/api/v1/sys/user.py::create_user",
+          "route backend/app/admin/api/v1/sys/user.py::update_user",
+          "route backend/app/admin/api/v1/sys/user.py::update_user_permission",
+          "route backend/app/admin/api/v1/sys/user.py::update_user_password",
+          "route backend/app/admin/api/v1/sys/user.py::reset_user_password",
+          "route backend/app/admin/api/v1/sys/user.py::update_user_nickname",
+          "route backend/app/admin/api/v1/sys/user.py::update_user_avatar",
+          "route backend/app/admin/api/v1/sys/user.py::update_user_email",
+          "route backend/app/admin/api/v1/sys/user.py::delete_user",
+          "route backend/app/task/api/v1/control.py::get_task_registered",
+          "route backend/app/task/api/v1/control.py::revoke_task",
+          "route backend/app/task/api/v1/result.py::get_task_result",
+          "route backend/app/task/api/v1/result.py::get_task_results_paginated",
+          "route backend/app/task/api/v1/result.py::delete_task_result",
+          "route backend/app/task/api/v1/scheduler.py::get_all_task_schedulers",
+          "route backend/app/task/api/v1/scheduler.py::get_task_scheduler",
+          "route backend/app/task/api/v1/scheduler.py::get_task_scheduler_paginated",
+          "route backend/app/task/api/v1/scheduler.py::create_task_scheduler",
+          "route backend/app/task/api/v1/scheduler.py::update_task_scheduler",
+          "route backend/app/task/api/v1/scheduler.py::update_task_scheduler_status",
+          "route backend/app/task/api/v1/scheduler.py::delete_task_scheduler",
+          "route backend/app/task/api/v1/scheduler.py::execute_task",
+          "route backend/plugin/code_generator/api/v1/business.py::get_all_businesses",
+          "route backend/plugin/code_generator/api/v1/business.py::get_business",
+          "route backend/plugin/code_generator/api/v1/business.py::get_businesses_paginated",
+          "route backend/plugin/code_generator/api/v1/business.py::get_business_all_columns",
+          "route backend/plugin/code_generator/api/v1/business.py::create_business",
+          "route backend/plugin/code_generator/api/v1/business.py::update_business",
+          "route backend/plugin/code_generator/api/v1/business.py::delete_business",
+          "route backend/plugin/code_generator/api/v1/code_gen.py::get_all_tables",
+          "route backend/plugin/code_generator/api/v1/code_gen.py::import_table",
+          "route backend/plugin/code_generator/api/v1/code_gen.py::preview_code",
+          "route backend/plugin/code_generator/api/v1/code_gen.py::get_generate_paths",
+          "route backend/plugin/code_generator/api/v1/code_gen.py::generate_code",
+          "route backend/plugin/code_generator/api/v1/code_gen.py::download_code",
+          "route backend/plugin/code_generator/api/v1/column.py::get_column_types",
+          "route backend/plugin/code_generator/api/v1/column.py::get_column",
+          "route backend/plugin/code_generator/api/v1/column.py::create_column",
+          "route backend/plugin/code_generator/api/v1/column.py::update_column",
+          "route backend/plugin/code_generator/api/v1/column.py::delete_column",
+          "route backend/plugin/config/api/v1/sys/config.py::get_all_configs",
+          "route backend/plugin/config/api/v1/sys/config.py::get_config",
+          "route backend/plugin/config/api/v1/sys/config.py::get_configs_paginated",
+          "route backend/plugin/config/api/v1/sys/config.py::create_config",
+          "route backend/plugin/config/api/v1/sys/config.py::bulk_update_config",
+          "route backend/plugin/config/api/v1/sys/config.py::update_config",
+          "route backend/plugin/config/api/v1/sys/config.py::delete_configs",
+          "route backend/plugin/dict/api/v1/sys/dict_data.py::get_all_dict_datas",
+          "route backend/plugin/dict/api/v1/sys/dict_data.py::get_dict_data",
+          "route backend/plugin/dict/api/v1/sys/dict_data.py::get_dict_data_by_type_code",
+          "route backend/plugin/dict/api/v1/sys/dict_data.py::get_dict_datas_paginated",
+          "route backend/plugin/dict/api/v1/sys/dict_data.py::create_dict_data",
+          "route backend/plugin/dict/api/v1/sys/dict_data.py::update_dict_data",
+          "route backend/plugin/dict/api/v1/sys/dict_data.py::delete_dict_datas",
+          "route backend/plugin/dict/api/v1/sys/dict_type.py::get_all_dict_types",
+          "route backend/plugin/dict/api/v1/sys/dict_type.py::get_dict_type",
+          "route backend/plugin/dict/api/v1/sys/dict_type.py::get_dict_types_paginated",
+          "route backend/plugin/dict/api/v1/sys/dict_type.py::create_dict_type",
+          "route backend/plugin/dict/api/v1/sys/dict_type.py::update_dict_type",
+          "route backend/plugin/dict/api/v1/sys/dict_type.py::delete_dict_types",
+          "route backend/plugin/email/api/v1/email.py::send_email_captcha",
+          "route backend/plugin/notice/api/v1/sys/notice.py::get_notice",
+          "route backend/plugin/notice/api/v1/sys/notice.py::get_notices_paginated",
+          "route backend/plugin/notice/api/v1/sys/notice.py::create_notice",
+          "route backend/plugin/notice/api/v1/sys/notice.py::update_notice",
+          "route backend/plugin/notice/api/v1/sys/notice.py::delete_notices",
+          "route backend/plugin/oauth2/api/v1/github.py::get_github_oauth2_url",
+          "route backend/plugin/oauth2/api/v1/github.py::github_oauth2_callback",
+          "route backend/plugin/oauth2/api/v1/google.py::get_google_oauth2_url",
+          "route backend/plugin/oauth2/api/v1/google.py::google_oauth2_callback",
+          "route backend/plugin/oauth2/api/v1/user_social.py::get_user_bindings",
+          "route backend/plugin/oauth2/api/v1/user_social.py::get_binding_auth_url",
+          "route backend/plugin/oauth2/api/v1/user_social.py::unbinding_user",
+          "http backend/utils/request_parse.py:47"
+        ]
+      },
+      "seconds": 1.52
+    },
+    {
+      "case": "dev/orders-base",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.02
+    },
+    {
+      "case": "dev/orders-prefix",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-two-apps",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 2,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint",
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-wrapper-real",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-wrapper-fake",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 0,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-dynamic-prefix",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/dispatch-case-read",
+      "group": "ca dev",
+      "files": 10,
+      "routes": {
+        "checked": 18,
+        "false_rejection": [
+          {
+            "route": "GET src/dispatch/case/views.py::get_case",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET src/dispatch/case/views.py::get_case_participants_minimal",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET src/dispatch/case/views.py::get_case_participants",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET src/dispatch/case/views.py::get_cases",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET src/dispatch/case/views.py::get_cases_minimal",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST src/dispatch/case/views.py::create_case",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST src/dispatch/case/views.py::create_case_channel",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST src/dispatch/case/views.py::create_case_resources",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT src/dispatch/case/views.py::update_case",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT src/dispatch/case/views.py::escalate_case",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE src/dispatch/case/views.py::delete_case",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST src/dispatch/case/views.py::join_case",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE src/dispatch/case/views.py::remove_participant_from_case",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST src/dispatch/case/views.py::add_participant_to_case",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST src/dispatch/case/views.py::create_custom_event",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PATCH src/dispatch/case/views.py::update_custom_event",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST src/dispatch/case/views.py::export_timeline_event",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "DELETE src/dispatch/case/views.py::delete_custom_event",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 72,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 18,
+        "gold_not_flagged": [
+          "route src/dispatch/case/views.py::get_case",
+          "route src/dispatch/case/views.py::get_case_participants_minimal",
+          "route src/dispatch/case/views.py::get_case_participants",
+          "route src/dispatch/case/views.py::get_cases",
+          "route src/dispatch/case/views.py::get_cases_minimal",
+          "route src/dispatch/case/views.py::create_case",
+          "route src/dispatch/case/views.py::create_case_channel",
+          "route src/dispatch/case/views.py::create_case_resources",
+          "route src/dispatch/case/views.py::update_case",
+          "route src/dispatch/case/views.py::escalate_case",
+          "route src/dispatch/case/views.py::delete_case",
+          "route src/dispatch/case/views.py::join_case",
+          "route src/dispatch/case/views.py::remove_participant_from_case",
+          "route src/dispatch/case/views.py::add_participant_to_case",
+          "route src/dispatch/case/views.py::create_custom_event",
+          "route src/dispatch/case/views.py::update_custom_event",
+          "route src/dispatch/case/views.py::export_timeline_event",
+          "route src/dispatch/case/views.py::delete_custom_event"
+        ]
+      },
+      "seconds": 0.45
+    },
+    {
+      "case": "dev/fastapi-docs-body_updates-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 2,
+        "false_rejection": [
+          {
+            "route": "GET body_updates/tutorial001_py310.py::read_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT body_updates/tutorial001_py310.py::update_item",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 6,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 2,
+        "gold_not_flagged": [
+          "route body_updates/tutorial001_py310.py::read_item",
+          "route body_updates/tutorial001_py310.py::update_item"
+        ]
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/fastapi-docs-first_steps-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "GET first_steps/tutorial001_py310.py::root",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route first_steps/tutorial001_py310.py::root"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-handling_errors-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "GET handling_errors/tutorial001_py310.py::read_item",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route handling_errors/tutorial001_py310.py::read_item"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-path_params-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "GET path_params/tutorial001_py310.py::read_item",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route path_params/tutorial001_py310.py::read_item"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-query_params_str_validations-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "GET query_params_str_validations/tutorial001_py310.py::read_items",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route query_params_str_validations/tutorial001_py310.py::read_items"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-schema_extra_example-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "PUT schema_extra_example/tutorial001_py310.py::update_item",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route schema_extra_example/tutorial001_py310.py::update_item"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-conditional-route",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-derived-tablename",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-mount",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-plugin-import",
+      "group": "ca dev",
+      "files": 11,
+      "routes": {
+        "checked": 2,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST routes.py::notify_order",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 8,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 2,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint",
+          "route routes.py::notify_order"
+        ]
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-runtime-dispatch",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 4,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST routes.py::run_order_action",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST routes.py::run_order_operation",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST routes.py::run_batch",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 16,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 4,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint",
+          "route routes.py::run_order_action",
+          "route routes.py::run_order_operation",
+          "route routes.py::run_batch"
+        ]
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-syntax-error",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    }
+  ]
+}

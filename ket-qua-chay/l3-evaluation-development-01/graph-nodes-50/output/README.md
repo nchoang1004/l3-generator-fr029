@@ -1,0 +1,81 @@
+# Review shop — kết quả phân tích (bản sinh tự động)
+
+- Snapshot: `snapshot-render-eval-v1`
+- Schema 0.1.0; renderer slice-render-v2; template slice-template-v1
+- Phạm vi: 50 file trong 1 unit; 0 file bị loại khỏi snapshot
+
+## Sơ đồ component
+
+```mermaid
+flowchart LR
+  n0["Component 0"]
+  n1["Component 1"]
+  n2["Component 2"]
+  n3["Component 3"]
+  n4["Component 4"]
+  n5["Component 5"]
+  n6["Component 6"]
+  n7["Component 7"]
+  n8["Component 8"]
+  n9["Component 9"]
+  n10["Component 10"]
+  n11["Component 11"]
+  n12["Component 12"]
+  n13["Component 13"]
+  n14["Component 14"]
+  n15["Component 15"]
+  n16["Component 16"]
+  n17["Component 17"]
+  n18["Component 18"]
+  n19["Component 19"]
+  n20["Component 20"]
+  n21["Component 21"]
+  n22["Component 22"]
+  n23["Component 23"]
+  n24["Component 24"]
+  n25["Component 25"]
+  n26["Component 26"]
+  n27["Component 27"]
+  n28["Component 28"]
+  n29["Component 29"]
+  n30["Component 30"]
+  n31["Component 31"]
+  n32["Component 32"]
+  n33["Component 33"]
+  n34["Component 34"]
+  n35["Component 35"]
+  n36["Component 36"]
+  n37["Component 37"]
+  n38["Component 38"]
+  n39["Component 39"]
+  n40["Component 40"]
+  n41["Component 41"]
+  n42["Component 42"]
+  n43["Component 43"]
+  n44["Component 44"]
+  n45["Component 45"]
+  n46["Component 46"]
+  n47["Component 47"]
+  n48["Component 48"]
+  n49["Component 49"]
+```
+
+## Mục lục contract
+
+- (không có)
+
+## Mục lục EVT theo topic
+
+- (không có)
+
+## Contract chưa gán được component
+
+- (không có)
+
+## Giới hạn
+
+- (không có)
+
+## Giới hạn biểu diễn
+
+- (không có)

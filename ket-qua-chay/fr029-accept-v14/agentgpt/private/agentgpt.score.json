@@ -1,0 +1,373 @@
+{
+  "routes": {
+    "tp": 16,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "handler": {
+        "correct": 16,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "params": {
+        "correct": 16,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "request_body": {
+        "correct": 16,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "response": {
+        "correct": 16,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "status": {
+        "correct": 16,
+        "acceptable_unknown": 0,
+        "wrong": []
+      }
+    },
+    "facts": {
+      "fact:ec9935858f4977752611d78714a9d2ac5f31824a2c318a7568f6168e64e7b008": "ok",
+      "fact:8805fcc0f36247b3e833f0f273a0fee4705333efba6602ea137b81fbb60200ef": "ok",
+      "fact:63ead36d9b74019f7bc83b38814df59594c4e0681e651092ff4fdbb2d68b4efa": "ok",
+      "fact:6f70183a497404565ff140a1ebc44a93e268233ced1409c50c7e1c000e1790a7": "ok",
+      "fact:5e22d90ee24e4657fafcbc40359dfb6f135a6adf79d393fdad8c03c5e05e4935": "ok",
+      "fact:f7ea4fc9e17e04c271c121fdbefdf529f43dd7456b4a54b376e72ec9a4d77f0d": "ok",
+      "fact:392e8bd96a7a525a9979f9a5b84aa90757d3d937888aaa5a1d71ab1275d43ada": "ok",
+      "fact:349a80f54d9c7ec89913b615a55246a4fb5e2a13e8f7fe742f842a91ed0f4fa0": "ok",
+      "fact:78b499d8b410d01a78dfe0b1217041f9b81a7c62a5fa5d772f769625ce69496f": "ok",
+      "fact:9ad2d7f8232f6c2ccfb5220ab4b811fb3d0ac0039392c5a1337dc9d0bf30396f": "ok",
+      "fact:fd477deda2c03da7656021648f3ad56863e54b98587a86da7b6db28cb979a02e": "ok",
+      "fact:42a7031dfcc89570e476fcd513a3f3eb39692af6152df1540353926c8d773fdf": "ok",
+      "fact:50384d58540eb2d48335e29a1d0ab53c5bacd25489e636a37d65aa6d05ffd243": "ok",
+      "fact:e111b5c78d84238629229535c1706f0d33ab78ba0b40116bb1f7f697e872a574": "ok",
+      "fact:be7120c98b108b8621e907d4a08646eaf063da1bcc71f7af7c631fd67eeb83ee": "ok",
+      "fact:97171a65e3ac360072e16d2b8ac72050288799f15bcdf2f32ec7b21cbf30e872": "ok"
+    },
+    "accepted_extra": 0
+  },
+  "models": {
+    "tp": 17,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "fields": {
+        "correct": 17,
+        "acceptable_unknown": 0,
+        "wrong": []
+      }
+    },
+    "facts": {
+      "fact:06bae71e6a8205c0e427e4bb20b2e83af4fc1c4d07c172ddf53facd670813d76": "ok",
+      "fact:5795d0dfb4ca717ed5df527cd1b7b940edf3ca00c88eb574a5a0d0b7e3b6e436": "ok",
+      "fact:f98d13e9a0618d945cba40f07ca10b22e98e36856a25b80440a2014096f69526": "ok",
+      "fact:7e7b011dea6385388f5b0b7a368bb67b2226912cdcdc674206782cce234ef5a2": "ok",
+      "fact:aacd1feb165e8be40b8fe29969024f9684ccf2661aed45ac1b1c6afc17be8cb7": "ok",
+      "fact:76c3462df5ae8c62dfa86d1712a84223e90c64fa73a7fc108b92549c55b1ac6d": "ok",
+      "fact:5c8db2143de36851bb9729b09b6f7372438baf8d7160918e5bffcc84efe0dde9": "ok",
+      "fact:65b9c381d51b94fe806b2d2706d6a7427392d2cb254b357581b19b3ec3f69ea4": "ok",
+      "fact:dfddd0d5a0fe66aa675bc1be6990160720943fc43d8544439449088d787b3247": "ok",
+      "fact:17ae204f4409a0cf875a243e0b968a06fcfe2f421c151a5f6aad54907d1dfea3": "ok",
+      "fact:cb837a5e12674965eceedb96d8439b4b0fe9092b5f846fa1c97e28699c6425e8": "ok",
+      "fact:d6adca1eb42227d9e9a0150eb7edf0f5ed4e7ffe4df57e509ddb4b15801ff537": "ok",
+      "fact:cd90f05310b9b2b8f12b409342e08ea39dd072dad3f5f932116d5c5e9de96d72": "ok",
+      "fact:467411920841c523eb91756c9f0f6051853c18c318e81099a290fa52989d27cb": "ok",
+      "fact:1ec4a380da23d17ec3cf4baf4731c4d34d1d82116f2b10897b1d3873851e818f": "ok",
+      "fact:da88b848e838031a1330747430f6760c07df4d6f667feed017713cbf5d77426a": "ok",
+      "fact:ed800b8ae54638fab113f28c7811d7b905aaaf940c81a532d1a860d157e0a82c": "ok"
+    },
+    "accepted_extra": 0
+  },
+  "http_calls": {
+    "tp": 6,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "library": {
+        "correct": 6,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "method": {
+        "correct": 6,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "target": {
+        "correct": 0,
+        "acceptable_unknown": 2,
+        "wrong": [
+          {
+            "key": "reworkd_platform/services/oauth_installers.py:114",
+            "got": [
+              "unknown",
+              null
+            ],
+            "want": [
+              "literal",
+              "https://auth.sid.ai/oauth/revoke"
+            ]
+          },
+          {
+            "key": "reworkd_platform/services/oauth_installers.py:84",
+            "got": [
+              "unknown",
+              null
+            ],
+            "want": [
+              "literal",
+              "https://auth.sid.ai/oauth/token"
+            ]
+          },
+          {
+            "key": "reworkd_platform/web/api/agent/tools/sidsearch.py:28",
+            "got": [
+              "unknown",
+              null
+            ],
+            "want": [
+              "literal",
+              "https://api.sid.ai/v1/users/me/query"
+            ]
+          },
+          {
+            "key": "reworkd_platform/web/api/agent/tools/sidsearch.py:47",
+            "got": [
+              "unknown",
+              null
+            ],
+            "want": [
+              "literal",
+              "https://auth.sid.ai/oauth/token"
+            ]
+          }
+        ]
+      }
+    },
+    "facts": {
+      "fact:4b765b153f7499aa334e2c43d779f7f52052421fbb9f067eb7001057111ef0e2": "wrong",
+      "fact:fefd6703d97d5d2c5057b7f4ad2e0e582215f04528a2bd31f9858bdce3151526": "wrong",
+      "fact:f20754ef8acf9fb7de2a2e0a72de92195ecf3e36a5167cc0121b880400e076ba": "wrong",
+      "fact:2d14c1fdfb0b599f4e8e99da12d21ce94865c6f480993f69a20ae7bfea32ea39": "wrong",
+      "fact:7594ada249c2121226d12b7074a23cbc59be103cc7c00cf488ef3edba8c51696": "ok",
+      "fact:147c709ac285482cfd84d108c84ee4a0b568d9113e8f1bc62d8381bb9f4ab045": "ok"
+    },
+    "accepted_extra": 0
+  },
+  "file_roles": {
+    "tp": 78,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "role": {
+        "correct": 74,
+        "acceptable_unknown": 0,
+        "wrong": [
+          {
+            "key": "reworkd_platform/db/dependencies.py",
+            "got": "Khác",
+            "want": "Truy cập dữ liệu"
+          },
+          {
+            "key": "reworkd_platform/web/api/agent/agent_service/agent_service_provider.py",
+            "got": "Khác",
+            "want": "Service"
+          },
+          {
+            "key": "reworkd_platform/web/api/agent/helpers.py",
+            "got": "Service",
+            "want": "Khác"
+          },
+          {
+            "key": "reworkd_platform/web/api/agent/tools/utils.py",
+            "got": "Service",
+            "want": "Khác"
+          }
+        ]
+      },
+      "label": {
+        "correct": 75,
+        "acceptable_unknown": 0,
+        "wrong": [
+          {
+            "key": "reworkd_platform/web/api/agent/agent_service/agent_service_provider.py",
+            "got": "exact",
+            "want": "inferred"
+          },
+          {
+            "key": "reworkd_platform/web/api/agent/helpers.py",
+            "got": "inferred",
+            "want": "exact"
+          },
+          {
+            "key": "reworkd_platform/web/api/agent/tools/utils.py",
+            "got": "inferred",
+            "want": "exact"
+          }
+        ]
+      },
+      "line": {
+        "correct": 74,
+        "acceptable_unknown": 0,
+        "wrong": [
+          {
+            "key": "reworkd_platform/db/dependencies.py",
+            "got": 14,
+            "want": [
+              18,
+              20
+            ]
+          },
+          {
+            "key": "reworkd_platform/web/api/agent/agent_service/agent_service_provider.py",
+            "got": 22,
+            "want": [
+              28,
+              31
+            ]
+          },
+          {
+            "key": "reworkd_platform/web/api/agent/agent_service/open_ai_agent_service.py",
+            "got": 73,
+            "want": [
+              138,
+              91
+            ]
+          },
+          {
+            "key": "reworkd_platform/web/api/agent/tools/image.py",
+            "got": 21,
+            "want": [
+              19
+            ]
+          }
+        ]
+      }
+    },
+    "facts": {
+      "fact:c5dc5d67b8ad8557afa4be8ce02d22a18a78d7985a96952db90948341379341b": "wrong",
+      "fact:0486d3f4eecdc37e6f8725b30351b88dfe1a6f7d394d06c69b1cf5492aa0bfde": "wrong",
+      "fact:a75521a47933f648fad69849262442139ac08754baec70f94b79d4e42a954d7c": "wrong",
+      "fact:247d300a0c7a498ec7cfbc06becf1c3d7f0f5a42202e9d19a1c2709750e09ea7": "wrong",
+      "fact:b4f17003091ed0c88db72fac76d5b17387d3ccea35a02769b0c7cfa0f955b6f1": "wrong",
+      "fact:9a94e8a682d6804bc52ddeedb5796f530e6a2312361aa4a90d6c09d3bcdd9d11": "wrong",
+      "fact:cd40c2a34e5994d56df28d4a9df8f78b8c5351ea081741b43c2b9212265e9662": "ok",
+      "fact:d51f3ff104b44176b0d33ed10751595db951927610fc85b0293f0036f9cfc923": "ok",
+      "fact:08b01f9172cdd803d4bd56db9766acca390b386142b04db127664c2f9b18b4b3": "ok",
+      "fact:0f1ef8dd5206198121abdf0b374ad9f5cedc816b981891b511f29548abe87d11": "ok",
+      "fact:8bedc3e59d17d6a996a4c67e4bfe63d4b8afd75378500502660046eb8956f25a": "ok",
+      "fact:67999b57eb3fe7db7c735d325f9e43c8171ce9b23478c0d49333e1615d8b78bf": "ok",
+      "fact:edad4947b0738b6a7b09ed67494fb5e88f2892dce7d764f49a721e7511076525": "ok",
+      "fact:f336c5cbf8fb2a29f29e15f9f76c321b88e9701c8a752af71c99a9029225acf1": "ok",
+      "fact:350c6dd1cea346db3935da8aa67f91f4eef3e359c898100662dc9bf8c316cefc": "ok",
+      "fact:545efb7f14e9920b07ace78c7f827f3128e566a5f66558068f399981464b4be2": "ok",
+      "fact:5299ac29c030864305c325865bb3ba8be1927766d675ac8f21c6d35793249bec": "ok",
+      "fact:23a38cb3ea82869580a4351f20c766cb14b1e8207fded94ceaec45466b2e262f": "ok",
+      "fact:eece20d68851357790e77c90c1ab1601f13cf916957d24706d5f58dbaa4d55e6": "ok",
+      "fact:87a557a5b35ef0009ccf782cb7bd6adbecf9ccf5a7dd7c8a217ebfb029b87b98": "ok",
+      "fact:ffe862528fad4da4199e12be865a4c79375360e067ec0106d19d540fad4635c7": "ok",
+      "fact:1812598fd6371ea8e745f41643e85ecf80c0027b409eca4b56a290c180fc9cf6": "ok",
+      "fact:311392f82ecb6ff33f2488d2c489ae9a773b45ebd19497afeccea46a251e3de6": "ok",
+      "fact:b5157504d500673ca512bdec383dc4aad2b57cf0c00f0af86e85173617c90a1e": "ok",
+      "fact:f38c8436fcfa516c7728c6c515a0cc90f48857df314150a00b504d8ef719cf1a": "ok",
+      "fact:eb80308df6eaa62d5e6668efcec6db954aa2ba5d52a549b7358cc591bdd71922": "ok",
+      "fact:2d62bf6070c60190bf606b2e58b26c9aef9ce9f08044e808c0f1f4bf5b52fa33": "ok",
+      "fact:fe4be338dada35d3eafb972a1b163693bb1882fd87792742540018a9ff88afa6": "ok",
+      "fact:4396378d7dd8f89e2b07065feced9a94226a099410c1ab1612f4b8df35b85768": "ok",
+      "fact:0d6c223e6e58a1e2513406b087d8ebcf2478c58df637c2504723bef9dadcafb1": "ok",
+      "fact:c8290e6d0862dacb105696d1f6f36b12915e109d245b4a97fd15f3c715074ddd": "ok",
+      "fact:d5337be711d0106fb6bc08d14b2b278aba74a4bdf8bd734f36b311c65ece433d": "ok",
+      "fact:43197a52978cf033a0beed76235aee1319d4c513c11977b9037a196c52252428": "ok",
+      "fact:768a1e51aa8b4518311e2de5c335f00e2b355b93fd005c94a5e92d081bc8f233": "ok",
+      "fact:1cd5e541b3f26fa3e2f216f696cbd08a475080dd127d1e0f42ef5483f1a5b653": "ok",
+      "fact:5ad1f85dd28338514bdb9d0e818c81faf388cafa1463e52eb8c16629ace8f651": "ok",
+      "fact:b806818cb29b39778bb2eae1bb472bb5e88a2097b255eb77f25b18a01e7ac1a9": "ok",
+      "fact:498762e581dd0d880e73da26b73d8d39b0d868e58f58d07d082f1b4a6999ec96": "ok",
+      "fact:95ddac721988cae1e5ffe622f418d57ad04e8254ffffb9318be72a212d847ae6": "ok",
+      "fact:c81da8fa50919fe88b50bf4e9128f338585287072714f3690be1dad170ae89ed": "ok",
+      "fact:1b8dbb305785e3b2191a04f7f50bb246798ef6df65c93afa71c8358e50914361": "ok",
+      "fact:0f8e35fac725e3cf3ffa8023ea2bb803457cd31fd691c1ff08754e698b094bd1": "ok",
+      "fact:bbb0c1547e6788c5d3574675339f8108ba91ff689b3420d5768f002e56e2cf9f": "ok",
+      "fact:a1c942bcdbca80c38e6ccfea7cbd93578ecce00abc268444832a38930f0152c2": "ok",
+      "fact:e1b098db1de984edea7e21fe689b5bfe11e7594950727bf1d8f69e96358afdd7": "ok",
+      "fact:7128c9b566bc23ab62dbe7b9a4d5b8a47d11c7cf76ec748bc4742dc15375ec74": "ok",
+      "fact:324c82029b655012e03743521fec950d10d4f86b28d2a5c3a81854f2cd7e3dd6": "ok",
+      "fact:8947b3ce92a8791d37f93ae0e03f41cc047f7738447395f797691de75e1b04d6": "ok",
+      "fact:10f07997354eb1b4c31e207cc48db8657e7f1ed69126b82108d0b191ada83910": "ok",
+      "fact:4d59aa4ae907bee7dc26fdd9e048d8666baf470e8f9ab1adb4573e8ac2c393dc": "ok",
+      "fact:cd79e5e8576535bacca68db71ff39603cf28a7173c4f245fc75935ec7cbc8aa1": "ok",
+      "fact:de4318cc24774233e098488df70c0b064e42705d7426e1b9f752eb2cd1997172": "ok",
+      "fact:ba356199ed98c83b2b7c8a4feea1ce27620c38865734d17b8400add3411180f7": "ok",
+      "fact:773ac796050c2be74f78fcf682c3e2e026f8d654292c4da0e3260df1e1251fd8": "ok",
+      "fact:570e67b35c4861a4afcca5f6637dcd0cd0f127c1f480ddc1073083d351dcfdca": "ok",
+      "fact:3fe3d3ec76459c6eb2a7a51a1123594431a6318eceda5ac977d1de538a3e14ab": "ok",
+      "fact:5597dbd4ea7a53782187f700223238544e0a70b0ea43b17dbac613542bfdad45": "ok",
+      "fact:8d4bead4bc5971e3e676f99afcaff12a4cf38296107edc3422c6d87230ddacad": "ok",
+      "fact:fc661e141f25c59e321c8ad69561eab362cd506b48862ca1df368dd4d6566e48": "ok",
+      "fact:86b8614c6ab7dff987e100bdd6f7da7af114319a0936327090ed2fae7c05c170": "ok",
+      "fact:2afd7ede3d3d1d7ac5c7d9bc1a2cfa3c592223aa2f0f0ccfa4306db1c39c9d5f": "ok",
+      "fact:e9d44a3dfb69a584ed3521d36dfc664207dca7eaaa89df52cce53cd92f38bab0": "ok",
+      "fact:b4ec35d8b8d50ce5501447462c122184277f603a4cd7dec3644827fb01aa9159": "ok",
+      "fact:9d06b97435598f622dc8832dedfd4378bc4d9b6e62587cdd8444ea4975cebd59": "ok",
+      "fact:e0ed83254d27cf220b2c0a6688af0d1578a0f40e01bcdc1ee7d85a2d35123e35": "ok",
+      "fact:d2e9df304975e440ff88d88b1cbfbb866c4736280adca41a4315699d1ff0bb15": "ok",
+      "fact:c4fafe37d8f085a0ceb65d1b55b0cacfe1113223e1679b5092865b3c5201090b": "ok",
+      "fact:267eb4687aeb1fcd469e29737ad2f5dc8c0d7d46f6e15e536e9793caca3ccf60": "ok",
+      "fact:99930750b3e1a6898c01904bc5d08531b07a42fa266544042b9d65543929b672": "ok",
+      "fact:e4cfd1a72c18aad2793e4615b93d72e02da81f2034dec966852e3b053f3a41d2": "ok",
+      "fact:de7753473bf22ea0cadfdbb2eff1ad5602708364db6347a40bce39daf7feb169": "ok",
+      "fact:ed888f141579b4f5e028310ff4b04ba668b4e787195614c16429affbd1bc7fa3": "ok",
+      "fact:4610c951671a4b5dce0820127be0d286b72992fe7ec141f1561074372d2f1c07": "ok",
+      "fact:912769469a000d2ed6700cd35f1308c1eb3936fc179c8f5f019cae7be3650090": "ok",
+      "fact:3fd1d89618c417ff138b8623108e9a7898dbacace83d6fc2b545d24dc8cc333b": "ok",
+      "fact:4f63bf7fe0f6abc32149889055555e8ae9a26e4c9712eda5ab288f5cd1562115": "ok",
+      "fact:5d655710ca6c7918dc43551ad79f3aaa534c0eaba4fd7483586b906cc75f63ad": "ok",
+      "fact:450f7be0d3f21af1127c98516f6b207626a8a5cc60407c397b44d07cd0821e0c": "ok"
+    },
+    "accepted_extra": 0
+  },
+  "limitations": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {},
+    "facts": {},
+    "accepted_extra": 3
+  },
+  "out_of_scope": {
+    "ok": true,
+    "got": {
+      "test": 17
+    },
+    "want": {
+      "test": 17,
+      "migration": 0,
+      "environment": 0,
+      "conditional_out": 0
+    }
+  }
+}

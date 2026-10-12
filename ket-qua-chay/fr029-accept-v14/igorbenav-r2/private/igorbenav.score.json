@@ -1,0 +1,93 @@
+{
+  "routes": {
+    "tp": 15,
+    "fp": [],
+    "fn": [
+      "('DELETE', '/api/v1/users/db/{username}', 'backend/src/modules/user/routes.py::gdpr_delete_user')",
+      "('DELETE', '/api/v1/users/{username}', 'backend/src/modules/user/routes.py::delete_user_account')",
+      "('GET', '/api/v1/api-keys/summary/user', 'backend/src/modules/api_keys/routes.py::get_user_summary')",
+      "('GET', '/api/v1/api-keys/{key_id}/analytics', 'backend/src/modules/api_keys/routes.py::get_key_analytics')",
+      "('GET', '/api/v1/api-keys/{key_id}/usage', 'backend/src/modules/api_keys/routes.py::get_key_usage')",
+      "('GET', '/api/v1/users/', 'backend/src/modules/user/routes.py::get_users')",
+      "('GET', '/api/v1/users/active-and-inactive/{username}', 'backend/src/modules/user/routes.py::get_active_and_inactive_user_by_username')",
+      "('GET', '/api/v1/users/me', 'backend/src/modules/user/routes.py::get_current_user_profile')",
+      "('GET', '/api/v1/users/{username}', 'backend/src/modules/user/routes.py::get_user_by_username')",
+      "('GET', '/api/v1/users/{username}/rate-limits', 'backend/src/modules/user/routes.py::get_user_rate_limits')",
+      "('GET', '/api/v1/users/{username}/tier', 'backend/src/modules/user/routes.py::get_user_tier')",
+      "('GET', '/docs', 'backend/src/infrastructure/app_factory.py::get_swagger_documentation')",
+      "('GET', '/openapi.json', 'backend/src/infrastructure/app_factory.py::openapi')",
+      "('GET', '/redoc', 'backend/src/infrastructure/app_factory.py::get_redoc_documentation')",
+      "('PATCH', '/api/v1/users/{username}', 'backend/src/modules/user/routes.py::update_user_profile')",
+      "('PATCH', '/api/v1/users/{username}/tier', 'backend/src/modules/user/routes.py::update_user_tier')",
+      "('POST', '/api/v1/api-keys/', 'backend/src/modules/api_keys/routes.py::create_api_key')",
+      "('POST', '/api/v1/auth/login', 'backend/src/infrastructure/auth/routes.py::login')",
+      "('POST', '/api/v1/users/', 'backend/src/modules/user/routes.py::create_user')"
+    ]
+  },
+  "models_on_matched_routes": {
+    "correct": 10,
+    "wrong": [
+      {
+        "route": "('GET', '/api/v1/api-keys/', 'backend/src/modules/api_keys/routes.py::get_user_api_keys')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[APIKeyRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/rate-limits/', 'backend/src/modules/rate_limit/routes.py::get_rate_limits')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[RateLimitRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/rate-limits/{name}', 'backend/src/modules/rate_limit/routes.py::get_rate_limit')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "RateLimitRead"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/tiers/', 'backend/src/modules/tier/routes.py::get_tiers')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[TierRead]"
+        ]
+      },
+      {
+        "route": "('PATCH', '/api/v1/rate-limits/{name}', 'backend/src/modules/rate_limit/routes.py::update_rate_limit')",
+        "got": [
+          "unknown",
+          "dict"
+        ],
+        "want": [
+          "RateLimitUpdate",
+          "dict[str, str]"
+        ]
+      }
+    ]
+  },
+  "http_api": {
+    "tp": 0,
+    "fp": [],
+    "fn": [],
+    "out_of_scope": 0
+  }
+}

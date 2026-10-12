@@ -1,0 +1,59 @@
+{
+  "tests": {
+    "command": [
+      "D:\\VSF\\l3-generator-l3\\scripts\\.venv\\Scripts\\python.exe",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "slice/tests"
+    ],
+    "exit_code": 1
+  },
+  "contracts": {
+    "command": [
+      "D:\\VSF\\l3-generator-l3\\scripts\\.venv\\Scripts\\python.exe",
+      "scripts/check_l3_contracts.py",
+      "--report"
+    ],
+    "exit_code": 0
+  },
+  "baseline": {
+    "command": [
+      "D:\\VSF\\l3-generator-l3\\scripts\\.venv\\Scripts\\python.exe",
+      "scripts/prd_package.py",
+      "check",
+      "--change-set",
+      "CHG-L3GEN-2026-002",
+      "--baseline",
+      "BL-r10.yaml"
+    ],
+    "exit_code": 0
+  },
+  "real-before": {
+    "command": [
+      "D:\\VSF\\l3-generator-l3\\scripts\\.venv\\Scripts\\python.exe",
+      "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\fr029-20261002\\measure_repos.py",
+      "--engine-root",
+      "C:\\Users\\dell\\AppData\\Local\\Temp\\tmp091jp2ub",
+      "--samples",
+      "D:\\VSF\\l3-generator-quote-evidence\\sample-repos",
+      "--out",
+      "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\fr029-20261002\\real-before"
+    ],
+    "exit_code": 0
+  },
+  "real-after": {
+    "command": [
+      "D:\\VSF\\l3-generator-l3\\scripts\\.venv\\Scripts\\python.exe",
+      "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\fr029-20261002\\measure_repos.py",
+      "--engine-root",
+      "D:\\VSF\\l3-generator-l3\\slice",
+      "--samples",
+      "D:\\VSF\\l3-generator-quote-evidence\\sample-repos",
+      "--out",
+      "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\fr029-20261002\\real-after"
+    ],
+    "exit_code": 0
+  }
+}

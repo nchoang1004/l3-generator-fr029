@@ -1,0 +1,252 @@
+[
+  {
+    "request": 1,
+    "reserved_upper_usd": 0.018948,
+    "total_reserved_usd": 0.0410836
+  },
+  {
+    "request": 2,
+    "reserved_upper_usd": 0.024620799999999998,
+    "total_reserved_usd": 0.0475204
+  },
+  {
+    "request": 3,
+    "reserved_upper_usd": 0.024764,
+    "total_reserved_usd": 0.048677200000000004
+  },
+  {
+    "request": 4,
+    "reserved_upper_usd": 0.025334,
+    "total_reserved_usd": 0.050164
+  },
+  {
+    "request": 5,
+    "reserved_upper_usd": 0.026946,
+    "total_reserved_usd": 0.052862400000000004
+  },
+  {
+    "request": 6,
+    "reserved_upper_usd": 0.0280312,
+    "total_reserved_usd": 0.055380799999999994
+  },
+  {
+    "request": 7,
+    "reserved_upper_usd": 0.028515600000000002,
+    "total_reserved_usd": 0.0572568
+  },
+  {
+    "request": 8,
+    "reserved_upper_usd": 0.0288172,
+    "total_reserved_usd": 0.0588424
+  },
+  {
+    "request": 9,
+    "reserved_upper_usd": 0.029434400000000003,
+    "total_reserved_usd": 0.0606884
+  },
+  {
+    "request": 10,
+    "reserved_upper_usd": 0.0351124,
+    "total_reserved_usd": 0.0676904
+  },
+  {
+    "request": 11,
+    "reserved_upper_usd": 0.03586960000000001,
+    "total_reserved_usd": 0.0711428
+  },
+  {
+    "request": 12,
+    "reserved_upper_usd": 0.036226,
+    "total_reserved_usd": 0.0733288
+  },
+  {
+    "request": 13,
+    "reserved_upper_usd": 0.036530400000000005,
+    "total_reserved_usd": 0.07539560000000001
+  },
+  {
+    "request": 14,
+    "reserved_upper_usd": 0.039208,
+    "total_reserved_usd": 0.0815488
+  },
+  {
+    "request": 15,
+    "reserved_upper_usd": 0.040918800000000005,
+    "total_reserved_usd": 0.0863624
+  },
+  {
+    "request": 16,
+    "reserved_upper_usd": 0.042463200000000006,
+    "total_reserved_usd": 0.090768
+  },
+  {
+    "request": 17,
+    "reserved_upper_usd": 0.044009200000000005,
+    "total_reserved_usd": 0.09511920000000001
+  },
+  {
+    "request": 18,
+    "reserved_upper_usd": 0.046301600000000005,
+    "total_reserved_usd": 0.1060624
+  },
+  {
+    "request": 19,
+    "reserved_upper_usd": 0.047846,
+    "total_reserved_usd": 0.1104924
+  },
+  {
+    "request": 20,
+    "reserved_upper_usd": 0.051764,
+    "total_reserved_usd": 0.11954520000000002
+  },
+  {
+    "request": 21,
+    "reserved_upper_usd": 0.0533084,
+    "total_reserved_usd": 0.1246736
+  },
+  {
+    "request": 22,
+    "reserved_upper_usd": 0.0569244,
+    "total_reserved_usd": 0.1336044
+  },
+  {
+    "request": 23,
+    "reserved_upper_usd": 0.059205200000000006,
+    "total_reserved_usd": 0.1403532
+  },
+  {
+    "request": 24,
+    "reserved_upper_usd": 0.060602800000000005,
+    "total_reserved_usd": 0.14533880000000002
+  },
+  {
+    "request": 25,
+    "reserved_upper_usd": 0.062443200000000004,
+    "total_reserved_usd": 0.15127680000000002
+  },
+  {
+    "request": 26,
+    "reserved_upper_usd": 0.06371840000000001,
+    "total_reserved_usd": 0.15629520000000002
+  },
+  {
+    "request": 27,
+    "reserved_upper_usd": 0.0663888,
+    "total_reserved_usd": 0.1644372
+  },
+  {
+    "request": 28,
+    "reserved_upper_usd": 0.0674888,
+    "total_reserved_usd": 0.169342
+  },
+  {
+    "request": 29,
+    "reserved_upper_usd": 0.06934920000000001,
+    "total_reserved_usd": 0.1757224
+  },
+  {
+    "request": 30,
+    "reserved_upper_usd": 0.0708704,
+    "total_reserved_usd": 0.1816108
+  },
+  {
+    "request": 31,
+    "reserved_upper_usd": 0.0718516,
+    "total_reserved_usd": 0.1867008
+  },
+  {
+    "request": 32,
+    "reserved_upper_usd": 0.0747272,
+    "total_reserved_usd": 0.19473359999999998
+  },
+  {
+    "request": 33,
+    "reserved_upper_usd": 0.0768588,
+    "total_reserved_usd": 0.2021248
+  },
+  {
+    "request": 34,
+    "reserved_upper_usd": 0.0785652,
+    "total_reserved_usd": 0.2086528
+  },
+  {
+    "request": 35,
+    "reserved_upper_usd": 0.080056,
+    "total_reserved_usd": 0.2150264
+  },
+  {
+    "request": 36,
+    "reserved_upper_usd": 0.0810628,
+    "total_reserved_usd": 0.22070679999999998
+  },
+  {
+    "request": 37,
+    "reserved_upper_usd": 0.0819048,
+    "total_reserved_usd": 0.2267024
+  },
+  {
+    "request": 38,
+    "reserved_upper_usd": 0.08509440000000001,
+    "total_reserved_usd": 0.2342476
+  },
+  {
+    "request": 39,
+    "reserved_upper_usd": 0.08536120000000001,
+    "total_reserved_usd": 0.2396996
+  },
+  {
+    "request": 40,
+    "reserved_upper_usd": 0.08634560000000001,
+    "total_reserved_usd": 0.2454496
+  },
+  {
+    "request": 41,
+    "reserved_upper_usd": 0.08664640000000001,
+    "total_reserved_usd": 0.26408240000000005
+  },
+  {
+    "request": 42,
+    "reserved_upper_usd": 0.0881896,
+    "total_reserved_usd": 0.2709304
+  },
+  {
+    "request": 43,
+    "reserved_upper_usd": 0.0884824,
+    "total_reserved_usd": 0.27624160000000003
+  },
+  {
+    "request": 44,
+    "reserved_upper_usd": 0.08995920000000002,
+    "total_reserved_usd": 0.28312080000000006
+  },
+  {
+    "request": 45,
+    "reserved_upper_usd": 0.09057640000000002,
+    "total_reserved_usd": 0.28931720000000005
+  },
+  {
+    "request": 46,
+    "reserved_upper_usd": 0.093766,
+    "total_reserved_usd": 0.29740320000000003
+  },
+  {
+    "request": 47,
+    "reserved_upper_usd": 0.094124,
+    "total_reserved_usd": 0.3034872
+  },
+  {
+    "request": 48,
+    "reserved_upper_usd": 0.0957076,
+    "total_reserved_usd": 0.31094720000000003
+  },
+  {
+    "request": 49,
+    "reserved_upper_usd": 0.0960304,
+    "total_reserved_usd": 0.316784
+  },
+  {
+    "request": 50,
+    "reserved_upper_usd": 0.09803880000000001,
+    "total_reserved_usd": 0.32484560000000007
+  }
+]

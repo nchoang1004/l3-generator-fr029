@@ -1,0 +1,62 @@
+{
+  "routes": {
+    "tp": 11,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "params": {
+        "correct": 11,
+        "wrong": []
+      },
+      "request_body": {
+        "correct": 11,
+        "wrong": []
+      },
+      "response": {
+        "correct": 11,
+        "wrong": []
+      },
+      "status": {
+        "correct": 11,
+        "wrong": []
+      }
+    }
+  },
+  "models": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "fields": {
+        "correct": 0,
+        "wrong": []
+      }
+    }
+  },
+  "http_calls": {
+    "status": "not_evaluated",
+    "reason": "Gold không có mục này"
+  },
+  "file_roles": {
+    "status": "not_evaluated",
+    "reason": "Gold không có mục này"
+  },
+  "limitations": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {}
+  }
+}

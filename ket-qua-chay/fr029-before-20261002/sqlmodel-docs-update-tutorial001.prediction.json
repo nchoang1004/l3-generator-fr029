@@ -1,0 +1,939 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "sqlmodel-docs-update-tutorial001",
+  "source_digest": "4819bf30cc9fcb4e470cc4ac43c3f9a98af13d7fc6ebfbf215db2c2c48767294",
+  "status": "facts_only",
+  "entities": [
+    {
+      "id": "update/tutorial001_py310.py::Hero",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 11,
+      "line_end": 12,
+      "symbol": "Hero",
+      "kind": "class"
+    },
+    {
+      "id": "update/tutorial001_py310.py::create_db_and_tables",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 36,
+      "line_end": 37,
+      "symbol": "create_db_and_tables",
+      "kind": "function"
+    },
+    {
+      "id": "update/tutorial001_py310.py::create_hero",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 49,
+      "line_end": 55,
+      "symbol": "create_hero",
+      "kind": "function"
+    },
+    {
+      "id": "update/tutorial001_py310.py::on_startup",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 44,
+      "line_end": 45,
+      "symbol": "on_startup",
+      "kind": "function"
+    },
+    {
+      "id": "update/tutorial001_py310.py::read_hero",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 66,
+      "line_end": 71,
+      "symbol": "read_hero",
+      "kind": "function"
+    },
+    {
+      "id": "update/tutorial001_py310.py::read_heroes",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 59,
+      "line_end": 62,
+      "symbol": "read_heroes",
+      "kind": "function"
+    },
+    {
+      "id": "update/tutorial001_py310.py::update_hero",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 75,
+      "line_end": 85,
+      "symbol": "update_hero",
+      "kind": "function"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e020169a03c0a5b99",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 48,
+      "line_end": 48,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e11c0bb1c062657a7",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 12,
+      "line_end": 12,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e1381cc12eb995d51",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 58,
+      "line_end": 58,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e152723d737eb303e",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 49,
+      "line_end": 55,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e15e30713050fff08",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 59,
+      "line_end": 62,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e169ef865e5fe50ee",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 65,
+      "line_end": 65,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e1ac10f10ccf5df3c",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 68,
+      "line_end": 68,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e1b7c3132262e3a16",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 77,
+      "line_end": 77,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e1e04597f76f36848",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 20,
+      "line_end": 20,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e1fc6698ff08f9148",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 58,
+      "line_end": 59,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e20204e09677807c1",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 7,
+      "line_end": 7,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e2d3f8f915e364bff",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 82,
+      "line_end": 82,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e308b0455da30d0c6",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 45,
+      "line_end": 45,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e311305be1636cecb",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 11,
+      "line_end": 12,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e318aa5667c067a12",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 74,
+      "line_end": 75,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e31daeb7110ecae9c",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 36,
+      "line_end": 37,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e3a259453289b88a0",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 75,
+      "line_end": 75,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e427f83e9c392e269",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 40,
+      "line_end": 40,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e4394b5c27b11b2f1",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 25,
+      "line_end": 25,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e44e53715dec7a81e",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 84,
+      "line_end": 84,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e466aaa59e07b116b",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 65,
+      "line_end": 66,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e484b9fc18291108d",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 66,
+      "line_end": 71,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e49e99dca16f5e773",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 26,
+      "line_end": 26,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e4e3a75a5e81ec307",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 48,
+      "line_end": 49,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e508170eea0dfcf76",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 6,
+      "line_end": 6,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e5184fcb77e6a46b4",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 54,
+      "line_end": 54,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e56012a9907161153",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 48,
+      "line_end": 48,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e5724022088c1f71f",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 59,
+      "line_end": 59,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e5983f0d3ae856bc6",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 83,
+      "line_end": 83,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e5eed3a2b3cca4d1f",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 52,
+      "line_end": 52,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e656f7506fb1b33df",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 6,
+      "line_end": 6,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e6a7264209fa01f85",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 66,
+      "line_end": 66,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e7966b970f035f62f",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 53,
+      "line_end": 53,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e822043264209c0f1",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 12,
+      "line_end": 12,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e84a4010283116824",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 44,
+      "line_end": 45,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e8d21fb7278b0c9a4",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 11,
+      "line_end": 11,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e9a2eb0015644462a",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 24,
+      "line_end": 24,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "e9c56f070860df9d1",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 24,
+      "line_end": 24,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ea0dd641a5bb77a77",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 65,
+      "line_end": 65,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ea4a7413335efdd25",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 74,
+      "line_end": 74,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ea72d3bedc180c762",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 75,
+      "line_end": 75,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "eaa751450235b46b1",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 61,
+      "line_end": 61,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "eacb17be8248b3c90",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 5,
+      "line_end": 8,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "eb10c68a56c0179fd",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 77,
+      "line_end": 77,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "eb419c708658afbb7",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 51,
+      "line_end": 51,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "eb58b681c9d2031c7",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 48,
+      "line_end": 48,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ebc47b6f281f9be70",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 20,
+      "line_end": 20,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ec13405b5f0ef9d28",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 26,
+      "line_end": 26,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ec14284ea74544e53",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 81,
+      "line_end": 81,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ec38b67aa5ec661d7",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 49,
+      "line_end": 49,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ec7e558877d10d9c2",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 61,
+      "line_end": 61,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ec88af8c4dd6fbd91",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 15,
+      "line_end": 16,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ec8be268bc9d22e7a",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 75,
+      "line_end": 85,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ecb3103a35aca9ed0",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 58,
+      "line_end": 58,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ecc4cb3b5678dd0bf",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 23,
+      "line_end": 26,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ecca5b5fc9a482478",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 7,
+      "line_end": 7,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ecdb0b88ddc85625f",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 1,
+      "line_end": 85,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ed976c99cf508eba0",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 59,
+      "line_end": 59,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ee3a6d11888528dff",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 65,
+      "line_end": 65,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ee8e57254ea072e54",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 68,
+      "line_end": 68,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "eeaafcd3a4f7cfa87",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 19,
+      "line_end": 20,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "eeda23d00cf968635",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 8,
+      "line_end": 8,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ef0102031ab4a964a",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 25,
+      "line_end": 25,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ef44eae55a8918316",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 8,
+      "line_end": 8,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "ef5c22be9249a89bc",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 74,
+      "line_end": 74,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    },
+    {
+      "id": "effef286827073407",
+      "path": "update/tutorial001_py310.py",
+      "line_start": 74,
+      "line_end": 74,
+      "sha256": "6746ba492f195d52c86069053226a236c7408b88e7ce7dd848a17e05559f6874"
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:10a6d86b5868a6555c2ec2d3315c0193816ffdc10179f5f15cbdd80bf7647a6e",
+      "evidence_refs": [
+        "e484b9fc18291108d",
+        "ee8e57254ea072e54"
+      ],
+      "target_id": "update/tutorial001_py310.py::Hero",
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::read_hero",
+      "context": "update/tutorial001_py310.py:68:27",
+      "attributes": {
+        "relation": "reads",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:1cac8026a69aa97807dda2039b4cb67aca294b8e36fbb977d6009703ccc029ef",
+      "evidence_refs": [
+        "ec14284ea74544e53",
+        "ec8be268bc9d22e7a"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::update_hero",
+      "context": "db_hero.sqlmodel_update",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'db_hero' là gì trong file này"
+    },
+    {
+      "id": "fact:2bcff2773a9ebd54c43ed4fce7ed2254dd95173b5482a046c3be5afedd778382",
+      "evidence_refs": [
+        "e152723d737eb303e",
+        "eb419c708658afbb7"
+      ],
+      "target_id": "update/tutorial001_py310.py::Hero",
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::create_hero",
+      "context": "update/tutorial001_py310.py:51:18",
+      "attributes": {
+        "relation": "reads",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:40fe1f3457fdac6c29beae778d94855acea916c82dfdb0e419cab472e2d9ac67",
+      "evidence_refs": [
+        "e020169a03c0a5b99",
+        "e427f83e9c392e269",
+        "e4e3a75a5e81ec307",
+        "e56012a9907161153",
+        "eb58b681c9d2031c7",
+        "ec38b67aa5ec661d7"
+      ],
+      "target_id": null,
+      "kind": "route",
+      "source_id": "update/tutorial001_py310.py::create_hero",
+      "context": "update/tutorial001_py310.py::app",
+      "attributes": {
+        "method": "POST",
+        "path": "/heroes/",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:423837b90764cea0716c5894cae3b07925f022090f1f227d34e4c238b2817032",
+      "evidence_refs": [
+        "e11c0bb1c062657a7",
+        "e20204e09677807c1",
+        "e311305be1636cecb",
+        "e508170eea0dfcf76",
+        "e656f7506fb1b33df",
+        "e822043264209c0f1",
+        "e8d21fb7278b0c9a4",
+        "ecca5b5fc9a482478",
+        "eeda23d00cf968635",
+        "ef44eae55a8918316"
+      ],
+      "target_id": null,
+      "kind": "entity",
+      "source_id": "update/tutorial001_py310.py::Hero",
+      "context": "default",
+      "attributes": {
+        "table": "hero",
+        "columns": [
+          "age",
+          "id",
+          "name",
+          "secret_name"
+        ],
+        "foreign_keys": []
+      },
+      "confidence": "inferred",
+      "completeness": "full",
+      "reason": "sqlalchemy-defaults-v1: không khai primary_key thì là False; sqlalchemy-defaults-v1: nullable mặc định là not primary_key; với Mapped/SQLModel theo Optional; sqlmodel-default-tablename-v1: không khai __tablename__, SQLModel dùng tên class viết thường"
+    },
+    {
+      "id": "fact:6c96ef3595af163f3694ed4104dbedf5d3d1c2643a4f9b6f186b84034b47eb77",
+      "evidence_refs": [
+        "e1381cc12eb995d51",
+        "e1fc6698ff08f9148",
+        "e427f83e9c392e269",
+        "e5724022088c1f71f",
+        "ecb3103a35aca9ed0",
+        "ed976c99cf508eba0"
+      ],
+      "target_id": null,
+      "kind": "route",
+      "source_id": "update/tutorial001_py310.py::read_heroes",
+      "context": "update/tutorial001_py310.py::app",
+      "attributes": {
+        "method": "GET",
+        "path": "/heroes/",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:6e95b4984450addeac311ecee9634acea027b4e43d25d14c001ef2e1dfe6df01",
+      "evidence_refs": [
+        "eb10c68a56c0179fd",
+        "ec8be268bc9d22e7a"
+      ],
+      "target_id": "update/tutorial001_py310.py::Hero",
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::update_hero",
+      "context": "update/tutorial001_py310.py:77:30",
+      "attributes": {
+        "relation": "reads",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:7b999503379037eaa8f89bd415dadc97a23cecfa947e766f83fbbb84539676e7",
+      "evidence_refs": [
+        "e152723d737eb303e",
+        "e7966b970f035f62f"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::create_hero",
+      "context": "session.commit",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'session' là gì trong file này"
+    },
+    {
+      "id": "fact:88d3037b30f42c1fce9fb0948a938b0a3fb1dab798ebf3c912e7b00e30201d36",
+      "evidence_refs": [
+        "e169ef865e5fe50ee",
+        "e427f83e9c392e269",
+        "e466aaa59e07b116b",
+        "e6a7264209fa01f85",
+        "ea0dd641a5bb77a77",
+        "ee3a6d11888528dff"
+      ],
+      "target_id": null,
+      "kind": "route",
+      "source_id": "update/tutorial001_py310.py::read_hero",
+      "context": "update/tutorial001_py310.py::app",
+      "attributes": {
+        "method": "GET",
+        "path": "/heroes/{hero_id}",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:8ee06f11bd8dd9dc6d5ba6655b6ece44f2d28e6e505e0b26db1b62e0c0cccca7",
+      "evidence_refs": [
+        "e2d3f8f915e364bff",
+        "ec8be268bc9d22e7a"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::update_hero",
+      "context": "session.add",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'session' là gì trong file này"
+    },
+    {
+      "id": "fact:942566f7ceea3562dbccefc5efabb8eaae3f116ab2fb3f6c23efff15731bda3f",
+      "evidence_refs": [
+        "e15e30713050fff08",
+        "eaa751450235b46b1"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::read_heroes",
+      "context": "session.exec",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'session' là gì trong file này"
+    },
+    {
+      "id": "fact:998651e2c108a4f2d99c19402501692faac3a608b4727d93cfc74b56ea60f3ba",
+      "evidence_refs": [
+        "e308b0455da30d0c6",
+        "e84a4010283116824"
+      ],
+      "target_id": "update/tutorial001_py310.py::create_db_and_tables",
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::on_startup",
+      "context": "update/tutorial001_py310.py:45:4",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:ae4850230617efc95fb7f1d0798cc1c71be387b787c93a37ba1d7236adc427ca",
+      "evidence_refs": [
+        "e152723d737eb303e",
+        "e5184fcb77e6a46b4"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::create_hero",
+      "context": "session.refresh",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'session' là gì trong file này"
+    },
+    {
+      "id": "fact:be8b17514179b10e028c4ec7fb675bb05aa66164ccf7b0748e3a34cf87b8f86e",
+      "evidence_refs": [
+        "e5983f0d3ae856bc6",
+        "ec8be268bc9d22e7a"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::update_hero",
+      "context": "session.commit",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'session' là gì trong file này"
+    },
+    {
+      "id": "fact:befc49b0519d1263de9ac816618035e109e0209abb07f60617fb20c475b9879d",
+      "evidence_refs": [
+        "e1ac10f10ccf5df3c",
+        "e484b9fc18291108d"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::read_hero",
+      "context": "session.get",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'session' là gì trong file này"
+    },
+    {
+      "id": "fact:c1262ba3506171daf605945617a6abe9649982e693aae708e1e4112704b1c8b6",
+      "evidence_refs": [
+        "e15e30713050fff08",
+        "ec7e558877d10d9c2"
+      ],
+      "target_id": "update/tutorial001_py310.py::Hero",
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::read_heroes",
+      "context": "update/tutorial001_py310.py:61:37",
+      "attributes": {
+        "relation": "reads",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:c5d4485883d5a3b0cf00c75b7621253bfee9119be39666a214bff207bcdfb3b8",
+      "evidence_refs": [
+        "e152723d737eb303e",
+        "e5eed3a2b3cca4d1f"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::create_hero",
+      "context": "session.add",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'session' là gì trong file này"
+    },
+    {
+      "id": "fact:c8bed9718d7b55370db2d7eef068c3211c2ae217b06f435fa541857ba4dd63a4",
+      "evidence_refs": [
+        "e1b7c3132262e3a16",
+        "ec8be268bc9d22e7a"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::update_hero",
+      "context": "session.get",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'session' là gì trong file này"
+    },
+    {
+      "id": "fact:cf0bc369220656601c2525d3ca194c65aa10f80471efd07c12b3d254ccfa5b15",
+      "evidence_refs": [
+        "e44e53715dec7a81e",
+        "ec8be268bc9d22e7a"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "update/tutorial001_py310.py::update_hero",
+      "context": "session.refresh",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'session' là gì trong file này"
+    },
+    {
+      "id": "fact:d5948c978457009cd3c1fb0a1f74fef69800b002773f3dce7ed586cb489b60b3",
+      "evidence_refs": [
+        "e318aa5667c067a12",
+        "e3a259453289b88a0",
+        "e427f83e9c392e269",
+        "ea4a7413335efdd25",
+        "ea72d3bedc180c762",
+        "ef5c22be9249a89bc",
+        "effef286827073407"
+      ],
+      "target_id": null,
+      "kind": "route",
+      "source_id": "update/tutorial001_py310.py::update_hero",
+      "context": "update/tutorial001_py310.py::app",
+      "attributes": {
+        "method": "PATCH",
+        "path": "/heroes/{hero_id}",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    }
+  ],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v3",
+    "unsupported": []
+  }
+}

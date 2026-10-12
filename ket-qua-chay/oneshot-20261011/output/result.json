@@ -1,0 +1,2649 @@
+{
+  "agent": {
+    "mode": "oneshot",
+    "open_problems": [
+      "{'kind': 'file_roles', 'index': 0, 'errors': ['at: dòng không có dấu hiệu của vai trò Route theo FR-029']}",
+      "{'kind': 'file_roles', 'index': 5, 'errors': ['call_path: Service cần đường gọi ≥2 vị trí, từ route tới truy cập dữ liệu/hạ tầng']}",
+      "{'kind': 'file_roles', 'index': 6, 'errors': ['at: dòng không có dấu hiệu của vai trò Route theo FR-029', 'role: file có dấu hiệu Điểm vào ở dòng 77, đứng trước Route; nếu đó không phải dấu hiệu thật thì nộp lại kèm not_signal: lý do']}",
+      "{'kind': 'file_roles', 'index': 7, 'errors': ['at: dòng không có dấu hiệu của vai trò Route theo FR-029']}",
+      "{'kind': 'file_roles', 'index': 13, 'errors': ['call_path: Service cần đường gọi ≥2 vị trí, từ route tới truy cập dữ liệu/hạ tầng']}",
+      "{'kind': 'file_roles', 'index': 15, 'errors': ['role: file có dấu hiệu Model bảng ở dòng 11, đứng trước Schema API; nếu đó không phải dấu hiệu thật thì nộp lại kèm not_signal: lý do']}",
+      "{'kind': 'file_roles', 'index': 16, 'errors': ['role: file có dấu hiệu Model bảng ở dòng 11, đứng trước Schema API; nếu đó không phải dấu hiệu thật thì nộp lại kèm not_signal: lý do']}",
+      "{'kind': 'file_roles', 'index': 19, 'errors': ['call_path: Service cần đường gọi ≥2 vị trí, từ route tới truy cập dữ liệu/hạ tầng']}",
+      "Chưa có vai trò cho file app/__init__.py",
+      "Chưa có vai trò cho file app/auth/__init__.py",
+      "Chưa có vai trò cho file app/auth/adapter/__init__.py",
+      "Chưa có vai trò cho file app/auth/adapter/input/__init__.py",
+      "Chưa có vai trò cho file app/auth/adapter/input/api/__init__.py",
+      "Chưa có vai trò cho file app/auth/adapter/input/api/v1/__init__.py",
+      "Chưa có vai trò cho file app/auth/adapter/input/api/v1/request/__init__.py",
+      "Chưa có vai trò cho file app/auth/adapter/input/api/v1/response/__init__.py",
+      "Chưa có vai trò cho file app/auth/application/__init__.py",
+      "Chưa có vai trò cho file app/auth/application/dto/__init__.py",
+      "Chưa có vai trò cho file app/auth/application/service/__init__.py",
+      "Chưa có vai trò cho file app/auth/domain/__init__.py",
+      "Chưa có vai trò cho file app/auth/domain/entity/__init__.py",
+      "Chưa có vai trò cho file app/auth/domain/usecase/__init__.py",
+      "Chưa có vai trò cho file app/container.py",
+      "Chưa có vai trò cho file app/server.py",
+      "Chưa có vai trò cho file app/user/__init__.py",
+      "Chưa có vai trò cho file app/user/adapter/__init__.py",
+      "Chưa có vai trò cho file app/user/adapter/input/__init__.py",
+      "Chưa có vai trò cho file app/user/adapter/input/api/__init__.py",
+      "Chưa có vai trò cho file app/user/adapter/input/api/v1/__init__.py",
+      "Chưa có vai trò cho file app/user/adapter/input/api/v1/request/__init__.py",
+      "Chưa có vai trò cho file app/user/adapter/input/api/v1/response/__init__.py",
+      "Chưa có vai trò cho file app/user/adapter/output/__init__.py",
+      "Chưa có vai trò cho file app/user/adapter/output/persistence/__init__.py",
+      "Chưa có vai trò cho file app/user/adapter/output/persistence/sqlalchemy/__init__.py",
+      "Chưa có vai trò cho file app/user/application/__init__.py",
+      "Chưa có vai trò cho file app/user/application/service/__init__.py",
+      "Chưa có vai trò cho file app/user/application/service/user.py",
+      "Chưa có vai trò cho file app/user/container.py",
+      "Chưa có vai trò cho file app/user/domain/__init__.py",
+      "Chưa có vai trò cho file app/user/domain/entity/__init__.py",
+      "Chưa có vai trò cho file app/user/domain/entity/user.py",
+      "Chưa có vai trò cho file app/user/domain/repository/__init__.py",
+      "Chưa có vai trò cho file app/user/domain/usecase/__init__.py",
+      "Chưa có vai trò cho file app/user/domain/vo/__init__.py",
+      "Chưa có vai trò cho file app/user/domain/vo/location.py",
+      "Chưa có vai trò cho file celery_task/__init__.py",
+      "Chưa có vai trò cho file celery_task/tasks/__init__.py",
+      "Chưa có vai trò cho file core/__init__.py",
+      "Chưa có vai trò cho file core/config.py",
+      "Chưa có vai trò cho file core/db/__init__.py",
+      "Chưa có vai trò cho file core/db/mixins/__init__.py",
+      "Chưa có vai trò cho file core/db/mixins/timestamp_mixin.py",
+      "Chưa có vai trò cho file core/db/session.py",
+      "Chưa có vai trò cho file core/db/transactional.py",
+      "Chưa có vai trò cho file core/exceptions/__init__.py",
+      "Chưa có vai trò cho file core/exceptions/base.py",
+      "Chưa có vai trò cho file core/fastapi/__init__.py",
+      "Chưa có vai trò cho file core/fastapi/dependencies/__init__.py"
+    ],
+    "reason": "REPAIR_ROUNDS: còn lỗi sau 2 vòng sửa",
+    "requests": [
+      {
+        "accepted": 11,
+        "cached": 0,
+        "cost_usd": 0.014428,
+        "finish_reason": "stop",
+        "input": 20810,
+        "open_problems": 77,
+        "output": 3815,
+        "refused": 26,
+        "round": 0
+      },
+      {
+        "accepted": 0,
+        "cached": 24448,
+        "cost_usd": 0.004962400000000002,
+        "finish_reason": "stop",
+        "input": 27958,
+        "open_problems": 77,
+        "output": 696,
+        "refused": 5,
+        "round": 1
+      },
+      {
+        "accepted": 12,
+        "cached": 28544,
+        "cost_usd": 0.004559199999999999,
+        "finish_reason": "stop",
+        "input": 30294,
+        "open_problems": 77,
+        "output": 628,
+        "refused": 8,
+        "round": 2
+      }
+    ],
+    "status": "partial",
+    "tokens_in": 79062,
+    "tokens_out": 5139,
+    "turns": 3,
+    "usage_missing_turns": 0
+  },
+  "architecture_parity": {
+    "reason": "Chưa được cấp archdia.json cùng snapshot",
+    "status": "not_evaluated"
+  },
+  "components": [
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "main.py",
+        "pyproject.toml"
+      ],
+      "id": "cmp_074159e2aa1da5e669c66bc7ac5d5ea1548e191f7b560a7f5f647794fc4fb040",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:50c86b7ed8ac2cf95bd48334961bf0530cdc77b5a56f852c5c61b89d735fd711",
+        "file:b10564ab7d2c520cdd0243874879fb0a782862c3c902ab535faabe57d5a505e1"
+      ],
+      "name": "(root)"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/__init__.py",
+        "app/auth/__init__.py",
+        "app/auth/adapter/__init__.py",
+        "app/auth/adapter/input/__init__.py",
+        "app/auth/adapter/input/api/__init__.py",
+        "app/auth/adapter/input/api/v1/__init__.py",
+        "app/auth/adapter/input/api/v1/auth.py",
+        "app/auth/adapter/input/api/v1/request/__init__.py",
+        "app/auth/adapter/input/api/v1/response/__init__.py",
+        "app/auth/application/__init__.py",
+        "app/auth/application/dto/__init__.py",
+        "app/auth/application/exception/__init__.py",
+        "app/auth/application/service/__init__.py",
+        "app/auth/application/service/jwt.py",
+        "app/auth/domain/__init__.py",
+        "app/auth/domain/entity/__init__.py",
+        "app/auth/domain/usecase/__init__.py",
+        "app/auth/domain/usecase/jwt.py",
+        "app/container.py",
+        "app/server.py",
+        "app/user/__init__.py",
+        "app/user/adapter/__init__.py",
+        "app/user/adapter/input/__init__.py",
+        "app/user/adapter/input/api/__init__.py",
+        "app/user/adapter/input/api/v1/__init__.py",
+        "app/user/adapter/input/api/v1/request/__init__.py",
+        "app/user/adapter/input/api/v1/response/__init__.py",
+        "app/user/adapter/input/api/v1/user.py",
+        "app/user/adapter/output/__init__.py",
+        "app/user/adapter/output/persistence/__init__.py",
+        "app/user/adapter/output/persistence/repository_adapter.py",
+        "app/user/adapter/output/persistence/sqlalchemy/__init__.py",
+        "app/user/adapter/output/persistence/sqlalchemy/user.py",
+        "app/user/application/__init__.py",
+        "app/user/application/dto/__init__.py",
+        "app/user/application/exception/__init__.py",
+        "app/user/application/service/__init__.py",
+        "app/user/application/service/user.py",
+        "app/user/container.py",
+        "app/user/domain/__init__.py",
+        "app/user/domain/command/__init__.py",
+        "app/user/domain/entity/__init__.py",
+        "app/user/domain/entity/user.py",
+        "app/user/domain/repository/__init__.py",
+        "app/user/domain/repository/user.py",
+        "app/user/domain/usecase/__init__.py",
+        "app/user/domain/usecase/user.py",
+        "app/user/domain/vo/__init__.py",
+        "app/user/domain/vo/location.py"
+      ],
+      "id": "cmp_77d00468473b3d9cbf4115656fefa81533a7e1ded485391ddf934929803f1718",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:044c39dd5d4375d4a86d661f41c24d3e08c2e40ea8324f313060d0e74932a35d",
+        "file:0611e5a210ccd678834b52be029c1e0123188db34a452435152cf3226584e364",
+        "file:08b70518f71dd384cce87730cc429145d7af0ed4c3ab63865cd36c18714727e7",
+        "file:0aee136d5cf41f74c78554eafe07a8839a78e4549bc2c8d670bcbdbd48e774fc",
+        "file:138093dbe5c756ba0eb51e5e3a38ac4743d839d69091a7e04946db2fcb126320",
+        "file:174f9755b30fa5153cd59f4a634f6815f632836740675bc8006fd191ab9ce0b8",
+        "file:199f6dd6937b61a634ad55dd3c28aebfb1048915f45a816802f9bddbd952f09a",
+        "file:1fbf05004ded7403e18b55d974418329795d311b9ac9f4b2b11bcd06d2a63a7f",
+        "file:1fc61ea2ee424abe91110048a82d68a4204168f04ea8f0c6e081e432957ed8c8",
+        "file:2dd5a7937d470b325124f94b3a8f47175565ee0205191af8f2c5b73bf225bb69",
+        "file:2f0e0dd8dce2cf063a6c2083f8f65dbfd0cb7c106cfae0c7123d63737672c918",
+        "file:30c96943de00f920f54d23255da6c5e12d3c315fe53da6fa7bf424f5b1c008d9",
+        "file:339a231decdb69ccc474fae8760014b3fe57ddce9ad84242c91d3de6c14010b6",
+        "file:3521a62bbc3e65bfa7525117d426008ae2b172cba14012e5b5d7a2774e20b05c",
+        "file:36933d80eea741a43c35536df24e18bf7f9082f25a7480db5057b447fc21e08b",
+        "file:37c98504965c4ef1b3311235ed2fe3beb485e2066c8cca4b7ab63c9440e4641b",
+        "file:39e02554e3dd083190775a6a4cf04e54210db745370cee829a27d6c6252cea25",
+        "file:3eae1c27300020324fe4a3d87f388fd1ea0b779e882a4d62435b48d1f250c09b",
+        "file:48eb82d639764f6ff5749e685aa586df8a8b3556b1b41feb27854e62b045cd3d",
+        "file:5eaf31246a2393c77e0b8ecf4a0e5bd2589b9b42ba932cf09cd73b2c1a16649c",
+        "file:68ded6480dd81f89458c9729f601613ad183b312495af03a84c45c92f74ff10b",
+        "file:69bca64d451f2a65436f4d5e128978471e6c7ee85d9f22ede6c7c2a9b8882e66",
+        "file:6cd32ed0026134403d35d3927fe3762d04d7f5d5423ebf4540a9d32f81b85d84",
+        "file:77bc1ef710d2e331a51782f8644d86329012a44565b03cb7c0535fbe57c0e7e3",
+        "file:7e28eab95a62d46a54f899d81ab30acc9884bc353ffd5d6c6246f36117f304a1",
+        "file:7ff040ab7e28985dbe07c13260631d3adcd6f353381883ef4fa847a0aa1c76a8",
+        "file:80e1c60b2643769f2ba92d557740e5683f92933c75f5b867859e648b3e7f8487",
+        "file:852f0de70f17a827b5b234b26c85eb67a79a60c1537291b5e97c4cdf8e11e91e",
+        "file:8821a6e493c6828aba66bbb8d41917e30fa795b08cff36be9129cfaea70be3c8",
+        "file:89124b30cbc177ffdae304262c638b796f4854067cb3a6588c2ea8305250f5c0",
+        "file:8dacc2b98350eaba80ee496f87d1402e7944aeb599c47a4b2bcadd91ef8da9c5",
+        "file:8dc4b2798bced94ebef6b76b0d9a0c3575fa8058003890b4530075cbc614744a",
+        "file:8f805edf4fcf5651b251084d383961d22c35ee64f76a353fd86c19ae470c2052",
+        "file:960846ff2337b650f1546695bb53ce065544493a7027819c36c6596c6ad50cd9",
+        "file:9cec7b11237bc29d77a439e81c9b7acfac003d8e8855731eb6bc130b5a8ce602",
+        "file:a0b19e15c44f2bcb6d001c0dd49c35b89d017fa916fc9b863866a48e10834d60",
+        "file:a35fd5187ad5dbedf58fc030bf6d117a394e4c7145dfaec98f47d60c5cc2c364",
+        "file:a450bcf762502a971e9f787ad3114623fd532895b992c0aab2bb913e8a300f17",
+        "file:a579e62460615878032c044505cd339f244498d3f1eec8e818d4b8678dab1384",
+        "file:a5f34527cd965a6272630c32a010da7e88132c44399e810607a71fdf41505f82",
+        "file:b72a203b14465fc8e915aa77f8e3694def1a9a3f1d31ef6029627420f27b717b",
+        "file:bf47f81e8aa40be0767a4d94230a48db9d43068d84a4bcb4d6776abf38363a54",
+        "file:c2f70b0902165444151d28e68c5aa8715b5a72d1fc51d45c8613b884a11c6fc3",
+        "file:c414a5bc0cb096384c939310f73a4d83c59e476f00b0e293b2cbf774766e78ed",
+        "file:cc9079183a660a15c44e211432bcc43f725429120eb921b949865fa8c079be1b",
+        "file:e9bcce654f61b02863c1fb0de85a091f1ae9436a98e05c3e257bfc1b704da3da",
+        "file:f3e42288e4352d697d4145e53b16135f38dfabb6f34a0eeca5a043d6ae21e63a",
+        "file:f53b4616fe8aca41ec4fcd6555f052ed065a3da572445cac130384da5fa8ac51",
+        "file:ff85ea801810bd6fa53f31cc994efde06df8de3c0063cfb7f4c8d9c6cd9295d3"
+      ],
+      "name": "app"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "tests/__init__.py",
+        "tests/app/__init__.py",
+        "tests/app/auth/__init__.py",
+        "tests/app/auth/application/__init__.py",
+        "tests/app/auth/application/service/__init__.py",
+        "tests/app/auth/application/service/test_jwt.py",
+        "tests/app/user/__init__.py",
+        "tests/app/user/adapter/__init__.py",
+        "tests/app/user/adapter/input/__init__.py",
+        "tests/app/user/adapter/input/api/__init__.py",
+        "tests/app/user/adapter/input/api/v1/__init__.py",
+        "tests/app/user/adapter/input/api/v1/test_user.py",
+        "tests/app/user/adapter/output/__init__.py",
+        "tests/app/user/adapter/output/persistence/__init__.py",
+        "tests/app/user/adapter/output/persistence/sqlalchemy/__init__.py",
+        "tests/app/user/adapter/output/persistence/sqlalchemy/test_user.py",
+        "tests/app/user/adapter/output/persistence/test_repository_adapter.py",
+        "tests/app/user/application/__init__.py",
+        "tests/app/user/application/service/__init__.py",
+        "tests/app/user/application/service/test_user.py",
+        "tests/conftest.py",
+        "tests/core/__init__.py",
+        "tests/core/exceptions/__init__.py",
+        "tests/core/exceptions/test_base.py",
+        "tests/core/fastapi/__init__.py",
+        "tests/core/fastapi/dependencies/__init__.py",
+        "tests/core/fastapi/dependencies/test_permission.py",
+        "tests/core/fastapi/middlewares/__init__.py",
+        "tests/core/fastapi/middlewares/test_authentication.py",
+        "tests/core/fastapi/middlewares/test_sqlalchemy.py",
+        "tests/core/helpers/__init__.py",
+        "tests/core/helpers/cache/__init__.py",
+        "tests/core/helpers/cache/test_custom_key_maker.py",
+        "tests/core/helpers/cache/test_redis_backend.py",
+        "tests/core/helpers/test_token.py",
+        "tests/support/__init__.py",
+        "tests/support/test_db_coordinator.py",
+        "tests/support/token.py",
+        "tests/support/user_fixture.py"
+      ],
+      "id": "cmp_9d64398a6a415bf74d49932854e8533f50b71562c14ff1f19679089d349b4a44",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:001e61d97d9dee27d0c5aa1f23ba6c1972cd8a2e8320bac839656b0ab935b84d",
+        "file:0fe40a86d448a05334d8cc549a0e731c47bc3cbeeeda15b79883481b50ece0b2",
+        "file:127ff926ccf3198c654c8ee5a49965a5160c102d59a0d5605657be2a5024c0ad",
+        "file:16fefad2c258726c78216dacb99c9a850b097633f8d32c11cf217ce270a05b05",
+        "file:1ab45fd28f1448d6415c73a34ceba775f30da35d1d953d6e8b347e161d047f47",
+        "file:1f8c798b2d2c41076261a0807cf5ccff63059e23bb5e50698de4a4e265a7146a",
+        "file:23695cbbed353c0c6398f83d82e2548c784191f76a49c49572fd64828dc4ac38",
+        "file:3e3bd7d3e2b8a1f55566ecd7b318c3cdb38799949b2ed5d891808207201e245f",
+        "file:49e993598a966790e58b08e9a648b361c6ffb8a0b5d045e6494b63496b870750",
+        "file:4b7d436e2c353376c30f171b9ec1efd69c768defdbff5eade822075318582035",
+        "file:55fae88712951bca0e9d5b001dad15c53537224ed55009256366bfa7b559341e",
+        "file:56f7606f7cc0c27fc0f5caf12cb80204e6bd6c6fc5c16dc94a2dc32e303b56c1",
+        "file:5af3abc791aeb40d86b54728a037d8533a5ccfc77fd5be97c1b78c56cf9eb9c5",
+        "file:726b62b3bb5709d6edf36dcf3a2f64cff7c89d2a66c381b60640890940dc631a",
+        "file:732bcad7a1a05e32f5ea38c0b935d7039885424e09ee9f6b35a4525f0350a546",
+        "file:770176d71792ca7b0ee6314ec0fb086bff00bc9c4d93bc87245b3ab9848dd95d",
+        "file:77f710dc154282a834b51c5d7d80f87c9177e2013fbee7dd175d5c5da9917b86",
+        "file:7b9d9e6e9fd7ea85a48667fa55d1db4e0bdd7982047b26ddc87f82d663c70266",
+        "file:825db40e1390ed80e8bd22944a5d96082c2c8551b4a4fd75eae20ca849fe5a54",
+        "file:a763c7b7777cbe896eeef86695fc15053ffca302dad647d847174eb862690608",
+        "file:b0c4f038ace032cdc849acbca63ea7e615a55009124a4d07cc425281d7a95cae",
+        "file:b746d4c62a33089951ab1b436346834c04e1aa05cf979d38fdeec347f15d2114",
+        "file:bd9594e267ca8644a30db350588a9eae7c28ce99238ac6cbbb057f7e0025f388",
+        "file:bec190694741bb15ec763c56cb776489408ca96f85264c368467ed063c6e7a08",
+        "file:bf89e3c56c0cd2db3c8f14182a66ed7fc267730fe3c5bc69f552c05e6646cf25",
+        "file:c004223a83c04279e2f959ce48805efd1126231d970a6be287d00e6804401ca1",
+        "file:c33ed4a08be9113f3bc3cee56f21dedc0a5683d494f953b306c815b050db4f98",
+        "file:c5007cc795ffcc82fcd00e5d92af3cce14c20d9c373521c00b7f4c0cf18dae03",
+        "file:da52e3b688b265d857c5b4bd7744bc314afa539420465cee07b05ac932acd089",
+        "file:df08c1a5203174a06ef979b6a09609a7e62fb3f151935d7b7abe9983def1856c",
+        "file:e3c4e8afb7def030d32fa220bb86f2bbfeeece39788262720e67dc8a3407c4c5",
+        "file:e52e4ddd58b7ef887ab03c04116e676f6280b824ab7469d5d3080e5cba4f2128",
+        "file:e8b8ad2276e9e288e64735ba737788050edb5dcd72e2f2a20e48a9b2fcada2e0",
+        "file:e93190bb6d49f3fe988586ea8de40501fe76dc69b49694470ff9b4802a4bbac5",
+        "file:e9ffdde77366ee1b27ed8cb17bcf1847b3a825c9bb203084a8de0601dd4b7c90",
+        "file:ef013ac019476119a1cfcbeea8d7d1094e5c5630f4cd613032ef6970a819c2e1",
+        "file:f07b62f481e53c1d887719cfff5e24ecee3dada80c11daa96fd38f8fec8d6e34",
+        "file:f413c81fc8b084e1713f68da39457fbd981a8d73f3391cd1e0df5e51f2564768",
+        "file:fed3248b2c06db6ed9ddce22baba29d9a62e32d47cb2b596e19d4b1d867d97c1"
+      ],
+      "name": "tests"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "celery_task/__init__.py",
+        "celery_task/tasks/__init__.py"
+      ],
+      "id": "cmp_46de03b7b09ff68f640cfc61c24daa6784ea6c0a3666971e36f633001fab193c",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:5656453281db36b73cc26a960c5b36c3e2ea15fd74d4742fd90a458294c9c06f",
+        "file:d94a0b21896b46f863fafeb24bec526bf35c88a60590dea550e8ebe4adbd8517"
+      ],
+      "name": "celery_task"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "migrations/env.py",
+        "migrations/versions/59628dea39ff_init.py"
+      ],
+      "id": "cmp_7001d83346f9bf84e29bbbc3c0e1eec2a58bf333a00a0adb41423268b681fe98",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:a68d34631cfd735a0301ce04a1fe500b5244a54c878fc249268fc063c78cc0ea",
+        "file:dbafe8c24f845c168152b601cfc6970491eafd55a3020c5fc03ceae83e249beb"
+      ],
+      "name": "migrations"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "core/__init__.py",
+        "core/config.py",
+        "core/db/__init__.py",
+        "core/db/mixins/__init__.py",
+        "core/db/mixins/timestamp_mixin.py",
+        "core/db/session.py",
+        "core/db/transactional.py",
+        "core/exceptions/__init__.py",
+        "core/exceptions/base.py",
+        "core/fastapi/__init__.py",
+        "core/fastapi/dependencies/__init__.py",
+        "core/fastapi/dependencies/logging.py",
+        "core/fastapi/dependencies/permission.py",
+        "core/fastapi/middlewares/__init__.py",
+        "core/fastapi/middlewares/authentication.py",
+        "core/fastapi/middlewares/response_log.py",
+        "core/fastapi/middlewares/sqlalchemy.py",
+        "core/helpers/__init__.py",
+        "core/helpers/cache/__init__.py",
+        "core/helpers/cache/base/__init__.py",
+        "core/helpers/cache/base/backend.py",
+        "core/helpers/cache/base/key_maker.py",
+        "core/helpers/cache/cache_manager.py",
+        "core/helpers/cache/cache_tag.py",
+        "core/helpers/cache/custom_key_maker.py",
+        "core/helpers/cache/redis_backend.py",
+        "core/helpers/redis.py",
+        "core/helpers/token.py",
+        "core/repository/__init__.py",
+        "core/repository/base.py",
+        "core/repository/enum.py"
+      ],
+      "id": "cmp_ff7af69bf31531c2d55fe3d833814fd6fc8af1290e87663d3ec8976f77fc41de",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:17a71b981085d09013c7ff270debf99b5f230fef7d04e0e37e1057cd8d6c952d",
+        "file:1a6065dc18bdd861f809e2a04a880747325739d4ba4999fc04dbe5cdfdc5e81d",
+        "file:3145af8cdb3481fb023b2b1921c0bc2cf30f7a250915294749fcd284556a6081",
+        "file:3b5a05c7e20a04eda79cd04b397f0ccb5b26170fe4035f18b1fce6faa3a2130f",
+        "file:44caa3e07ff54f4c1738bf307ff6c0cc1f009c5b544631cebd1b4fa8d0b16c8a",
+        "file:4ba1867749f52fc500db33ae74e1150d51ab32cea378c1c90731536a59d41184",
+        "file:55a619100320037177367e4afd2efa0f55d6258c7dcd60c48eed52d02a9f2ff9",
+        "file:5fe462d467bc1c4c63927e2dbfc2c61a5024d16da0fcafef1356fd7e830887a6",
+        "file:6d9cace6fbbf85521d4253ec7126b99ebb23d7ad91bf91d2068321ca26b5f8bb",
+        "file:6e69b31b16ebffb36f555c4fec5fad5f63b2718c8bd7c34fbac8343349486d6a",
+        "file:6f2e61e6cce16c0104d4b2c77e178aadcde6d327c98737654ea35899670bb9a9",
+        "file:7778894eafd6eef5df2887c1ef1d5870c805284f9da27436444100d75edf75db",
+        "file:789c6d2237d22a7aed4e3805fa49a89aba8144ea39f8cd764995339273a0ad4a",
+        "file:855d492f78ceef9696e167d02b5677d300d87a55bc4311dbc381db0ec642c6f3",
+        "file:8f6f5009a48430cabde734d744b3c8f7839269514e5933cce79939fbec988883",
+        "file:9137d077b4e1c5539fd1e2b4a9faaaef6df0f95df9b1d645b97ced772f1042fe",
+        "file:93170aabcafdf6933b314155d5a34bcbd1199fd1e32276ddf19edd8c8a7e532e",
+        "file:97236b8eb5bfbc3f772879355540a11076fdc9a43645ce0770410546b49eea12",
+        "file:97ed6d1d0787c0eb92725a8c161e43c9b5281d1f671cc27d91809406ff084368",
+        "file:acfd57541b906ed7a1dd4f16330caabee94d23e82100b13083aab22c165683df",
+        "file:ad8f28c2326c202a88c0156e760e2c20355a1de90a3a9d00e59c3cad3ea5d063",
+        "file:b6c8bf9040dc82a85e86b2261731a1f090ede37d2c2318f1fc3935b6029133f8",
+        "file:b8817b0912491eac83ecf5ba46a008ff6af803ae0a8815e7a92c6773e92e4283",
+        "file:bdf24bc7cf304dd52f1c215086a2c9c2e43936be77d11ac4698f66014b09eb53",
+        "file:c13f4b2f0936f392da544251e6a68e54a330d55d012d576c67cd0a5c7ae20ee4",
+        "file:cefe4a2c0dc8d4692393209de1599d1e2339d0c8f41be0a02dd84568aa0b9c48",
+        "file:d2c4cfeca25c64fc3ab8dd56325a42f9bb473ee6658bc43a9b231b4927f943a8",
+        "file:dd141d90af32dc0eb153cac1a72314632c92a44b90725b1c905ce0a9241bc9b1",
+        "file:eaee2eac2fef0bacbd95bb77b386c665cafc9099aa2e459fef846609eea2d625",
+        "file:f219d154e9dd46d4dad719ff73ef74e02f87630ea1e0a8824102c82c79f81ec6",
+        "file:f5bc9e24b33bc21df374f8813d99625759eaf7518178fb070471b6a440a9193b"
+      ],
+      "name": "core"
+    }
+  ],
+  "contract_owners": {},
+  "coverage": {
+    "complete": true,
+    "files": [
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/adapter/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/adapter/input/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 9,
+        "missing": [],
+        "path": "app/auth/adapter/input/api/__init__.py",
+        "processed_lines": 9,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/adapter/input/api/v1/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 37,
+        "missing": [],
+        "path": "app/auth/adapter/input/api/v1/auth.py",
+        "processed_lines": 37,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 10,
+        "missing": [],
+        "path": "app/auth/adapter/input/api/v1/request/__init__.py",
+        "processed_lines": 10,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 6,
+        "missing": [],
+        "path": "app/auth/adapter/input/api/v1/response/__init__.py",
+        "processed_lines": 6,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/application/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 6,
+        "missing": [],
+        "path": "app/auth/application/dto/__init__.py",
+        "processed_lines": 6,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 13,
+        "missing": [],
+        "path": "app/auth/application/exception/__init__.py",
+        "processed_lines": 13,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/application/service/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 33,
+        "missing": [],
+        "path": "app/auth/application/service/jwt.py",
+        "processed_lines": 33,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/domain/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/domain/entity/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/domain/usecase/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 17,
+        "missing": [],
+        "path": "app/auth/domain/usecase/jwt.py",
+        "processed_lines": 17,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 17,
+        "missing": [],
+        "path": "app/container.py",
+        "processed_lines": 17,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 92,
+        "missing": [],
+        "path": "app/server.py",
+        "processed_lines": 92,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/adapter/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/adapter/input/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 9,
+        "missing": [],
+        "path": "app/user/adapter/input/api/__init__.py",
+        "processed_lines": 9,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/adapter/input/api/v1/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 15,
+        "missing": [],
+        "path": "app/user/adapter/input/api/v1/request/__init__.py",
+        "processed_lines": 15,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 6,
+        "missing": [],
+        "path": "app/user/adapter/input/api/v1/response/__init__.py",
+        "processed_lines": 6,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 53,
+        "missing": [],
+        "path": "app/user/adapter/input/api/v1/user.py",
+        "processed_lines": 53,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/adapter/output/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/adapter/output/persistence/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 44,
+        "missing": [],
+        "path": "app/user/adapter/output/persistence/repository_adapter.py",
+        "processed_lines": 44,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/adapter/output/persistence/sqlalchemy/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 59,
+        "missing": [],
+        "path": "app/user/adapter/output/persistence/sqlalchemy/user.py",
+        "processed_lines": 59,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/application/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 24,
+        "missing": [],
+        "path": "app/user/application/dto/__init__.py",
+        "processed_lines": 24,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 19,
+        "missing": [],
+        "path": "app/user/application/exception/__init__.py",
+        "processed_lines": 19,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/application/service/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 67,
+        "missing": [],
+        "path": "app/user/application/service/user.py",
+        "processed_lines": 67,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 17,
+        "missing": [],
+        "path": "app/user/container.py",
+        "processed_lines": 17,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/domain/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 10,
+        "missing": [],
+        "path": "app/user/domain/command/__init__.py",
+        "processed_lines": 10,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/domain/entity/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 38,
+        "missing": [],
+        "path": "app/user/domain/entity/user.py",
+        "processed_lines": 38,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/domain/repository/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 39,
+        "missing": [],
+        "path": "app/user/domain/repository/user.py",
+        "processed_lines": 39,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/domain/usecase/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 27,
+        "missing": [],
+        "path": "app/user/domain/usecase/user.py",
+        "processed_lines": 27,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/domain/vo/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 7,
+        "missing": [],
+        "path": "app/user/domain/vo/location.py",
+        "processed_lines": 7,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 12,
+        "missing": [],
+        "path": "celery_task/__init__.py",
+        "processed_lines": 12,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "celery_task/tasks/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "core/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 45,
+        "missing": [],
+        "path": "core/config.py",
+        "processed_lines": 45,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 9,
+        "missing": [],
+        "path": "core/db/__init__.py",
+        "processed_lines": 9,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 1,
+        "missing": [],
+        "path": "core/db/mixins/__init__.py",
+        "processed_lines": 1,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 18,
+        "missing": [],
+        "path": "core/db/mixins/timestamp_mixin.py",
+        "processed_lines": 18,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 76,
+        "missing": [],
+        "path": "core/db/session.py",
+        "processed_lines": 76,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 19,
+        "missing": [],
+        "path": "core/db/transactional.py",
+        "processed_lines": 19,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 6,
+        "missing": [],
+        "path": "core/exceptions/__init__.py",
+        "processed_lines": 6,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 8,
+        "missing": [],
+        "path": "core/exceptions/base.py",
+        "processed_lines": 8,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "core/fastapi/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 15,
+        "missing": [],
+        "path": "core/fastapi/dependencies/__init__.py",
+        "processed_lines": 15,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 9,
+        "missing": [],
+        "path": "core/fastapi/dependencies/logging.py",
+        "processed_lines": 9,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 67,
+        "missing": [],
+        "path": "core/fastapi/dependencies/permission.py",
+        "processed_lines": 67,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 10,
+        "missing": [],
+        "path": "core/fastapi/middlewares/__init__.py",
+        "processed_lines": 10,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 50,
+        "missing": [],
+        "path": "core/fastapi/middlewares/authentication.py",
+        "processed_lines": 50,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 34,
+        "missing": [],
+        "path": "core/fastapi/middlewares/response_log.py",
+        "processed_lines": 34,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 22,
+        "missing": [],
+        "path": "core/fastapi/middlewares/sqlalchemy.py",
+        "processed_lines": 22,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "core/helpers/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 11,
+        "missing": [],
+        "path": "core/helpers/cache/__init__.py",
+        "processed_lines": 11,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 7,
+        "missing": [],
+        "path": "core/helpers/cache/base/__init__.py",
+        "processed_lines": 7,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 16,
+        "missing": [],
+        "path": "core/helpers/cache/base/backend.py",
+        "processed_lines": 16,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 8,
+        "missing": [],
+        "path": "core/helpers/cache/base/key_maker.py",
+        "processed_lines": 8,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 52,
+        "missing": [],
+        "path": "core/helpers/cache/cache_manager.py",
+        "processed_lines": 52,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 5,
+        "missing": [],
+        "path": "core/helpers/cache/cache_tag.py",
+        "processed_lines": 5,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 18,
+        "missing": [],
+        "path": "core/helpers/cache/custom_key_maker.py",
+        "processed_lines": 18,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 28,
+        "missing": [],
+        "path": "core/helpers/cache/redis_backend.py",
+        "processed_lines": 28,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 5,
+        "missing": [],
+        "path": "core/helpers/redis.py",
+        "processed_lines": 5,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 57,
+        "missing": [],
+        "path": "core/helpers/token.py",
+        "processed_lines": 57,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "core/repository/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 50,
+        "missing": [],
+        "path": "core/repository/base.py",
+        "processed_lines": 50,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 7,
+        "missing": [],
+        "path": "core/repository/enum.py",
+        "processed_lines": 7,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 34,
+        "missing": [],
+        "path": "main.py",
+        "processed_lines": 34,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 42,
+        "missing": [],
+        "path": "pyproject.toml",
+        "processed_lines": 42,
+        "status": "processed"
+      }
+    ],
+    "not_readable": [
+      {
+        "path": "migrations/env.py",
+        "reason": "File migration (FR-028 Phạm vi đọc)",
+        "scope": "migration"
+      },
+      {
+        "path": "migrations/versions/59628dea39ff_init.py",
+        "reason": "File migration (FR-028 Phạm vi đọc)",
+        "scope": "migration"
+      },
+      {
+        "path": "tests/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/auth/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/auth/application/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/auth/application/service/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/auth/application/service/test_jwt.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/input/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/input/api/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/input/api/v1/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/input/api/v1/test_user.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/output/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/output/persistence/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/output/persistence/sqlalchemy/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/output/persistence/sqlalchemy/test_user.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/output/persistence/test_repository_adapter.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/application/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/application/service/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/application/service/test_user.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/conftest.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/exceptions/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/exceptions/test_base.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/fastapi/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/fastapi/dependencies/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/fastapi/dependencies/test_permission.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/fastapi/middlewares/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/fastapi/middlewares/test_authentication.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/fastapi/middlewares/test_sqlalchemy.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/helpers/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/helpers/cache/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/helpers/cache/test_custom_key_maker.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/helpers/cache/test_redis_backend.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/helpers/test_token.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/support/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/support/test_db_coordinator.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/support/token.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/support/user_fixture.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      }
+    ]
+  },
+  "dismissed_suspects": [],
+  "evidence_index": [
+    {
+      "end_column": null,
+      "end_line": 7,
+      "file_id": "file:c2f70b0902165444151d28e68c5aa8715b5a72d1fc51d45c8613b884a11c6fc3",
+      "id": "ev:1c3b4448908427d2af01c230c7c5c418d974a14158ceb25ab1c9e03b12c57b2f",
+      "path": "app/user/domain/usecase/user.py",
+      "sha256": "f9a8ce56b2fc56bf9d154e430c24a6112087aa5d566dc42383cfa1772f279029",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 7
+    },
+    {
+      "end_column": null,
+      "end_line": 8,
+      "file_id": "file:a35fd5187ad5dbedf58fc030bf6d117a394e4c7145dfaec98f47d60c5cc2c364",
+      "id": "ev:2781b2e524fc20fb41c4979a2d42e7fe655bb781fc64338c1d88801e51be7c06",
+      "path": "app/user/adapter/output/persistence/sqlalchemy/user.py",
+      "sha256": "e00e4cdaf110dd12dee7271cb746fd993e9ddc5fab0dad43ff3e34c9d0a4c696",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 8
+    },
+    {
+      "end_column": null,
+      "end_line": 4,
+      "file_id": "file:0aee136d5cf41f74c78554eafe07a8839a78e4549bc2c8d670bcbdbd48e774fc",
+      "id": "ev:29196af0b6d0100f127b804e0971939b1664174af743448f2e7e8d9544e996dc",
+      "path": "app/user/domain/command/__init__.py",
+      "sha256": "d1bfe8710a858800cb0b34c202afc8c61e0014bda3769c3e8865e5257a50ecd7",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 4
+    },
+    {
+      "end_column": null,
+      "end_line": 20,
+      "file_id": "file:960846ff2337b650f1546695bb53ce065544493a7027819c36c6596c6ad50cd9",
+      "id": "ev:3a9adcecb3496f1bc60ebdb9c94b13d05caf4c9dc4933816ec50e5477d7d6da9",
+      "path": "app/auth/adapter/input/api/v1/auth.py",
+      "sha256": "75fdf56b1fc8af8cf0998c8ae3690f91a57b8da374e9434306c3b3387eb6f35a",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 20
+    },
+    {
+      "end_column": null,
+      "end_line": 15,
+      "file_id": "file:960846ff2337b650f1546695bb53ce065544493a7027819c36c6596c6ad50cd9",
+      "id": "ev:4dcfcab6eea17a1435908cd7c915290f9a663c7c1fd3e12293a4aeead7f89335",
+      "path": "app/auth/adapter/input/api/v1/auth.py",
+      "sha256": "75fdf56b1fc8af8cf0998c8ae3690f91a57b8da374e9434306c3b3387eb6f35a",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 15
+    },
+    {
+      "end_column": null,
+      "end_line": 5,
+      "file_id": "file:36933d80eea741a43c35536df24e18bf7f9082f25a7480db5057b447fc21e08b",
+      "id": "ev:549317380b0d31c1c8f4308058b1dd7cb5e390e1b8ff72788bbb427d31825efb",
+      "path": "app/user/domain/repository/user.py",
+      "sha256": "57fd17646456ed24b049a63c351d6ee998e3849efc5931659eed5cf98beeb57d",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 5
+    },
+    {
+      "end_column": null,
+      "end_line": 12,
+      "file_id": "file:1fc61ea2ee424abe91110048a82d68a4204168f04ea8f0c6e081e432957ed8c8",
+      "id": "ev:5fe5d4392f1490ed00eaf27b1d9f94139d69e77ce4df9304fa4abac323f35760",
+      "path": "app/auth/application/service/jwt.py",
+      "sha256": "449a738c1dbbba25c80652bdb615807609fb6a49216ab5f272e6e0aa844f0d39",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 12
+    },
+    {
+      "end_column": null,
+      "end_line": 6,
+      "file_id": "file:e9bcce654f61b02863c1fb0de85a091f1ae9436a98e05c3e257bfc1b704da3da",
+      "id": "ev:7ba5f72bf078420e46835260f021429125cbf87f450cb23105d4685b4dd1cc48",
+      "path": "app/auth/domain/usecase/jwt.py",
+      "sha256": "9a71f63be08656a2cecb595d85e70d95217ea1d09664b1d641b215eee4f18fbe",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 4,
+      "file_id": "file:7e28eab95a62d46a54f899d81ab30acc9884bc353ffd5d6c6246f36117f304a1",
+      "id": "ev:7e46531e34adaf9a00b7eb5fb0d9430a546c5dbbc004687c41aa0362c95e78f0",
+      "path": "app/auth/application/exception/__init__.py",
+      "sha256": "0da196388d4e5cdf7d4312fd30f33ecd1e341c64a42a9eafad42b23590d84e13",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 4
+    },
+    {
+      "end_column": null,
+      "end_line": 11,
+      "file_id": "file:1fc61ea2ee424abe91110048a82d68a4204168f04ea8f0c6e081e432957ed8c8",
+      "id": "ev:a0382a3f7bb2b744eb022b26e568678f0ccc5f4f5eb41a8ea75f44634ac2ac44",
+      "path": "app/auth/application/service/jwt.py",
+      "sha256": "449a738c1dbbba25c80652bdb615807609fb6a49216ab5f272e6e0aa844f0d39",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 11
+    },
+    {
+      "end_column": null,
+      "end_line": 4,
+      "file_id": "file:c414a5bc0cb096384c939310f73a4d83c59e476f00b0e293b2cbf774766e78ed",
+      "id": "ev:a449db58c81af507849ca5b71bd086098fb7fa4f3202aa38159d6964ccacf333",
+      "path": "app/user/application/exception/__init__.py",
+      "sha256": "f8c789cf2dcdc1cde85f24302e9efe5eac56829c6bb73d127f06b7670b73d8da",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 4
+    },
+    {
+      "end_column": null,
+      "end_line": 4,
+      "file_id": "file:3521a62bbc3e65bfa7525117d426008ae2b172cba14012e5b5d7a2774e20b05c",
+      "id": "ev:a6bd52d3ffba1618b2b2212331a6a7bddb51aedbad5b47a8dd2a17bfa62a3bd4",
+      "path": "app/user/application/dto/__init__.py",
+      "sha256": "6eeecb20433e29c76a9a2d648b456a5dba76389adb7ffb2c6e661e05066cb9de",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 4
+    },
+    {
+      "end_column": null,
+      "end_line": 15,
+      "file_id": "file:339a231decdb69ccc474fae8760014b3fe57ddce9ad84242c91d3de6c14010b6",
+      "id": "ev:bce164f188b376223e079b2675f76f613e7df985f71d44da8aabd7088bdb47bc",
+      "path": "app/user/adapter/input/api/v1/user.py",
+      "sha256": "352be9f0dba0e329926a3e3206a032dc9656e1505ab5e28f1d5167dfb480c439",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 15
+    },
+    {
+      "end_column": null,
+      "end_line": 5,
+      "file_id": "file:f53b4616fe8aca41ec4fcd6555f052ed065a3da572445cac130384da5fa8ac51",
+      "id": "ev:bd8a7894047f28fbe3d652209b0a2252acf9a174b661b5b4d14c52e78b4f8c20",
+      "path": "app/user/adapter/output/persistence/repository_adapter.py",
+      "sha256": "1e1fd1f09a1b419359eac36dddbb4eca55b244f532a01a1ad895a5c722e87c47",
+      "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+      "start_column": null,
+      "start_line": 5
+    }
+  ],
+  "excluded_from_snapshot": [
+    {
+      "path": ".gitignore",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "Makefile",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "README.md",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "alembic.ini",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "docker/docker-compose.yml",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "docker/init.sql",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "migrations/README",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "migrations/script.py.mako",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "poetry.lock",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "pytest.ini",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    }
+  ],
+  "facts": [
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:4dcfcab6eea17a1435908cd7c915290f9a663c7c1fd3e12293a4aeead7f89335"
+          ],
+          "state": "known",
+          "value": "@auth_router.post("
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:4dcfcab6eea17a1435908cd7c915290f9a663c7c1fd3e12293a4aeead7f89335"
+          ],
+          "state": "known",
+          "value": "app/auth/adapter/input/api/v1/auth.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:4dcfcab6eea17a1435908cd7c915290f9a663c7c1fd3e12293a4aeead7f89335"
+          ],
+          "state": "known",
+          "value": "Route"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 15,
+          "file_id": "file:960846ff2337b650f1546695bb53ce065544493a7027819c36c6596c6ad50cd9",
+          "id": "ev:4dcfcab6eea17a1435908cd7c915290f9a663c7c1fd3e12293a4aeead7f89335",
+          "path": "app/auth/adapter/input/api/v1/auth.py",
+          "sha256": "75fdf56b1fc8af8cf0998c8ae3690f91a57b8da374e9434306c3b3387eb6f35a",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 15
+        }
+      ],
+      "id": "fact:fbb3f0017055efd5a87c566182cc310ab992becb34eddfbf9b133226bab477fa",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:fc0331bb96ca0cc66184304729b7a9430e77037d21697e392b276cd58ae2443d"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:7e46531e34adaf9a00b7eb5fb0d9430a546c5dbbc004687c41aa0362c95e78f0"
+          ],
+          "state": "known",
+          "value": "class DecodeTokenException(CustomException):"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:7e46531e34adaf9a00b7eb5fb0d9430a546c5dbbc004687c41aa0362c95e78f0"
+          ],
+          "state": "known",
+          "value": "app/auth/application/exception/__init__.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:7e46531e34adaf9a00b7eb5fb0d9430a546c5dbbc004687c41aa0362c95e78f0"
+          ],
+          "state": "known",
+          "value": "Schema API"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 4,
+          "file_id": "file:7e28eab95a62d46a54f899d81ab30acc9884bc353ffd5d6c6246f36117f304a1",
+          "id": "ev:7e46531e34adaf9a00b7eb5fb0d9430a546c5dbbc004687c41aa0362c95e78f0",
+          "path": "app/auth/application/exception/__init__.py",
+          "sha256": "0da196388d4e5cdf7d4312fd30f33ecd1e341c64a42a9eafad42b23590d84e13",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 4
+        }
+      ],
+      "id": "fact:aad3a2f8d516ca10fd3fb644a2e048f249de6cdb14249ff03488b4b2b599c28c",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:fc0331bb96ca0cc66184304729b7a9430e77037d21697e392b276cd58ae2443d"
+    },
+    {
+      "attributes": {
+        "call_path": {
+          "evidence_ids": [
+            "ev:3a9adcecb3496f1bc60ebdb9c94b13d05caf4c9dc4933816ec50e5477d7d6da9",
+            "ev:5fe5d4392f1490ed00eaf27b1d9f94139d69e77ce4df9304fa4abac323f35760"
+          ],
+          "state": "known",
+          "value": [
+            "app/auth/adapter/input/api/v1/auth.py:20",
+            "app/auth/application/service/jwt.py:12"
+          ]
+        },
+        "code": {
+          "evidence_ids": [
+            "ev:a0382a3f7bb2b744eb022b26e568678f0ccc5f4f5eb41a8ea75f44634ac2ac44"
+          ],
+          "state": "known",
+          "value": "class JwtService(JwtUseCase):"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:3a9adcecb3496f1bc60ebdb9c94b13d05caf4c9dc4933816ec50e5477d7d6da9",
+            "ev:5fe5d4392f1490ed00eaf27b1d9f94139d69e77ce4df9304fa4abac323f35760",
+            "ev:a0382a3f7bb2b744eb022b26e568678f0ccc5f4f5eb41a8ea75f44634ac2ac44"
+          ],
+          "state": "known",
+          "value": "app/auth/application/service/jwt.py"
+        },
+        "reason": {
+          "evidence_ids": [
+            "ev:3a9adcecb3496f1bc60ebdb9c94b13d05caf4c9dc4933816ec50e5477d7d6da9",
+            "ev:5fe5d4392f1490ed00eaf27b1d9f94139d69e77ce4df9304fa4abac323f35760"
+          ],
+          "state": "known",
+          "value": "Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:3a9adcecb3496f1bc60ebdb9c94b13d05caf4c9dc4933816ec50e5477d7d6da9",
+            "ev:5fe5d4392f1490ed00eaf27b1d9f94139d69e77ce4df9304fa4abac323f35760",
+            "ev:a0382a3f7bb2b744eb022b26e568678f0ccc5f4f5eb41a8ea75f44634ac2ac44"
+          ],
+          "state": "known",
+          "value": "Service"
+        }
+      },
+      "completeness": "full",
+      "confidence": "inferred",
+      "confidence_reason": "Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 11,
+          "file_id": "file:1fc61ea2ee424abe91110048a82d68a4204168f04ea8f0c6e081e432957ed8c8",
+          "id": "ev:a0382a3f7bb2b744eb022b26e568678f0ccc5f4f5eb41a8ea75f44634ac2ac44",
+          "path": "app/auth/application/service/jwt.py",
+          "sha256": "449a738c1dbbba25c80652bdb615807609fb6a49216ab5f272e6e0aa844f0d39",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 11
+        },
+        {
+          "end_column": null,
+          "end_line": 20,
+          "file_id": "file:960846ff2337b650f1546695bb53ce065544493a7027819c36c6596c6ad50cd9",
+          "id": "ev:3a9adcecb3496f1bc60ebdb9c94b13d05caf4c9dc4933816ec50e5477d7d6da9",
+          "path": "app/auth/adapter/input/api/v1/auth.py",
+          "sha256": "75fdf56b1fc8af8cf0998c8ae3690f91a57b8da374e9434306c3b3387eb6f35a",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 20
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:1fc61ea2ee424abe91110048a82d68a4204168f04ea8f0c6e081e432957ed8c8",
+          "id": "ev:5fe5d4392f1490ed00eaf27b1d9f94139d69e77ce4df9304fa4abac323f35760",
+          "path": "app/auth/application/service/jwt.py",
+          "sha256": "449a738c1dbbba25c80652bdb615807609fb6a49216ab5f272e6e0aa844f0d39",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 12
+        }
+      ],
+      "id": "fact:a66351fb344516589891005c04773d85489d42de4613c150822a44e87bc64df0",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:fc0331bb96ca0cc66184304729b7a9430e77037d21697e392b276cd58ae2443d"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:7ba5f72bf078420e46835260f021429125cbf87f450cb23105d4685b4dd1cc48"
+          ],
+          "state": "known",
+          "value": "class JwtUseCase(ABC):"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:7ba5f72bf078420e46835260f021429125cbf87f450cb23105d4685b4dd1cc48"
+          ],
+          "state": "known",
+          "value": "app/auth/domain/usecase/jwt.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:7ba5f72bf078420e46835260f021429125cbf87f450cb23105d4685b4dd1cc48"
+          ],
+          "state": "known",
+          "value": "Schema API"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:e9bcce654f61b02863c1fb0de85a091f1ae9436a98e05c3e257bfc1b704da3da",
+          "id": "ev:7ba5f72bf078420e46835260f021429125cbf87f450cb23105d4685b4dd1cc48",
+          "path": "app/auth/domain/usecase/jwt.py",
+          "sha256": "9a71f63be08656a2cecb595d85e70d95217ea1d09664b1d641b215eee4f18fbe",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 6
+        }
+      ],
+      "id": "fact:f28ed09ac1baad5bea8afe61c3ccd39e44a12c3987960d60d00f3eaff7a78242",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:fc0331bb96ca0cc66184304729b7a9430e77037d21697e392b276cd58ae2443d"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:bce164f188b376223e079b2675f76f613e7df985f71d44da8aabd7088bdb47bc"
+          ],
+          "state": "known",
+          "value": "@user_router.get("
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:bce164f188b376223e079b2675f76f613e7df985f71d44da8aabd7088bdb47bc"
+          ],
+          "state": "known",
+          "value": "app/user/adapter/input/api/v1/user.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:bce164f188b376223e079b2675f76f613e7df985f71d44da8aabd7088bdb47bc"
+          ],
+          "state": "known",
+          "value": "Route"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 15,
+          "file_id": "file:339a231decdb69ccc474fae8760014b3fe57ddce9ad84242c91d3de6c14010b6",
+          "id": "ev:bce164f188b376223e079b2675f76f613e7df985f71d44da8aabd7088bdb47bc",
+          "path": "app/user/adapter/input/api/v1/user.py",
+          "sha256": "352be9f0dba0e329926a3e3206a032dc9656e1505ab5e28f1d5167dfb480c439",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 15
+        }
+      ],
+      "id": "fact:ebd40c3723c066a33d13defacf16cf91978310033d546893271402bbf9694a83",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:fc0331bb96ca0cc66184304729b7a9430e77037d21697e392b276cd58ae2443d"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:bd8a7894047f28fbe3d652209b0a2252acf9a174b661b5b4d14c52e78b4f8c20"
+          ],
+          "state": "known",
+          "value": "class UserRepositoryAdapter:"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:bd8a7894047f28fbe3d652209b0a2252acf9a174b661b5b4d14c52e78b4f8c20"
+          ],
+          "state": "known",
+          "value": "app/user/adapter/output/persistence/repository_adapter.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:bd8a7894047f28fbe3d652209b0a2252acf9a174b661b5b4d14c52e78b4f8c20"
+          ],
+          "state": "known",
+          "value": "Truy cập dữ liệu"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:f53b4616fe8aca41ec4fcd6555f052ed065a3da572445cac130384da5fa8ac51",
+          "id": "ev:bd8a7894047f28fbe3d652209b0a2252acf9a174b661b5b4d14c52e78b4f8c20",
+          "path": "app/user/adapter/output/persistence/repository_adapter.py",
+          "sha256": "1e1fd1f09a1b419359eac36dddbb4eca55b244f532a01a1ad895a5c722e87c47",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 5
+        }
+      ],
+      "id": "fact:78fbf7c290c6ebfd7e25f8b8dca84f88a72f1e0cb57790acc67a62cd253c8b5a",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:fc0331bb96ca0cc66184304729b7a9430e77037d21697e392b276cd58ae2443d"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:2781b2e524fc20fb41c4979a2d42e7fe655bb781fc64338c1d88801e51be7c06"
+          ],
+          "state": "known",
+          "value": "class UserSQLAlchemyRepo(UserRepo):"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:2781b2e524fc20fb41c4979a2d42e7fe655bb781fc64338c1d88801e51be7c06"
+          ],
+          "state": "known",
+          "value": "app/user/adapter/output/persistence/sqlalchemy/user.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:2781b2e524fc20fb41c4979a2d42e7fe655bb781fc64338c1d88801e51be7c06"
+          ],
+          "state": "known",
+          "value": "Truy cập dữ liệu"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 8,
+          "file_id": "file:a35fd5187ad5dbedf58fc030bf6d117a394e4c7145dfaec98f47d60c5cc2c364",
+          "id": "ev:2781b2e524fc20fb41c4979a2d42e7fe655bb781fc64338c1d88801e51be7c06",
+          "path": "app/user/adapter/output/persistence/sqlalchemy/user.py",
+          "sha256": "e00e4cdaf110dd12dee7271cb746fd993e9ddc5fab0dad43ff3e34c9d0a4c696",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 8
+        }
+      ],
+      "id": "fact:178dc693f0fd3078fd3790d6f3056aab27d2da563b0c4f46644793fbce3bb47f",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:fc0331bb96ca0cc66184304729b7a9430e77037d21697e392b276cd58ae2443d"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:a6bd52d3ffba1618b2b2212331a6a7bddb51aedbad5b47a8dd2a17bfa62a3bd4"
+          ],
+          "state": "known",
+          "value": "class GetUserListResponseDTO(BaseModel):"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:a6bd52d3ffba1618b2b2212331a6a7bddb51aedbad5b47a8dd2a17bfa62a3bd4"
+          ],
+          "state": "known",
+          "value": "app/user/application/dto/__init__.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:a6bd52d3ffba1618b2b2212331a6a7bddb51aedbad5b47a8dd2a17bfa62a3bd4"
+          ],
+          "state": "known",
+          "value": "Schema API"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 4,
+          "file_id": "file:3521a62bbc3e65bfa7525117d426008ae2b172cba14012e5b5d7a2774e20b05c",
+          "id": "ev:a6bd52d3ffba1618b2b2212331a6a7bddb51aedbad5b47a8dd2a17bfa62a3bd4",
+          "path": "app/user/application/dto/__init__.py",
+          "sha256": "6eeecb20433e29c76a9a2d648b456a5dba76389adb7ffb2c6e661e05066cb9de",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 4
+        }
+      ],
+      "id": "fact:1a72093956b750c98a3afedfef5ff0f3635a75c95c551c942e44d63e43bb0486",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:fc0331bb96ca0cc66184304729b7a9430e77037d21697e392b276cd58ae2443d"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:a449db58c81af507849ca5b71bd086098fb7fa4f3202aa38159d6964ccacf333"
+          ],
+          "state": "known",
+          "value": "class PasswordDoesNotMatchException(CustomException):"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:a449db58c81af507849ca5b71bd086098fb7fa4f3202aa38159d6964ccacf333"
+          ],
+          "state": "known",
+          "value": "app/user/application/exception/__init__.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:a449db58c81af507849ca5b71bd086098fb7fa4f3202aa38159d6964ccacf333"
+          ],
+          "state": "known",
+          "value": "Schema API"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 4,
+          "file_id": "file:c414a5bc0cb096384c939310f73a4d83c59e476f00b0e293b2cbf774766e78ed",
+          "id": "ev:a449db58c81af507849ca5b71bd086098fb7fa4f3202aa38159d6964ccacf333",
+          "path": "app/user/application/exception/__init__.py",
+          "sha256": "f8c789cf2dcdc1cde85f24302e9efe5eac56829c6bb73d127f06b7670b73d8da",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 4
+        }
+      ],
+      "id": "fact:99f0f5e2cc83978dbdb748e837ebfa5a07754939f067bcbb118996b821f0237e",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:fc0331bb96ca0cc66184304729b7a9430e77037d21697e392b276cd58ae2443d"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:29196af0b6d0100f127b804e0971939b1664174af743448f2e7e8d9544e996dc"
+          ],
+          "state": "known",
+          "value": "class CreateUserCommand(BaseModel):"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:29196af0b6d0100f127b804e0971939b1664174af743448f2e7e8d9544e996dc"
+          ],
+          "state": "known",
+          "value": "app/user/domain/command/__init__.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:29196af0b6d0100f127b804e0971939b1664174af743448f2e7e8d9544e996dc"
+          ],
+          "state": "known",
+          "value": "Schema API"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 4,
+          "file_id": "file:0aee136d5cf41f74c78554eafe07a8839a78e4549bc2c8d670bcbdbd48e774fc",
+          "id": "ev:29196af0b6d0100f127b804e0971939b1664174af743448f2e7e8d9544e996dc",
+          "path": "app/user/domain/command/__init__.py",
+          "sha256": "d1bfe8710a858800cb0b34c202afc8c61e0014bda3769c3e8865e5257a50ecd7",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 4
+        }
+      ],
+      "id": "fact:0f3244f172068969f6f43c0527faa4047edf807f0ee2fdba3f7f8394e9528e9f",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:fc0331bb96ca0cc66184304729b7a9430e77037d21697e392b276cd58ae2443d"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:549317380b0d31c1c8f4308058b1dd7cb5e390e1b8ff72788bbb427d31825efb"
+          ],
+          "state": "known",
+          "value": "class UserRepo(ABC):"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:549317380b0d31c1c8f4308058b1dd7cb5e390e1b8ff72788bbb427d31825efb"
+          ],
+          "state": "known",
+          "value": "app/user/domain/repository/user.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:549317380b0d31c1c8f4308058b1dd7cb5e390e1b8ff72788bbb427d31825efb"
+          ],
+          "state": "known",
+          "value": "Schema API"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:36933d80eea741a43c35536df24e18bf7f9082f25a7480db5057b447fc21e08b",
+          "id": "ev:549317380b0d31c1c8f4308058b1dd7cb5e390e1b8ff72788bbb427d31825efb",
+          "path": "app/user/domain/repository/user.py",
+          "sha256": "57fd17646456ed24b049a63c351d6ee998e3849efc5931659eed5cf98beeb57d",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 5
+        }
+      ],
+      "id": "fact:801418efd80cb3a7694ea07b1f3eeb02e4c9b305d7d412fa2b59f563275fe108",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:fc0331bb96ca0cc66184304729b7a9430e77037d21697e392b276cd58ae2443d"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:1c3b4448908427d2af01c230c7c5c418d974a14158ceb25ab1c9e03b12c57b2f"
+          ],
+          "state": "known",
+          "value": "class UserUseCase(ABC):"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:1c3b4448908427d2af01c230c7c5c418d974a14158ceb25ab1c9e03b12c57b2f"
+          ],
+          "state": "known",
+          "value": "app/user/domain/usecase/user.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:1c3b4448908427d2af01c230c7c5c418d974a14158ceb25ab1c9e03b12c57b2f"
+          ],
+          "state": "known",
+          "value": "Schema API"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 7,
+          "file_id": "file:c2f70b0902165444151d28e68c5aa8715b5a72d1fc51d45c8613b884a11c6fc3",
+          "id": "ev:1c3b4448908427d2af01c230c7c5c418d974a14158ceb25ab1c9e03b12c57b2f",
+          "path": "app/user/domain/usecase/user.py",
+          "sha256": "f9a8ce56b2fc56bf9d154e430c24a6112087aa5d566dc42383cfa1772f279029",
+          "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+          "start_column": null,
+          "start_line": 7
+        }
+      ],
+      "id": "fact:ad07a49bfb0e015135e855971543f6c5d9673846e06dca6f675c553f07a13cb8",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:fc0331bb96ca0cc66184304729b7a9430e77037d21697e392b276cd58ae2443d"
+    }
+  ],
+  "limitations": [
+    {
+      "code": "DIAGRAM_NOT_PROVIDED",
+      "message": "Chưa được cấp sơ đồ component từ bước kiến trúc (FR-028); README chưa đủ mục sơ đồ của AC-029-06",
+      "stage": "input"
+    },
+    {
+      "code": "ARCHITECTURE_NOT_EVALUATED",
+      "message": "Chưa đối chiếu được với archdia.json (AC-029-04): Chưa được cấp archdia.json cùng snapshot",
+      "stage": "input"
+    },
+    {
+      "code": "ANALYSIS_PARTIAL",
+      "message": "REPAIR_ROUNDS: còn lỗi sau 2 vòng sửa",
+      "stage": "agent"
+    },
+    {
+      "code": "OUT_OF_SCOPE_FILES",
+      "message": "migration: 2 file, test: 39 file. Route trong các file này không vào tài liệu (FR-028 Phạm vi đọc)",
+      "stage": "scope"
+    },
+    {
+      "code": "CLAIMS_REJECTED",
+      "message": "39 lần nộp bị bộ kiểm từ chối (agent có thể đã nộp lại bản đúng); chi tiết ở result.json",
+      "stage": "verification"
+    }
+  ],
+  "pipeline_version": "fr029-doc-v1",
+  "provenance": {
+    "model": "gpt-4.1-mini-2025-04-14",
+    "prompt_version": "fr029-oneshot-prompt-v1",
+    "provider": "https://api.openai.com/v1"
+  },
+  "rejected_claims": [
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "decorator: phải nằm cùng file với handler",
+        "application: dòng phải tạo FastAPI(...)",
+        "path_parts[0]: dòng app/auth/adapter/input/api/__init__.py:6 không có dạng của router_prefix; nếu giá trị được truyền qua hàm/biến thì thêm used_at là dòng đăng ký",
+        "params[0].in: một trong ['cookie', 'header', 'path', 'query'] hoặc {\"unknown\": lý do}",
+        "params[0].type: kiểu 'app.auth.adapter.input.api.v1.request::RefreshTokenRequest' không đúng ký pháp (integer|number|string|binary|uuid|datetime|date|email|boolean|object|any|array[...]|file.py::Class)",
+        "request_body.models: phần tử dạng 'file.py::Class'",
+        "response: null, {\"unknown\": lý do}, {\"model\": 'file.py::Class', ...} hoặc {\"type\": T, ...}",
+        "dependencies[0].name: 'Container.jwt_service' không có tại app/auth/adapter/input/api/v1/auth.py:22"
+      ],
+      "fields": [
+        "application",
+        "auth",
+        "decorator",
+        "dependencies",
+        "handler",
+        "method",
+        "params",
+        "path_parts",
+        "request_body",
+        "response",
+        "status"
+      ],
+      "kind": "routes"
+    },
+    {
+      "errors": [
+        "decorator: phải nằm cùng file với handler",
+        "application: dòng phải tạo FastAPI(...)",
+        "path_parts[0]: dòng app/auth/adapter/input/api/__init__.py:6 không có dạng của router_prefix; nếu giá trị được truyền qua hàm/biến thì thêm used_at là dòng đăng ký",
+        "params[0].in: một trong ['cookie', 'header', 'path', 'query'] hoặc {\"unknown\": lý do}",
+        "params[0].type: kiểu 'app.auth.adapter.input.api.v1.request::VerifyTokenRequest' không đúng ký pháp (integer|number|string|binary|uuid|datetime|date|email|boolean|object|any|array[...]|file.py::Class)",
+        "request_body.models: phần tử dạng 'file.py::Class'",
+        "status: quy tắc mặc định 200 chỉ dùng khi decorator không khai status_code hay response_class",
+        "dependencies[0].name: 'Container.jwt_service' không có tại app/auth/adapter/input/api/v1/auth.py:34"
+      ],
+      "fields": [
+        "application",
+        "auth",
+        "decorator",
+        "dependencies",
+        "handler",
+        "method",
+        "params",
+        "path_parts",
+        "request_body",
+        "response",
+        "status"
+      ],
+      "kind": "routes"
+    },
+    {
+      "errors": [
+        "decorator: phải nằm cùng file với handler",
+        "application: dòng phải tạo FastAPI(...)",
+        "path_parts[0]: dòng app/user/adapter/input/api/__init__.py:6 không có dạng của router_prefix; nếu giá trị được truyền qua hàm/biến thì thêm used_at là dòng đăng ký",
+        "response: null, {\"unknown\": lý do}, {\"model\": 'file.py::Class', ...} hoặc {\"type\": T, ...}"
+      ],
+      "fields": [
+        "application",
+        "auth",
+        "decorator",
+        "dependencies",
+        "handler",
+        "method",
+        "params",
+        "path_parts",
+        "request_body",
+        "response",
+        "status"
+      ],
+      "kind": "routes"
+    },
+    {
+      "errors": [
+        "decorator: phải nằm cùng file với handler",
+        "application: dòng phải tạo FastAPI(...)",
+        "path_parts[0]: dòng app/user/adapter/input/api/__init__.py:6 không có dạng của router_prefix; nếu giá trị được truyền qua hàm/biến thì thêm used_at là dòng đăng ký",
+        "params[0].in: một trong ['cookie', 'header', 'path', 'query'] hoặc {\"unknown\": lý do}",
+        "params[0].type: kiểu 'app.user.adapter.input.api.v1.request::CreateUserRequest' không đúng ký pháp (integer|number|string|binary|uuid|datetime|date|email|boolean|object|any|array[...]|file.py::Class)",
+        "request_body.models: phần tử dạng 'file.py::Class'",
+        "response: null, {\"unknown\": lý do}, {\"model\": 'file.py::Class', ...} hoặc {\"type\": T, ...}"
+      ],
+      "fields": [
+        "application",
+        "auth",
+        "decorator",
+        "dependencies",
+        "handler",
+        "method",
+        "params",
+        "path_parts",
+        "request_body",
+        "response",
+        "status"
+      ],
+      "kind": "routes"
+    },
+    {
+      "errors": [
+        "decorator: phải nằm cùng file với handler",
+        "application: dòng phải tạo FastAPI(...)",
+        "path_parts[0]: dòng app/user/adapter/input/api/__init__.py:6 không có dạng của router_prefix; nếu giá trị được truyền qua hàm/biến thì thêm used_at là dòng đăng ký",
+        "params[0].in: một trong ['cookie', 'header', 'path', 'query'] hoặc {\"unknown\": lý do}",
+        "params[0].type: kiểu 'app.user.adapter.input.api.v1.request::LoginRequest' không đúng ký pháp (integer|number|string|binary|uuid|datetime|date|email|boolean|object|any|array[...]|file.py::Class)",
+        "request_body.models: phần tử dạng 'file.py::Class'",
+        "response: null, {\"unknown\": lý do}, {\"model\": 'file.py::Class', ...} hoặc {\"type\": T, ...}"
+      ],
+      "fields": [
+        "application",
+        "auth",
+        "decorator",
+        "dependencies",
+        "handler",
+        "method",
+        "params",
+        "path_parts",
+        "request_body",
+        "response",
+        "status"
+      ],
+      "kind": "routes"
+    },
+    {
+      "errors": [
+        "at: dòng không có dấu hiệu của vai trò Route theo FR-029"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "call_path[0]: cần dạng 'path:dòng' hoặc 'path:đầu-cuối', nhận 'app/auth/adapter/input/api/v1/auth.py::refresh_token'",
+        "call_path[1]: cần dạng 'path:dòng' hoặc 'path:đầu-cuối', nhận 'app/auth/application/service/jwt.py::JwtService.create_refresh_token'"
+      ],
+      "fields": [
+        "at",
+        "call_path",
+        "file",
+        "reason",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "call_path: Service cần đường gọi ≥2 vị trí, từ route tới truy cập dữ liệu/hạ tầng"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "at: dòng không có dấu hiệu của vai trò Route theo FR-029",
+        "role: file có dấu hiệu Điểm vào ở dòng 77, đứng trước Route; nếu đó không phải dấu hiệu thật thì nộp lại kèm not_signal: lý do"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "at: dòng không có dấu hiệu của vai trò Route theo FR-029"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "call_path: Service cần đường gọi ≥2 vị trí, từ route tới truy cập dữ liệu/hạ tầng"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "role: file có dấu hiệu Model bảng ở dòng 11, đứng trước Schema API; nếu đó không phải dấu hiệu thật thì nộp lại kèm not_signal: lý do"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "role: file có dấu hiệu Model bảng ở dòng 11, đứng trước Schema API; nếu đó không phải dấu hiệu thật thì nộp lại kèm not_signal: lý do"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "call_path: Service cần đường gọi ≥2 vị trí, từ route tới truy cập dữ liệu/hạ tầng"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "id: cần dạng 'file.py::Class'"
+      ],
+      "fields": [
+        "at",
+        "fields",
+        "id"
+      ],
+      "kind": "models"
+    },
+    {
+      "errors": [
+        "at: dòng không có dấu hiệu của vai trò Route theo FR-029"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "call_path: Service cần đường gọi ≥2 vị trí, từ route tới truy cập dữ liệu/hạ tầng"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "at: dòng không có dấu hiệu của vai trò Route theo FR-029",
+        "role: file có dấu hiệu Điểm vào ở dòng 77, đứng trước Route; nếu đó không phải dấu hiệu thật thì nộp lại kèm not_signal: lý do"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "at: dòng không có dấu hiệu của vai trò Route theo FR-029"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "call_path: Service cần đường gọi ≥2 vị trí, từ route tới truy cập dữ liệu/hạ tầng"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "role: file có dấu hiệu Model bảng ở dòng 11, đứng trước Schema API; nếu đó không phải dấu hiệu thật thì nộp lại kèm not_signal: lý do"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "role: file có dấu hiệu Model bảng ở dòng 11, đứng trước Schema API; nếu đó không phải dấu hiệu thật thì nộp lại kèm not_signal: lý do"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "call_path: Service cần đường gọi ≥2 vị trí, từ route tới truy cập dữ liệu/hạ tầng"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "role"
+      ],
+      "kind": "file_roles"
+    }
+  ],
+  "render_notices": [],
+  "repository_name": "teamhide",
+  "run_id": "run_oneshot_teamhide_20261011",
+  "schema_version": "0.1.0",
+  "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+  "unassigned": [],
+  "unreferenced_models": []
+}

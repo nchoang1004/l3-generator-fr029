@@ -1,0 +1,135 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "pycg-classes-direct_call",
+  "source_digest": "b174241d33b2b06cfea109a4d1a5a9fb7e05ee799f90a1bad92a29aadc7b9167",
+  "status": "facts_only",
+  "entities": [
+    {
+      "id": "main.py::MyClass",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 6,
+      "symbol": "MyClass",
+      "kind": "class"
+    },
+    {
+      "id": "main.py::MyClass.func",
+      "path": "main.py",
+      "line_start": 5,
+      "line_end": 6,
+      "symbol": "MyClass.func",
+      "kind": "function"
+    },
+    {
+      "id": "main.py::__module__",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 8,
+      "symbol": "__module__",
+      "kind": "module"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e4fc538a09caf1b1a",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 6,
+      "sha256": "68383976185e10875161406ab2d62adaf9ca65a4b18b2fd7e00d43cf00dfa53e"
+    },
+    {
+      "id": "e616cecf3551a2093",
+      "path": "main.py",
+      "line_start": 8,
+      "line_end": 8,
+      "sha256": "68383976185e10875161406ab2d62adaf9ca65a4b18b2fd7e00d43cf00dfa53e"
+    },
+    {
+      "id": "e86e76d320a044ea9",
+      "path": "main.py",
+      "line_start": 8,
+      "line_end": 8,
+      "sha256": "68383976185e10875161406ab2d62adaf9ca65a4b18b2fd7e00d43cf00dfa53e"
+    },
+    {
+      "id": "e8b365db0ed61094c",
+      "path": "main.py",
+      "line_start": 2,
+      "line_end": 3,
+      "sha256": "68383976185e10875161406ab2d62adaf9ca65a4b18b2fd7e00d43cf00dfa53e"
+    },
+    {
+      "id": "e8e362bb232b2ed09",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 8,
+      "sha256": "68383976185e10875161406ab2d62adaf9ca65a4b18b2fd7e00d43cf00dfa53e"
+    },
+    {
+      "id": "ed29827fed8107082",
+      "path": "main.py",
+      "line_start": 5,
+      "line_end": 6,
+      "sha256": "68383976185e10875161406ab2d62adaf9ca65a4b18b2fd7e00d43cf00dfa53e"
+    },
+    {
+      "id": "efd2e888bfc4c11ed",
+      "path": "requirements.txt",
+      "line_start": 2,
+      "line_end": 2,
+      "sha256": "5a186804fd0c020f245e90ee71fe6ef81fc09e0a0e4ae39ad84e8335fa12dcc5"
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:4bf2e0c036afd145dbba20f2af17eb6754d523d82cc657da2cf464643c4a7722",
+      "evidence_refs": [
+        "e616cecf3551a2093",
+        "e8e362bb232b2ed09"
+      ],
+      "target_id": "main.py::MyClass.func",
+      "kind": "reference",
+      "source_id": "main.py::__module__",
+      "context": "main.py:8:0",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "inferred",
+      "completeness": "full",
+      "reason": "Kiểu của biến được suy ra từ phép gán/chú thích/Depends"
+    },
+    {
+      "id": "fact:c6b46bdf5e374af3aa06d0903d0134ad2b43303407fcd63982aa524f9abf9ea4",
+      "evidence_refs": [
+        "e86e76d320a044ea9",
+        "e8e362bb232b2ed09"
+      ],
+      "target_id": "main.py::MyClass",
+      "kind": "reference",
+      "source_id": "main.py::__module__",
+      "context": "main.py:8:0",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    }
+  ],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v4",
+    "unsupported": []
+  }
+}

@@ -1,0 +1,490 @@
+<title>L3 Generator toàn cảnh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column in four parts (PRD, cách chạy, tiến độ, vấn đề); owner tags mark Hoàng / Khiêm / chung. */
+:root {
+  --bg: #f6f7f8; --panel: #ffffff; --ink: #18212b; --muted: #5a6573; --line: #dde2e7;
+  --accent: #1d6b73; --accent-soft: #e2f0f1; --code: #eef1f4;
+  --ok: #1f7a4d; --warn: #9a5b00; --bad: #b3261e; --kh: #6a4fa3;
+  --sans: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171d; --panel: #1a2129; --ink: #e4e9ee; --muted: #9aa6b3; --line: #2c3641;
+  --accent: #6cc3cb; --accent-soft: #1d3236; --code: #222b35;
+  --ok: #5cc28f; --warn: #e0a54a; --bad: #f08a80; --kh: #b9a2ee; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171d; --panel: #1a2129; --ink: #e4e9ee; --muted: #9aa6b3; --line: #2c3641;
+  --accent: #6cc3cb; --accent-soft: #1d3236; --code: #222b35;
+  --ok: #5cc28f; --warn: #e0a54a; --bad: #f08a80; --kh: #b9a2ee; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.65 var(--sans); padding-inline: 16px; padding-block: 28px 64px; }
+.wrap { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+h1 { font-size: 30px; line-height: 1.25; margin: 0; text-wrap: balance; }
+h2 { font-size: 21px; line-height: 1.3; margin: 0 0 6px; text-wrap: balance; }
+h3 { font-size: 16.5px; margin: 18px 0 4px; }
+p { margin: 6px 0; max-width: 70ch; }
+ul, ol { margin: 6px 0; padding-left: 22px; max-width: 72ch; }
+li { margin: 3px 0; }
+code, .mono { font: 13.5px var(--mono); }
+code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--accent); }
+.lead { color: var(--muted); font-size: 17px; }
+.part { font: 600 12.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 14px 0 -10px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px 22px; min-width: 0; }
+nav.toc { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 14px; }
+nav.toc div { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--panel); font-size: 14px; }
+nav.toc b { display: block; font-size: 13px; color: var(--accent); font-family: var(--mono); margin-bottom: 2px; }
+nav.toc a { display: block; text-decoration: none; }
+nav.toc a:hover, nav.toc a:focus-visible { text-decoration: underline; }
+.tbl { overflow-x: auto; margin: 10px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+th { font-weight: 600; color: var(--muted); font-size: 13px; white-space: nowrap; }
+td.n, th.n { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.pill { display: inline-block; padding: 0 8px; border-radius: 10px; font-size: 12.5px; font-weight: 600; white-space: nowrap; border: 1px solid currentColor; }
+.pill.ok, .p-ok { color: var(--ok); }
+.pill.wa, .p-warn { color: var(--warn); }
+.p-bad { color: var(--bad); }
+.p-mute { color: var(--muted); }
+.own { display: inline-block; padding: 0 7px; border-radius: 4px; font: 600 11.5px var(--mono); white-space: nowrap; }
+.own.h { color: var(--accent); background: var(--accent-soft); }
+.own.k { color: var(--kh); border: 1px solid var(--kh); }
+.own.c { color: var(--muted); border: 1px solid var(--line); }
+.say { margin-top: 12px; padding: 10px 14px; background: var(--accent-soft); border-radius: 8px; font-size: 15px; }
+.say b { color: var(--accent); font-weight: 600; margin-right: 4px; }
+.note { font-size: 14px; color: var(--muted); }
+.big { font-size: 17.5px; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+@media (max-width: 760px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kpi { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.kpi b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.kpi span { font-size: 13px; color: var(--muted); }
+.steps { list-style: none; padding: 0; margin: 8px 0 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; max-width: none; }
+.steps li { margin: 0; padding: 10px 10px 12px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.steps li .k { font: 600 12px var(--mono); color: var(--muted); }
+.steps li .t { display: block; font-weight: 600; font-size: 15px; line-height: 1.3; margin: 2px 0 4px; }
+.steps li .d { display: block; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.steps li.khiem { border-style: dashed; border-color: var(--kh); }
+@media (max-width: 760px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+pre { background: var(--code); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font: 13px/1.55 var(--mono); margin: 10px 0; }
+pre .hl { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+.cap { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
+details > summary { cursor: pointer; font-weight: 600; margin: 8px 0; }
+.probs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin: 12px 0; }
+@media (max-width: 760px) { .probs { grid-template-columns: 1fr; } }
+.prob { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+.prob h4 { margin: 0 0 6px; font-size: 15.5px; }
+.prob p { font-size: 14.5px; margin: 4px 0; }
+.ref { font: 12px var(--mono); color: var(--muted); }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="part" style="margin:0">L3 Generator · nhóm Khiêm và Hoàng · số liệu chốt 02/10/2026</div>
+  <h1 style="margin-top:6px">L3 Generator toàn cảnh</h1>
+  <p class="lead">Một trang gồm: PRD yêu cầu gì, phần L3 chạy thế nào, đã làm tới đâu so với PRD, và đang vướng ở đâu. Phần sơ đồ của Khiêm cũng được ghi, để thấy cả dự án.</p>
+  <p class="note">Ký hiệu người phụ trách: <span class="own h">Hoàng</span> phần đọc code, tài liệu L3 và web; <span class="own k">Khiêm</span> PRD, phần chia khối và sơ đồ; <span class="own c">chung</span> cả hai.</p>
+  <nav class="toc" aria-label="Mục lục">
+    <div><b>A · PRD</b><a href="#a1">Sản phẩm là gì</a><a href="#a2">Mục tiêu và chỉ số</a><a href="#a3">9 tính năng</a><a href="#a4">Yêu cầu chất lượng</a><a href="#a5">Mốc</a></div>
+    <div><b>B · L3 chạy thế nào</b><a href="#b1">6 bước</a><a href="#b2">Ghi lại gì</a><a href="#b3">Kiểm thế nào</a><a href="#b4">Tìm ở đâu</a><a href="#b5">File kết quả</a></div>
+    <div><b>C · Tiến độ</b><a href="#c1">Theo 9 tính năng</a><a href="#c2">Số đo</a><a href="#c3">Phần của Khiêm</a><a href="#c4">5 chỉ số</a></div>
+    <div><b>D · Vấn đề</b><a href="#d1">Của phần L3</a><a href="#d2">Của phần sơ đồ</a><a href="#d3">Chung</a><a href="#d4">Làm gì tiếp</a><a href="#e">Câu hỏi hay gặp</a></div>
+  </nav>
+</header>
+
+<!-- ============ A. PRD ============ -->
+<div class="part">A · PRD yêu cầu gì</div>
+
+<section id="a1">
+  <h2>Sản phẩm là gì</h2>
+  <p class="big">L3 Generator đọc code của một dự án rồi viết tài liệu kiến trúc ban đầu. Mỗi kết luận trong tài liệu phải kiểm được tại code.</p>
+  <div class="tbl"><table>
+    <tr><th>Phần</th><th>Làm gì</th><th>Ai</th></tr>
+    <tr><td><b>Sơ đồ khối</b> (mức L2)</td><td>Gom code thành các khối (component), vẽ khối nào gọi khối nào</td><td><span class="own k">Khiêm</span></td></tr>
+    <tr><td><b>Tài liệu L3</b> (L3 contract)</td><td>Viết danh sách API, bảng dữ liệu, sự kiện của từng khối, theo mẫu <code>tech-specs/</code> của mentor</td><td><span class="own h">Hoàng</span></td></tr>
+    <tr><td><b>Kênh dùng</b></td><td>Dòng lệnh nhận thư mục; web nhận file ZIP (GitHub có code, đang tắt)</td><td><span class="own h">Hoàng</span></td></tr>
+  </table></div>
+  <h3>Tình trạng của chính PRD</h3>
+  <ul>
+    <li>File: <code>D:\VSF\l3-generator-l3\.aide\product\prd\PRD-L3GEN-2609-001.md</code>, <b>revision 29</b>, trạng thái <b>nháp</b>.</li>
+    <li>Người chịu trách nhiệm và ký duyệt phạm vi (Scope Gate): <b>Khiêm</b>. Người review và nghiệm thu: <b>Hoàng</b>. Mentor (Nguyễn Chí Thức, Đinh Thái Hà): cố vấn.</li>
+    <li><b>Scope Gate chưa ký.</b> Bản đã duyệt ngày 18/09 bị thay khi đổi hướng sang dùng AI (revision 24).</li>
+  </ul>
+  <h3>Ràng buộc chính PRD đặt ra</h3>
+  <ol>
+    <li>Chỉ đọc code. Không chạy, không import, không sửa repo đầu vào.</li>
+    <li>Phase đầu chỉ cam kết Python/FastAPI.</li>
+    <li>Kết luận nào cũng phải có bằng chứng là dòng code có thật, và bằng chứng do code kiểm, không dựa vào lời AI.</li>
+    <li>Không được ghi "đọc thẳng" (<code>exact</code>) cho thứ phải suy ra (<code>inferred</code>).</li>
+    <li>AI chỉ dùng gói miễn phí (Groq, Gemini). Trần chi phí 0 đồng.</li>
+    <li>Kết quả cho người đọc dừng ở mức khối; chi tiết hàm, lớp chỉ là bằng chứng.</li>
+  </ol>
+</section>
+
+<section id="a2">
+  <h2>Bốn mục tiêu và năm chỉ số</h2>
+  <div class="tbl"><table>
+    <tr><th>Mục tiêu</th><th>Nói đơn giản</th><th>Đo bằng</th><th>Ai</th></tr>
+    <tr><td>GOAL-004</td><td>Vẽ được sơ đồ khối đúng với code đang chạy</td><td>KPI-006</td><td><span class="own k">Khiêm</span></td></tr>
+    <tr><td>GOAL-005</td><td>Mọi kết luận lần ngược được về đúng dòng code</td><td>KPI-007</td><td><span class="own c">chung</span></td></tr>
+    <tr><td>GOAL-006</td><td>Tài liệu L3 đủ để người mới hiểu hệ thống mà không cần mở code</td><td>KPI-008</td><td><span class="own h">Hoàng</span></td></tr>
+    <tr><td>GOAL-007</td><td>Nói thật: tách rõ phần đọc thẳng, phần suy ra, phần không kết luận được</td><td>KPI-009, KPI-010</td><td><span class="own c">chung</span></td></tr>
+  </table></div>
+  <div class="tbl"><table>
+    <tr><th>Chỉ số</th><th>Đo cái gì</th><th>Ngưỡng đạt</th></tr>
+    <tr><td>KPI-006</td><td>Sơ đồ khối đúng bao nhiêu (file vào đúng khối, cạnh đúng)</td><td>P và R ≥ 80%</td></tr>
+    <tr><td>KPI-007</td><td>Tỉ lệ kết luận có bằng chứng hợp lệ</td><td>100%</td></tr>
+    <tr><td>KPI-008</td><td>Thông tin L3 đúng bao nhiêu, tính riêng từng loại (API, model, bảng, HTTP, config, sự kiện, thư viện)</td><td>P và R ≥ 80% mỗi loại</td></tr>
+    <tr><td>KPI-009</td><td>Trong các thông tin ghi "đọc thẳng", bao nhiêu thật ra sai (sửa ở revision 29)</td><td>≤ 5%</td></tr>
+    <tr><td>KPI-010</td><td>Chỗ không đọc được có được khai ra hết không</td><td>100%</td></tr>
+  </table></div>
+  <p class="note"><b>P (precision)</b>: trong những thứ công cụ ghi ra, bao nhiêu phần đúng. <b>R (recall)</b>: trong những thứ đúng ra phải có, công cụ tìm được bao nhiêu phần. Cỡ mẫu tối thiểu để được báo phần trăm (OBS-001): 100 API, 20 bảng, 20 sự kiện, 30 config, 30 file thuộc khối, 20 cạnh.</p>
+</section>
+
+<section id="a3">
+  <h2>Chín tính năng (FR)</h2>
+  <p>Mỗi tính năng có các tiêu chí nghiệm thu (AC). Tổng 36 AC. Chi tiết nằm trong <code>.aide\requirements\fr\FR-L3GEN-0xx.md</code>.</p>
+  <div class="tbl"><table>
+    <tr><th>FR</th><th>Tính năng</th><th>Nói đơn giản</th><th>Mốc</th><th>Ai</th></tr>
+    <tr><td>019</td><td>Nhận source và chạy</td><td>Nhận thư mục, ZIP, link GitHub; kiểm đầu vào trước khi chạy</td><td>M1, M2</td><td><span class="own h">Hoàng</span></td></tr>
+    <tr><td>020</td><td>Xác định phạm vi</td><td>Nói rõ phần nào được đọc, phần nào bỏ, vì sao</td><td>M1</td><td><span class="own h">Hoàng</span></td></tr>
+    <tr><td>021</td><td>Trích dữ kiện code</td><td>Đọc ra API, model, bảng, gọi HTTP, config, sự kiện, thư viện</td><td>M1, M3</td><td><span class="own h">Hoàng</span></td></tr>
+    <tr><td>022</td><td>Dựng khối và quan hệ</td><td>Chia khối, vẽ cạnh; AI đặt tên và đề xuất thêm cạnh</td><td>M2</td><td><span class="own k">Khiêm</span></td></tr>
+    <tr><td>023</td><td>Bằng chứng và nhãn</td><td>Mỗi kết luận chỉ về dòng code; nhãn chắc chắn đến đâu</td><td>M1</td><td><span class="own c">chung</span></td></tr>
+    <tr><td>024</td><td>Công bố giới hạn</td><td>Tự khai chỗ chưa đọc được</td><td>M1</td><td><span class="own c">chung</span></td></tr>
+    <tr><td>025</td><td>Xuất kết quả</td><td>Xuất tài liệu, sơ đồ, JSON; file lỗi thì cho thử lại</td><td>M1, M2</td><td><span class="own h">Hoàng</span></td></tr>
+    <tr><td>026</td><td>Xem trên web</td><td>Trạng thái chạy, các góc nhìn, lọc, mở bằng chứng</td><td>M2</td><td><span class="own h">Hoàng</span> (góc nhìn khối cần phần của Khiêm)</td></tr>
+    <tr><td>027</td><td>Tài liệu L3 contract</td><td>File API, bảng, sự kiện theo mẫu <code>tech-specs/</code></td><td>M1, M3</td><td><span class="own h">Hoàng</span></td></tr>
+  </table></div>
+</section>
+
+<section id="a4">
+  <h2>Năm yêu cầu chất lượng (NFR)</h2>
+  <div class="tbl"><table>
+    <tr><th>NFR</th><th>Yêu cầu chính</th><th>Hiện trạng</th></tr>
+    <tr><td>ACC-002 · Độ đúng</td><td>P, R ≥ 80% mỗi loại; bằng chứng 100%; "đọc thẳng" mà sai ≤ 5%</td><td>Bằng chứng: 4.400/4.400 trên 4 repo. P, R: chưa đo chính thức</td></tr>
+    <tr><td>ABST-002 · Mức trình bày</td><td>Sơ đồ chỉ ở mức khối, tối đa 50 nút; lời gọi chưa rõ đích không vẽ thành cạnh</td><td>Có kiểm trần 50 nút; lời gọi chưa rõ đích được giữ riêng</td></tr>
+    <tr><td>AI-002 · AI</td><td>AI chỉ nhận dữ kiện đã trích, không nhận toàn bộ source; Groq + Gemini miễn phí; đọc thêm code tối đa 6 lần mỗi phạm vi</td><td>Code có cổng kiểm, chưa gọi provider thật. Thí nghiệm của Khiêm dùng dịch vụ trả phí và đã bỏ quy tắc "không đọc toàn bộ repo" (xem D2)</td></tr>
+    <tr><td>SEC-002 · An toàn</td><td>Chỉ đọc; ZIP ≤ 100 MB nén, ≤ 500 MB giải nén, ≤ 50.000 file; kết quả hết hạn sau 24 giờ</td><td>Đã làm và có test. GitHub đang tắt chờ review bảo mật</td></tr>
+    <tr><td>OPS-001 · Vận hành</td><td>Phân tích ≤ 60 giây cho 5.000 dòng; ≤ 2 GiB; một lần chạy ≤ 30 phút; mỗi lúc một lần chạy</td><td>Đo trên máy dev: 0,4–0,6 giây cho repo 1.300–3.800 dòng, bộ nhớ dưới 60 MB. Chưa đo trên máy chuẩn</td></tr>
+  </table></div>
+</section>
+
+<section id="a5">
+  <h2>Bốn mốc</h2>
+  <div class="tbl"><table>
+    <tr><th>Mốc</th><th>PRD yêu cầu</th><th>Hiện trạng</th></tr>
+    <tr><td>M0</td><td>Chốt yêu cầu, ký Scope Gate</td><td><span class="pill wa">Chưa ký</span> PRD revision 29 còn nháp</td></tr>
+    <tr><td>M1</td><td>Đọc code, dòng lệnh, xuất API và bảng</td><td><span class="pill ok">Gần xong</span> còn: nhiều ứng dụng mỗi repo (FR-020), lệnh tạo bảng (DDL)</td></tr>
+    <tr><td>M2</td><td>Chia khối, AI, web</td><td><span class="pill wa">Một phần</span> web xong phần L3; chia khối chưa chốt cách làm</td></tr>
+    <tr><td>M3</td><td>Config, sự kiện, thư viện; đo 5 chỉ số và nghiệm thu</td><td><span class="pill wa">Một phần</span> config, thư viện có; sự kiện chỉ Kafka; chưa nghiệm thu</td></tr>
+  </table></div>
+  <p class="note">PRD mục VIII chưa ghi ngày cho các mốc. PRD ghi sẽ đặt lịch sau khi ký Scope Gate.</p>
+</section>
+
+<!-- ============ B. L3 ============ -->
+<div class="part">B · Phần L3 chạy thế nào</div>
+
+<section id="b1">
+  <h2>Sáu bước của một lần chạy</h2>
+  <p>Gửi một repo là một lần chạy. Phần L3 không dùng AI ở bước nào, nên chạy lại cho kết quả giống hệt.</p>
+  <ol class="steps">
+    <li><span class="k">1</span><span class="t">Nhận file</span><span class="d">Mở ZIP trong bộ nhớ, chặn file nguy hiểm, lấy mã hash từng file</span></li>
+    <li><span class="k">2</span><span class="t">Chọn file</span><span class="d">Giữ file Python và file khai thư viện, ghi file bỏ kèm lý do</span></li>
+    <li><span class="k">3</span><span class="t">Đọc code</span><span class="d">Đọc cấu trúc từng file, tìm API, bảng, cấu hình…</span></li>
+    <li class="khiem"><span class="k">4 · Khiêm</span><span class="t">Chia khối</span><span class="d">Gom file thành khối. Demo L3 chia tạm</span></li>
+    <li><span class="k">5</span><span class="t">Tự kiểm</span><span class="d">So từng thông tin với đúng dòng code</span></li>
+    <li><span class="k">6</span><span class="t">Viết tài liệu</span><span class="d">Viết file, đọc lại để chắc ghi đúng</span></li>
+  </ol>
+  <p class="note"><b>Mã hash</b>: chuỗi ký tự tính từ nội dung file. File đổi một chữ thì mã đổi. Công cụ dùng nó để biết file có bị sửa sau khi đọc không. Code ở <code>D:\VSF\l3-generator-l3\slice\l3slice\</code>: <code>snapshot.py</code> (bước 1–2), <code>pyindex.py</code> và <code>extract.py</code> (bước 3), <code>verify.py</code> (bước 5), <code>render.py</code> (bước 6), <code>engine.py</code> và <code>web.py</code> (điều phối, web).</p>
+</section>
+
+<section id="b2">
+  <h2>Công cụ ghi lại những gì</h2>
+  <p>Mỗi thứ tìm được là một <b>dữ kiện</b>, ví dụ "có API <code>POST /api/v1/user/login</code>". Dữ kiện có nhiều ô. Mỗi ô ở một trong 4 tình trạng:</p>
+  <div class="tbl"><table>
+    <tr><th>Tình trạng</th><th>Nghĩa</th><th>Ví dụ (repo teamhide)</th></tr>
+    <tr><td><span class="pill ok">biết</span></td><td>Có giá trị và có dòng code</td><td>method là POST, <code>user.py</code> dòng 43</td></tr>
+    <tr><td><span class="pill wa">chưa biết</span></td><td>Code không cho thấy. Luôn có lý do</td><td>Auth: "có dependency nhưng không kết luận được cách đăng nhập"</td></tr>
+    <tr><td><span class="pill p-mute">đã che</span></td><td>Giống mật khẩu nên bị che</td><td>chuỗi kết nối database <code>WRITER_DB_URL</code></td></tr>
+    <tr><td><span class="pill p-mute">không áp dụng</span></td><td>Ô không có nghĩa ở chỗ này</td><td>API không nằm trong <code>if</code> nên ô "điều kiện" bỏ trống</td></tr>
+  </table></div>
+  <h3>Ví dụ: API đăng nhập</h3>
+  <div class="two">
+    <div><p class="cap">File 1: app/user/adapter/input/api/__init__.py</p>
+<pre>router.include_router(user_v1_router,
+    <span class="hl">prefix="/api/v1/user"</span>, tags=["User"])</pre></div>
+    <div><p class="cap">File 2: app/user/adapter/input/api/v1/user.py, dòng 43–48</p>
+<pre><span class="hl">@user_router.post(</span>
+    <span class="hl">"/login"</span>,
+    response_model=<span class="hl">LoginResponse</span>,
+)
+async def login(...)</pre></div>
+  </div>
+  <div class="tbl"><table>
+    <tr><th>Ô</th><th>Giá trị</th><th>Công cụ thấy ở đâu</th></tr>
+    <tr><td>Method</td><td><code>POST</code></td><td><code>.post(</code> ở file 2</td></tr>
+    <tr><td>Đường dẫn</td><td><code>/api/v1/user/login</code></td><td>Ghép <code>/api/v1/user</code> (file 1) với <code>/login</code> (file 2)</td></tr>
+    <tr><td>Gửi lên / trả về</td><td><code>LoginRequest</code> / <code>LoginResponse</code></td><td>Kiểu tham số của hàm; <code>response_model=</code></td></tr>
+    <tr><td>Status</td><td><code>200</code></td><td>Code không ghi; FastAPI mặc định 200, nên đánh dấu "suy ra"</td></tr>
+    <tr><td>Auth</td><td>chưa biết</td><td>Chưa có quy tắc để kết luận</td></tr>
+  </table></div>
+</section>
+
+<section id="b3">
+  <h2>Kiểm thế nào và chắc chắn đến đâu</h2>
+  <h3>Ba phép kiểm cho mỗi giá trị (bước 5)</h3>
+  <ol>
+    <li>File đúng là file đã nhận, chưa bị đổi (so mã hash).</li>
+    <li>Số dòng có thật trong file.</li>
+    <li>Giá trị nằm nguyên văn ở các dòng đó. Đường dẫn ghép nhiều mảnh thì từng mảnh phải có.</li>
+  </ol>
+  <p>Sai một phép thì giá trị bị xóa, ô chuyển sang "chưa biết" kèm lý do. Trên web, bấm nút <code>file:dòng</code> là thấy đúng đoạn code; file đã bị sửa thì web báo, không hiện code mới.</p>
+  <h3>Hai nhãn</h3>
+  <div class="tbl"><table>
+    <tr><th>Nhãn</th><th>Nghĩa</th></tr>
+    <tr><td><code>exact</code> / <code>inferred</code></td><td>Đọc thẳng từ code / suy ra theo một quy ước có tên</td></tr>
+    <tr><td><code>full</code> / <code>partial</code></td><td>Mọi ô đã biết / còn ô chưa biết</td></tr>
+  </table></div>
+  <h3>Năm quy ước được phép dùng để suy ra</h3>
+  <div class="tbl"><table>
+    <tr><th>Code viết</th><th>Công cụ ghi</th><th>Tên quy ước</th></tr>
+    <tr><td>Dữ liệu gửi lên là model Pydantic</td><td>Gửi dạng JSON</td><td class="mono">fastapi-defaults-v1</td></tr>
+    <tr><td>Không ghi <code>status_code</code></td><td>Status 200</td><td class="mono">fastapi-status-default-v1</td></tr>
+    <tr><td><code>status.HTTP_201_CREATED</code></td><td>Status 201</td><td class="mono">starlette-status-constant-v1</td></tr>
+    <tr><td><code>prefix=settings.API_V1_STR</code></td><td>Giá trị mặc định trong lớp Settings</td><td class="mono">settings-default-v1</td></tr>
+    <tr><td>Cột không ghi <code>primary_key</code>, <code>nullable</code></td><td>Theo mặc định của SQLAlchemy</td><td class="mono">sqlalchemy-defaults-v1</td></tr>
+  </table></div>
+  <p class="note">Ba quy ước giữa được thêm vào contract ngày 02/10. Khiêm cần duyệt.</p>
+</section>
+
+<section id="b4">
+  <h2>Mỗi loại thông tin tìm ở đâu</h2>
+  <div class="tbl"><table>
+    <tr><th>Loại</th><th>Công cụ nhìn vào</th><th>Không đọc được thì</th></tr>
+    <tr><td>API</td><td><code>@router.get</code>, <code>@router.post</code>…; chỗ gắn router vào app kèm đường dẫn đầu, qua nhiều tầng</td><td>Ghi phần biết được, kèm lý do</td></tr>
+    <tr><td>Tham số</td><td>Tham số của hàm xử lý, kể cả trong <code>Depends(…)</code>; <code>{id}</code> trong đường dẫn</td><td>Vị trí tham số ghi "chưa biết"</td></tr>
+    <tr><td>Gửi lên, trả về</td><td>Kiểu Pydantic; <code>response_model=</code>; kiểu trả về của hàm</td><td>Kiểu chung chung (<code>Any</code>) ghi "chưa biết"</td></tr>
+    <tr><td>Bảng dữ liệu</td><td>Lớp SQLAlchemy có <code>__tablename__</code>; <code>Column</code>, <code>mapped_column</code></td><td>Không đoán tên bảng từ tên lớp</td></tr>
+    <tr><td>Cấu hình</td><td>Lớp Settings, biến môi trường</td><td>Giá trị giống mật khẩu thì che</td></tr>
+    <tr><td>Thư viện</td><td><code>pyproject.toml</code>, <code>requirements.txt</code>; có import không</td><td>Không thấy import: "chưa biết có dùng không"</td></tr>
+    <tr><td>Gọi ra ngoài</td><td><code>httpx</code>, <code>requests</code></td><td>Địa chỉ ghép lúc chạy: "chưa biết"</td></tr>
+    <tr><td>Sự kiện</td><td>Kafka: chỗ gửi, chỗ nhận</td><td>Celery, RabbitMQ: ghi vào Giới hạn</td></tr>
+    <tr><td>Lời gọi hàm</td><td>Nối tên qua import để biết hàm nằm ở file nào</td><td>Giữ là "chưa nối được", không vẽ cạnh</td></tr>
+  </table></div>
+  <p>Cuối mỗi kết quả có mục <b>Giới hạn</b>, liệt kê chỗ chưa đọc được. Ví dụ teamhide: có Celery chưa đọc; 114 lời gọi chưa tìm ra đích; chưa biết loại database nên chưa viết lệnh tạo bảng. Còn giới hạn thì kết quả ghi "một phần".</p>
+</section>
+
+<section id="b5">
+  <h2>File kết quả</h2>
+  <div class="tbl"><table>
+    <tr><th>File</th><th>Nội dung</th></tr>
+    <tr><td class="mono">tech-specs/…/api/API-&lt;HỆ THỐNG&gt;-&lt;KHỐI&gt;-v1.md</td><td>Bảng API tóm tắt; field từng model; bảng truy vết về dòng code; một khối OpenAPI 3.1 cho máy đọc</td></tr>
+    <tr><td class="mono">tech-specs/…/schema/TBL-….md</td><td>Bảng cột, khóa, có để trống được không. Lệnh tạo bảng chỉ có khi biết loại database</td></tr>
+    <tr><td class="mono">…/event/EVT-….md</td><td>Chỉ có khi repo dùng Kafka</td></tr>
+    <tr><td class="mono">README.md, result.json</td><td>Mục lục; toàn bộ dữ kiện và bằng chứng cho máy đọc</td></tr>
+    <tr><td class="mono">architecture.mmd, .svg</td><td>Sơ đồ khối, phần của Khiêm</td></tr>
+  </table></div>
+  <p>Tên hệ thống lấy theo tên repo: <code>teamhide.zip</code> ra <code>API-TEAMHIDE-…</code>. Viết xong, công cụ đọc lại từng file để chắc khớp với dữ kiện; lệch thì báo lỗi file đó và cho "Thử lại".</p>
+</section>
+
+<!-- ============ C. Tiến độ ============ -->
+<div class="part">C · Tiến độ so với PRD</div>
+
+<section id="c1">
+  <h2>Tiến độ theo 9 tính năng</h2>
+  <p><b>"Đạt" ở đây</b> nghĩa là có code, có test tự động, và chạy đúng trên 4 repo thật. Chưa phải nghiệm thu theo PRD, vì đáp án chuẩn chưa có người review và chưa thử trên repo mới.</p>
+  <div class="kpis">
+    <div class="kpi"><b>23</b><span>AC đạt</span></div>
+    <div class="kpi"><b>13</b><span>AC một phần</span></div>
+    <div class="kpi"><b>0</b><span>AC chưa có code</span></div>
+    <div class="kpi"><b>36</b><span>AC trong PRD</span></div>
+  </div>
+  <div class="tbl"><table>
+    <tr><th>FR</th><th>Tính năng</th><th>Đạt / một phần</th><th>Tóm tắt</th></tr>
+    <tr><td>019</td><td>Nhận source</td><td><span class="pill ok">4</span> <span class="pill wa">1</span></td><td>Thư mục, ZIP xong. GitHub có code, đang tắt</td></tr>
+    <tr><td>020</td><td>Phạm vi</td><td><span class="pill wa">3</span></td><td>Có danh sách file xét và bỏ; mới một ứng dụng mỗi repo</td></tr>
+    <tr><td>021</td><td>Trích dữ kiện</td><td><span class="pill ok">4</span> <span class="pill wa">1</span></td><td>API 58/58, bảng, model, tham số, status, config, thư viện. Gọi HTTP chưa kiểm trên repo thật</td></tr>
+    <tr><td>022</td><td>Khối và quan hệ <span class="own k">Khiêm</span></td><td><span class="pill ok">1</span> <span class="pill wa">4</span></td><td>Khung code và bước kiểm đề xuất của AI có; chưa chốt cách chia</td></tr>
+    <tr><td>023</td><td>Bằng chứng, nhãn</td><td><span class="pill ok">4</span></td><td>4.400/4.400 bằng chứng đúng; file đổi thì báo</td></tr>
+    <tr><td>024</td><td>Giới hạn</td><td><span class="pill ok">3</span> <span class="pill wa">1</span></td><td>File lỗi, Celery, bảng trong migration, lời gọi chưa nối đều được khai</td></tr>
+    <tr><td>025</td><td>Xuất kết quả</td><td><span class="pill ok">4</span></td><td>Tài liệu, sơ đồ, JSON; thử lại từng file</td></tr>
+    <tr><td>026</td><td>Web</td><td><span class="pill ok">2</span> <span class="pill wa">1</span></td><td>Trạng thái, lọc, mở bằng chứng. Góc nhìn khối tạm ẩn</td></tr>
+    <tr><td>027</td><td>Tài liệu L3</td><td><span class="pill ok">1</span> <span class="pill wa">2</span></td><td>File API đủ. File bảng chưa có lệnh tạo bảng. Sự kiện chỉ thử trên mẫu Kafka</td></tr>
+  </table></div>
+  <details><summary style="cursor:pointer;font-weight:600">Mở bảng 36 AC</summary>
+<div class="tbl"><table>
+<tr><th>AC</th><th>Yêu cầu (rút gọn)</th><th>Trạng thái</th><th>Bằng chứng</th></tr>
+<tr><td>019-01</td><td>CLI ghi L3, sơ đồ, JSON; in đường dẫn file</td><td><span class="pill ok">Đạt</span></td><td>Dòng lệnh chạy 4 repo, mỗi repo ra 5–7 file</td></tr>
+<tr><td>019-02</td><td>Đầu vào hỏng thì dừng trước, không để output dở</td><td><span class="pill ok">Đạt</span></td><td>Membership thiếu file: exit 2, không tạo thư mục</td></tr>
+<tr><td>019-03</td><td>Source và output lồng nhau thì từ chối</td><td><span class="pill ok">Đạt</span></td><td>Test <code>test_cli_exit_codes</code></td></tr>
+<tr><td>019-04</td><td>ZIP hỏng hay thoát vùng thì từ chối, nêu lý do</td><td><span class="pill ok">Đạt</span></td><td>Web báo "File không phải ZIP đọc được" (<code>invalid_zip</code>)</td></tr>
+<tr><td>019-05</td><td>GitHub: báo đúng lỗi truy cập, không đòi credential</td><td><span class="pill wa">Một phần</span></td><td>Test với kết nối giả; tính năng tắt chờ review bảo mật</td></tr>
+<tr><td>020-01</td><td>Liệt kê đơn vị đã xét và phần bỏ kèm lý do</td><td><span class="pill wa">Một phần</span></td><td>Mục "Phạm vi đã xét" có; mới 1 unit</td></tr>
+<tr><td>020-02</td><td>Repo rỗng hay ngoài phạm vi thì không báo thành công rỗng</td><td><span class="pill wa">Một phần</span></td><td>Có trạng thái <code>empty</code>; chưa có test riêng</td></tr>
+<tr><td>020-03</td><td>Công bố mức hỗ trợ của từng đơn vị</td><td><span class="pill wa">Một phần</span></td><td>Ghi <code>partial</code> cho Python/FastAPI; chưa có ma trận đầy đủ</td></tr>
+<tr><td>021-01</td><td>Route: method, path đầy đủ qua prefix/mount, handler, nguồn</td><td><span class="pill ok">Đạt</span></td><td>58/58 route khớp đáp án tay</td></tr>
+<tr><td>021-02</td><td>Bảng: tên, cột, khóa ngoại; tên động thì unknown</td><td><span class="pill ok">Đạt</span></td><td>3/3 bảng ORM; teamhide 9/9 cột</td></tr>
+<tr><td>021-03</td><td>HTTP/config/event/thư viện; che bí mật; phần chưa hỗ trợ vào Giới hạn</td><td><span class="pill wa">Một phần</span></td><td>Che 7/7 bí mật; thư viện có import; Celery được báo. HTTP chưa kiểm trên repo thật</td></tr>
+<tr><td>021-04</td><td>Lời gọi không rõ đích: giữ unresolved, không thành cạnh</td><td><span class="pill ok">Đạt</span></td><td>Giới hạn <code>REFERENCE_UNRESOLVED</code></td></tr>
+<tr><td>021-05</td><td>Request/response model, field, kiểu, bắt buộc; status</td><td><span class="pill ok">Đạt</span></td><td>Mục Model; ngoại lệ: response <code>list[Model]</code> ghi chưa biết</td></tr>
+<tr><td>022-01</td><td>Mỗi file vào đúng 1 component; model đặt tên</td><td><span class="pill wa">Một phần</span></td><td>Kiểm membership có; tên do model chưa chạy thật</td></tr>
+<tr><td>022-02</td><td>Đề xuất của model chỉ giữ khi có dữ kiện ở 2 đầu</td><td><span class="pill wa">Một phần</span></td><td>Test với model giả</td></tr>
+<tr><td>022-03</td><td>Model lỗi/hết quota: dừng bước model, trả partial</td><td><span class="pill wa">Một phần</span></td><td>Test với model giả; chưa có khóa Groq/Gemini</td></tr>
+<tr><td>022-04</td><td>Sơ đồ ≤ 50 node, mức component</td><td><span class="pill ok">Đạt</span></td><td>Test <code>test_more_than_50_nodes_rejected</code></td></tr>
+<tr><td>022-05</td><td>Repo phẳng: model đề xuất cách chia, code kiểm</td><td><span class="pill wa">Một phần</span></td><td>Code có, chưa nối vì D-03</td></tr>
+<tr><td>023-01</td><td>Chỉ ra dữ kiện và vị trí làm cơ sở cho kết luận</td><td><span class="pill ok">Đạt</span></td><td>Nút <code>file:dòng</code> mở code ngay trên web</td></tr>
+<tr><td>023-02</td><td>Nhãn confidence và completeness tách riêng, có lý do</td><td><span class="pill ok">Đạt</span></td><td>Cột Nhãn; lý do <code>inferred</code> ghi tên rule</td></tr>
+<tr><td>023-03</td><td>Source đổi thì báo, không dùng nội dung mới</td><td><span class="pill ok">Đạt</span></td><td>Test <code>test_open_evidence_detects_changed_file</code></td></tr>
+<tr><td>023-04</td><td>Kết luận không có bằng chứng thì không công bố</td><td><span class="pill ok">Đạt</span></td><td>Bộ kiểm hạ giá trị về unknown; 4.400/4.400 bằng chứng đúng</td></tr>
+<tr><td>024-01</td><td>File lỗi cú pháp: xử lý tiếp, nêu file lỗi</td><td><span class="pill ok">Đạt</span></td><td>fullstack: <code>PARSE_FAILED deps.py</code> (Python 3.14)</td></tr>
+<tr><td>024-02</td><td>Chạm giới hạn tài nguyên/bị ngắt: partial kèm lý do</td><td><span class="pill ok">Đạt</span></td><td>Lớp test <code>Budgets</code>; khởi động lại thì run dở bị đánh failed</td></tr>
+<tr><td>024-03</td><td>Phần ngoài phạm vi nêu ở Giới hạn</td><td><span class="pill wa">Một phần</span></td><td>Celery, migration, lát cắt có báo; middleware và DI container chưa báo</td></tr>
+<tr><td>024-04</td><td>Phạm vi chưa xét đủ ghi là giới hạn, không ghi "không thấy"</td><td><span class="pill ok">Đạt</span></td><td>Trạng thái "một phần" kèm 6 lý do</td></tr>
+<tr><td>025-01</td><td>Xuất L3, sơ đồ, mã sơ đồ, JSON</td><td><span class="pill ok">Đạt</span></td><td>Bảng "Tài liệu tải về"</td></tr>
+<tr><td>025-02</td><td>JSON có schema version, snapshot ID, không cạnh treo</td><td><span class="pill ok">Đạt</span></td><td>Kiểm schema contract trên 4 repo</td></tr>
+<tr><td>025-03</td><td>Artifact lỗi: nêu rõ, cho thử lại, giữ file hợp lệ</td><td><span class="pill ok">Đạt</span></td><td>Nút "Thử lại"; test <code>test_retry_failed_svg</code></td></tr>
+<tr><td>025-04</td><td>Mọi artifact cùng tập component/cạnh</td><td><span class="pill ok">Đạt</span></td><td>Test <code>test_readme_and_diagram_share_nodes</code></td></tr>
+<tr><td>026-01</td><td>Web hiện giai đoạn và trạng thái kèm lý do</td><td><span class="pill ok">Đạt</span></td><td>Thanh giai đoạn khi đang chạy; chữ "một phần" kèm lý do</td></tr>
+<tr><td>026-02</td><td>Tổng quan, góc nhìn component/API/dữ liệu/tích hợp/dependency, giới hạn</td><td><span class="pill wa">Một phần</span></td><td>API, dữ liệu, giới hạn có; component/dependency tạm ẩn đến khi chọn D-03</td></tr>
+<tr><td>026-03</td><td>Tìm/lọc và mở bằng chứng từ kết quả</td><td><span class="pill ok">Đạt</span></td><td>Ô Lọc; nút bằng chứng</td></tr>
+<tr><td>027-01</td><td>File API: bảng endpoint + 1 khối OpenAPI 3.1</td><td><span class="pill ok">Đạt</span></td><td>58/58 operation hợp lệ; Auth ghi chưa biết theo contract</td></tr>
+<tr><td>027-02</td><td>File TBL: bảng cột + khối DDL</td><td><span class="pill wa">Một phần</span></td><td>Bảng cột có; DDL chỉ sinh khi biết dialect, 4 repo đều chưa chứng minh được</td></tr>
+<tr><td>027-03</td><td>File EVT ở từng bên gửi/nhận</td><td><span class="pill wa">Một phần</span></td><td>Code và test trên fixture Kafka; 4 repo không có Kafka</td></tr>
+</table></div>
+</details>
+</section>
+
+<section id="c2">
+  <h2>Số đo của phần L3</h2>
+  <p>Đo ngày 02/10/2026 trên 4 repo phát triển.</p>
+  <div class="tbl"><table>
+    <tr><th>Repo</th><th class="n">Dòng Python</th><th class="n">API</th><th class="n">Bảng</th><th class="n">Bằng chứng</th></tr>
+    <tr><td>rhoboro</td><td class="n">1.338</td><td class="n">11</td><td class="n">2</td><td class="n">689</td></tr>
+    <tr><td>fullstack</td><td class="n">2.908</td><td class="n">23</td><td class="n">2</td><td class="n">1.378</td></tr>
+    <tr><td>realworld</td><td class="n">3.841</td><td class="n">19</td><td class="n">0 (7 chỉ trong migration, đã khai)</td><td class="n">1.437</td></tr>
+    <tr><td>teamhide</td><td class="n">2.750</td><td class="n">5</td><td class="n">1</td><td class="n">896</td></tr>
+    <tr><th>Tổng</th><th class="n">10.837</th><th class="n">58</th><th class="n">5</th><th class="n">4.400</th></tr>
+  </table></div>
+  <ul>
+    <li>58/58 API khớp đáp án đếm tay. 4.400/4.400 bằng chứng qua 3 phép kiểm.</li>
+    <li>177 test tự động đều qua. Chạy lại cho kết quả giống hệt, chỉ khác mã lần chạy.</li>
+    <li>Thời gian phân tích 0,4–0,6 giây mỗi repo, bộ nhớ dưới 60 MB (máy dev, chưa phải máy chuẩn của OPS-001).</li>
+  </ul>
+  <p><b>Giới hạn của số đo:</b> 4 repo này cũng là repo dùng để sửa lỗi. Số lượng chưa đủ cỡ mẫu của OBS-001 (58/100 API, 5/20 bảng, 0/20 sự kiện).</p>
+</section>
+
+<section id="c3">
+  <h2>Phần sơ đồ của Khiêm <span class="own k">Khiêm</span></h2>
+  <p class="note">Nguồn: file bàn giao của Khiêm, <code>D:\VSF\l3-generator-quote-evidence\docs\HANDOFF.md</code>, cập nhật tối 01/10. Số do Khiêm chấm theo tiêu chí riêng (P ≥ 0,8; R ≥ 0,6; trích dẫn hợp lệ ≥ 90%), chưa phải KPI-006.</p>
+  <h3>Cách làm hiện tại (bản v8)</h3>
+  <ol>
+    <li>Code đọc repo, lấy lời gọi giữa các file, dựng một bản nháp chia khối.</li>
+    <li>AI (qua OpenRouter, model <code>gpt-oss-120b</code>) sửa bản nháp. Mỗi quyết định phải trỏ một mã dòng code.</li>
+    <li>Code kiểm mã dòng đó có thật, rồi mới vẽ sơ đồ. Cạnh do code vẽ từ lời gọi đã nối được đích.</li>
+  </ol>
+  <div class="tbl"><table>
+    <tr><th>Cỡ repo</th><th>Kết quả</th></tr>
+    <tr><td>Nhỏ: rhoboro, fullstack, realworld, teamhide</td><td><span class="pill ok">Đạt</span> ở cách chạy tốt nhất. Ví dụ fullstack có nháp 1,00 / 1,00 / 1,00; không nháp chỉ 0,40 / 0,40 / 0,33</td></tr>
+    <tr><td>Vừa: kibo, boilerplate</td><td>kibo <span class="pill ok">đạt</span>; boilerplate <span class="pill wa">chưa</span> (P 0,62)</td></tr>
+    <tr><td>Lớn: lnbits, fba</td><td><span class="pill p-bad">Chưa đạt</span>, chia khối sai</td></tr>
+  </table></div>
+  <p>Bản v10 (ghép thêm công cụ Pyright để nối tên hàm) mới chạy xong 5/16 lần. Ở 5 lần đó chưa thấy tốt hơn; boilerplate còn kém hơn. Code sản phẩm (<code>slice</code>) mới có khung cho bước AI, chưa gọi provider thật.</p>
+</section>
+
+<section id="c4">
+  <h2>Năm chỉ số: đo được tới đâu</h2>
+  <div class="tbl"><table>
+    <tr><th>KPI</th><th>Hiện trạng</th></tr>
+    <tr><td>006 · Sơ đồ đúng</td><td><span class="pill wa">Đo thử</span> theo tiêu chí riêng của Khiêm; repo nhỏ đạt, repo lớn chưa. Chưa đo theo KPI</td></tr>
+    <tr><td>007 · Bằng chứng</td><td><span class="pill ok">Đo trên repo dev</span> 4.400/4.400. Máy kiểm mỗi lần chạy</td></tr>
+    <tr><td>008 · Thông tin L3 đúng</td><td><span class="pill wa">Đo trên repo dev</span> API 58/58. Chưa đủ cỡ mẫu, chưa báo "đạt"</td></tr>
+    <tr><td>009 · "Đọc thẳng" mà sai</td><td><span class="pill wa">Chưa đo</span> Revision 29 cho máy chấm bằng đáp án KPI-008, không cần người chấm thêm</td></tr>
+    <tr><td>010 · Khai đủ giới hạn</td><td><span class="pill wa">Một phần</span> đã khai nhiều loại; chưa đo trên bộ mẫu cài sẵn theo OBS-001</td></tr>
+  </table></div>
+</section>
+
+<!-- ============ D. Vấn đề ============ -->
+<div class="part">D · Đang vướng ở đâu</div>
+
+<section id="d1">
+  <h2>Vấn đề của phần L3 <span class="own h">Hoàng</span></h2>
+  <div class="tbl"><table>
+    <tr><th>Vấn đề</th><th>Liên quan PRD</th><th>Hướng xử lý</th></tr>
+    <tr><td>Mới đọc được một ứng dụng mỗi repo</td><td>FR-020 (bắt buộc, M1)</td><td>Làm trước tiên trong phần L3</td></tr>
+    <tr><td>Chưa viết được lệnh tạo bảng vì không biết loại database</td><td>AC-027-02</td><td>Đọc loại database từ chuỗi kết nối trong config, ví dụ <code>postgresql://</code></td></tr>
+    <tr><td>Response dạng danh sách (<code>list[Model]</code>) ghi "chưa biết"</td><td>AC-021-05</td><td>Cho công cụ nhận danh sách model. Việc nhỏ</td></tr>
+    <tr><td>Auth luôn "chưa biết"</td><td>Contract API-L3GEN-008</td><td>Cần thêm quy tắc vào contract trước, nên để sau</td></tr>
+    <tr><td>Chưa đọc Celery, RabbitMQ; sự kiện chỉ Kafka</td><td>FR-021, FR-027 (EVT)</td><td>PRD chỉ cam kết Kafka. Hiện đã khai vào Giới hạn</td></tr>
+    <tr><td>Gọi HTTP ra ngoài chưa kiểm trên repo thật (4 repo không có)</td><td>AC-021-03</td><td>Chọn repo mới có dùng <code>httpx</code></td></tr>
+    <tr><td>Nhận từ GitHub đang tắt</td><td>AC-019-05, SEC-002</td><td>Chờ review bảo mật</td></tr>
+    <tr><td>Thay đổi chờ Khiêm duyệt: 3 quy ước mới; dùng tên file ZIP làm tên repo; KPI-009</td><td>Contract 004, 008, 001; PRD revision 29</td><td>Khiêm duyệt rồi commit</td></tr>
+  </table></div>
+</section>
+
+<section id="d2">
+  <h2>Vấn đề của phần sơ đồ <span class="own k">Khiêm</span></h2>
+  <div class="probs">
+    <article class="prob"><h4>1. Repo lớn chia khối sai</h4><p>lnbits, fba trượt; boilerplate P 0,62.</p><p class="ref">FR-022, KPI-006</p></article>
+    <article class="prob"><h4>2. Chưa dùng được cho mọi kiểu code FastAPI</h4><p>Thử 39 kiểu viết code: sai 28, sau khi sửa còn 14 (11 kiểu định giao cho AI).</p><p class="ref">FR-022</p></article>
+    <article class="prob"><h4>3. Không nhận ra nhiều thư viện kết nối ngoài</h4><p>Danh sách viết sẵn chỉ có 19/75 thư viện phổ biến (database, cloud, hàng đợi). Repo mới: hệ thống ngoài R = 0,00.</p><p class="ref">FR-021, FR-022</p></article>
+    <article class="prob"><h4>4. Chưa chọn hướng đi</h4><p>Giữ cách "code dựng nháp, AI sửa" (v8), hay để AI làm chủ còn code chỉ là công cụ tra cứu. Đây là D-03 còn mở trong contract.</p><p class="ref">D-03, API-L3GEN-005</p></article>
+    <article class="prob"><h4>5. Lệch PRD về AI</h4><p>Dùng OpenRouter trả phí (0,024 USD lần gần nhất), PRD yêu cầu 0 đồng. Khiêm đã bỏ quy tắc "AI không đọc toàn bộ repo" trong thí nghiệm, nhưng NFR-AI-002 vẫn ghi quy tắc này.</p><p class="ref">PRD III.3, NFR-AI-002</p></article>
+    <article class="prob"><h4>6. Số đo chưa khách quan</h4><p>4 repo nhỏ là repo "lộ" (đã xem đáp án khi làm). Chưa có repo nhỏ "kín". Mỗi cách chỉ chạy 1 lần, chưa biết dao động.</p><p class="ref">OBS-001</p></article>
+  </div>
+  <p class="note">PRD revision 26 ghi "code chia khối tất định", còn contract API-L3GEN-005 (25/09) ghi D-03 còn mở với 3 ứng viên. Hai tài liệu cần được thống nhất.</p>
+</section>
+
+<section id="d3">
+  <h2>Vấn đề chung <span class="own c">chung</span></h2>
+  <ul>
+    <li><b>Quy trình bị ngược.</b> Code và contract đã có, nhưng Scope Gate chưa ký. PRD chưa có ngày cho M1–M3. Mục IX còn ghi "revision 25". Baseline BL-r5 không còn khớp. Nhiều file chưa commit.</li>
+    <li><b>Hai phần chưa nối.</b> L3 ở repo <code>l3-generator-l3</code>, sơ đồ ở repo <code>l3-generator-quote-evidence</code>. Hôm nay nối bằng tay qua file membership (file nào thuộc khối nào). PRD muốn mọi đầu ra sinh từ cùng một mô hình (AC-025-04).</li>
+    <li><b>Chưa có bộ dữ liệu nghiệm thu.</b> Cần repo mới, đủ cỡ mẫu, đáp án do người không làm phần đó lập.</li>
+  </ul>
+</section>
+
+<section id="d4">
+  <h2>Làm gì tiếp, theo thứ tự</h2>
+  <div class="tbl"><table>
+    <tr><th class="n">#</th><th>Việc</th><th>Ai</th><th>Xong khi</th></tr>
+    <tr><td class="n">1</td><td>Duyệt revision 29, ký Scope Gate, ghi ngày cho M1–M3</td><td><span class="own k">Khiêm</span></td><td>PRD mục IX có chữ ký và ngày</td></tr>
+    <tr><td class="n">2</td><td>Chọn hướng chia khối (D-03); sửa PRD hoặc contract cho khớp</td><td><span class="own c">chung</span></td><td>Có bảng so các cách và cách được chọn</td></tr>
+    <tr><td class="n">3</td><td>Lấy tài khoản AI miễn phí, chạy lại; hoặc xin nới trần chi phí</td><td><span class="own k">Khiêm</span></td><td>Có số đo với Groq, Gemini, hoặc có quyết định mới</td></tr>
+    <tr><td class="n">4</td><td>Nối hai phần qua file membership</td><td><span class="own h">Hoàng</span></td><td>Một lần chạy ra cả sơ đồ và tài liệu L3 đúng khối</td></tr>
+    <tr><td class="n">5</td><td>Lập bộ repo nghiệm thu mới, chấm chéo, đo 5 KPI</td><td><span class="own c">chung</span></td><td>Có số thật, hết <code>not_evaluated</code></td></tr>
+    <tr><td class="n">6</td><td>Bổ sung L3: nhiều ứng dụng mỗi repo, lệnh tạo bảng, <code>list[Model]</code></td><td><span class="own h">Hoàng</span></td><td>Có test mới, chạy lại 4 repo</td></tr>
+  </table></div>
+  <p class="note">Người làm là đề xuất theo vai trò trong PRD. Nhóm cần xác nhận.</p>
+  <h3>Xin mentor góp ý</h3>
+  <ol>
+    <li>Chọn cách chia khối theo tiêu chí nào.</li>
+    <li>Có cho dùng AI trả phí không, và có cho AI đọc toàn bộ repo không.</li>
+    <li>Lấy repo nghiệm thu ở đâu, ai chấm đáp án.</li>
+  </ol>
+  <p class="say"><b>Câu chốt:</b>Phần đọc code và viết tài liệu L3 đã chạy được và tự kiểm được. Phần sơ đồ đạt trên repo nhỏ. Nhóm đang vướng ba chỗ: chưa chọn cách chia khối, chưa có AI miễn phí đúng PRD, và chưa có bộ dữ liệu độc lập để nghiệm thu.</p>
+</section>
+
+<section id="e">
+  <h2>Câu hỏi hay gặp</h2>
+  <div class="tbl"><table>
+    <tr><th>Câu hỏi</th><th>Trả lời ngắn</th></tr>
+    <tr><td>Phần L3 có dùng AI không?</td><td>Không. AI chỉ ở phần chia khối của Khiêm, và đề xuất của AI cũng phải qua bước kiểm bằng chứng.</td></tr>
+    <tr><td>Công cụ đọc code kiểu gì?</td><td>Python có sẵn thư viện <code>ast</code>, biến file code thành cây cấu trúc (hàm, decorator, chuỗi). Công cụ đi qua cây đó. Code không được chạy.</td></tr>
+    <tr><td>Sao biết không bịa?</td><td>Mỗi giá trị phải nằm nguyên văn ở dòng code nó chỉ tới. Máy kiểm từng cái: 4.400/4.400.</td></tr>
+    <tr><td>FastAPI tự sinh <code>/docs</code> rồi, công cụ này hơn gì?</td><td><code>/docs</code> cần chạy được app (cài thư viện, có database). Công cụ này chỉ cần code. Nó còn ghi bảng, config, thư viện, sự kiện, và chỉ về dòng code. Với app chạy được, <code>/docs</code> đủ hơn ở thứ sinh ra lúc chạy.</td></tr>
+    <tr><td>Status 200 lấy ở đâu?</td><td>Từ quy ước của FastAPI. Ô đó có nhãn "suy ra" và tên quy ước.</td></tr>
+    <tr><td>Sao Auth luôn "chưa biết"?</td><td>Chưa có quy tắc. Đoán sai về bảo mật nguy hiểm hơn để trống. Công cụ vẫn ghi dependency nó thấy.</td></tr>
+    <tr><td>Sao kết quả là "một phần"?</td><td>Còn chỗ chưa đọc, ví dụ Celery. Mục Giới hạn ghi đủ.</td></tr>
+    <tr><td>Đúng bao nhiêu phần trăm?</td><td>Trên 4 repo dev: API 58/58, bằng chứng 4.400/4.400. Chưa phải số nghiệm thu vì chưa thử trên repo mới.</td></tr>
+    <tr><td>Làm cho Java thì sao?</td><td>PRD để phase sau. Chỉ bước đọc code phải viết mới; bước kiểm, viết tài liệu, web dùng lại được.</td></tr>
+    <tr><td>Phần sơ đồ tới đâu?</td><td>Đạt trên repo nhỏ theo tiêu chí của Khiêm; repo lớn chưa; chưa chọn hướng đi. Khiêm trình bày chi tiết.</td></tr>
+  </table></div>
+</section>
+
+</div>

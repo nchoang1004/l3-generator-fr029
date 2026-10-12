@@ -1,0 +1,33 @@
+flowchart LR
+  n0["Quản lý cache"]
+  n1["Ngoài sơ đồ: tests"]
+  n2["Auth service"]
+  n3["Kết nối DB"]
+  n4["Worker entrypoint"]
+  n5["Ngoài sơ đồ: migrations"]
+  n6["CLI khởi chạy"]
+  n7["Lưu trữ người dùng"]
+  n8["Ngoài sơ đồ: (gốc)"]
+  n9["Web entrypoint"]
+  n10["Public API router"]
+  n11["Xử lý người dùng"]
+  n12["Dùng chung"]
+  n1 -->|calls| n9
+  n1 -->|calls| n2
+  n10 -->|calls| n2
+  n2 -->|calls| n12
+  n1 -->|calls| n11
+  n11 -->|calls| n7
+  n11 -->|calls| n12
+  n9 -->|calls| n3
+  n12 -->|calls| n11
+  n10 -->|calls| n11
+  n1 -->|calls| n12
+  n1 -->|calls| n3
+  n9 -->|calls| n0
+  n1 -->|calls| n0
+  n10 -->|calls| n12
+  n1 -->|calls| n7
+  n11 -->|depends_on| n7
+  n1 -->|depends_on| n7
+  n7 -->|calls| n3

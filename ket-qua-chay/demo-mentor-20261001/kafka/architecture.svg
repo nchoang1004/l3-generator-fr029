@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 568 104" width="568" height="104" font-family="sans-serif" font-size="13">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker></defs>
+<g data-edge="cmp_b99af8888eed0555ea9cd3ceb3162fe572f70056691b80c883abef994dbde1fa|cmp_053e352ca24100eb6bff9b5feaf362811e73d59dec0647ec9bd45c2869035cd3|publishes"><line x1="434" y1="52" x2="134" y2="52" stroke="#555" marker-end="url(#arrow)"/><text x="284" y="48" text-anchor="middle" fill="#333">publishes</text></g>
+<g data-node="cmp_053e352ca24100eb6bff9b5feaf362811e73d59dec0647ec9bd45c2869035cd3"><rect x="24" y="24" width="220" height="56" rx="6" fill="#f4f6fb" stroke="#3b5998"/><text x="134.0" y="56.0" text-anchor="middle">Stock</text><title>Stock</title></g>
+<g data-node="cmp_b99af8888eed0555ea9cd3ceb3162fe572f70056691b80c883abef994dbde1fa"><rect x="324" y="24" width="220" height="56" rx="6" fill="#f4f6fb" stroke="#3b5998"/><text x="434.0" y="56.0" text-anchor="middle">Orders</text><title>Orders</title></g>
+</svg>

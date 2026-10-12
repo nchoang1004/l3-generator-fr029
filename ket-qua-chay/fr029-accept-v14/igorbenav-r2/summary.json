@@ -1,0 +1,40 @@
+[
+  {
+    "repo": "igorbenav",
+    "size": "vừa",
+    "model": "gpt-6-luna",
+    "status": "partial",
+    "reason": "FINISH_WITH_GAPS: còn phần chưa đọc hoặc lỗi chưa sửa sau nhiều lần nhắc",
+    "coverage_complete": true,
+    "cost_usd": 0.4394,
+    "prompt": "fr029-agent-prompt-v14",
+    "kinds": {
+      "routes": {
+        "tp": 15,
+        "fp": 0,
+        "fn": 19,
+        "precision": 1.0,
+        "recall": 0.441
+      },
+      "http_calls": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null
+      }
+    },
+    "attribute_accuracy": {
+      "routes": {
+        "model_names": "10/15"
+      }
+    },
+    "verdict": {
+      "routes": "không đạt",
+      "models": "chưa đo",
+      "http_calls": "not_evaluated",
+      "exact": "chưa đo",
+      "overall": "không đạt"
+    }
+  }
+]

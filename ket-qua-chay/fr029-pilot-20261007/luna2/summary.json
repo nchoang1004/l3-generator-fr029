@@ -1,0 +1,596 @@
+[
+  {
+    "fixture": "prefix_chain",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 17,
+    "tokens_in": 116713,
+    "tokens_out": 6312,
+    "waited_s": 0,
+    "seconds": 84,
+    "cost_usd": 0.0054,
+    "coverage_complete": true,
+    "rejected": 2,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 11,
+        "fp": 7,
+        "fn": 0,
+        "precision": 0.6111111111111112,
+        "recall": 1.0,
+        "false_positive": [
+          "('GET', None, 'app/api/health.py:6')",
+          "('GET', None, 'app/api/items.py:11')",
+          "('GET', None, 'app/api/items.py:16')",
+          "('GET', None, 'app/api/items.py:6')",
+          "('GET', None, 'app/api/legacy.py:6')",
+          "('GET', None, 'app/api/users.py:6')",
+          "('POST', None, 'app/api/items.py:16')"
+        ],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 11,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 11,
+            "wrong": []
+          },
+          "response": {
+            "correct": 11,
+            "wrong": []
+          },
+          "status": {
+            "correct": 11,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  },
+  {
+    "fixture": "params_models",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 11,
+    "tokens_in": 72633,
+    "tokens_out": 6530,
+    "waited_s": 0,
+    "seconds": 90,
+    "cost_usd": 0.0048,
+    "coverage_complete": true,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 11,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 11,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 10,
+            "wrong": [
+              {
+                "key": "('POST', '/uploads', 'app/routes.py:52')",
+                "got": [
+                  [],
+                  "multipart/form-data",
+                  true,
+                  false,
+                  [
+                    [
+                      "file",
+                      "any",
+                      true
+                    ],
+                    [
+                      "title",
+                      "string",
+                      true
+                    ]
+                  ]
+                ],
+                "want": [
+                  [],
+                  "multipart/form-data",
+                  true,
+                  false,
+                  [
+                    [
+                      "file",
+                      "string",
+                      true
+                    ],
+                    [
+                      "title",
+                      "string",
+                      true
+                    ]
+                  ]
+                ]
+              }
+            ]
+          },
+          "response": {
+            "correct": 11,
+            "wrong": []
+          },
+          "status": {
+            "correct": 11,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 5,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 5,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  },
+  {
+    "fixture": "pydantic_v1",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 7,
+    "tokens_in": 26045,
+    "tokens_out": 1771,
+    "waited_s": 0,
+    "seconds": 50,
+    "cost_usd": 0.0014,
+    "coverage_complete": true,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 2,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 2,
+            "wrong": []
+          },
+          "response": {
+            "correct": 2,
+            "wrong": []
+          },
+          "status": {
+            "correct": 2,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 1,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  },
+  {
+    "fixture": "exclusions",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 7,
+    "tokens_in": 27424,
+    "tokens_out": 1282,
+    "waited_s": 0,
+    "seconds": 39,
+    "cost_usd": 0.0011,
+    "coverage_complete": true,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 1,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 1,
+            "wrong": []
+          },
+          "response": {
+            "correct": 1,
+            "wrong": []
+          },
+          "status": {
+            "correct": 1,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      },
+      "out_of_scope": {
+        "ok": true,
+        "got": {
+          "test": 3,
+          "conditional_out": 1
+        },
+        "want": {
+          "test": 3,
+          "conditional_out": 1
+        }
+      }
+    }
+  },
+  {
+    "fixture": "http_calls",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 11,
+    "tokens_in": 57271,
+    "tokens_out": 2644,
+    "waited_s": 0,
+    "seconds": 61,
+    "cost_usd": 0.0023,
+    "coverage_complete": true,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 3,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 3,
+            "wrong": []
+          },
+          "response": {
+            "correct": 3,
+            "wrong": []
+          },
+          "status": {
+            "correct": 3,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "tp": 11,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "library": {
+            "correct": 11,
+            "wrong": []
+          },
+          "method": {
+            "correct": 11,
+            "wrong": []
+          },
+          "target": {
+            "correct": 9,
+            "wrong": [
+              {
+                "key": "app/clients.py:23",
+                "got": [
+                  "config",
+                  "settings.INVENTORY_URL"
+                ],
+                "want": [
+                  "config",
+                  "INVENTORY_URL"
+                ]
+              },
+              {
+                "key": "app/clients.py:46",
+                "got": [
+                  "config",
+                  "settings.PAYMENT_URL"
+                ],
+                "want": [
+                  "config",
+                  "PAYMENT_URL"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  },
+  {
+    "fixture": "file_roles",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 25,
+    "tokens_in": 144856,
+    "tokens_out": 3062,
+    "waited_s": 0,
+    "seconds": 236,
+    "cost_usd": 0.0035,
+    "coverage_complete": true,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 3,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 3,
+            "wrong": []
+          },
+          "response": {
+            "correct": 3,
+            "wrong": []
+          },
+          "status": {
+            "correct": 3,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 2,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "tp": 10,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "role": {
+            "correct": 10,
+            "wrong": []
+          },
+          "label": {
+            "correct": 10,
+            "wrong": []
+          },
+          "line": {
+            "correct": 10,
+            "wrong": []
+          }
+        }
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  }
+]

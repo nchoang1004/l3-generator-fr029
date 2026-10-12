@@ -1,0 +1,293 @@
+{
+  "split": "development",
+  "gold_status": "candidate",
+  "cases": [
+    "dispatch-case-read",
+    "orders-base",
+    "orders-dynamic-prefix",
+    "orders-prefix",
+    "orders-two-apps",
+    "orders-wrapper-fake",
+    "orders-wrapper-real"
+  ],
+  "extractor_version": "slice-ast-v3",
+  "rows": [
+    {
+      "case_id": "orders-base",
+      "candidate": "A directory-v1",
+      "groups": 1,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 2,
+        "fp": 2,
+        "fn": 2
+      },
+      "edges": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2
+      }
+    },
+    {
+      "case_id": "orders-base",
+      "candidate": "B signals-v0",
+      "groups": 4,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 4,
+        "fp": 0,
+        "fn": 0
+      },
+      "edges": {
+        "tp": 2,
+        "fp": 1,
+        "fn": 0
+      }
+    },
+    {
+      "case_id": "orders-prefix",
+      "candidate": "A directory-v1",
+      "groups": 1,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 2,
+        "fp": 2,
+        "fn": 2
+      },
+      "edges": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2
+      }
+    },
+    {
+      "case_id": "orders-prefix",
+      "candidate": "B signals-v0",
+      "groups": 4,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 4,
+        "fp": 0,
+        "fn": 0
+      },
+      "edges": {
+        "tp": 2,
+        "fp": 1,
+        "fn": 0
+      }
+    },
+    {
+      "case_id": "orders-two-apps",
+      "candidate": "A directory-v1",
+      "groups": 1,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 2,
+        "fp": 2,
+        "fn": 2
+      },
+      "edges": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2
+      }
+    },
+    {
+      "case_id": "orders-two-apps",
+      "candidate": "B signals-v0",
+      "groups": 4,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 4,
+        "fp": 0,
+        "fn": 0
+      },
+      "edges": {
+        "tp": 2,
+        "fp": 1,
+        "fn": 0
+      }
+    },
+    {
+      "case_id": "orders-wrapper-real",
+      "candidate": "A directory-v1",
+      "groups": 1,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 2,
+        "fp": 2,
+        "fn": 2
+      },
+      "edges": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2
+      }
+    },
+    {
+      "case_id": "orders-wrapper-real",
+      "candidate": "B signals-v0",
+      "groups": 4,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 4,
+        "fp": 0,
+        "fn": 0
+      },
+      "edges": {
+        "tp": 2,
+        "fp": 1,
+        "fn": 0
+      }
+    },
+    {
+      "case_id": "orders-wrapper-fake",
+      "candidate": "A directory-v1",
+      "groups": 1,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 2,
+        "fp": 2,
+        "fn": 2
+      },
+      "edges": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2
+      }
+    },
+    {
+      "case_id": "orders-wrapper-fake",
+      "candidate": "B signals-v0",
+      "groups": 4,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 4,
+        "fp": 0,
+        "fn": 0
+      },
+      "edges": {
+        "tp": 2,
+        "fp": 1,
+        "fn": 0
+      }
+    },
+    {
+      "case_id": "orders-dynamic-prefix",
+      "candidate": "A directory-v1",
+      "groups": 1,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 2,
+        "fp": 2,
+        "fn": 2
+      },
+      "edges": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2
+      }
+    },
+    {
+      "case_id": "orders-dynamic-prefix",
+      "candidate": "B signals-v0",
+      "groups": 4,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 4,
+        "fp": 0,
+        "fn": 0
+      },
+      "edges": {
+        "tp": 2,
+        "fp": 1,
+        "fn": 0
+      }
+    },
+    {
+      "case_id": "dispatch-case-read",
+      "candidate": "A directory-v1",
+      "groups": 2,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 2,
+        "fp": 2,
+        "fn": 2
+      },
+      "edges": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1
+      }
+    },
+    {
+      "case_id": "dispatch-case-read",
+      "candidate": "B signals-v0",
+      "groups": 5,
+      "over_cap": false,
+      "status": "scored",
+      "errors": [],
+      "membership": {
+        "tp": 3,
+        "fp": 1,
+        "fn": 1
+      },
+      "edges": {
+        "tp": 1,
+        "fp": 5,
+        "fn": 0
+      }
+    }
+  ],
+  "totals": {
+    "A directory-v1/edges": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 13
+    },
+    "A directory-v1/membership": {
+      "tp": 14,
+      "fp": 14,
+      "fn": 14
+    },
+    "B signals-v0/edges": {
+      "tp": 13,
+      "fp": 11,
+      "fn": 0
+    },
+    "B signals-v0/membership": {
+      "tp": 27,
+      "fp": 1,
+      "fn": 1
+    }
+  },
+  "not_run": {
+    "C v8": "Mã pipeline v8 không có trong repo này và cần gọi model"
+  }
+}

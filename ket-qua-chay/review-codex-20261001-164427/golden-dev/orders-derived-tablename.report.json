@@ -1,0 +1,207 @@
+{
+  "case_id": "orders-derived-tablename",
+  "split": "development",
+  "source_family": "orders-fixture",
+  "purpose": "pilot_scorer_check",
+  "created_at": "2026-10-01T09:44:34.068248+00:00",
+  "acceptance": "not_evaluated",
+  "product_benchmark": false,
+  "gold_review": {
+    "status": "candidate",
+    "independent_humans": [],
+    "adjudication": "pending"
+  },
+  "input_hashes": {
+    "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-derived-tablename\\source-manifest.json": "f491a9f46c5610247f656c658fe969bfffac494b0ee421487fbc3f047a9024c2",
+    "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-derived-tablename\\gold.json": "8da1ff691aa3ab86937a130f21b77680e78b339784350b8fdcf3a3e8e6c90cef",
+    "ket-qua-chay\\review-codex-20261001-164427\\golden-dev\\orders-derived-tablename.prediction.json": "f118048f22aa420b125d70b35c60ae70510d02411d193f1765cee20f891039cd",
+    "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\matching-policy.json": "1069095060657539afc295c4f03144808b8292a74fa5512b8f949b7fa04a201b"
+  },
+  "review_verification": "metadata_only_not_independent_human_review",
+  "schema_hashes": {
+    "manifest-schema.json": "9ff20110573b2d6e1ccd730dfe92646172954978b6918ca0e76c8a490ed1a118",
+    "prediction-schema.json": "0020619060ecdabba19352cc3679fbe50f1d8326acdc4486d5bd557a44d96933",
+    "schema.json": "69722d48fc4448c91455b4b5d5e9ee27c626cd3f404a688bbf03fe3cc39bfa25"
+  },
+  "dependency_lock_hash": "41737ffdc30e3cab85cfe23b3bd7b2d82e43957d9f5c4d553848b3280359323d",
+  "environment": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "scorer_hashes": {
+    "check_pilot.py": "26d81f5cb5d249fa7116b072862817bae764a51f378feb2c49aab18370aaa9ed",
+    "compare.py": "5f84320f1f69f9cc672841499136e9e0639442b118a23e0a83f03db49b101736",
+    "core.py": "c4bb922b47dbec46209d3eb64e6e497402f754ffff0c463671a7b9ac64861b25",
+    "matching.py": "e1737eb8f5f0544671eae329fa18367474d4e6bc82d66f4f07391f0516dec01c",
+    "prepare_review.py": "2579aae1c4d64a2597c3d277e7e8dc98b8f27959b56b7fa8af1f48484b6ea106",
+    "score.py": "49c3d9222a8bb4d3ef53ac61a3365a59f6f5e7fae8dda54f4a723a3713ee8e31",
+    "summarize.py": "c69fa4e0545dec82a135c33fcf4effa7d816bbebabd2181c27d8fd44d204a6b3",
+    "verify.py": "71fa0b1d5ea5941dfeed6ee0da7ebc480e99f0a6d97dd11438a8cca9096ace3e",
+    "_build_ground_truth.py": "72cf001d81ac72ddcbf341c35c6bf857117f87f0fcd65eab48eb1cb70cc7b6b0",
+    "_build_ground_truth_template.py": "58a3ecca091a5a625ec85532d5352aad8558eeee5259cc6c608f056960280373",
+    "__init__.py": "d3f45d4c84911e848e04103695fa1c37f5645145dd067748a7f5db84601fb079"
+  },
+  "errors": [],
+  "status": "scored",
+  "fact_groups": {
+    "entity": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 2,
+      "precision": null,
+      "recall": null,
+      "status": "not_evaluated",
+      "reason": "pilot_candidate_or_insufficient_sample",
+      "identity_tp": 2,
+      "partial_expected": 0,
+      "partial_match": 0
+    },
+    "limitation": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "status": "not_evaluated",
+      "reason": "pilot_candidate_or_insufficient_sample",
+      "identity_tp": 0,
+      "partial_expected": 0,
+      "partial_match": 0
+    },
+    "reference": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "status": "not_evaluated",
+      "reason": "pilot_candidate_or_insufficient_sample",
+      "identity_tp": 4,
+      "partial_expected": 0,
+      "partial_match": 0
+    },
+    "route": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "status": "not_evaluated",
+      "reason": "pilot_candidate_or_insufficient_sample",
+      "identity_tp": 1,
+      "partial_expected": 0,
+      "partial_match": 0
+    },
+    "entity_columns": {
+      "tp": 5,
+      "fp": 0,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "status": "not_evaluated",
+      "reason": "pilot_candidate_or_insufficient_sample"
+    }
+  },
+  "findings": [
+    {
+      "type": "attribute_or_completeness_mismatch",
+      "gold": "entity-6",
+      "prediction": "fact:66eda10cc922b6e3d38f5731f606542a4c36433a263ccf6decd9d63ea78552ed",
+      "attributes": {
+        "table": {
+          "expected": "order",
+          "actual": null
+        }
+      }
+    },
+    {
+      "type": "attribute_or_completeness_mismatch",
+      "gold": "entity-7",
+      "prediction": "fact:8b7735f6452ff05972ec8d3ba447b323be5c1b9624bb31da49a506c0f593c01b",
+      "attributes": {
+        "table": {
+          "expected": "order_item",
+          "actual": null
+        }
+      }
+    }
+  ],
+  "labels": {
+    "compared": 7,
+    "correct": 5,
+    "false_exact": 0,
+    "scope": "facts_only",
+    "status": "not_evaluated",
+    "reason": "label_policy_pending"
+  },
+  "architectures": [
+    {
+      "variant": "none",
+      "mapping": [],
+      "membership": {
+        "tp": null,
+        "fp": null,
+        "fn": null,
+        "precision": null,
+        "recall": null,
+        "status": "not_labeled",
+        "reason": "gold_has_no_architecture_labels"
+      },
+      "edges": {
+        "tp": null,
+        "fp": null,
+        "fn": null,
+        "precision": null,
+        "recall": null,
+        "status": "not_labeled",
+        "reason": "gold_has_no_architecture_labels"
+      },
+      "missing_components": [],
+      "unmatched_components": [],
+      "out_of_scope_edge_ids": [],
+      "out_of_scope_edges": 0
+    }
+  ],
+  "primary_architecture": {
+    "variant": "none",
+    "mapping": [],
+    "membership": {
+      "tp": null,
+      "fp": null,
+      "fn": null,
+      "precision": null,
+      "recall": null,
+      "status": "not_labeled",
+      "reason": "gold_has_no_architecture_labels"
+    },
+    "edges": {
+      "tp": null,
+      "fp": null,
+      "fn": null,
+      "precision": null,
+      "recall": null,
+      "status": "not_labeled",
+      "reason": "gold_has_no_architecture_labels"
+    },
+    "missing_components": [],
+    "unmatched_components": [],
+    "out_of_scope_edge_ids": [],
+    "out_of_scope_edges": 0
+  },
+  "prediction_origin": "product",
+  "not_run_attributes": [],
+  "collapsed_fact_ids": [],
+  "out_of_scope_facts": 5,
+  "out_of_scope_fact_ids": [
+    "fact:133da45bc81e8dc7c101d4bf8efda439a3c518b589c6f5a10d2b4a549b476371",
+    "fact:535941dfa210865eeed1f0fb8f2356700c911aaa27ad6f6e3b264503895f485b",
+    "fact:8da70010a504a1b4c81049695a0dec0433c2a10b9d40e4e5749a3a292c537861",
+    "fact:ab399e1b17b805ddcb0429862629c13b8c3a2cf0e0bb315287fbe9a97fea8069",
+    "fact:c73a9ef8ede40ae04da3ca509fc806a27f69ee81ac9a10151b21c34acf9933b8"
+  ],
+  "evidence": {
+    "structurally_valid_claims": 12,
+    "published_claims": 12,
+    "semantic_support": "not_evaluated"
+  }
+}

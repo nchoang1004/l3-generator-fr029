@@ -1,0 +1,99 @@
+{
+  "routes": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 3,
+    "precision": null,
+    "recall": 0.0,
+    "false_positive": [],
+    "false_negative": [
+      "('GET', '/orders/{order_id}', 'app/api/orders.py:15')",
+      "('GET', '/reports/daily', 'app/api/reports.py:10')",
+      "('POST', '/orders', 'app/api/orders.py:10')"
+    ],
+    "attributes": {
+      "params": {
+        "correct": 0,
+        "wrong": []
+      },
+      "request_body": {
+        "correct": 0,
+        "wrong": []
+      },
+      "response": {
+        "correct": 0,
+        "wrong": []
+      },
+      "status": {
+        "correct": 0,
+        "wrong": []
+      }
+    }
+  },
+  "models": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 2,
+    "precision": null,
+    "recall": 0.0,
+    "false_positive": [],
+    "false_negative": [
+      "('app/schemas.py', 'OrderIn')",
+      "('app/schemas.py', 'OrderOut')"
+    ],
+    "attributes": {
+      "fields": {
+        "correct": 0,
+        "wrong": []
+      }
+    }
+  },
+  "http_calls": {
+    "status": "not_evaluated",
+    "reason": "Gold không có mục này"
+  },
+  "file_roles": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 10,
+    "precision": null,
+    "recall": 0.0,
+    "false_positive": [],
+    "false_negative": [
+      "app/api/orders.py",
+      "app/api/reports.py",
+      "app/config.py",
+      "app/db.py",
+      "app/main.py",
+      "app/models.py",
+      "app/repository.py",
+      "app/schemas.py",
+      "app/service_utils.py",
+      "app/services.py"
+    ],
+    "attributes": {
+      "role": {
+        "correct": 0,
+        "wrong": []
+      },
+      "label": {
+        "correct": 0,
+        "wrong": []
+      },
+      "line": {
+        "correct": 0,
+        "wrong": []
+      }
+    }
+  },
+  "limitations": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {}
+  }
+}

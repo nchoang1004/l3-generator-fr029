@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 568 104" width="568" height="104" font-family="sans-serif" font-size="13">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker></defs>
+<g data-node="cmp_82f84192155a15f7481f767abbcc66d389beb9a8da98a72ecdb0ea4be815ceeb"><rect x="24" y="24" width="220" height="56" rx="6" fill="#f4f6fb" stroke="#3b5998"/><text x="134.0" y="56.0" text-anchor="middle">Orders API</text><title>Orders API</title></g>
+<g data-node="cmp_ec5ecd4006c93338b0efaa089a6cfd839fd5080a1ec15a0aad228557672c5c3f"><rect x="324" y="24" width="220" height="56" rx="6" fill="#f4f6fb" stroke="#3b5998"/><text x="434.0" y="56.0" text-anchor="middle">Orders DB</text><title>Orders DB</title></g>
+</svg>

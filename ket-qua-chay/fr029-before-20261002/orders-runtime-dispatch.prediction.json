@@ -1,0 +1,1109 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "orders-runtime-dispatch",
+  "source_digest": "f0e26356e818d463494f2f548ae9690ee15f49462ed8c56a8e8da47e3c608e14",
+  "status": "facts_only",
+  "entities": [
+    {
+      "id": "db.py::get_db",
+      "path": "db.py",
+      "line_start": 1,
+      "line_end": 3,
+      "symbol": "get_db",
+      "kind": "function"
+    },
+    {
+      "id": "models.py::Order",
+      "path": "models.py",
+      "line_start": 7,
+      "line_end": 10,
+      "symbol": "Order",
+      "kind": "class"
+    },
+    {
+      "id": "operations.py::FastRefund",
+      "path": "operations.py",
+      "line_start": 4,
+      "line_end": 6,
+      "symbol": "FastRefund",
+      "kind": "class"
+    },
+    {
+      "id": "operations.py::SlowRefund",
+      "path": "operations.py",
+      "line_start": 9,
+      "line_end": 11,
+      "symbol": "SlowRefund",
+      "kind": "class"
+    },
+    {
+      "id": "operations.py::archive",
+      "path": "operations.py",
+      "line_start": 22,
+      "line_end": 25,
+      "symbol": "archive",
+      "kind": "function"
+    },
+    {
+      "id": "operations.py::refund",
+      "path": "operations.py",
+      "line_start": 17,
+      "line_end": 19,
+      "symbol": "refund",
+      "kind": "function"
+    },
+    {
+      "id": "repository.py::save_order",
+      "path": "repository.py",
+      "line_start": 3,
+      "line_end": 7,
+      "symbol": "save_order",
+      "kind": "function"
+    },
+    {
+      "id": "routes.py::create_order_endpoint",
+      "path": "routes.py",
+      "line_start": 11,
+      "line_end": 12,
+      "symbol": "create_order_endpoint",
+      "kind": "function"
+    },
+    {
+      "id": "routes.py::run_batch",
+      "path": "routes.py",
+      "line_start": 24,
+      "line_end": 27,
+      "symbol": "run_batch",
+      "kind": "function"
+    },
+    {
+      "id": "routes.py::run_order_action",
+      "path": "routes.py",
+      "line_start": 15,
+      "line_end": 17,
+      "symbol": "run_order_action",
+      "kind": "function"
+    },
+    {
+      "id": "routes.py::run_order_operation",
+      "path": "routes.py",
+      "line_start": 20,
+      "line_end": 21,
+      "symbol": "run_order_operation",
+      "kind": "function"
+    },
+    {
+      "id": "service.py::create_order",
+      "path": "service.py",
+      "line_start": 3,
+      "line_end": 4,
+      "symbol": "create_order",
+      "kind": "function"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e0957d73b64440ff8",
+      "path": "main.py",
+      "line_start": 5,
+      "line_end": 5,
+      "sha256": "39f35b2a58e8e561aa0dc8cda3b464fcd91587cc34e555394f464b87a0280ad8"
+    },
+    {
+      "id": "e0c3b066889b04046",
+      "path": "routes.py",
+      "line_start": 12,
+      "line_end": 12,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e0d64d39a0053b543",
+      "path": "models.py",
+      "line_start": 10,
+      "line_end": 10,
+      "sha256": "88f56db81c51c87a77533f88ec36036bd30cd91f420c8aa7d4c236467b03e662"
+    },
+    {
+      "id": "e0e5260398ad6a108",
+      "path": "operations.py",
+      "line_start": 19,
+      "line_end": 19,
+      "sha256": "589b21f23bb34faefd451f72cc4cac03d5bb8483f2b4d16007ef422ee4ee2d0a"
+    },
+    {
+      "id": "e0e764664b34401ef",
+      "path": "schemas.py",
+      "line_start": 1,
+      "line_end": 1,
+      "sha256": "c698cecb54ac41f5d73692f3e6e7a7be76877a6eba608e3819da615f1acccd1a"
+    },
+    {
+      "id": "e1097228cb1e42b6d",
+      "path": "routes.py",
+      "line_start": 24,
+      "line_end": 27,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e127e89451bd9cfa8",
+      "path": "routes.py",
+      "line_start": 14,
+      "line_end": 14,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e155eff24ec79d5a7",
+      "path": "routes.py",
+      "line_start": 19,
+      "line_end": 19,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e16fcec2526d06c21",
+      "path": "routes.py",
+      "line_start": 11,
+      "line_end": 11,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e1d5baac23c286f74",
+      "path": "routes.py",
+      "line_start": 24,
+      "line_end": 24,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e1dfd8922a12fdb7a",
+      "path": "routes.py",
+      "line_start": 14,
+      "line_end": 15,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e219e09edd6139646",
+      "path": "operations.py",
+      "line_start": 10,
+      "line_end": 11,
+      "sha256": "589b21f23bb34faefd451f72cc4cac03d5bb8483f2b4d16007ef422ee4ee2d0a"
+    },
+    {
+      "id": "e22b1d9ce16071275",
+      "path": "main.py",
+      "line_start": 4,
+      "line_end": 4,
+      "sha256": "39f35b2a58e8e561aa0dc8cda3b464fcd91587cc34e555394f464b87a0280ad8"
+    },
+    {
+      "id": "e247adb6bd5ea6be1",
+      "path": "operations.py",
+      "line_start": 4,
+      "line_end": 6,
+      "sha256": "589b21f23bb34faefd451f72cc4cac03d5bb8483f2b4d16007ef422ee4ee2d0a"
+    },
+    {
+      "id": "e277dafa5af8299f6",
+      "path": "routes.py",
+      "line_start": 10,
+      "line_end": 10,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e28c567fff316c20a",
+      "path": "routes.py",
+      "line_start": 11,
+      "line_end": 11,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e2f09bc2877503912",
+      "path": "repository.py",
+      "line_start": 5,
+      "line_end": 5,
+      "sha256": "240baf78ab1397c07409b478c2f258a92412302c839476213b9148f666196815"
+    },
+    {
+      "id": "e30b3703f26e2b326",
+      "path": "models.py",
+      "line_start": 9,
+      "line_end": 9,
+      "sha256": "88f56db81c51c87a77533f88ec36036bd30cd91f420c8aa7d4c236467b03e662"
+    },
+    {
+      "id": "e35c4d3d8817ae932",
+      "path": "routes.py",
+      "line_start": 15,
+      "line_end": 15,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e382b3f4b612a3d11",
+      "path": "repository.py",
+      "line_start": 1,
+      "line_end": 7,
+      "sha256": "240baf78ab1397c07409b478c2f258a92412302c839476213b9148f666196815"
+    },
+    {
+      "id": "e38400d49edbdb31f",
+      "path": "models.py",
+      "line_start": 8,
+      "line_end": 8,
+      "sha256": "88f56db81c51c87a77533f88ec36036bd30cd91f420c8aa7d4c236467b03e662"
+    },
+    {
+      "id": "e3ce99285880fb16f",
+      "path": "routes.py",
+      "line_start": 23,
+      "line_end": 24,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e3de773adc847264d",
+      "path": "repository.py",
+      "line_start": 3,
+      "line_end": 7,
+      "sha256": "240baf78ab1397c07409b478c2f258a92412302c839476213b9148f666196815"
+    },
+    {
+      "id": "e4c1c1b6971c6d4ce",
+      "path": "operations.py",
+      "line_start": 18,
+      "line_end": 18,
+      "sha256": "589b21f23bb34faefd451f72cc4cac03d5bb8483f2b4d16007ef422ee4ee2d0a"
+    },
+    {
+      "id": "e505619fca6d8492b",
+      "path": "routes.py",
+      "line_start": 25,
+      "line_end": 25,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e56f69cde254d62b5",
+      "path": "schemas.py",
+      "line_start": 1,
+      "line_end": 4,
+      "sha256": "c698cecb54ac41f5d73692f3e6e7a7be76877a6eba608e3819da615f1acccd1a"
+    },
+    {
+      "id": "e580355392ba657ef",
+      "path": "operations.py",
+      "line_start": 9,
+      "line_end": 11,
+      "sha256": "589b21f23bb34faefd451f72cc4cac03d5bb8483f2b4d16007ef422ee4ee2d0a"
+    },
+    {
+      "id": "e599fa6cdd8dff9e6",
+      "path": "repository.py",
+      "line_start": 6,
+      "line_end": 6,
+      "sha256": "240baf78ab1397c07409b478c2f258a92412302c839476213b9148f666196815"
+    },
+    {
+      "id": "e59cbcde49ddaedb8",
+      "path": "schemas.py",
+      "line_start": 3,
+      "line_end": 4,
+      "sha256": "c698cecb54ac41f5d73692f3e6e7a7be76877a6eba608e3819da615f1acccd1a"
+    },
+    {
+      "id": "e5c411c11e9910c10",
+      "path": "service.py",
+      "line_start": 4,
+      "line_end": 4,
+      "sha256": "b05033c0cba1b664fa7ec15920fe72bb33e9a2f01f6f5e52c67fcbc26699d922"
+    },
+    {
+      "id": "e5ca36b80169f1f3d",
+      "path": "main.py",
+      "line_start": 5,
+      "line_end": 5,
+      "sha256": "39f35b2a58e8e561aa0dc8cda3b464fcd91587cc34e555394f464b87a0280ad8"
+    },
+    {
+      "id": "e5f7a165d6864cb9c",
+      "path": "schemas.py",
+      "line_start": 4,
+      "line_end": 4,
+      "sha256": "c698cecb54ac41f5d73692f3e6e7a7be76877a6eba608e3819da615f1acccd1a"
+    },
+    {
+      "id": "e62ab6a15e1a62b71",
+      "path": "requirements.txt",
+      "line_start": 3,
+      "line_end": 3,
+      "sha256": "1ba42ff822f5ff8a4641eab1b1918526c06059e5cd78a424b5b9e81f37609203"
+    },
+    {
+      "id": "e62e07aa09f6caecc",
+      "path": "repository.py",
+      "line_start": 4,
+      "line_end": 4,
+      "sha256": "240baf78ab1397c07409b478c2f258a92412302c839476213b9148f666196815"
+    },
+    {
+      "id": "e630c46821af8c059",
+      "path": "routes.py",
+      "line_start": 8,
+      "line_end": 8,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e67631cdc0849bb68",
+      "path": "routes.py",
+      "line_start": 20,
+      "line_end": 20,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e6a5e255e87500890",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 1,
+      "sha256": "39f35b2a58e8e561aa0dc8cda3b464fcd91587cc34e555394f464b87a0280ad8"
+    },
+    {
+      "id": "e7ab55503c5d8408f",
+      "path": "routes.py",
+      "line_start": 23,
+      "line_end": 23,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e7ba2a8566e46455b",
+      "path": "routes.py",
+      "line_start": 10,
+      "line_end": 11,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e7d40c0f64ba912cb",
+      "path": "routes.py",
+      "line_start": 10,
+      "line_end": 10,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e7e2fea81421c38e8",
+      "path": "service.py",
+      "line_start": 3,
+      "line_end": 4,
+      "sha256": "b05033c0cba1b664fa7ec15920fe72bb33e9a2f01f6f5e52c67fcbc26699d922"
+    },
+    {
+      "id": "e7fe09c8aba78a666",
+      "path": "operations.py",
+      "line_start": 1,
+      "line_end": 25,
+      "sha256": "589b21f23bb34faefd451f72cc4cac03d5bb8483f2b4d16007ef422ee4ee2d0a"
+    },
+    {
+      "id": "e81b4efddfa5f6aa9",
+      "path": "routes.py",
+      "line_start": 15,
+      "line_end": 15,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e84f8f46889b67b92",
+      "path": "operations.py",
+      "line_start": 24,
+      "line_end": 24,
+      "sha256": "589b21f23bb34faefd451f72cc4cac03d5bb8483f2b4d16007ef422ee4ee2d0a"
+    },
+    {
+      "id": "e8edf6d4f753ad0d6",
+      "path": "models.py",
+      "line_start": 7,
+      "line_end": 10,
+      "sha256": "88f56db81c51c87a77533f88ec36036bd30cd91f420c8aa7d4c236467b03e662"
+    },
+    {
+      "id": "e8f61456aa85df1ce",
+      "path": "operations.py",
+      "line_start": 23,
+      "line_end": 23,
+      "sha256": "589b21f23bb34faefd451f72cc4cac03d5bb8483f2b4d16007ef422ee4ee2d0a"
+    },
+    {
+      "id": "e909b4b118b626faf",
+      "path": "routes.py",
+      "line_start": 21,
+      "line_end": 21,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "e928fc6ef52276119",
+      "path": "requirements.txt",
+      "line_start": 1,
+      "line_end": 1,
+      "sha256": "1ba42ff822f5ff8a4641eab1b1918526c06059e5cd78a424b5b9e81f37609203"
+    },
+    {
+      "id": "ea05da6e3eced9d93",
+      "path": "models.py",
+      "line_start": 1,
+      "line_end": 10,
+      "sha256": "88f56db81c51c87a77533f88ec36036bd30cd91f420c8aa7d4c236467b03e662"
+    },
+    {
+      "id": "ea2e168337eaae3c3",
+      "path": "requirements.txt",
+      "line_start": 2,
+      "line_end": 2,
+      "sha256": "1ba42ff822f5ff8a4641eab1b1918526c06059e5cd78a424b5b9e81f37609203"
+    },
+    {
+      "id": "ea41b2f5b94d8a811",
+      "path": "operations.py",
+      "line_start": 22,
+      "line_end": 25,
+      "sha256": "589b21f23bb34faefd451f72cc4cac03d5bb8483f2b4d16007ef422ee4ee2d0a"
+    },
+    {
+      "id": "ea471c7a5939c85a7",
+      "path": "operations.py",
+      "line_start": 18,
+      "line_end": 18,
+      "sha256": "589b21f23bb34faefd451f72cc4cac03d5bb8483f2b4d16007ef422ee4ee2d0a"
+    },
+    {
+      "id": "ea792e78ddb028645",
+      "path": "routes.py",
+      "line_start": 11,
+      "line_end": 12,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "eab314dabb00b8537",
+      "path": "schemas.py",
+      "line_start": 4,
+      "line_end": 4,
+      "sha256": "c698cecb54ac41f5d73692f3e6e7a7be76877a6eba608e3819da615f1acccd1a"
+    },
+    {
+      "id": "eae59803a6ba62310",
+      "path": "models.py",
+      "line_start": 10,
+      "line_end": 10,
+      "sha256": "88f56db81c51c87a77533f88ec36036bd30cd91f420c8aa7d4c236467b03e662"
+    },
+    {
+      "id": "eb09db688210cb51a",
+      "path": "service.py",
+      "line_start": 9,
+      "line_end": 10,
+      "sha256": "b05033c0cba1b664fa7ec15920fe72bb33e9a2f01f6f5e52c67fcbc26699d922"
+    },
+    {
+      "id": "eb3aff049350b9d42",
+      "path": "routes.py",
+      "line_start": 15,
+      "line_end": 17,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "eb9cde71e127b6391",
+      "path": "routes.py",
+      "line_start": 26,
+      "line_end": 26,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "ebb5c1437f3657caa",
+      "path": "routes.py",
+      "line_start": 17,
+      "line_end": 17,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "ec024fcb574fb0405",
+      "path": "routes.py",
+      "line_start": 20,
+      "line_end": 20,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "ec2f3a921495e038e",
+      "path": "operations.py",
+      "line_start": 18,
+      "line_end": 18,
+      "sha256": "589b21f23bb34faefd451f72cc4cac03d5bb8483f2b4d16007ef422ee4ee2d0a"
+    },
+    {
+      "id": "ec457d0078da6a8a6",
+      "path": "models.py",
+      "line_start": 4,
+      "line_end": 5,
+      "sha256": "88f56db81c51c87a77533f88ec36036bd30cd91f420c8aa7d4c236467b03e662"
+    },
+    {
+      "id": "ec50e8347ca7f1ec2",
+      "path": "service.py",
+      "line_start": 6,
+      "line_end": 7,
+      "sha256": "b05033c0cba1b664fa7ec15920fe72bb33e9a2f01f6f5e52c67fcbc26699d922"
+    },
+    {
+      "id": "ecc87a92c8e15b00e",
+      "path": "db.py",
+      "line_start": 1,
+      "line_end": 3,
+      "sha256": "599e98771058c5291503c3e6d223e7383d53703b52bfc49ed84189822bf31b8e"
+    },
+    {
+      "id": "ecda0e0893b10113f",
+      "path": "operations.py",
+      "line_start": 17,
+      "line_end": 19,
+      "sha256": "589b21f23bb34faefd451f72cc4cac03d5bb8483f2b4d16007ef422ee4ee2d0a"
+    },
+    {
+      "id": "ed077dcf5897c467e",
+      "path": "routes.py",
+      "line_start": 20,
+      "line_end": 21,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "ed1a8336d64316691",
+      "path": "routes.py",
+      "line_start": 23,
+      "line_end": 23,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "ed31cf0faad8556ea",
+      "path": "models.py",
+      "line_start": 9,
+      "line_end": 9,
+      "sha256": "88f56db81c51c87a77533f88ec36036bd30cd91f420c8aa7d4c236467b03e662"
+    },
+    {
+      "id": "ed6d9324de01316bd",
+      "path": "routes.py",
+      "line_start": 14,
+      "line_end": 14,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "edaacf26974cbc0e4",
+      "path": "routes.py",
+      "line_start": 19,
+      "line_end": 19,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "edc3f7e82a5003a4e",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 5,
+      "sha256": "39f35b2a58e8e561aa0dc8cda3b464fcd91587cc34e555394f464b87a0280ad8"
+    },
+    {
+      "id": "ee032a0b1b2fd2407",
+      "path": "routes.py",
+      "line_start": 19,
+      "line_end": 20,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "ee4a1f384bb48df2e",
+      "path": "service.py",
+      "line_start": 1,
+      "line_end": 12,
+      "sha256": "b05033c0cba1b664fa7ec15920fe72bb33e9a2f01f6f5e52c67fcbc26699d922"
+    },
+    {
+      "id": "ee8f952d468d2bb91",
+      "path": "routes.py",
+      "line_start": 20,
+      "line_end": 20,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "eecb23b25758bf21e",
+      "path": "routes.py",
+      "line_start": 15,
+      "line_end": 15,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "eef39a636ee7063bc",
+      "path": "routes.py",
+      "line_start": 24,
+      "line_end": 24,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "ef6330794c21562d7",
+      "path": "operations.py",
+      "line_start": 5,
+      "line_end": 6,
+      "sha256": "589b21f23bb34faefd451f72cc4cac03d5bb8483f2b4d16007ef422ee4ee2d0a"
+    },
+    {
+      "id": "ef7b242954fc283e9",
+      "path": "routes.py",
+      "line_start": 1,
+      "line_end": 27,
+      "sha256": "4c8aae88a066f24758e7781f7f2cf0049aeaffefbe6507c9b10d34534fb88c5f"
+    },
+    {
+      "id": "ef8c5aa7c3b4b24ab",
+      "path": "models.py",
+      "line_start": 1,
+      "line_end": 1,
+      "sha256": "88f56db81c51c87a77533f88ec36036bd30cd91f420c8aa7d4c236467b03e662"
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:09a1120eb4df6e21964beec81f72bb236c35d136bf034770cb823ae9693d14e8",
+      "evidence_refs": [
+        "e3de773adc847264d",
+        "e62e07aa09f6caecc"
+      ],
+      "target_id": "models.py::Order",
+      "kind": "reference",
+      "source_id": "repository.py::save_order",
+      "context": "repository.py:4:12",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:30e396ab4f36c29dab6a50f7193b87996a5a25d76b6e4198b51b336505dd02bd",
+      "evidence_refs": [
+        "e0e5260398ad6a108",
+        "ecda0e0893b10113f"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "operations.py::refund",
+      "context": "policy.run",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'policy' là gì trong file này"
+    },
+    {
+      "id": "fact:3274a08bc797043850e858f30fd8456fef01b733a86b5edf749988975292e16c",
+      "evidence_refs": [
+        "e0d64d39a0053b543",
+        "e30b3703f26e2b326",
+        "e38400d49edbdb31f",
+        "e8edf6d4f753ad0d6",
+        "eae59803a6ba62310",
+        "ed31cf0faad8556ea"
+      ],
+      "target_id": null,
+      "kind": "entity",
+      "source_id": "models.py::Order",
+      "context": "default",
+      "attributes": {
+        "table": "orders",
+        "columns": [
+          "id",
+          "product"
+        ],
+        "foreign_keys": []
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:3e7ae3bc0996767419039897896287948919e1ccb7d6b5f32f960f797aa004f4",
+      "evidence_refs": [
+        "e0957d73b64440ff8",
+        "e155eff24ec79d5a7",
+        "e22b1d9ce16071275",
+        "e5ca36b80169f1f3d",
+        "e630c46821af8c059",
+        "e67631cdc0849bb68",
+        "edaacf26974cbc0e4",
+        "ee032a0b1b2fd2407",
+        "ee8f952d468d2bb91"
+      ],
+      "target_id": null,
+      "kind": "route",
+      "source_id": "routes.py::run_order_operation",
+      "context": "main.py::app->routes.py::router",
+      "attributes": {
+        "method": "POST",
+        "path": "/api/v1/orders/{order_id}/operations/{name}",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:4513a1c8c3f8a4ff46fd6b47bc9c4cf7984aca8661f0799bf3157f95cb21e70b",
+      "evidence_refs": [
+        "e0957d73b64440ff8",
+        "e16fcec2526d06c21",
+        "e22b1d9ce16071275",
+        "e277dafa5af8299f6",
+        "e5ca36b80169f1f3d",
+        "e630c46821af8c059",
+        "e7ba2a8566e46455b",
+        "e7d40c0f64ba912cb"
+      ],
+      "target_id": null,
+      "kind": "route",
+      "source_id": "routes.py::create_order_endpoint",
+      "context": "main.py::app->routes.py::router",
+      "attributes": {
+        "method": "POST",
+        "path": "/api/v1/orders",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:55b492e96a567f2b5ed9b01e1408255491232337635ac4ac14c69566f7d3b01e",
+      "evidence_refs": [
+        "e0c3b066889b04046",
+        "ea792e78ddb028645"
+      ],
+      "target_id": "service.py::create_order",
+      "kind": "reference",
+      "source_id": "routes.py::create_order_endpoint",
+      "context": "routes.py:12:11",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:62946f5703afa55ac9711b8406b6aee515ec45e98bff901fa4ccde9d5372ca1e",
+      "evidence_refs": [
+        "e1097228cb1e42b6d",
+        "e1d5baac23c286f74"
+      ],
+      "target_id": "db.py::get_db",
+      "kind": "reference",
+      "source_id": "routes.py::run_batch",
+      "context": "routes.py:24:42",
+      "attributes": {
+        "relation": "depends",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:666782c3bb62b890f36950fb318f3300e7fe6df07de0954923cf78f1af36dd91",
+      "evidence_refs": [
+        "ec024fcb574fb0405",
+        "ed077dcf5897c467e"
+      ],
+      "target_id": "db.py::get_db",
+      "kind": "reference",
+      "source_id": "routes.py::run_order_operation",
+      "context": "routes.py:20:64",
+      "attributes": {
+        "relation": "depends",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:702e4c037bcd456d92ef2ce85b4589b193360c8c9c6583f3de3f2c6bc7c8525e",
+      "evidence_refs": [
+        "e909b4b118b626faf",
+        "ed077dcf5897c467e"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "routes.py::run_order_operation",
+      "context": "getattr(operations, name)",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "Tên thuộc tính chỉ biết lúc chạy (getattr)"
+    },
+    {
+      "id": "fact:73e23158a59dfe6ef2bd1a80590e3c4e4acd492b74561867d9b2ffcea3f60f35",
+      "evidence_refs": [
+        "e28c567fff316c20a",
+        "ea792e78ddb028645"
+      ],
+      "target_id": "db.py::get_db",
+      "kind": "reference",
+      "source_id": "routes.py::create_order_endpoint",
+      "context": "routes.py:11:59",
+      "attributes": {
+        "relation": "depends",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:79d8f4c9543024c96f8bfb872e326987280d53117829dad731e0f16790d84243",
+      "evidence_refs": [
+        "e5c411c11e9910c10",
+        "e7e2fea81421c38e8"
+      ],
+      "target_id": "repository.py::save_order",
+      "kind": "reference",
+      "source_id": "service.py::create_order",
+      "context": "service.py:4:11",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:8f6fc2de9d76e03463c67ab1d3e08d2dab4e9690724b968e31c26eafb54a31c8",
+      "evidence_refs": [
+        "eb3aff049350b9d42",
+        "ebb5c1437f3657caa"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "routes.py::run_order_action",
+      "context": "handler",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không tìm thấy khai báo của 'handler' trong repo"
+    },
+    {
+      "id": "fact:9d77f3dde1dd22619fa0deab77a90ca7fcacbca97c2d52cb066a5c59bb136c81",
+      "evidence_refs": [
+        "e0957d73b64440ff8",
+        "e22b1d9ce16071275",
+        "e3ce99285880fb16f",
+        "e5ca36b80169f1f3d",
+        "e630c46821af8c059",
+        "e7ab55503c5d8408f",
+        "ed1a8336d64316691",
+        "eef39a636ee7063bc"
+      ],
+      "target_id": null,
+      "kind": "route",
+      "source_id": "routes.py::run_batch",
+      "context": "main.py::app->routes.py::router",
+      "attributes": {
+        "method": "POST",
+        "path": "/api/v1/orders/batch/{actions}",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:abef43faf88785d636716f7cc1b83037d13d99567ad9fb3cd564bf4b73ce2677",
+      "evidence_refs": [
+        "e81b4efddfa5f6aa9",
+        "eb3aff049350b9d42"
+      ],
+      "target_id": "db.py::get_db",
+      "kind": "reference",
+      "source_id": "routes.py::run_order_action",
+      "context": "routes.py:15:63",
+      "attributes": {
+        "relation": "depends",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:b574accd713159576f183e482c80a55432bff7268c2e5127447d6cd777292cd3",
+      "evidence_refs": [
+        "e3de773adc847264d",
+        "e599fa6cdd8dff9e6"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "repository.py::save_order",
+      "context": "db.flush",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'db' là gì trong file này"
+    },
+    {
+      "id": "fact:c91ffcf4bdbc1f002df84ca165400ea0cd0aed43e7bfe4132fcb94c58deddf8c",
+      "evidence_refs": [
+        "e1097228cb1e42b6d",
+        "e505619fca6d8492b"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "routes.py::run_batch",
+      "context": "actions.split",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'actions' là gì trong file này"
+    },
+    {
+      "id": "fact:d057e6681751f3291730f679564083d83aba4d9e98bf40014490e12c487b8f7e",
+      "evidence_refs": [
+        "e0957d73b64440ff8",
+        "e127e89451bd9cfa8",
+        "e1dfd8922a12fdb7a",
+        "e22b1d9ce16071275",
+        "e35c4d3d8817ae932",
+        "e5ca36b80169f1f3d",
+        "e630c46821af8c059",
+        "ed6d9324de01316bd",
+        "eecb23b25758bf21e"
+      ],
+      "target_id": null,
+      "kind": "route",
+      "source_id": "routes.py::run_order_action",
+      "context": "main.py::app->routes.py::router",
+      "attributes": {
+        "method": "POST",
+        "path": "/api/v1/orders/{order_id}/actions/{action}",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:d4d5d0402a552f0e9c69f31c0656d9c4b6bee8c49007374ca8601c1b69ced3eb",
+      "evidence_refs": [
+        "ec2f3a921495e038e",
+        "ecda0e0893b10113f"
+      ],
+      "target_id": "operations.py::SlowRefund",
+      "kind": "reference",
+      "source_id": "operations.py::refund",
+      "context": "operations.py:18:71",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:e1b65a2e80d107e379d4a776326cfe9a54a5fe6cd5a8404f833cb43f73a58daf",
+      "evidence_refs": [
+        "e84f8f46889b67b92",
+        "ea41b2f5b94d8a811"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "operations.py::archive",
+      "context": "hook",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không tìm thấy khai báo của 'hook' trong repo"
+    },
+    {
+      "id": "fact:e6792d1a0ea4c15d7ee30fee61acd1d5af6a7ae4703b5bad65bf6dbe3bec21c8",
+      "evidence_refs": [
+        "e1097228cb1e42b6d",
+        "eb9cde71e127b6391"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "routes.py::run_batch",
+      "context": "fn",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không tìm thấy khai báo của 'fn' trong repo"
+    },
+    {
+      "id": "fact:f01085645b76af32463217b8dd7d01b05ec51708eb04f8207db9720f46b04d97",
+      "evidence_refs": [
+        "e4c1c1b6971c6d4ce",
+        "ecda0e0893b10113f"
+      ],
+      "target_id": "operations.py::FastRefund",
+      "kind": "reference",
+      "source_id": "operations.py::refund",
+      "context": "operations.py:18:13",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:f0fcda18328893b4dbcc2193f222a60c06e3993337552a9ea7aa2fded5cb2313",
+      "evidence_refs": [
+        "e2f09bc2877503912",
+        "e3de773adc847264d"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "repository.py::save_order",
+      "context": "db.add",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'db' là gì trong file này"
+    }
+  ],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v3",
+    "unsupported": []
+  }
+}

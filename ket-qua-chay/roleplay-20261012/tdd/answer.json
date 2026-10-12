@@ -1,0 +1,181 @@
+{
+  "models": [
+    {
+      "id": "app/models/pydantic.py::SummaryPayloadSchema",
+      "at": "app/models/pydantic.py:4",
+      "fields": [
+        {"name": "url", "alias": null, "type": "string", "required": true, "nullable": false, "at": "app/models/pydantic.py:5", "rule": "pydantic.v2_required_no_default"}
+      ]
+    },
+    {
+      "id": "app/models/pydantic.py::SummaryResponseSchema",
+      "at": "app/models/pydantic.py:8",
+      "fields": [
+        {"name": "url", "alias": null, "type": "string", "required": true, "nullable": false, "at": "app/models/pydantic.py:5", "rule": "pydantic.v2_required_no_default"},
+        {"name": "id", "alias": null, "type": "integer", "required": true, "nullable": false, "at": "app/models/pydantic.py:9", "rule": "pydantic.v2_required_no_default"}
+      ]
+    },
+    {
+      "id": "app/models/pydantic.py::SummaryUpdatePayloadSchema",
+      "at": "app/models/pydantic.py:12",
+      "fields": [
+        {"name": "url", "alias": null, "type": "string", "required": true, "nullable": false, "at": "app/models/pydantic.py:5", "rule": "pydantic.v2_required_no_default"},
+        {"name": "summary", "alias": null, "type": "string", "required": true, "nullable": false, "at": "app/models/pydantic.py:13", "rule": "pydantic.v2_required_no_default"}
+      ]
+    },
+    {
+      "id": "app/models/tortoise.py::SummarySchema",
+      "at": "app/models/tortoise.py:14",
+      "fields": [],
+      "dynamic": {"reason": "SummarySchema được tạo lúc chạy bằng pydantic_model_creator(TextSummary); các trường sinh ra từ model Tortoise nên chỉ biết khi chạy"}
+    }
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "handler": "app/api/ping.py::pong",
+      "decorator": "app/api/ping.py:8-9",
+      "application": "app/main.py:12",
+      "path_parts": [
+        {"kind": "include_prefix", "value": "", "at": "app/main.py:13"},
+        {"kind": "decorator", "value": "/ping", "at": "app/api/ping.py:8"}
+      ],
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": {"codes": [200], "rule": "fastapi.default_status_200"},
+      "dependencies": [{"name": "get_settings", "at": "app/api/ping.py:9"}],
+      "auth": {"unknown": "Không thấy cơ chế xác thực nào (không có Security hay lược đồ fastapi.security)"},
+      "summary": {"text": "Kiểm tra dịch vụ còn sống, trả về pong cùng môi trường và cờ testing.", "at": "app/api/ping.py:9"}
+    },
+    {
+      "method": "GET",
+      "handler": "app/api/summaries.py::read_summary",
+      "decorator": "app/api/summaries.py:18-19",
+      "application": "app/main.py:12",
+      "path_parts": [
+        {"kind": "include_prefix", "value": "/summaries", "at": "app/main.py:15"},
+        {"kind": "decorator", "value": "/{id}/", "at": "app/api/summaries.py:18"}
+      ],
+      "params": [
+        {"name": "id", "in": "path", "type": "integer", "required": true, "nullable": false, "at": "app/api/summaries.py:19"}
+      ],
+      "request_body": null,
+      "response": {"model": "app/models/tortoise.py::SummarySchema", "array": false, "at": "app/api/summaries.py:18"},
+      "status": {"codes": [200], "rule": "fastapi.default_status_200"},
+      "dependencies": [],
+      "auth": {"unknown": "Không thấy cơ chế xác thực nào (không có Depends/Security hay lược đồ fastapi.security)"},
+      "errors": [
+        {"status": 404, "exception": "HTTPException", "raised_at": "app/api/summaries.py:22"}
+      ],
+      "tags": {"value": ["summaries"], "at": "app/main.py:15"},
+      "summary": {"text": "Lấy một bản tóm tắt theo id.", "at": "app/api/summaries.py:19"}
+    },
+    {
+      "method": "GET",
+      "handler": "app/api/summaries.py::read_all_summaries",
+      "decorator": "app/api/summaries.py:27-28",
+      "application": "app/main.py:12",
+      "path_parts": [
+        {"kind": "include_prefix", "value": "/summaries", "at": "app/main.py:15"},
+        {"kind": "decorator", "value": "/", "at": "app/api/summaries.py:27"}
+      ],
+      "params": [],
+      "request_body": null,
+      "response": {"model": "app/models/tortoise.py::SummarySchema", "array": true, "at": "app/api/summaries.py:27"},
+      "status": {"codes": [200], "rule": "fastapi.default_status_200"},
+      "dependencies": [],
+      "auth": {"unknown": "Không thấy cơ chế xác thực nào (không có Depends/Security hay lược đồ fastapi.security)"},
+      "tags": {"value": ["summaries"], "at": "app/main.py:15"},
+      "summary": {"text": "Lấy danh sách tất cả bản tóm tắt.", "at": "app/api/summaries.py:28"}
+    },
+    {
+      "method": "POST",
+      "handler": "app/api/summaries.py::create_summary",
+      "decorator": "app/api/summaries.py:32-33",
+      "application": "app/main.py:12",
+      "path_parts": [
+        {"kind": "include_prefix", "value": "/summaries", "at": "app/main.py:15"},
+        {"kind": "decorator", "value": "/", "at": "app/api/summaries.py:32"}
+      ],
+      "params": [],
+      "request_body": {"models": ["app/models/pydantic.py::SummaryPayloadSchema"], "param": "payload", "media_type": "application/json", "required": true, "embedded": false, "at": "app/api/summaries.py:34", "rule": "fastapi.model_param_body"},
+      "response": {"model": "app/models/pydantic.py::SummaryResponseSchema", "array": false, "at": "app/api/summaries.py:32"},
+      "status": {"codes": [201], "at": "app/api/summaries.py:32", "rule": null},
+      "dependencies": [],
+      "auth": {"unknown": "Không thấy cơ chế xác thực nào (không có Depends/Security hay lược đồ fastapi.security)"},
+      "tags": {"value": ["summaries"], "at": "app/main.py:15"},
+      "summary": {"text": "Tạo bản ghi tóm tắt cho một URL và chạy nền việc sinh nội dung tóm tắt.", "at": "app/api/summaries.py:33"}
+    },
+    {
+      "method": "PUT",
+      "handler": "app/api/summaries.py::update_summary",
+      "decorator": "app/api/summaries.py:44-45",
+      "application": "app/main.py:12",
+      "path_parts": [
+        {"kind": "include_prefix", "value": "/summaries", "at": "app/main.py:15"},
+        {"kind": "decorator", "value": "/{id}/", "at": "app/api/summaries.py:44"}
+      ],
+      "params": [
+        {"name": "id", "in": "path", "type": "integer", "required": true, "nullable": false, "at": "app/api/summaries.py:46"}
+      ],
+      "request_body": {"models": ["app/models/pydantic.py::SummaryUpdatePayloadSchema"], "param": "payload", "media_type": "application/json", "required": true, "embedded": false, "at": "app/api/summaries.py:46", "rule": "fastapi.model_param_body"},
+      "response": {"model": "app/models/tortoise.py::SummarySchema", "array": false, "at": "app/api/summaries.py:44"},
+      "status": {"codes": [200], "rule": "fastapi.default_status_200"},
+      "dependencies": [],
+      "auth": {"unknown": "Không thấy cơ chế xác thực nào (không có Depends/Security hay lược đồ fastapi.security)"},
+      "errors": [
+        {"status": 404, "exception": "HTTPException", "raised_at": "app/api/summaries.py:50"}
+      ],
+      "tags": {"value": ["summaries"], "at": "app/main.py:15"},
+      "summary": {"text": "Cập nhật URL và nội dung của một bản tóm tắt theo id.", "at": "app/api/summaries.py:45"}
+    },
+    {
+      "method": "DELETE",
+      "handler": "app/api/summaries.py::delete_summary",
+      "decorator": "app/api/summaries.py:55-56",
+      "application": "app/main.py:12",
+      "path_parts": [
+        {"kind": "include_prefix", "value": "/summaries", "at": "app/main.py:15"},
+        {"kind": "decorator", "value": "/{id}/", "at": "app/api/summaries.py:55"}
+      ],
+      "params": [
+        {"name": "id", "in": "path", "type": "integer", "required": true, "nullable": false, "at": "app/api/summaries.py:56"}
+      ],
+      "request_body": null,
+      "response": {"model": "app/models/pydantic.py::SummaryResponseSchema", "array": false, "at": "app/api/summaries.py:55"},
+      "status": {"codes": [200], "rule": "fastapi.default_status_200"},
+      "dependencies": [],
+      "auth": {"unknown": "Không thấy cơ chế xác thực nào (không có Depends/Security hay lược đồ fastapi.security)"},
+      "errors": [
+        {"status": 404, "exception": "HTTPException", "raised_at": "app/api/summaries.py:59"}
+      ],
+      "tags": {"value": ["summaries"], "at": "app/main.py:15"},
+      "summary": {"text": "Xóa một bản tóm tắt theo id và trả về bản ghi đã xóa.", "at": "app/api/summaries.py:56"}
+    }
+  ],
+  "http_calls": [],
+  "file_roles": [
+    {"file": "app/api/crud.py", "role": "Truy cập dữ liệu", "at": "app/api/crud.py:12", "reason": "Gọi truy vấn ORM Tortoise TextSummary.filter(...)"},
+    {"file": "app/api/ping.py", "role": "Route", "at": "app/api/ping.py:8"},
+    {"file": "app/api/summaries.py", "role": "Route", "at": "app/api/summaries.py:18"},
+    {"file": "app/config.py", "role": "Cấu hình", "at": "app/config.py:10", "reason": "Lớp Settings kế thừa BaseSettings"},
+    {"file": "app/db.py", "role": "Điểm vào", "at": "app/db.py:44", "reason": "Có khối if __name__ == \"__main__\""},
+    {"file": "app/main.py", "role": "Điểm vào", "at": "app/main.py:12", "reason": "Tạo ứng dụng FastAPI()"},
+    {"file": "app/models/pydantic.py", "role": "Schema API", "at": "app/models/pydantic.py:4", "reason": "Các lớp được route dùng làm model request/response"},
+    {"file": "app/models/tortoise.py", "role": "Schema API", "at": "app/models/tortoise.py:14", "reason": "SummarySchema được route dùng làm response_model; lớp Tortoise không có __tablename__ nên không khớp tín hiệu Model bảng"},
+    {"file": "app/summarizer.py", "role": "Truy cập dữ liệu", "at": "app/summarizer.py:21", "reason": "Gọi truy vấn ORM TextSummary.filter(...).update(...)"}
+  ],
+  "limitations": [
+    {"kind": "unsupported_http_library", "at": "app/summarizer.py:9", "detail": "article.download() của thư viện newspaper tải nội dung URL qua HTTP; thư viện này không thuộc httpx/requests/aiohttp nên không ghi thành http_call"},
+    {"kind": "unsupported_http_library", "at": "app/summarizer.py:15", "detail": "nltk.download(\"punkt_tab\") tải dữ liệu từ Internet qua thư viện nltk, không thuộc httpx/requests/aiohttp"}
+  ],
+  "dismissed": [
+    {"at": "app/api/summaries.py:20", "reason": "crud.get là hàm truy vấn CSDL trong app/api/crud.py, không phải HTTP"},
+    {"at": "app/api/summaries.py:29", "reason": "crud.get_all là hàm truy vấn CSDL, không phải HTTP"},
+    {"at": "app/api/summaries.py:36", "reason": "crud.post là hàm ghi CSDL, không phải HTTP"},
+    {"at": "app/api/summaries.py:48", "reason": "crud.put là hàm cập nhật CSDL, không phải HTTP"},
+    {"at": "app/api/summaries.py:57", "reason": "crud.get là hàm truy vấn CSDL, không phải HTTP"},
+    {"at": "app/api/summaries.py:61", "reason": "crud.delete là hàm xóa trong CSDL, không phải HTTP"}
+  ]
+}

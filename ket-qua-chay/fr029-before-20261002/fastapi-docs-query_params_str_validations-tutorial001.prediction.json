@@ -1,0 +1,130 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "fastapi-docs-query_params_str_validations-tutorial001",
+  "source_digest": "a943b0ae10700b37c9357099594b2ad937dfb6453a19a198a0ffb6080e09098e",
+  "status": "facts_only",
+  "entities": [
+    {
+      "id": "query_params_str_validations/tutorial001_py310.py::read_items",
+      "path": "query_params_str_validations/tutorial001_py310.py",
+      "line_start": 7,
+      "line_end": 11,
+      "symbol": "read_items",
+      "kind": "function"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e36ed880b41750d55",
+      "path": "query_params_str_validations/tutorial001_py310.py",
+      "line_start": 1,
+      "line_end": 11,
+      "sha256": "2b7731e82fe407fc7671fbe318c7b34e8ee4845641059605984d12d952d9bf92"
+    },
+    {
+      "id": "e56eeb6040c52ca9d",
+      "path": "query_params_str_validations/tutorial001_py310.py",
+      "line_start": 6,
+      "line_end": 7,
+      "sha256": "2b7731e82fe407fc7671fbe318c7b34e8ee4845641059605984d12d952d9bf92"
+    },
+    {
+      "id": "e5836a082185664a2",
+      "path": "query_params_str_validations/tutorial001_py310.py",
+      "line_start": 10,
+      "line_end": 10,
+      "sha256": "2b7731e82fe407fc7671fbe318c7b34e8ee4845641059605984d12d952d9bf92"
+    },
+    {
+      "id": "e617eb0b1fdd4c96c",
+      "path": "query_params_str_validations/tutorial001_py310.py",
+      "line_start": 7,
+      "line_end": 7,
+      "sha256": "2b7731e82fe407fc7671fbe318c7b34e8ee4845641059605984d12d952d9bf92"
+    },
+    {
+      "id": "e9eb8825237cee985",
+      "path": "query_params_str_validations/tutorial001_py310.py",
+      "line_start": 7,
+      "line_end": 11,
+      "sha256": "2b7731e82fe407fc7671fbe318c7b34e8ee4845641059605984d12d952d9bf92"
+    },
+    {
+      "id": "eb04b35ac63689415",
+      "path": "query_params_str_validations/tutorial001_py310.py",
+      "line_start": 6,
+      "line_end": 6,
+      "sha256": "2b7731e82fe407fc7671fbe318c7b34e8ee4845641059605984d12d952d9bf92"
+    },
+    {
+      "id": "edb226635447c1315",
+      "path": "query_params_str_validations/tutorial001_py310.py",
+      "line_start": 6,
+      "line_end": 6,
+      "sha256": "2b7731e82fe407fc7671fbe318c7b34e8ee4845641059605984d12d952d9bf92"
+    },
+    {
+      "id": "efc488ae8de822555",
+      "path": "query_params_str_validations/tutorial001_py310.py",
+      "line_start": 3,
+      "line_end": 3,
+      "sha256": "2b7731e82fe407fc7671fbe318c7b34e8ee4845641059605984d12d952d9bf92"
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:68d52e506bdcafbdd512ad02b5029371f9b8751eb29efe0e0ed25bdfe9f40fbb",
+      "evidence_refs": [
+        "e5836a082185664a2",
+        "e9eb8825237cee985"
+      ],
+      "target_id": null,
+      "kind": "reference",
+      "source_id": "query_params_str_validations/tutorial001_py310.py::read_items",
+      "context": "results.update",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "unresolved",
+      "completeness": "partial",
+      "reason": "không biết 'results' là gì trong file này"
+    },
+    {
+      "id": "fact:d090fa6a33023280b0235cc0a94be847f6405f22ea48582114a29e527108eba3",
+      "evidence_refs": [
+        "e56eeb6040c52ca9d",
+        "e617eb0b1fdd4c96c",
+        "eb04b35ac63689415",
+        "edb226635447c1315",
+        "efc488ae8de822555"
+      ],
+      "target_id": null,
+      "kind": "route",
+      "source_id": "query_params_str_validations/tutorial001_py310.py::read_items",
+      "context": "query_params_str_validations/tutorial001_py310.py::app",
+      "attributes": {
+        "method": "GET",
+        "path": "/items/",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    }
+  ],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v3",
+    "unsupported": []
+  }
+}

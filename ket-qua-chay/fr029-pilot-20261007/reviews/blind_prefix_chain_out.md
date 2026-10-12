@@ -1,0 +1,5 @@
+- **label** — `README.md:29`: ghi `Khác (Không có dấu hiệu…)`, thiếu nhãn; đúng phải là `Khác (exact)` theo FR-029. Căn cứ: `app/api/api.py:1–7`, chỉ tạo và ghép router, không khớp vai trò ưu tiên nào.
+- **route** — `API-PREFIX-CHAIN-MAT-HANG-v1.md:39–42`, `API-PREFIX-CHAIN-TAI-KHOAN-v1.md:35` và các fact tương ứng trong `result.json`: bằng chứng cho 5 route `/api/v1/...` thiếu bước gắn prefix vào app; đúng phải dẫn thêm `app/main.py:18`, và với items thêm `app/api/api.py:6`. Giá trị path đúng nhưng chuỗi bằng chứng chưa đầy đủ.
+- **limitation** — `README.md:19,68`: ghi chưa được cấp sơ đồ nhưng giới hạn lại ghi “không có”; đúng phải nêu thiếu sơ đồ component bắt buộc theo AC-06 và chưa đối chiếu được AC-04. Căn cứ cấu trúc cần thể hiện: `app/main.py:18–23`; component đầu vào đã có trong `prefix_chain.membership.json`.
+
+Đã kiểm: **11 route (method/path), 0 model API, 0 lời gọi HTTP, 12 file source/manifest và 7 file đầu ra; 3 lỗi.**

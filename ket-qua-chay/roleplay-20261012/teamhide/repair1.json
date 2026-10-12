@@ -1,0 +1,33 @@
+{
+  "routes": [
+    {
+      "method": "GET",
+      "handler": "app/user/adapter/input/api/v1/user.py::get_user_list",
+      "decorator": "app/user/adapter/input/api/v1/user.py:15-21",
+      "application": "app/server.py:77",
+      "path_parts": [
+        {"kind": "include_prefix", "value": "", "at": "app/server.py:25"},
+        {"kind": "include_prefix", "value": "/api/v1/user", "at": "app/user/adapter/input/api/__init__.py:6"},
+        {"kind": "decorator", "value": "", "at": "app/user/adapter/input/api/v1/user.py:16"}
+      ],
+      "params": [
+        {"name": "limit", "in": "query", "type": "integer", "required": false, "nullable": false, "at": "app/user/adapter/input/api/v1/user.py:22"},
+        {"name": "prev", "in": "query", "type": "integer", "required": false, "nullable": false, "at": "app/user/adapter/input/api/v1/user.py:23"}
+      ],
+      "request_body": null,
+      "response": {"model": "app/user/application/dto/__init__.py::GetUserListResponseDTO", "array": true, "at": "app/user/adapter/input/api/v1/user.py:17"},
+      "status": {"codes": [200], "rule": "fastapi.default_status_200"},
+      "dependencies": [
+        {"name": "Logging", "at": "app/server.py:83"},
+        {"name": "PermissionDependency", "at": "app/user/adapter/input/api/v1/user.py:18"},
+        {"name": "Provide[Container.user_service]", "at": "app/user/adapter/input/api/v1/user.py:24"}
+      ],
+      "auth": {"value": "PermissionDependency([IsAdmin]): chỉ người dùng admin; người dùng lấy từ JWT Bearer trong header Authorization (AuthenticationMiddleware)", "at": "app/user/adapter/input/api/v1/user.py:18"},
+      "tags": {"value": ["User"], "at": "app/user/adapter/input/api/__init__.py:6"},
+      "summary": {"text": "Lấy danh sách người dùng có phân trang, chỉ dành cho admin.", "at": "app/user/adapter/input/api/v1/user.py:15"}
+    }
+  ],
+  "file_roles": [
+    {"file": "app/user/adapter/input/api/v1/user.py", "role": "Route", "at": "app/user/adapter/input/api/v1/user.py:15"}
+  ]
+}

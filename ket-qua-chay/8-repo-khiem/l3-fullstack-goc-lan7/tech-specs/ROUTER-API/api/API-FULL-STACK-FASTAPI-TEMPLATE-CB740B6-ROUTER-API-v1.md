@@ -1,0 +1,2091 @@
+---
+generated: true
+non_normative: true
+snapshot_id: "snap:48597b2fdd287ad86cc29ce72b953974a5e80a8bd80724a4e7127483d7402ac9"
+owner_component_id: "cmp_ece7543ac7f97d7d6f35c953aa9b4ea3dcac3ce97361f2434f9a25db93414bc9"
+schema_version: "0.1.0"
+renderer_version: "slice-render-v2"
+template_version: "slice-template-v1"
+fact_ids: ["fact:0565c24d1a663897d7a52da6d2ee6bae26ffca22a5418e718f96b5935a365a03", "fact:211944e8539a2b8aa1b5aa80cac995d3b9c3b734e0667b9c69f28447f9469467", "fact:288e9e25b4053dc25ae2a792e7f66189d8e6a41899631fd3f679f00f3113682c", "fact:34e7d7bc2be8d6e3b893b4e871cb5717d7e0d1720cba6a5692691fa03104e9fd", "fact:3e201257ba6dca2980276dafe5cf31e24b69ebee769421788ad2c32781d3e117", "fact:3fdba003fe284427eeb5d1c49f07f4e96dbfbbc1c609bf53636050e5d3707655", "fact:483698421bf2f7dadcfd0db55584b3b3533a6ffdc2fab22bc167482f32cfe708", "fact:592222f93121438176f8be03ee2b355be360cc0888cd739064446d7747659852", "fact:5f940df2875564384cc481fcff53305451d7fc85b615eb71624f8f766ffc8455", "fact:69a36c722f6777d962ab7baffe6b92d7e576191601854885b656c775fb0db87d", "fact:6f0731c8b2622351fb6492e6cc0c20d12b7a459059196282876d47edd6efc7e9", "fact:6f5671770f3e62d7ae6d4b1fc95c3358065cd7604796317f5baed8fc90cef046", "fact:7008485e465b6acb894957f88465f21cf0c0672219948f2ec69f814df21de25b", "fact:87dc6c3972b2403331fa2746eeec21dbf3ccbc8e963b9540780dabcc7794ba84", "fact:8dfd6cdd3263e14449269b5079042316df964571caa33c9e9b03c0233a5599a2", "fact:b35c7f7066bfc703d9b8fde8d0a2bb9c6207fc70ab5b8809e87a908ffdad0115", "fact:c0cc5671b145a65bceb084fe6fee6bdf45c2fd74c206aaf6d17465c837c260d4", "fact:c408685844538d3d68492b8da4a7322c73f545ce5ec702f4c346e952b6447036", "fact:ca6a9bfdea5bdbb56bdde5429d116f9a7b451122ce954dd0b2ae270075e67cb8", "fact:cb4f98fea70376f31f6a1f8d3e816547aa26bea10d0d35227af9b44ec8d49c19", "fact:d46b020437dbfd11d302c75fe18d59a0f37370dac74f3c855f6006d2fd2ce33b", "fact:e02881d4c9d5b6b1deecc103422bb2d89a9596fc87ffea1ce4e52b25daeb7aa3", "fact:fb2e216fec9e12260f410da5cce0925353b4a718516732ff2582489b4fb68a03"]
+evidence_ids: ["ev:03689a25a0785930c6ff520867a6dd81ed6269238f23293e9111edb4c3a20134", "ev:03c8e6da203b4783c797dd0c690937ae942d19f5f0802c34c821edd1d0ff371f", "ev:061acb935836826f27cf2bd3974b685a8a3ca6383849fdbe6f00c3807aeec6d5", "ev:06739f069a2ad15cf286bbf376a9ff3bc59f89fe069a7be450ada1aa952f33cf", "ev:068ab61c5d677f80b3a2fc8838daf71932fa165c1edb541ba833ab2152fdae79", "ev:06ecfb9e92b86bee22650fb1978d475d04f1d5a5d9de6152080e088e3e4baaa4", "ev:07701253e055c5953084e59dc1a76fef0f3f4179318fc4ff0254cbd34a819989", "ev:079d5f2d3e80990d055e575d29e218a5202c72dd3aa93d846797a94469a27957", "ev:086938ea9f2d704a4db59953d39c945ada0cb93308be4de659468655061b7900", "ev:09dfcf92da0a3b726f948b7bdf65d6b839860708c37d77115f206c1fa2049be2", "ev:0a1f9a96caba4e0374a3cc993155b1adbe13ddd15d5d2d4ff333401bdb84de44", "ev:0a71dd3b60d4ea5b01c4b609563865a799cc89ee810204dea3f92a735e9e24ee", "ev:0b2e00f9a00ba0a89bc31c0fae5e5c653e7d6965d606bc5e7a9ec1d0cacbe1ba", "ev:0e73af1d11111c0706d47c17c235b4299f5b9932de6e471ee694fd29de3a1e1a", "ev:0f177e33a0b214aa500d47d0de12d9797df341c36c3fce7b76aa51d32ef3342b", "ev:10394f0f0eb3b403d488365093c0b855919bcfd05e8dfb1045350801797279b3", "ev:12909f3593f6b745dea31842ff7ccc345382e8f9b52ccee053879df9133edf77", "ev:14ad1064b715192aaadaf0e2e5090492e36791fb99d34b24d43f7f109ded1950", "ev:1633468066036df0f07c05d3d76e02b08dd422e7ea1fa7f43289aa5982b40073", "ev:192d0fb96d3e3e197530c9e263bb792f64fe9c72bfc153d1d748178d848b73e8", "ev:1a17069f27ca8784429bce19ee6c1e8895c3b0c6f93e862cb0cb8cbee3181c88", "ev:1c52887182fbfe85640c8b73f6b7693e6f15fe6ffeb20d5433ee3bd02e1a0cb1", "ev:1dd48b964bb1cbf95dce879551ed9a184d00ddafd4188b0e2a1b8a182d4eb12f", "ev:1def7a9ff8e2d8da631fa8db113b5ea837445f03807115707392bec8d7db5d30", "ev:2d5a4c662522e181d683c13ec456946d4323bfd2dc6e4d4298ad5a53ef3d42fa", "ev:2e6be342e06a23ff38a0a1748cdd59913a8c4fff6537c718fb71c1cd70905743", "ev:2fdc1ca49be44f194df2c3e6ff53ca38847dd7057c24d1e23fe6c59fc9200620", "ev:30145a0a1a0bafbff91471e818cbd7693aa364b6d8b48962828ac45e7e4ba060", "ev:31bdc1d9ede544199e064e14553eb815a796d3b3e815e3272211eb96ac786257", "ev:31c4604b80c7a0cae4e20cdfcbe5446e5a927c98138bdf6c5d54641c2c259654", "ev:32fd110e3d44373f93affe804a0ebbf49c6400f390dff5d7f752a152b07a27f9", "ev:36b2cdbae985586f5373f9b766d34234741cbc0569589aa6088c61fa032f720f", "ev:3747b7e0d6a5257e5357ede08838b73ffb21db35724b18eac77bdd86e737b241", "ev:39da1dbf68e119740af7e1967ff83f0779d3cf7d87191ad9deee5e6d451e25e1", "ev:3c1ca5cc3d63ce7f7fd9e0f17d57d7f48e924d6546fa25a3a8a0b0ec8475c43d", "ev:3e22ce404b10149732002f4b68b1b7ebe4c734907a3bf40e09261fb4e14000da", "ev:3fc30bce8b2cdb8a1247b392c64a7e190d9167e11fc6d1fc3cf0dc7d36a866ae", "ev:40819ebab623a244f5c563c0bc23aebb4fa714eb57110961cc09aaa7508431ba", "ev:41f077c47aab9ac3b3e50d9fadfc2740d31f8fc0c398c61ff90badcca4597b31", "ev:42c6b24cb756d8aee073df162325845ea61b0bc68da28b98a987cc05149a7dc3", "ev:44650aaf95211c536259fbae87eb70565a2cf6cfb3f4f0dd4d612fc4a729a3d8", "ev:473333ea26c9db6fef00fdd1f6fca49d0c735be51ac1b48f6339886bbaa93b72", "ev:4833e02f5b34c57da0a5ffcef9fe6ef2f39d3db0d98a32d1c028e224545b3f22", "ev:48f1b095a789c8629a3e73328549a1ad3859a0b53eb41258ab6e0d816da2cc40", "ev:4943c48f1bc11f661d8bf77547abd1dfdab37e78116b816b6ba7a380a92eb7fc", "ev:497245bfceea5891ed27c42f5fc187079e2d9077056089fdd5947a2212e2bac9", "ev:4b2aee7b0f69380437d770cac1f9d16eb4376c986659652222989f2b0c1791ca", "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb", "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9", "ev:50d196fde5cfdc96c5a9909b7920c63bee57e421cf0aed0b1517e06c665a08f7", "ev:5107ca8fe94c6e5af1f6db5d6aa784c5df37d53f645073ed754532990995e69e", "ev:5375c28363324af6442c268028517108b4887b31e6b4008968d146aa9bae732b", "ev:55c80990f3861861bb5c6b382d70a8125b2fd93b9e9b7881a3f9e0abf6b68001", "ev:561895c8675089eebaae3509e98a37618d499c05d7820bb06747c327635cf4c2", "ev:572ecaa84b6ad86f45a18a03eb7dfab774d53227468a1eef03e4c63d08c13b7a", "ev:575298b0812b3e27023343aa3b42f5379ea479a8c99662c113d2431ef670941e", "ev:5ba04bcfd942083412a8a1ecc92237da891ea1040db1f15a7c1c11a909d815a9", "ev:5cb50cbbf7d4ddd4311a347e7a22724dd756920039d614d45c35ce957a5edf27", "ev:5e704c97d2f9bb77222001f73270f1de4df012ecd8327b2a50dda453694f6f5a", "ev:63bc89f5ef4e588c35216b52149c486c342456c4e236b5129c552f714ba75e7b", "ev:6421203ca32b7fda95c35a3dbd124872be917939f8f8be7a866e9c9b171cb5fa", "ev:6454247d89ec2fb010501d0987ae4e6fb5621dd34c42b422918b3be704433b65", "ev:64845c16edef8810b5857654148ea2889f8abdc1388cec8acf03dc9e51613fe2", "ev:687ea86fa7544cf972cb1963c81b0f9d520f1ce486097318153fc7ba69010c41", "ev:68f4e6a9fc9d235e31d0030f41c122a73a37236afa9e56253fac765c60b4286f", "ev:6bd5c11846af0d81e69702c1c9b64f109a5eed0d4b00b9481fb7ab3c6043adbe", "ev:6d7f4a15c36b6f5fa07608c6f116a7e69945eb1b7ba44d6655aac0b40487551a", "ev:6e08158d398bcc01813060a2eb15f53f8d3fed7ebce0686c4ce34179fe5d8fc6", "ev:6f8c285e902404e52ca7932f7ee82dc4fb4c0d63774afdd04cfdc2852e7f8cd2", "ev:7355a068aaf3aae597541cde0eae8dde999297a4b3ed6d9b2d310fc569759b50", "ev:76722a66c7a93ed57480911bf018d78fa0870e61a4067b5bd1806cd098424047", "ev:77aab25c9c56df26c8fc4eff5904dcebc72398eb2a57a54c986168206d54918a", "ev:790c165accd4b88f80710818f5bf79e22122d72e2ca701f2c7103b78e21b17ab", "ev:7bf00fc58303e8150d73e07636b80768e454c163ab03059edc2eef1e1beba24a", "ev:80cdf242814f7b2e97de8dbc1f9f54223562ca928397c77dc234dec1add22fc9", "ev:81b813eb787d49f66c6b57c3dbc26d23517b0847cfe17ddae9d7c7147c224872", "ev:82451a5e2a3b400ef2dba36dcad12b7a625c0c3cbd62d9a71bb85c7e0ffb958b", "ev:84530ca4c62b49d6f10f2427343dc09198eb503335ad2c558dbffb505bb00d7c", "ev:86142d07f584e4c7181eea233fc7816e3b3b5741ef26d89d5c74f2e7b9004647", "ev:86bc3ccc89d26fade5733a26ac3a24f86b5baefbb28adf31ad4e44c7488299f2", "ev:86f845e94347907b3f260614029e3788f884e0dfd684d7a3c59a8a44c443193b", "ev:873b300d8fda84cbbc1af68b9e332eb64d1082de21cd3264d06c40d05fbdcb34", "ev:88f4438280f17049ad9a0f08d7de4a36b171f26a016e71b4967c833a15e371f1", "ev:89d198cc19718827004c75d0d7e8d23cd2dbe66bb0f50d6acfcb23df47b7b1a5", "ev:8a7d7e193d154bf81a1ab316a2676591b5a1f454b2f73da01dc9b1ed7abac106", "ev:8bc819952b91841bbaba79d0b88a118348038ebfa1eba387651c70a6a52b4bc2", "ev:8dfc2c23b97e4522add055d210bd9b888bc1bc83f4e168ae808660ae30de7693", "ev:8ee90e5e5fba2cd7bb424d072d41d528b3c0936ec36099c91a3fb33d5f5f2a84", "ev:908cb54f4b66ac804a7a3e1ecab7284a6c84ac69ea1a15bdd0dae7d2de502fee", "ev:914ecb48ce073dba2e18c4dfe71d780067f54113d2190cb2d8e5209ac8472d48", "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a", "ev:934dd97840d7de14ec828d0cfa5b02de8aff63d73fc484828691d378b044edad", "ev:939d2996b8b11791f4cb85a7357c77713b1f7103401a468d66f4a89d1dba81cf", "ev:97c08a769dd7219db77de7602e65921cd82d02d6ff487dc7b6195289336e8bbd", "ev:99131f58c71c5ccc641efd29db6c4e3cf1b49013da3914933925a08b11d4c3cf", "ev:9a73a11e93996b74ab785c8a60408d7163b84d587096265d4707a2b247c8b1fb", "ev:9a9767c9a5dd87451cc53f252cb9f323ea6d63f4aa2caaf27214c04c195f1856", "ev:9be0bc26375e8976cc28e87127a37b47555ed0e17e2579b5a8a4ca83e03e71f4", "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41", "ev:a4aee09f9c61efc4287f5e8da8c2a50f719b84b7b3e7610e63c3436aaeb04bbb", "ev:a76b8a413b76118a98452fab7c225cb842eba9c17261f818d55b70d479cfbd0d", "ev:a7892687748e6d3d952782779c173cab12eaf7953b2fa7c24e4b38c5297e7848", "ev:a97970251c9b26781372cefeb180889ebbf6167b2b0909c8ef6e3dac117496af", "ev:abff758ae11a0dc145b29ab64a5f6e293356c5d7a2a38408e81175eeec9d78a6", "ev:acba9d4ac07784cfc3de300d18d7b81b394419a5f1e0fc2b7dd55cf942ed267b", "ev:ade4ce424ae9044dd8c39ed51b47a2954a23c895c8f92ac3f757977f7bacf1a6", "ev:af93aba4878324c2f311079e650dae16e9ae08b8282e5576f247881c0e4e6f35", "ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d", "ev:b13a6058611b0d76747dc07720b4f0e37e734d76cb8de376b52aaa6543ee92d8", "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc", "ev:b3b9e8177b5679616f2430c3fde09f70d7249aa1330137a1f646c83208b547e0", "ev:b40942f99d9fb8a2c8228ac275ab7ccba7fe5a1f6d74f00ce8bc77ea161f2931", "ev:b4d575b8b898c0dfb8dd947fd750cfd7aae4ea65eb22a6388f5f0da1e61f235a", "ev:b91e25abd601265bf88491c26e1a0ce49c8c083fc0e77a8365693c885aaa8de3", "ev:b99e065736606973fb9d36b6bcf6c8c0ab44729be963ed3027214236099fadfa", "ev:b9ffa7bb52e5a066e4585b8d00246fadb3b5d1ca4ceeae2b2ebf79fdf5e1ddba", "ev:ba9eab285e2e2e0c3b77db993ad111852d337d38fbba2188d2724e3e5870630d", "ev:bb492ba0aa90c096d5f9ea494e99ca0e8ea4bfb02cdd977dd5fb9e6788ea6f4f", "ev:bc473d552a3ff0c8537b0819beeaab4a08be3616a6865274768eeb607517db15", "ev:bc5a3307c26fe10489a924edb71ddeea35b034ae5ed84c16d52415a27d18f4f9", "ev:bd8d1a287148f19aca1ce7fc786a3578149e59ab4ab237172aefa81924339bee", "ev:c0e02c0d180d327019aaac513acdde3a63514e2e242043a09e916d7d2512b55d", "ev:c20bf5e3bae8de49c227cca0b285878c6a453ed835b52565f26288c32b18af7b", "ev:c23a2341a9153f93e941082a4ab0a94092f6996875a6ca2c62baed7b79c048bd", "ev:c3540a589eae0c58357478d972c7bf4b19d28ff41f0c395e90637ad2a42ab6ff", "ev:c685c0097eeecbeb85bb4260104d433b84432be61bc5790ec0a20bac8d42bafd", "ev:c6be1e816fd5a07262191c8541d4044190d2b06ba489aefb9ccea15aafddae58", "ev:c6d4f53085b3cc24b8114e353c27b03d25d0151daf487428ed3b36c26cab05d2", "ev:cb930d4622831d51cddddc00204451fc259ff64d9e520f2d0d47a6570002a85e", "ev:cd6a7329312573ee7edfceb6d25cd98b2038ae10ef9ab1488c55cbfeb7af28fe", "ev:cf34ac2dfad030ac32305475aadc0b2b463312f81e8a8caa0270afaf498be767", "ev:cf4dd1b4ac6180fcbdedd266a4b1a29d044c72d38920f676f37c96cda7613cad", "ev:cf62edcd586c14a9add7a5ab8ff96ff1bf595530699d6264e80665169a3daca5", "ev:cf79514d3ba15a65e214308b23fb4394d84f4d4fc1d88e2fc94b2ebcde9d43aa", "ev:d084076ca32df7af701ba20982b30564b78c6c00e1a10b157b6bb7bb4bd8904e", "ev:d2a3badc50ba0be109ab30c3b0b4d2fbda74808e7f531e7ca366cf82d687583f", "ev:d3ad8c0b505730184e1a1894c51d2ca3b1d8cc40723ca13a6f93cccbb910b462", "ev:d759dfc7e1486b155d97806f1dc65d1b66bd3ecdb3d04a2550788265d06d287b", "ev:d904f98e42b3fdd0b0bcda4d8d65549fe0977b1397f519f7a169742b1559e826", "ev:d931df3ca143a2ec5ffaf18d280ccba4d31c90a4b6a842ea5c8c6e130eacf2df", "ev:db4dcd2f1d2d935469bb8084dc25dea692673daf30325fd9086b1ac4927c18ac", "ev:deec037d7cf2eb8fdb806a8f6a1e0cd9b2f1a6069788c466bd4e478d7783ab49", "ev:e3c069047f5eb7f87c687a0ad44f4e34dce61a395532933aa26cbcdff5c20ee8", "ev:e52cf5c61bc9ce12f3ec41fe092bc8760556cdf253fc7ae7d1ef71d306c622a7", "ev:e80ec64ce1ef729172e153f1d808d2f902774662b796498fd3837eed00669e11", "ev:e8839a71148fbeb3ff4634531441d8bf9c9b2cc3cabf1da2b243525711fdf89b", "ev:eac561a8b57377e9d80ce039a7bf38ba361e0cf3c8af7e322cd3cef240fa7935", "ev:eb257976e134bf1ad6bb86726af2a0af610f1ba4bcb57536423ac4be933cfb0a", "ev:eb590638b9267a6e493114a10603c3718375e3fd2d3f17222668e555006d2fed", "ev:ee0a5bf793b7129ef27db9b229ea5fc558d13cd98e722e66cf2be340dc058118", "ev:ef2f0c3e56cc6518e2a9560aa2369dc52743e6fffaccc128f58f0ace2fc13efc", "ev:f2f38e71f295b41373c4a6709ce7b6ad10be5513a1916c4593f5ad5b24e6b843", "ev:f2fdedad963809250c00b03dfefba7b446090012510de1703b46712a14cd6f53", "ev:f3736b15704222344747a060c7f0eb79c58d11fe55162d9b5c29b0aa057b5a8d", "ev:f4feeae4d4a52d9ebb120c8bd90e47c2d6029d4751b5e68ad787e9cdaa0d6b2c", "ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12", "ev:f6fd5726e8ac418911dbb5b231680471b3b3368a58717b949aa901052365486b", "ev:f82088ec4aee84adaa5f4b3b0555d05161d341eb5a7c7bf3b9b32c3e2b3d3271", "ev:f8d87d5fa0ae77b35f0186f3bc9e71ebec4d9fc16c9bbc727fe20102a716b3d7", "ev:f912b34ded5232697da2c125b63610e647ce9ee1aa5519167f4706591d6e7fec", "ev:f9bef27de9c68f11e34ec5e51689766818f4734b2c5fa52337a58efb61ed39a0", "ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151", "ev:ffdf4c01c830686009bbcbca3182df07a261a19608be9ce702846a4a157202f6"]
+---
+# API — Router API
+
+Bản sinh tự động từ phân tích tĩnh, chưa được chủ repository duyệt.
+
+## Endpoint
+
+Bảng cho người đọc. Cột Mã là 8 ký tự đầu của fact ID; mục Truy vết bên dưới có ID đầy đủ và bằng chứng.
+
+| Method | Path | Tham số | Request | Response | Status | Auth | Nhãn | Mã |
+|---|---|---|---|---|---|---|---|---|
+| GET | /api/v1/items/ | session (vị trí chưa biết, kiểu ?, bắt buộc); current_user (vị trí chưa biết, kiểu ?, bắt buộc); skip (query, integer, tùy chọn); limit (query, integer, tùy chọn) | (không có) | ItemsPublic | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:87dc6c39` |
+| POST | /api/v1/items/ | session (vị trí chưa biết, kiểu ?, bắt buộc); current_user (vị trí chưa biết, kiểu ?, bắt buộc) | ItemCreate | ItemPublic | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:48369842` |
+| DELETE | /api/v1/items/{id} | session (vị trí chưa biết, kiểu ?, bắt buộc); current_user (vị trí chưa biết, kiểu ?, bắt buộc); id (path, string, bắt buộc) | (không có) | Message | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:34e7d7bc` |
+| GET | /api/v1/items/{id} | session (vị trí chưa biết, kiểu ?, bắt buộc); current_user (vị trí chưa biết, kiểu ?, bắt buộc); id (path, string, bắt buộc) | (không có) | ItemPublic | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:0565c24d` |
+| PUT | /api/v1/items/{id} | session (vị trí chưa biết, kiểu ?, bắt buộc); current_user (vị trí chưa biết, kiểu ?, bắt buộc); id (path, string, bắt buộc) | ItemUpdate | ItemPublic | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:c0cc5671` |
+| POST | /api/v1/login/access-token | session (vị trí chưa biết, kiểu ?, bắt buộc) | (không có) | Token | 200 (suy theo fastapi-status-default-v1) | unknown — Có dependency OAuth2PasswordRequestForm; không kết luận cơ chế xác thực | inferred / partial | `f:3fdba003` |
+| POST | /api/v1/login/test-token | current_user (vị trí chưa biết, kiểu ?, bắt buộc) | (không có) | UserPublic | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số current_user có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:b35c7f70` |
+| POST | /api/v1/password-recovery-html-content/{email} | email (path, string, bắt buộc); session (vị trí chưa biết, kiểu ?, bắt buộc) | (không có) | unknown — Response model không phải Pydantic model trong repo: Any | 200 (suy theo fastapi-status-default-v1) | unknown — Có dependency get_current_active_superuser; không kết luận cơ chế xác thực | inferred / partial | `f:592222f9` |
+| POST | /api/v1/password-recovery/{email} | email (path, string, bắt buộc); session (vị trí chưa biết, kiểu ?, bắt buộc) | (không có) | Message | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số session có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:cb4f98fe` |
+| POST | /api/v1/private/users/ | session (vị trí chưa biết, kiểu ?, bắt buộc) | PrivateUserCreate | UserPublic | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số session có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:211944e8` |
+| POST | /api/v1/reset-password/ | session (vị trí chưa biết, kiểu ?, bắt buộc) | NewPassword | Message | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số session có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:5f940df2` |
+| GET | /api/v1/users/ | session (vị trí chưa biết, kiểu ?, bắt buộc); skip (query, integer, tùy chọn); limit (query, integer, tùy chọn) | (không có) | UsersPublic | 200 (suy theo fastapi-status-default-v1) | unknown — Có dependency get_current_active_superuser; không kết luận cơ chế xác thực | inferred / partial | `f:fb2e216f` |
+| POST | /api/v1/users/ | session (vị trí chưa biết, kiểu ?, bắt buộc) | UserCreate | UserPublic | 200 (suy theo fastapi-status-default-v1) | unknown — Có dependency get_current_active_superuser; không kết luận cơ chế xác thực | inferred / partial | `f:8dfd6cdd` |
+| DELETE | /api/v1/users/me | session (vị trí chưa biết, kiểu ?, bắt buộc); current_user (vị trí chưa biết, kiểu ?, bắt buộc) | (không có) | Message | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:3e201257` |
+| GET | /api/v1/users/me | current_user (vị trí chưa biết, kiểu ?, bắt buộc) | (không có) | UserPublic | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số current_user có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:69a36c72` |
+| PATCH | /api/v1/users/me | session (vị trí chưa biết, kiểu ?, bắt buộc); current_user (vị trí chưa biết, kiểu ?, bắt buộc) | UserUpdateMe | UserPublic | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:c4086858` |
+| PATCH | /api/v1/users/me/password | session (vị trí chưa biết, kiểu ?, bắt buộc); current_user (vị trí chưa biết, kiểu ?, bắt buộc) | UpdatePassword | Message | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:7008485e` |
+| POST | /api/v1/users/signup | session (vị trí chưa biết, kiểu ?, bắt buộc) | UserRegister | UserPublic | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số session có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:6f0731c8` |
+| DELETE | /api/v1/users/{user_id} | session (vị trí chưa biết, kiểu ?, bắt buộc); current_user (vị trí chưa biết, kiểu ?, bắt buộc); user_id (path, string, bắt buộc) | (không có) | Message | 200 (suy theo fastapi-status-default-v1) | unknown — Có dependency get_current_active_superuser; không kết luận cơ chế xác thực | inferred / partial | `f:ca6a9bfd` |
+| GET | /api/v1/users/{user_id} | user_id (path, string, bắt buộc); session (vị trí chưa biết, kiểu ?, bắt buộc); current_user (vị trí chưa biết, kiểu ?, bắt buộc) | (không có) | UserPublic | 200 (suy theo fastapi-status-default-v1) | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | inferred / partial | `f:d46b0204` |
+| PATCH | /api/v1/users/{user_id} | session (vị trí chưa biết, kiểu ?, bắt buộc); user_id (path, string, bắt buộc) | UserUpdate | UserPublic | 200 (suy theo fastapi-status-default-v1) | unknown — Có dependency get_current_active_superuser; không kết luận cơ chế xác thực | inferred / partial | `f:288e9e25` |
+| GET | /api/v1/utils/health-check/ | (không có) | (không có) | unknown — Response model không phải Pydantic model trong repo: bool | 200 (suy theo fastapi-status-default-v1) | unknown — Không thấy dependency; không kết luận route công khai | inferred / partial | `f:6f567177` |
+| POST | /api/v1/utils/test-email/ | email_to (query, kiểu ?, bắt buộc) | (không có) | Message | 201 | unknown — Có dependency get_current_active_superuser; không kết luận cơ chế xác thực | inferred / partial | `f:e02881d4` |
+
+- Tham số current_user có vị trí chưa biết: Kiểu CurrentUser khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency
+- Tham số session có vị trí chưa biết: Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency
+
+## Model
+
+### ItemCreate (request)
+
+Fact `f:28d81f27` · exact / full · khai ở backend/app/models.py:80
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| title | string | True | False |
+| description | string | False | True |
+
+### ItemPublic (response)
+
+Fact `f:2bec3494` · exact / full · khai ở backend/app/models.py:104
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| title | string | True | False |
+| description | string | False | True |
+| id | string | True | False |
+| owner_id | string | True | False |
+| created_at | string | False | True |
+
+### ItemUpdate (request)
+
+Fact `f:aa5a5219` · exact / full · khai ở backend/app/models.py:85
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| title | string | False | True |
+| description | string | False | True |
+
+### ItemsPublic (response)
+
+Fact `f:d259edfb` · exact / full · khai ở backend/app/models.py:110
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| data | list[ItemPublic] | True | False |
+| count | integer | True | False |
+
+### Message (response)
+
+Fact `f:c646cac5` · exact / full · khai ở backend/app/models.py:116
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| message | string | True | False |
+
+### NewPassword (request)
+
+Fact `f:8873184d` · exact / full · khai ở backend/app/models.py:131
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| token | string | True | False |
+| new_password | string | True | False |
+
+### PrivateUserCreate (request)
+
+Fact `f:287b2be7` · exact / full · khai ở backend/app/api/routes/private.py:16
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| email | string | True | False |
+| password | string | True | False |
+| full_name | string | True | False |
+| is_verified | boolean | False | False |
+
+### Token (response)
+
+Fact `f:66ba868e` · exact / full · khai ở backend/app/models.py:121
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| access_token | string | True | False |
+| token_type | string | False | False |
+
+### UpdatePassword (request)
+
+Fact `f:65772047` · exact / full · khai ở backend/app/models.py:46
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| current_password | string | True | False |
+| new_password | string | True | False |
+
+### UserCreate (request)
+
+Fact `f:abf5bad8` · exact / full · khai ở backend/app/models.py:22
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| email | unknown — Kiểu EmailStr chưa được biểu diễn | True | False |
+| is_active | boolean | False | False |
+| is_superuser | boolean | False | False |
+| full_name | string | False | True |
+| password | string | True | False |
+
+### UserPublic (response)
+
+Fact `f:41d16c36` · exact / full · khai ở backend/app/models.py:63
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| email | unknown — Kiểu EmailStr chưa được biểu diễn | True | False |
+| is_active | boolean | False | False |
+| is_superuser | boolean | False | False |
+| full_name | string | False | True |
+| id | string | True | False |
+| created_at | string | False | True |
+
+### UserRegister (request)
+
+Fact `f:3dbd53d3` · exact / full · khai ở backend/app/models.py:26
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| email | unknown — Kiểu EmailStr chưa được biểu diễn | True | False |
+| password | string | True | False |
+| full_name | string | False | True |
+
+### UserUpdate (request)
+
+Fact `f:14393f54` · exact / full · khai ở backend/app/models.py:33
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| email | unknown — Kiểu EmailStr chưa được biểu diễn | False | True |
+| is_active | boolean | False | True |
+| is_superuser | boolean | False | True |
+| full_name | string | False | True |
+| password | string | False | True |
+
+### UserUpdateMe (request)
+
+Fact `f:d4cea860` · exact / full · khai ở backend/app/models.py:41
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| full_name | string | False | True |
+| email | unknown — Kiểu EmailStr chưa được biểu diễn | False | True |
+
+### UsersPublic (response)
+
+Fact `f:3779fe94` · exact / full · khai ở backend/app/models.py:68
+
+| Field | Kiểu | Bắt buộc | Nullable |
+|---|---|---|---|
+| data | list[UserPublic] | True | False |
+| count | integer | True | False |
+
+## Truy vết
+
+| Application | Method | Path | Handler | Request | Response | Status | Auth | Fact | Evidence | Confidence | Completeness |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| app:backend/app/main.py::app | GET | /api/v1/items/ | backend.app.api.routes.items.read_items | (rỗng) | fact:d259edfb2c49254463ea2df8e748ad11f02a66a0ec73cea7ffee49eabd7725a2 | 200 | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | `fact:87dc6c3972b2403331fa2746eeec21dbf3ccbc8e963b9540780dabcc7794ba84` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:39da1dbf68e119740af7e1967ff83f0779d3cf7d87191ad9deee5e6d451e25e1` (backend/app/api/main.py:10), `ev:4943c48f1bc11f661d8bf77547abd1dfdab37e78116b816b6ba7a380a92eb7fc` (backend/app/api/routes/items.py:10), `ev:6e08158d398bcc01813060a2eb15f53f8d3fed7ebce0686c4ce34179fe5d8fc6` (backend/app/api/routes/items.py:10), `ev:84530ca4c62b49d6f10f2427343dc09198eb503335ad2c558dbffb505bb00d7c` (backend/app/api/routes/items.py:13), `ev:86142d07f584e4c7181eea233fc7816e3b3b5741ef26d89d5c74f2e7b9004647` (backend/app/api/routes/items.py:13), `ev:b40942f99d9fb8a2c8228ac275ab7ccba7fe5a1f6d74f00ce8bc77ea161f2931` (backend/app/api/routes/items.py:13-14), `ev:bc5a3307c26fe10489a924edb71ddeea35b034ae5ed84c16d52415a27d18f4f9` (backend/app/api/routes/items.py:13), `ev:80cdf242814f7b2e97de8dbc1f9f54223562ca928397c77dc234dec1add22fc9` (backend/app/api/routes/items.py:15), `ev:86bc3ccc89d26fade5733a26ac3a24f86b5baefbb28adf31ad4e44c7488299f2` (backend/app/api/routes/items.py:15), `ev:cf34ac2dfad030ac32305475aadc0b2b463312f81e8a8caa0270afaf498be767` (backend/app/api/routes/items.py:15), `ev:d904f98e42b3fdd0b0bcda4d8d65549fe0977b1397f519f7a169742b1559e826` (backend/app/api/routes/items.py:15), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | POST | /api/v1/items/ | backend.app.api.routes.items.create_item | fact:28d81f271f657ed7c38f9220b8cd6e027ee0a30284cc3e1c577c71342df95848 | fact:2bec34943c8f33d43d77b8cd1b30b251c1fac4e641f8e9f7e849980def08ab97 | 200 | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | `fact:483698421bf2f7dadcfd0db55584b3b3533a6ffdc2fab22bc167482f32cfe708` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:39da1dbf68e119740af7e1967ff83f0779d3cf7d87191ad9deee5e6d451e25e1` (backend/app/api/main.py:10), `ev:4943c48f1bc11f661d8bf77547abd1dfdab37e78116b816b6ba7a380a92eb7fc` (backend/app/api/routes/items.py:10), `ev:6e08158d398bcc01813060a2eb15f53f8d3fed7ebce0686c4ce34179fe5d8fc6` (backend/app/api/routes/items.py:10), `ev:03689a25a0785930c6ff520867a6dd81ed6269238f23293e9111edb4c3a20134` (backend/app/api/routes/items.py:61), `ev:42c6b24cb756d8aee073df162325845ea61b0bc68da28b98a987cc05149a7dc3` (backend/app/api/routes/items.py:61), `ev:76722a66c7a93ed57480911bf018d78fa0870e61a4067b5bd1806cd098424047` (backend/app/api/routes/items.py:61), `ev:89d198cc19718827004c75d0d7e8d23cd2dbe66bb0f50d6acfcb23df47b7b1a5` (backend/app/api/routes/items.py:61-62), `ev:06ecfb9e92b86bee22650fb1978d475d04f1d5a5d9de6152080e088e3e4baaa4` (backend/app/api/routes/items.py:63), `ev:7355a068aaf3aae597541cde0eae8dde999297a4b3ed6d9b2d310fc569759b50` (backend/app/api/routes/items.py:63), `ev:e3c069047f5eb7f87c687a0ad44f4e34dce61a395532933aa26cbcdff5c20ee8` (backend/app/api/routes/items.py:63), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | DELETE | /api/v1/items/{id} | backend.app.api.routes.items.delete_item | (rỗng) | fact:c646cac58c908030cb28b3a602a92d8e5e47514d7127879d89005bd579018bc6 | 200 | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | `fact:34e7d7bc2be8d6e3b893b4e871cb5717d7e0d1720cba6a5692691fa03104e9fd` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:39da1dbf68e119740af7e1967ff83f0779d3cf7d87191ad9deee5e6d451e25e1` (backend/app/api/main.py:10), `ev:4943c48f1bc11f661d8bf77547abd1dfdab37e78116b816b6ba7a380a92eb7fc` (backend/app/api/routes/items.py:10), `ev:6e08158d398bcc01813060a2eb15f53f8d3fed7ebce0686c4ce34179fe5d8fc6` (backend/app/api/routes/items.py:10), `ev:1633468066036df0f07c05d3d76e02b08dd422e7ea1fa7f43289aa5982b40073` (backend/app/api/routes/items.py:99), `ev:36b2cdbae985586f5373f9b766d34234741cbc0569589aa6088c61fa032f720f` (backend/app/api/routes/items.py:99), `ev:3747b7e0d6a5257e5357ede08838b73ffb21db35724b18eac77bdd86e737b241` (backend/app/api/routes/items.py:99-100), `ev:908cb54f4b66ac804a7a3e1ecab7284a6c84ac69ea1a15bdd0dae7d2de502fee` (backend/app/api/routes/items.py:101), `ev:bc473d552a3ff0c8537b0819beeaab4a08be3616a6865274768eeb607517db15` (backend/app/api/routes/items.py:101), `ev:f912b34ded5232697da2c125b63610e647ce9ee1aa5519167f4706591d6e7fec` (backend/app/api/routes/items.py:101), `ev:c6d4f53085b3cc24b8114e353c27b03d25d0151daf487428ed3b36c26cab05d2` (backend/app/api/routes/items.py:102), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | GET | /api/v1/items/{id} | backend.app.api.routes.items.read_item | (rỗng) | fact:2bec34943c8f33d43d77b8cd1b30b251c1fac4e641f8e9f7e849980def08ab97 | 200 | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | `fact:0565c24d1a663897d7a52da6d2ee6bae26ffca22a5418e718f96b5935a365a03` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:39da1dbf68e119740af7e1967ff83f0779d3cf7d87191ad9deee5e6d451e25e1` (backend/app/api/main.py:10), `ev:4943c48f1bc11f661d8bf77547abd1dfdab37e78116b816b6ba7a380a92eb7fc` (backend/app/api/routes/items.py:10), `ev:6e08158d398bcc01813060a2eb15f53f8d3fed7ebce0686c4ce34179fe5d8fc6` (backend/app/api/routes/items.py:10), `ev:3e22ce404b10149732002f4b68b1b7ebe4c734907a3bf40e09261fb4e14000da` (backend/app/api/routes/items.py:48-49), `ev:af93aba4878324c2f311079e650dae16e9ae08b8282e5576f247881c0e4e6f35` (backend/app/api/routes/items.py:48), `ev:b9ffa7bb52e5a066e4585b8d00246fadb3b5d1ca4ceeae2b2ebf79fdf5e1ddba` (backend/app/api/routes/items.py:48), `ev:d2a3badc50ba0be109ab30c3b0b4d2fbda74808e7f531e7ca366cf82d687583f` (backend/app/api/routes/items.py:48), `ev:31bdc1d9ede544199e064e14553eb815a796d3b3e815e3272211eb96ac786257` (backend/app/api/routes/items.py:49), `ev:5107ca8fe94c6e5af1f6db5d6aa784c5df37d53f645073ed754532990995e69e` (backend/app/api/routes/items.py:49), `ev:d931df3ca143a2ec5ffaf18d280ccba4d31c90a4b6a842ea5c8c6e130eacf2df` (backend/app/api/routes/items.py:49), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | PUT | /api/v1/items/{id} | backend.app.api.routes.items.update_item | fact:aa5a5219a48578ad17bac894a8a2ceadeb6c97a8660bb5cc47bc61e606392abf | fact:2bec34943c8f33d43d77b8cd1b30b251c1fac4e641f8e9f7e849980def08ab97 | 200 | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | `fact:c0cc5671b145a65bceb084fe6fee6bdf45c2fd74c206aaf6d17465c837c260d4` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:39da1dbf68e119740af7e1967ff83f0779d3cf7d87191ad9deee5e6d451e25e1` (backend/app/api/main.py:10), `ev:4943c48f1bc11f661d8bf77547abd1dfdab37e78116b816b6ba7a380a92eb7fc` (backend/app/api/routes/items.py:10), `ev:6e08158d398bcc01813060a2eb15f53f8d3fed7ebce0686c4ce34179fe5d8fc6` (backend/app/api/routes/items.py:10), `ev:2d5a4c662522e181d683c13ec456946d4323bfd2dc6e4d4298ad5a53ef3d42fa` (backend/app/api/routes/items.py:75), `ev:7bf00fc58303e8150d73e07636b80768e454c163ab03059edc2eef1e1beba24a` (backend/app/api/routes/items.py:75), `ev:a7892687748e6d3d952782779c173cab12eaf7953b2fa7c24e4b38c5297e7848` (backend/app/api/routes/items.py:75-76), `ev:f8d87d5fa0ae77b35f0186f3bc9e71ebec4d9fc16c9bbc727fe20102a716b3d7` (backend/app/api/routes/items.py:75), `ev:5ba04bcfd942083412a8a1ecc92237da891ea1040db1f15a7c1c11a909d815a9` (backend/app/api/routes/items.py:78), `ev:1def7a9ff8e2d8da631fa8db113b5ea837445f03807115707392bec8d7db5d30` (backend/app/api/routes/items.py:79), `ev:f82088ec4aee84adaa5f4b3b0555d05161d341eb5a7c7bf3b9b32c3e2b3d3271` (backend/app/api/routes/items.py:80), `ev:c3540a589eae0c58357478d972c7bf4b19d28ff41f0c395e90637ad2a42ab6ff` (backend/app/api/routes/items.py:81), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | POST | /api/v1/login/access-token | backend.app.api.routes.login.login_access_token | (rỗng) | fact:66ba868ec97b647df5f72db1ca0befabe3ca0ae01a6838146c3a0b71148021f0 | 200 | unknown — Có dependency OAuth2PasswordRequestForm; không kết luận cơ chế xác thực | `fact:3fdba003fe284427eeb5d1c49f07f4e96dbfbbc1c609bf53636050e5d3707655` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b91e25abd601265bf88491c26e1a0ce49c8c083fc0e77a8365693c885aaa8de3` (backend/app/api/main.py:7), `ev:790c165accd4b88f80710818f5bf79e22122d72e2ca701f2c7103b78e21b17ab` (backend/app/api/routes/login.py:20), `ev:192d0fb96d3e3e197530c9e263bb792f64fe9c72bfc153d1d748178d848b73e8` (backend/app/api/routes/login.py:23), `ev:ade4ce424ae9044dd8c39ed51b47a2954a23c895c8f92ac3f757977f7bacf1a6` (backend/app/api/routes/login.py:23), `ev:d3ad8c0b505730184e1a1894c51d2ca3b1d8cc40723ca13a6f93cccbb910b462` (backend/app/api/routes/login.py:23-24), `ev:3c1ca5cc3d63ce7f7fd9e0f17d57d7f48e924d6546fa25a3a8a0b0ec8475c43d` (backend/app/api/routes/login.py:25), `ev:86f845e94347907b3f260614029e3788f884e0dfd684d7a3c59a8a44c443193b` (backend/app/api/routes/login.py:26), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | POST | /api/v1/login/test-token | backend.app.api.routes.login.test_token | (rỗng) | fact:41d16c362ff5c7a6fae94162a3aa52f7a1f37e4a0654d6f1ec2e0a19c72b0f80 | 200 | unknown — Tham số current_user có kiểu từ file không đọc được; không kết luận xác thực | `fact:b35c7f7066bfc703d9b8fde8d0a2bb9c6207fc70ab5b8809e87a908ffdad0115` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b91e25abd601265bf88491c26e1a0ce49c8c083fc0e77a8365693c885aaa8de3` (backend/app/api/main.py:7), `ev:790c165accd4b88f80710818f5bf79e22122d72e2ca701f2c7103b78e21b17ab` (backend/app/api/routes/login.py:20), `ev:32fd110e3d44373f93affe804a0ebbf49c6400f390dff5d7f752a152b07a27f9` (backend/app/api/routes/login.py:45-46), `ev:561895c8675089eebaae3509e98a37618d499c05d7820bb06747c327635cf4c2` (backend/app/api/routes/login.py:45), `ev:6f8c285e902404e52ca7932f7ee82dc4fb4c0d63774afdd04cfdc2852e7f8cd2` (backend/app/api/routes/login.py:45), `ev:cd6a7329312573ee7edfceb6d25cd98b2038ae10ef9ab1488c55cbfeb7af28fe` (backend/app/api/routes/login.py:45), `ev:1c52887182fbfe85640c8b73f6b7693e6f15fe6ffeb20d5433ee3bd02e1a0cb1` (backend/app/api/routes/login.py:46), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | POST | /api/v1/password-recovery-html-content/{email} | backend.app.api.routes.login.recover_password_html_content | (rỗng) | unknown — Response model không phải Pydantic model trong repo: Any | 200 | unknown — Có dependency get_current_active_superuser; không kết luận cơ chế xác thực | `fact:592222f93121438176f8be03ee2b355be360cc0888cd739064446d7747659852` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b91e25abd601265bf88491c26e1a0ce49c8c083fc0e77a8365693c885aaa8de3` (backend/app/api/main.py:7), `ev:790c165accd4b88f80710818f5bf79e22122d72e2ca701f2c7103b78e21b17ab` (backend/app/api/routes/login.py:20), `ev:55c80990f3861861bb5c6b382d70a8125b2fd93b9e9b7881a3f9e0abf6b68001` (backend/app/api/routes/login.py:100), `ev:6d7f4a15c36b6f5fa07608c6f116a7e69945eb1b7ba44d6655aac0b40487551a` (backend/app/api/routes/login.py:100-105), `ev:e8839a71148fbeb3ff4634531441d8bf9c9b2cc3cabf1da2b243525711fdf89b` (backend/app/api/routes/login.py:101), `ev:b13a6058611b0d76747dc07720b4f0e37e734d76cb8de376b52aaa6543ee92d8` (backend/app/api/routes/login.py:105), `ev:b4d575b8b898c0dfb8dd947fd750cfd7aae4ea65eb22a6388f5f0da1e61f235a` (backend/app/api/routes/login.py:105), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | POST | /api/v1/password-recovery/{email} | backend.app.api.routes.login.recover_password | (rỗng) | fact:c646cac58c908030cb28b3a602a92d8e5e47514d7127879d89005bd579018bc6 | 200 | unknown — Tham số session có kiểu từ file không đọc được; không kết luận xác thực | `fact:cb4f98fea70376f31f6a1f8d3e816547aa26bea10d0d35227af9b44ec8d49c19` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b91e25abd601265bf88491c26e1a0ce49c8c083fc0e77a8365693c885aaa8de3` (backend/app/api/main.py:7), `ev:790c165accd4b88f80710818f5bf79e22122d72e2ca701f2c7103b78e21b17ab` (backend/app/api/routes/login.py:20), `ev:6454247d89ec2fb010501d0987ae4e6fb5621dd34c42b422918b3be704433b65` (backend/app/api/routes/login.py:53-54), `ev:934dd97840d7de14ec828d0cfa5b02de8aff63d73fc484828691d378b044edad` (backend/app/api/routes/login.py:53), `ev:f2fdedad963809250c00b03dfefba7b446090012510de1703b46712a14cd6f53` (backend/app/api/routes/login.py:53), `ev:0a71dd3b60d4ea5b01c4b609563865a799cc89ee810204dea3f92a735e9e24ee` (backend/app/api/routes/login.py:54), `ev:81b813eb787d49f66c6b57c3dbc26d23517b0847cfe17ddae9d7c7147c224872` (backend/app/api/routes/login.py:54), `ev:873b300d8fda84cbbc1af68b9e332eb64d1082de21cd3264d06c40d05fbdcb34` (backend/app/api/routes/login.py:54), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | POST | /api/v1/private/users/ | backend.app.api.routes.private.create_user | fact:287b2be7301ab7d459d1c48ef014ff83a543deab18e7830a68b42d4cef72b075 | fact:41d16c362ff5c7a6fae94162a3aa52f7a1f37e4a0654d6f1ec2e0a19c72b0f80 | 200 | unknown — Tham số session có kiểu từ file không đọc được; không kết luận xác thực | `fact:211944e8539a2b8aa1b5aa80cac995d3b9c3b734e0667b9c69f28447f9469467` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:deec037d7cf2eb8fdb806a8f6a1e0cd9b2f1a6069788c466bd4e478d7783ab49` (backend/app/api/main.py:14), `ev:c0e02c0d180d327019aaac513acdde3a63514e2e242043a09e916d7d2512b55d` (backend/app/api/routes/private.py:13), `ev:cf4dd1b4ac6180fcbdedd266a4b1a29d044c72d38920f676f37c96cda7613cad` (backend/app/api/routes/private.py:13), `ev:0b2e00f9a00ba0a89bc31c0fae5e5c653e7d6965d606bc5e7a9ec1d0cacbe1ba` (backend/app/api/routes/private.py:23), `ev:572ecaa84b6ad86f45a18a03eb7dfab774d53227468a1eef03e4c63d08c13b7a` (backend/app/api/routes/private.py:23-24), `ev:914ecb48ce073dba2e18c4dfe71d780067f54113d2190cb2d8e5209ac8472d48` (backend/app/api/routes/private.py:23), `ev:939d2996b8b11791f4cb85a7357c77713b1f7103401a468d66f4a89d1dba81cf` (backend/app/api/routes/private.py:23), `ev:0a1f9a96caba4e0374a3cc993155b1adbe13ddd15d5d2d4ff333401bdb84de44` (backend/app/api/routes/private.py:24), `ev:1dd48b964bb1cbf95dce879551ed9a184d00ddafd4188b0e2a1b8a182d4eb12f` (backend/app/api/routes/private.py:24), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | POST | /api/v1/reset-password/ | backend.app.api.routes.login.reset_password | fact:8873184daa174c4b62e81033f31a9c75fd0acba685234efbf6d586424b532b80 | fact:c646cac58c908030cb28b3a602a92d8e5e47514d7127879d89005bd579018bc6 | 200 | unknown — Tham số session có kiểu từ file không đọc được; không kết luận xác thực | `fact:5f940df2875564384cc481fcff53305451d7fc85b615eb71624f8f766ffc8455` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b91e25abd601265bf88491c26e1a0ce49c8c083fc0e77a8365693c885aaa8de3` (backend/app/api/main.py:7), `ev:790c165accd4b88f80710818f5bf79e22122d72e2ca701f2c7103b78e21b17ab` (backend/app/api/routes/login.py:20), `ev:88f4438280f17049ad9a0f08d7de4a36b171f26a016e71b4967c833a15e371f1` (backend/app/api/routes/login.py:77), `ev:ef2f0c3e56cc6518e2a9560aa2369dc52743e6fffaccc128f58f0ace2fc13efc` (backend/app/api/routes/login.py:77-78), `ev:f9bef27de9c68f11e34ec5e51689766818f4734b2c5fa52337a58efb61ed39a0` (backend/app/api/routes/login.py:77), `ev:06739f069a2ad15cf286bbf376a9ff3bc59f89fe069a7be450ada1aa952f33cf` (backend/app/api/routes/login.py:78), `ev:50d196fde5cfdc96c5a9909b7920c63bee57e421cf0aed0b1517e06c665a08f7` (backend/app/api/routes/login.py:78), `ev:9be0bc26375e8976cc28e87127a37b47555ed0e17e2579b5a8a4ca83e03e71f4` (backend/app/api/routes/login.py:78), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | GET | /api/v1/users/ | backend.app.api.routes.users.read_users | (rỗng) | fact:3779fe943f1e3b19dd47500e14c829c43afc2a943135801f2a324e4405835654 | 200 | unknown — Có dependency get_current_active_superuser; không kết luận cơ chế xác thực | `fact:fb2e216fec9e12260f410da5cce0925353b4a718516732ff2582489b4fb68a03` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d` (backend/app/api/main.py:8), `ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12` (backend/app/api/routes/users.py:29), `ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151` (backend/app/api/routes/users.py:29), `ev:8ee90e5e5fba2cd7bb424d072d41d528b3c0936ec36099c91a3fb33d5f5f2a84` (backend/app/api/routes/users.py:32-37), `ev:cb930d4622831d51cddddc00204451fc259ff64d9e520f2d0d47a6570002a85e` (backend/app/api/routes/users.py:32), `ev:6421203ca32b7fda95c35a3dbd124872be917939f8f8be7a866e9c9b171cb5fa` (backend/app/api/routes/users.py:33), `ev:b3b9e8177b5679616f2430c3fde09f70d7249aa1330137a1f646c83208b547e0` (backend/app/api/routes/users.py:35), `ev:b99e065736606973fb9d36b6bcf6c8c0ab44729be963ed3027214236099fadfa` (backend/app/api/routes/users.py:37), `ev:bd8d1a287148f19aca1ce7fc786a3578149e59ab4ab237172aefa81924339bee` (backend/app/api/routes/users.py:37), `ev:d084076ca32df7af701ba20982b30564b78c6c00e1a10b157b6bb7bb4bd8904e` (backend/app/api/routes/users.py:37), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | POST | /api/v1/users/ | backend.app.api.routes.users.create_user | fact:abf5bad87fe09a46b95bda97c52b3dce2a9f40d20a83a1e40cec073c185a61c9 | fact:41d16c362ff5c7a6fae94162a3aa52f7a1f37e4a0654d6f1ec2e0a19c72b0f80 | 200 | unknown — Có dependency get_current_active_superuser; không kết luận cơ chế xác thực | `fact:8dfd6cdd3263e14449269b5079042316df964571caa33c9e9b03c0233a5599a2` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d` (backend/app/api/main.py:8), `ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12` (backend/app/api/routes/users.py:29), `ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151` (backend/app/api/routes/users.py:29), `ev:f2f38e71f295b41373c4a6709ce7b6ad10be5513a1916c4593f5ad5b24e6b843` (backend/app/api/routes/users.py:54), `ev:f3736b15704222344747a060c7f0eb79c58d11fe55162d9b5c29b0aa057b5a8d` (backend/app/api/routes/users.py:54-57), `ev:1a17069f27ca8784429bce19ee6c1e8895c3b0c6f93e862cb0cb8cbee3181c88` (backend/app/api/routes/users.py:55), `ev:97c08a769dd7219db77de7602e65921cd82d02d6ff487dc7b6195289336e8bbd` (backend/app/api/routes/users.py:55), `ev:44650aaf95211c536259fbae87eb70565a2cf6cfb3f4f0dd4d612fc4a729a3d8` (backend/app/api/routes/users.py:57), `ev:77aab25c9c56df26c8fc4eff5904dcebc72398eb2a57a54c986168206d54918a` (backend/app/api/routes/users.py:57), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | DELETE | /api/v1/users/me | backend.app.api.routes.users.delete_user_me | (rỗng) | fact:c646cac58c908030cb28b3a602a92d8e5e47514d7127879d89005bd579018bc6 | 200 | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | `fact:3e201257ba6dca2980276dafe5cf31e24b69ebee769421788ad2c32781d3e117` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d` (backend/app/api/main.py:8), `ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12` (backend/app/api/routes/users.py:29), `ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151` (backend/app/api/routes/users.py:29), `ev:0e73af1d11111c0706d47c17c235b4299f5b9932de6e471ee694fd29de3a1e1a` (backend/app/api/routes/users.py:132-133), `ev:5375c28363324af6442c268028517108b4887b31e6b4008968d146aa9bae732b` (backend/app/api/routes/users.py:132), `ev:5e704c97d2f9bb77222001f73270f1de4df012ecd8327b2a50dda453694f6f5a` (backend/app/api/routes/users.py:132), `ev:8bc819952b91841bbaba79d0b88a118348038ebfa1eba387651c70a6a52b4bc2` (backend/app/api/routes/users.py:132), `ev:9a73a11e93996b74ab785c8a60408d7163b84d587096265d4707a2b247c8b1fb` (backend/app/api/routes/users.py:133), `ev:f4feeae4d4a52d9ebb120c8bd90e47c2d6029d4751b5e68ad787e9cdaa0d6b2c` (backend/app/api/routes/users.py:133), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | GET | /api/v1/users/me | backend.app.api.routes.users.read_user_me | (rỗng) | fact:41d16c362ff5c7a6fae94162a3aa52f7a1f37e4a0654d6f1ec2e0a19c72b0f80 | 200 | unknown — Tham số current_user có kiểu từ file không đọc được; không kết luận xác thực | `fact:69a36c722f6777d962ab7baffe6b92d7e576191601854885b656c775fb0db87d` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d` (backend/app/api/main.py:8), `ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12` (backend/app/api/routes/users.py:29), `ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151` (backend/app/api/routes/users.py:29), `ev:079d5f2d3e80990d055e575d29e218a5202c72dd3aa93d846797a94469a27957` (backend/app/api/routes/users.py:124), `ev:8dfc2c23b97e4522add055d210bd9b888bc1bc83f4e168ae808660ae30de7693` (backend/app/api/routes/users.py:124), `ev:ee0a5bf793b7129ef27db9b229ea5fc558d13cd98e722e66cf2be340dc058118` (backend/app/api/routes/users.py:124-125), `ev:ffdf4c01c830686009bbcbca3182df07a261a19608be9ce702846a4a157202f6` (backend/app/api/routes/users.py:124), `ev:4b2aee7b0f69380437d770cac1f9d16eb4376c986659652222989f2b0c1791ca` (backend/app/api/routes/users.py:125), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | PATCH | /api/v1/users/me | backend.app.api.routes.users.update_user_me | fact:d4cea86023d67014ead8eabe7ab869e73abd9ab10b2bfb4547a16c8b0a0e103c | fact:41d16c362ff5c7a6fae94162a3aa52f7a1f37e4a0654d6f1ec2e0a19c72b0f80 | 200 | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | `fact:c408685844538d3d68492b8da4a7322c73f545ce5ec702f4c346e952b6447036` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d` (backend/app/api/main.py:8), `ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12` (backend/app/api/routes/users.py:29), `ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151` (backend/app/api/routes/users.py:29), `ev:03c8e6da203b4783c797dd0c690937ae942d19f5f0802c34c821edd1d0ff371f` (backend/app/api/routes/users.py:81), `ev:63bc89f5ef4e588c35216b52149c486c342456c4e236b5129c552f714ba75e7b` (backend/app/api/routes/users.py:81-82), `ev:abff758ae11a0dc145b29ab64a5f6e293356c5d7a2a38408e81175eeec9d78a6` (backend/app/api/routes/users.py:81), `ev:e80ec64ce1ef729172e153f1d808d2f902774662b796498fd3837eed00669e11` (backend/app/api/routes/users.py:81), `ev:2fdc1ca49be44f194df2c3e6ff53ca38847dd7057c24d1e23fe6c59fc9200620` (backend/app/api/routes/users.py:83), `ev:c23a2341a9153f93e941082a4ab0a94092f6996875a6ca2c62baed7b79c048bd` (backend/app/api/routes/users.py:83), `ev:cf62edcd586c14a9add7a5ab8ff96ff1bf595530699d6264e80665169a3daca5` (backend/app/api/routes/users.py:83), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | PATCH | /api/v1/users/me/password | backend.app.api.routes.users.update_password_me | fact:65772047e0ee84590936908a83ad78d623afb8467d406e3b6cfe5d7c59e9617b | fact:c646cac58c908030cb28b3a602a92d8e5e47514d7127879d89005bd579018bc6 | 200 | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | `fact:7008485e465b6acb894957f88465f21cf0c0672219948f2ec69f814df21de25b` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d` (backend/app/api/main.py:8), `ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12` (backend/app/api/routes/users.py:29), `ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151` (backend/app/api/routes/users.py:29), `ev:41f077c47aab9ac3b3e50d9fadfc2740d31f8fc0c398c61ff90badcca4597b31` (backend/app/api/routes/users.py:103-104), `ev:68f4e6a9fc9d235e31d0030f41c122a73a37236afa9e56253fac765c60b4286f` (backend/app/api/routes/users.py:103), `ev:eac561a8b57377e9d80ce039a7bf38ba361e0cf3c8af7e322cd3cef240fa7935` (backend/app/api/routes/users.py:103), `ev:eb257976e134bf1ad6bb86726af2a0af610f1ba4bcb57536423ac4be933cfb0a` (backend/app/api/routes/users.py:103), `ev:068ab61c5d677f80b3a2fc8838daf71932fa165c1edb541ba833ab2152fdae79` (backend/app/api/routes/users.py:105), `ev:31c4604b80c7a0cae4e20cdfcbe5446e5a927c98138bdf6c5d54641c2c259654` (backend/app/api/routes/users.py:105), `ev:3fc30bce8b2cdb8a1247b392c64a7e190d9167e11fc6d1fc3cf0dc7d36a866ae` (backend/app/api/routes/users.py:105), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | POST | /api/v1/users/signup | backend.app.api.routes.users.register_user | fact:3dbd53d3841d0d6cc21fc3091eda7289393181cb730b66bd76dd7046fa1e2361 | fact:41d16c362ff5c7a6fae94162a3aa52f7a1f37e4a0654d6f1ec2e0a19c72b0f80 | 200 | unknown — Tham số session có kiểu từ file không đọc được; không kết luận xác thực | `fact:6f0731c8b2622351fb6492e6cc0c20d12b7a459059196282876d47edd6efc7e9` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d` (backend/app/api/main.py:8), `ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12` (backend/app/api/routes/users.py:29), `ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151` (backend/app/api/routes/users.py:29), `ev:0f177e33a0b214aa500d47d0de12d9797df341c36c3fce7b76aa51d32ef3342b` (backend/app/api/routes/users.py:146-147), `ev:14ad1064b715192aaadaf0e2e5090492e36791fb99d34b24d43f7f109ded1950` (backend/app/api/routes/users.py:146), `ev:bb492ba0aa90c096d5f9ea494e99ca0e8ea4bfb02cdd977dd5fb9e6788ea6f4f` (backend/app/api/routes/users.py:146), `ev:c6be1e816fd5a07262191c8541d4044190d2b06ba489aefb9ccea15aafddae58` (backend/app/api/routes/users.py:146), `ev:086938ea9f2d704a4db59953d39c945ada0cb93308be4de659468655061b7900` (backend/app/api/routes/users.py:147), `ev:c20bf5e3bae8de49c227cca0b285878c6a453ed835b52565f26288c32b18af7b` (backend/app/api/routes/users.py:147), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | DELETE | /api/v1/users/{user_id} | backend.app.api.routes.users.delete_user | (rỗng) | fact:c646cac58c908030cb28b3a602a92d8e5e47514d7127879d89005bd579018bc6 | 200 | unknown — Có dependency get_current_active_superuser; không kết luận cơ chế xác thực | `fact:ca6a9bfdea5bdbb56bdde5429d116f9a7b451122ce954dd0b2ae270075e67cb8` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d` (backend/app/api/main.py:8), `ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12` (backend/app/api/routes/users.py:29), `ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151` (backend/app/api/routes/users.py:29), `ev:09dfcf92da0a3b726f948b7bdf65d6b839860708c37d77115f206c1fa2049be2` (backend/app/api/routes/users.py:214-215), `ev:acba9d4ac07784cfc3de300d18d7b81b394419a5f1e0fc2b7dd55cf942ed267b` (backend/app/api/routes/users.py:214), `ev:db4dcd2f1d2d935469bb8084dc25dea692673daf30325fd9086b1ac4927c18ac` (backend/app/api/routes/users.py:214), `ev:30145a0a1a0bafbff91471e818cbd7693aa364b6d8b48962828ac45e7e4ba060` (backend/app/api/routes/users.py:216), `ev:687ea86fa7544cf972cb1963c81b0f9d520f1ce486097318153fc7ba69010c41` (backend/app/api/routes/users.py:216), `ev:8a7d7e193d154bf81a1ab316a2676591b5a1f454b2f73da01dc9b1ed7abac106` (backend/app/api/routes/users.py:216), `ev:d759dfc7e1486b155d97806f1dc65d1b66bd3ecdb3d04a2550788265d06d287b` (backend/app/api/routes/users.py:217), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | GET | /api/v1/users/{user_id} | backend.app.api.routes.users.read_user_by_id | (rỗng) | fact:41d16c362ff5c7a6fae94162a3aa52f7a1f37e4a0654d6f1ec2e0a19c72b0f80 | 200 | unknown — Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực | `fact:d46b020437dbfd11d302c75fe18d59a0f37370dac74f3c855f6006d2fd2ce33b` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d` (backend/app/api/main.py:8), `ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12` (backend/app/api/routes/users.py:29), `ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151` (backend/app/api/routes/users.py:29), `ev:10394f0f0eb3b403d488365093c0b855919bcfd05e8dfb1045350801797279b3` (backend/app/api/routes/users.py:162), `ev:4833e02f5b34c57da0a5ffcef9fe6ef2f39d3db0d98a32d1c028e224545b3f22` (backend/app/api/routes/users.py:162-163), `ev:a76b8a413b76118a98452fab7c225cb842eba9c17261f818d55b70d479cfbd0d` (backend/app/api/routes/users.py:162), `ev:cf79514d3ba15a65e214308b23fb4394d84f4d4fc1d88e2fc94b2ebcde9d43aa` (backend/app/api/routes/users.py:162), `ev:061acb935836826f27cf2bd3974b685a8a3ca6383849fdbe6f00c3807aeec6d5` (backend/app/api/routes/users.py:164), `ev:82451a5e2a3b400ef2dba36dcad12b7a625c0c3cbd62d9a71bb85c7e0ffb958b` (backend/app/api/routes/users.py:164), `ev:c685c0097eeecbeb85bb4260104d433b84432be61bc5790ec0a20bac8d42bafd` (backend/app/api/routes/users.py:164), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | PATCH | /api/v1/users/{user_id} | backend.app.api.routes.users.update_user | fact:14393f54fb9441dea44efe8f03cefae5958518f6a4df3aea2369033c36b2fcc1 | fact:41d16c362ff5c7a6fae94162a3aa52f7a1f37e4a0654d6f1ec2e0a19c72b0f80 | 200 | unknown — Có dependency get_current_active_superuser; không kết luận cơ chế xác thực | `fact:288e9e25b4053dc25ae2a792e7f66189d8e6a41899631fd3f679f00f3113682c` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d` (backend/app/api/main.py:8), `ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12` (backend/app/api/routes/users.py:29), `ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151` (backend/app/api/routes/users.py:29), `ev:a4aee09f9c61efc4287f5e8da8c2a50f719b84b7b3e7610e63c3436aaeb04bbb` (backend/app/api/routes/users.py:182-187), `ev:e52cf5c61bc9ce12f3ec41fe092bc8760556cdf253fc7ae7d1ef71d306c622a7` (backend/app/api/routes/users.py:182), `ev:12909f3593f6b745dea31842ff7ccc345382e8f9b52ccee053879df9133edf77` (backend/app/api/routes/users.py:183), `ev:99131f58c71c5ccc641efd29db6c4e3cf1b49013da3914933925a08b11d4c3cf` (backend/app/api/routes/users.py:185), `ev:575298b0812b3e27023343aa3b42f5379ea479a8c99662c113d2431ef670941e` (backend/app/api/routes/users.py:189), `ev:40819ebab623a244f5c563c0bc23aebb4fa714eb57110961cc09aaa7508431ba` (backend/app/api/routes/users.py:190), `ev:5cb50cbbf7d4ddd4311a347e7a22724dd756920039d614d45c35ce957a5edf27` (backend/app/api/routes/users.py:191), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | GET | /api/v1/utils/health-check/ | backend.app.api.routes.utils.health_check | (rỗng) | unknown — Response model không phải Pydantic model trong repo: bool | 200 | unknown — Không thấy dependency; không kết luận route công khai | `fact:6f5671770f3e62d7ae6d4b1fc95c3358065cd7604796317f5baed8fc90cef046` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:6bd5c11846af0d81e69702c1c9b64f109a5eed0d4b00b9481fb7ab3c6043adbe` (backend/app/api/main.py:9), `ev:2e6be342e06a23ff38a0a1748cdd59913a8c4fff6537c718fb71c1cd70905743` (backend/app/api/routes/utils.py:8), `ev:497245bfceea5891ed27c42f5fc187079e2d9077056089fdd5947a2212e2bac9` (backend/app/api/routes/utils.py:8), `ev:07701253e055c5953084e59dc1a76fef0f3f4179318fc4ff0254cbd34a819989` (backend/app/api/routes/utils.py:29-30), `ev:48f1b095a789c8629a3e73328549a1ad3859a0b53eb41258ab6e0d816da2cc40` (backend/app/api/routes/utils.py:29), `ev:ba9eab285e2e2e0c3b77db993ad111852d337d38fbba2188d2724e3e5870630d` (backend/app/api/routes/utils.py:29), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+| app:backend/app/main.py::app | POST | /api/v1/utils/test-email/ | backend.app.api.routes.utils.test_email | (rỗng) | fact:c646cac58c908030cb28b3a602a92d8e5e47514d7127879d89005bd579018bc6 | 201 | unknown — Có dependency get_current_active_superuser; không kết luận cơ chế xác thực | `fact:e02881d4c9d5b6b1deecc103422bb2d89a9596fc87ffea1ce4e52b25daeb7aa3` | `ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9` (backend/app/api/main.py:6), `ev:6bd5c11846af0d81e69702c1c9b64f109a5eed0d4b00b9481fb7ab3c6043adbe` (backend/app/api/main.py:9), `ev:2e6be342e06a23ff38a0a1748cdd59913a8c4fff6537c718fb71c1cd70905743` (backend/app/api/routes/utils.py:8), `ev:497245bfceea5891ed27c42f5fc187079e2d9077056089fdd5947a2212e2bac9` (backend/app/api/routes/utils.py:8), `ev:9a9767c9a5dd87451cc53f252cb9f323ea6d63f4aa2caaf27214c04c195f1856` (backend/app/api/routes/utils.py:11-16), `ev:eb590638b9267a6e493114a10603c3718375e3fd2d3f17222668e555006d2fed` (backend/app/api/routes/utils.py:11), `ev:64845c16edef8810b5857654148ea2889f8abdc1388cec8acf03dc9e51613fe2` (backend/app/api/routes/utils.py:12), `ev:a97970251c9b26781372cefeb180889ebbf6167b2b0909c8ef6e3dac117496af` (backend/app/api/routes/utils.py:14), `ev:473333ea26c9db6fef00fdd1f6fca49d0c735be51ac1b48f6339886bbaa93b72` (backend/app/api/routes/utils.py:16), `ev:f6fd5726e8ac418911dbb5b231680471b3b3368a58717b949aa901052365486b` (backend/app/api/routes/utils.py:16), `ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb` (backend/app/core/config.py:22), `ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41` (backend/app/main.py:21-25), `ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a` (backend/app/main.py:35), `ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc` (backend/app/main.py:35) | inferred | partial |
+
+Khối OpenAPI chỉ chứa operation đủ dữ kiện; phần bị bỏ ở `x-analysis.omitted_operations`.
+
+```json
+{
+  "components": {
+    "schemas": {
+      "ItemCreate_28d81f27": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:28d81f271f657ed7c38f9220b8cd6e027ee0a30284cc3e1c577c71342df95848"
+          ]
+        }
+      },
+      "ItemPublic_2bec3494": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "owner_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "owner_id",
+          "title"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:2bec34943c8f33d43d77b8cd1b30b251c1fac4e641f8e9f7e849980def08ab97"
+          ]
+        }
+      },
+      "ItemUpdate_aa5a5219": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:aa5a5219a48578ad17bac894a8a2ceadeb6c97a8660bb5cc47bc61e606392abf"
+          ]
+        }
+      },
+      "ItemsPublic_d259edfb": {
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ItemPublic_2bec3494"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "count",
+          "data"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:d259edfb2c49254463ea2df8e748ad11f02a66a0ec73cea7ffee49eabd7725a2"
+          ]
+        }
+      },
+      "Message_c646cac5": {
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:c646cac58c908030cb28b3a602a92d8e5e47514d7127879d89005bd579018bc6"
+          ]
+        }
+      },
+      "NewPassword_8873184d": {
+        "properties": {
+          "new_password": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "new_password",
+          "token"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:8873184daa174c4b62e81033f31a9c75fd0acba685234efbf6d586424b532b80"
+          ]
+        }
+      },
+      "PrivateUserCreate_287b2be7": {
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "full_name": {
+            "type": "string"
+          },
+          "is_verified": {
+            "type": "boolean"
+          },
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "full_name",
+          "password"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:287b2be7301ab7d459d1c48ef014ff83a543deab18e7830a68b42d4cef72b075"
+          ]
+        }
+      },
+      "Token_66ba868e": {
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "token_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:66ba868ec97b647df5f72db1ca0befabe3ca0ae01a6838146c3a0b71148021f0"
+          ]
+        }
+      },
+      "UpdatePassword_65772047": {
+        "properties": {
+          "current_password": {
+            "type": "string"
+          },
+          "new_password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:65772047e0ee84590936908a83ad78d623afb8467d406e3b6cfe5d7c59e9617b"
+          ]
+        }
+      },
+      "UserCreate_abf5bad8": {
+        "properties": {
+          "email": {
+            "x-analysis": {
+              "unknown": "Kiểu EmailStr chưa được biểu diễn"
+            }
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "is_superuser": {
+            "type": "boolean"
+          },
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:abf5bad87fe09a46b95bda97c52b3dce2a9f40d20a83a1e40cec073c185a61c9"
+          ]
+        }
+      },
+      "UserPublic_41d16c36": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "email": {
+            "x-analysis": {
+              "unknown": "Kiểu EmailStr chưa được biểu diễn"
+            }
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "is_superuser": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "email",
+          "id"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:41d16c362ff5c7a6fae94162a3aa52f7a1f37e4a0654d6f1ec2e0a19c72b0f80"
+          ]
+        }
+      },
+      "UserRegister_3dbd53d3": {
+        "properties": {
+          "email": {
+            "x-analysis": {
+              "unknown": "Kiểu EmailStr chưa được biểu diễn"
+            }
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:3dbd53d3841d0d6cc21fc3091eda7289393181cb730b66bd76dd7046fa1e2361"
+          ]
+        }
+      },
+      "UserUpdateMe_d4cea860": {
+        "properties": {
+          "email": {
+            "x-analysis": {
+              "unknown": "Kiểu EmailStr chưa được biểu diễn"
+            }
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:d4cea86023d67014ead8eabe7ab869e73abd9ab10b2bfb4547a16c8b0a0e103c"
+          ]
+        }
+      },
+      "UserUpdate_14393f54": {
+        "properties": {
+          "email": {
+            "x-analysis": {
+              "unknown": "Kiểu EmailStr chưa được biểu diễn"
+            }
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "is_superuser": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:14393f54fb9441dea44efe8f03cefae5958518f6a4df3aea2369033c36b2fcc1"
+          ]
+        }
+      },
+      "UsersPublic_3779fe94": {
+        "properties": {
+          "count": {
+            "type": "integer"
+          },
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/UserPublic_41d16c36"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "count",
+          "data"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:3779fe943f1e3b19dd47500e14c829c43afc2a943135801f2a324e4405835654"
+          ]
+        }
+      }
+    }
+  },
+  "info": {
+    "title": "Router API",
+    "version": "generated-v1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/items/": {
+      "get": {
+        "operationId": "op_87dc6c3972b24033",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "skip",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemsPublic_d259edfb"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:39da1dbf68e119740af7e1967ff83f0779d3cf7d87191ad9deee5e6d451e25e1",
+            "ev:4943c48f1bc11f661d8bf77547abd1dfdab37e78116b816b6ba7a380a92eb7fc",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:6e08158d398bcc01813060a2eb15f53f8d3fed7ebce0686c4ce34179fe5d8fc6",
+            "ev:80cdf242814f7b2e97de8dbc1f9f54223562ca928397c77dc234dec1add22fc9",
+            "ev:84530ca4c62b49d6f10f2427343dc09198eb503335ad2c558dbffb505bb00d7c",
+            "ev:86142d07f584e4c7181eea233fc7816e3b3b5741ef26d89d5c74f2e7b9004647",
+            "ev:86bc3ccc89d26fade5733a26ac3a24f86b5baefbb28adf31ad4e44c7488299f2",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:b40942f99d9fb8a2c8228ac275ab7ccba7fe5a1f6d74f00ce8bc77ea161f2931",
+            "ev:bc5a3307c26fe10489a924edb71ddeea35b034ae5ed84c16d52415a27d18f4f9",
+            "ev:cf34ac2dfad030ac32305475aadc0b2b463312f81e8a8caa0270afaf498be767",
+            "ev:d904f98e42b3fdd0b0bcda4d8d65549fe0977b1397f519f7a169742b1559e826"
+          ],
+          "fact_ids": [
+            "fact:87dc6c3972b2403331fa2746eeec21dbf3ccbc8e963b9540780dabcc7794ba84"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            },
+            {
+              "name": "current_user",
+              "reason": "Kiểu CurrentUser khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      },
+      "post": {
+        "operationId": "op_483698421bf2f7da",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemCreate_28d81f27"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemPublic_2bec3494"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:03689a25a0785930c6ff520867a6dd81ed6269238f23293e9111edb4c3a20134",
+            "ev:06ecfb9e92b86bee22650fb1978d475d04f1d5a5d9de6152080e088e3e4baaa4",
+            "ev:39da1dbf68e119740af7e1967ff83f0779d3cf7d87191ad9deee5e6d451e25e1",
+            "ev:42c6b24cb756d8aee073df162325845ea61b0bc68da28b98a987cc05149a7dc3",
+            "ev:4943c48f1bc11f661d8bf77547abd1dfdab37e78116b816b6ba7a380a92eb7fc",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:6e08158d398bcc01813060a2eb15f53f8d3fed7ebce0686c4ce34179fe5d8fc6",
+            "ev:7355a068aaf3aae597541cde0eae8dde999297a4b3ed6d9b2d310fc569759b50",
+            "ev:76722a66c7a93ed57480911bf018d78fa0870e61a4067b5bd1806cd098424047",
+            "ev:89d198cc19718827004c75d0d7e8d23cd2dbe66bb0f50d6acfcb23df47b7b1a5",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:e3c069047f5eb7f87c687a0ad44f4e34dce61a395532933aa26cbcdff5c20ee8"
+          ],
+          "fact_ids": [
+            "fact:483698421bf2f7dadcfd0db55584b3b3533a6ffdc2fab22bc167482f32cfe708"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            },
+            {
+              "name": "current_user",
+              "reason": "Kiểu CurrentUser khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/items/{id}": {
+      "delete": {
+        "operationId": "op_34e7d7bc2be8d6e3",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message_c646cac5"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:1633468066036df0f07c05d3d76e02b08dd422e7ea1fa7f43289aa5982b40073",
+            "ev:36b2cdbae985586f5373f9b766d34234741cbc0569589aa6088c61fa032f720f",
+            "ev:3747b7e0d6a5257e5357ede08838b73ffb21db35724b18eac77bdd86e737b241",
+            "ev:39da1dbf68e119740af7e1967ff83f0779d3cf7d87191ad9deee5e6d451e25e1",
+            "ev:4943c48f1bc11f661d8bf77547abd1dfdab37e78116b816b6ba7a380a92eb7fc",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:6e08158d398bcc01813060a2eb15f53f8d3fed7ebce0686c4ce34179fe5d8fc6",
+            "ev:908cb54f4b66ac804a7a3e1ecab7284a6c84ac69ea1a15bdd0dae7d2de502fee",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:bc473d552a3ff0c8537b0819beeaab4a08be3616a6865274768eeb607517db15",
+            "ev:c6d4f53085b3cc24b8114e353c27b03d25d0151daf487428ed3b36c26cab05d2",
+            "ev:f912b34ded5232697da2c125b63610e647ce9ee1aa5519167f4706591d6e7fec"
+          ],
+          "fact_ids": [
+            "fact:34e7d7bc2be8d6e3b893b4e871cb5717d7e0d1720cba6a5692691fa03104e9fd"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            },
+            {
+              "name": "current_user",
+              "reason": "Kiểu CurrentUser khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      },
+      "get": {
+        "operationId": "op_0565c24d1a663897",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemPublic_2bec3494"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:31bdc1d9ede544199e064e14553eb815a796d3b3e815e3272211eb96ac786257",
+            "ev:39da1dbf68e119740af7e1967ff83f0779d3cf7d87191ad9deee5e6d451e25e1",
+            "ev:3e22ce404b10149732002f4b68b1b7ebe4c734907a3bf40e09261fb4e14000da",
+            "ev:4943c48f1bc11f661d8bf77547abd1dfdab37e78116b816b6ba7a380a92eb7fc",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:5107ca8fe94c6e5af1f6db5d6aa784c5df37d53f645073ed754532990995e69e",
+            "ev:6e08158d398bcc01813060a2eb15f53f8d3fed7ebce0686c4ce34179fe5d8fc6",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:af93aba4878324c2f311079e650dae16e9ae08b8282e5576f247881c0e4e6f35",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:b9ffa7bb52e5a066e4585b8d00246fadb3b5d1ca4ceeae2b2ebf79fdf5e1ddba",
+            "ev:d2a3badc50ba0be109ab30c3b0b4d2fbda74808e7f531e7ca366cf82d687583f",
+            "ev:d931df3ca143a2ec5ffaf18d280ccba4d31c90a4b6a842ea5c8c6e130eacf2df"
+          ],
+          "fact_ids": [
+            "fact:0565c24d1a663897d7a52da6d2ee6bae26ffca22a5418e718f96b5935a365a03"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            },
+            {
+              "name": "current_user",
+              "reason": "Kiểu CurrentUser khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      },
+      "put": {
+        "operationId": "op_c0cc5671b145a65b",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemUpdate_aa5a5219"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemPublic_2bec3494"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:1def7a9ff8e2d8da631fa8db113b5ea837445f03807115707392bec8d7db5d30",
+            "ev:2d5a4c662522e181d683c13ec456946d4323bfd2dc6e4d4298ad5a53ef3d42fa",
+            "ev:39da1dbf68e119740af7e1967ff83f0779d3cf7d87191ad9deee5e6d451e25e1",
+            "ev:4943c48f1bc11f661d8bf77547abd1dfdab37e78116b816b6ba7a380a92eb7fc",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:5ba04bcfd942083412a8a1ecc92237da891ea1040db1f15a7c1c11a909d815a9",
+            "ev:6e08158d398bcc01813060a2eb15f53f8d3fed7ebce0686c4ce34179fe5d8fc6",
+            "ev:7bf00fc58303e8150d73e07636b80768e454c163ab03059edc2eef1e1beba24a",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:a7892687748e6d3d952782779c173cab12eaf7953b2fa7c24e4b38c5297e7848",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:c3540a589eae0c58357478d972c7bf4b19d28ff41f0c395e90637ad2a42ab6ff",
+            "ev:f82088ec4aee84adaa5f4b3b0555d05161d341eb5a7c7bf3b9b32c3e2b3d3271",
+            "ev:f8d87d5fa0ae77b35f0186f3bc9e71ebec4d9fc16c9bbc727fe20102a716b3d7"
+          ],
+          "fact_ids": [
+            "fact:c0cc5671b145a65bceb084fe6fee6bdf45c2fd74c206aaf6d17465c837c260d4"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            },
+            {
+              "name": "current_user",
+              "reason": "Kiểu CurrentUser khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/login/access-token": {
+      "post": {
+        "operationId": "op_3fdba003fe284427",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token_66ba868e"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:192d0fb96d3e3e197530c9e263bb792f64fe9c72bfc153d1d748178d848b73e8",
+            "ev:3c1ca5cc3d63ce7f7fd9e0f17d57d7f48e924d6546fa25a3a8a0b0ec8475c43d",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:790c165accd4b88f80710818f5bf79e22122d72e2ca701f2c7103b78e21b17ab",
+            "ev:86f845e94347907b3f260614029e3788f884e0dfd684d7a3c59a8a44c443193b",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:ade4ce424ae9044dd8c39ed51b47a2954a23c895c8f92ac3f757977f7bacf1a6",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:b91e25abd601265bf88491c26e1a0ce49c8c083fc0e77a8365693c885aaa8de3",
+            "ev:d3ad8c0b505730184e1a1894c51d2ca3b1d8cc40723ca13a6f93cccbb910b462"
+          ],
+          "fact_ids": [
+            "fact:3fdba003fe284427eeb5d1c49f07f4e96dbfbbc1c609bf53636050e5d3707655"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Có dependency OAuth2PasswordRequestForm; không kết luận cơ chế xác thực"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/login/test-token": {
+      "post": {
+        "operationId": "op_b35c7f7066bfc703",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic_41d16c36"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:1c52887182fbfe85640c8b73f6b7693e6f15fe6ffeb20d5433ee3bd02e1a0cb1",
+            "ev:32fd110e3d44373f93affe804a0ebbf49c6400f390dff5d7f752a152b07a27f9",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:561895c8675089eebaae3509e98a37618d499c05d7820bb06747c327635cf4c2",
+            "ev:6f8c285e902404e52ca7932f7ee82dc4fb4c0d63774afdd04cfdc2852e7f8cd2",
+            "ev:790c165accd4b88f80710818f5bf79e22122d72e2ca701f2c7103b78e21b17ab",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:b91e25abd601265bf88491c26e1a0ce49c8c083fc0e77a8365693c885aaa8de3",
+            "ev:cd6a7329312573ee7edfceb6d25cd98b2038ae10ef9ab1488c55cbfeb7af28fe"
+          ],
+          "fact_ids": [
+            "fact:b35c7f7066bfc703d9b8fde8d0a2bb9c6207fc70ab5b8809e87a908ffdad0115"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "current_user",
+              "reason": "Kiểu CurrentUser khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số current_user có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/password-recovery-html-content/{email}": {
+      "post": {
+        "operationId": "op_592222f931214381",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "email",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status code suy theo fastapi-status-default-v1; nội dung response chưa xác định"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:55c80990f3861861bb5c6b382d70a8125b2fd93b9e9b7881a3f9e0abf6b68001",
+            "ev:6d7f4a15c36b6f5fa07608c6f116a7e69945eb1b7ba44d6655aac0b40487551a",
+            "ev:790c165accd4b88f80710818f5bf79e22122d72e2ca701f2c7103b78e21b17ab",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b13a6058611b0d76747dc07720b4f0e37e734d76cb8de376b52aaa6543ee92d8",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:b4d575b8b898c0dfb8dd947fd750cfd7aae4ea65eb22a6388f5f0da1e61f235a",
+            "ev:b91e25abd601265bf88491c26e1a0ce49c8c083fc0e77a8365693c885aaa8de3",
+            "ev:e8839a71148fbeb3ff4634531441d8bf9c9b2cc3cabf1da2b243525711fdf89b"
+          ],
+          "fact_ids": [
+            "fact:592222f93121438176f8be03ee2b355be360cc0888cd739064446d7747659852"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Có dependency get_current_active_superuser; không kết luận cơ chế xác thực"
+            },
+            {
+              "field": "response_model_ids",
+              "reason": "Response model không phải Pydantic model trong repo: Any"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/password-recovery/{email}": {
+      "post": {
+        "operationId": "op_cb4f98fea70376f3",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "email",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message_c646cac5"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:0a71dd3b60d4ea5b01c4b609563865a799cc89ee810204dea3f92a735e9e24ee",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:6454247d89ec2fb010501d0987ae4e6fb5621dd34c42b422918b3be704433b65",
+            "ev:790c165accd4b88f80710818f5bf79e22122d72e2ca701f2c7103b78e21b17ab",
+            "ev:81b813eb787d49f66c6b57c3dbc26d23517b0847cfe17ddae9d7c7147c224872",
+            "ev:873b300d8fda84cbbc1af68b9e332eb64d1082de21cd3264d06c40d05fbdcb34",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:934dd97840d7de14ec828d0cfa5b02de8aff63d73fc484828691d378b044edad",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:b91e25abd601265bf88491c26e1a0ce49c8c083fc0e77a8365693c885aaa8de3",
+            "ev:f2fdedad963809250c00b03dfefba7b446090012510de1703b46712a14cd6f53"
+          ],
+          "fact_ids": [
+            "fact:cb4f98fea70376f31f6a1f8d3e816547aa26bea10d0d35227af9b44ec8d49c19"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số session có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/private/users/": {
+      "post": {
+        "operationId": "op_211944e8539a2b8a",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivateUserCreate_287b2be7"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic_41d16c36"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:0a1f9a96caba4e0374a3cc993155b1adbe13ddd15d5d2d4ff333401bdb84de44",
+            "ev:0b2e00f9a00ba0a89bc31c0fae5e5c653e7d6965d606bc5e7a9ec1d0cacbe1ba",
+            "ev:1dd48b964bb1cbf95dce879551ed9a184d00ddafd4188b0e2a1b8a182d4eb12f",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:572ecaa84b6ad86f45a18a03eb7dfab774d53227468a1eef03e4c63d08c13b7a",
+            "ev:914ecb48ce073dba2e18c4dfe71d780067f54113d2190cb2d8e5209ac8472d48",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:939d2996b8b11791f4cb85a7357c77713b1f7103401a468d66f4a89d1dba81cf",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:c0e02c0d180d327019aaac513acdde3a63514e2e242043a09e916d7d2512b55d",
+            "ev:cf4dd1b4ac6180fcbdedd266a4b1a29d044c72d38920f676f37c96cda7613cad",
+            "ev:deec037d7cf2eb8fdb806a8f6a1e0cd9b2f1a6069788c466bd4e478d7783ab49"
+          ],
+          "fact_ids": [
+            "fact:211944e8539a2b8aa1b5aa80cac995d3b9c3b734e0667b9c69f28447f9469467"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số session có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/reset-password/": {
+      "post": {
+        "operationId": "op_5f940df287556438",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewPassword_8873184d"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message_c646cac5"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:06739f069a2ad15cf286bbf376a9ff3bc59f89fe069a7be450ada1aa952f33cf",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:50d196fde5cfdc96c5a9909b7920c63bee57e421cf0aed0b1517e06c665a08f7",
+            "ev:790c165accd4b88f80710818f5bf79e22122d72e2ca701f2c7103b78e21b17ab",
+            "ev:88f4438280f17049ad9a0f08d7de4a36b171f26a016e71b4967c833a15e371f1",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9be0bc26375e8976cc28e87127a37b47555ed0e17e2579b5a8a4ca83e03e71f4",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:b91e25abd601265bf88491c26e1a0ce49c8c083fc0e77a8365693c885aaa8de3",
+            "ev:ef2f0c3e56cc6518e2a9560aa2369dc52743e6fffaccc128f58f0ace2fc13efc",
+            "ev:f9bef27de9c68f11e34ec5e51689766818f4734b2c5fa52337a58efb61ed39a0"
+          ],
+          "fact_ids": [
+            "fact:5f940df2875564384cc481fcff53305451d7fc85b615eb71624f8f766ffc8455"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số session có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/users/": {
+      "get": {
+        "operationId": "op_fb2e216fec9e1226",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "skip",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsersPublic_3779fe94"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:6421203ca32b7fda95c35a3dbd124872be917939f8f8be7a866e9c9b171cb5fa",
+            "ev:8ee90e5e5fba2cd7bb424d072d41d528b3c0936ec36099c91a3fb33d5f5f2a84",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:b3b9e8177b5679616f2430c3fde09f70d7249aa1330137a1f646c83208b547e0",
+            "ev:b99e065736606973fb9d36b6bcf6c8c0ab44729be963ed3027214236099fadfa",
+            "ev:bd8d1a287148f19aca1ce7fc786a3578149e59ab4ab237172aefa81924339bee",
+            "ev:cb930d4622831d51cddddc00204451fc259ff64d9e520f2d0d47a6570002a85e",
+            "ev:d084076ca32df7af701ba20982b30564b78c6c00e1a10b157b6bb7bb4bd8904e",
+            "ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12",
+            "ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151"
+          ],
+          "fact_ids": [
+            "fact:fb2e216fec9e12260f410da5cce0925353b4a718516732ff2582489b4fb68a03"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Có dependency get_current_active_superuser; không kết luận cơ chế xác thực"
+            }
+          ]
+        }
+      },
+      "post": {
+        "operationId": "op_8dfd6cdd3263e144",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate_abf5bad8"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic_41d16c36"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:1a17069f27ca8784429bce19ee6c1e8895c3b0c6f93e862cb0cb8cbee3181c88",
+            "ev:44650aaf95211c536259fbae87eb70565a2cf6cfb3f4f0dd4d612fc4a729a3d8",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:77aab25c9c56df26c8fc4eff5904dcebc72398eb2a57a54c986168206d54918a",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:97c08a769dd7219db77de7602e65921cd82d02d6ff487dc7b6195289336e8bbd",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:f2f38e71f295b41373c4a6709ce7b6ad10be5513a1916c4593f5ad5b24e6b843",
+            "ev:f3736b15704222344747a060c7f0eb79c58d11fe55162d9b5c29b0aa057b5a8d",
+            "ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12",
+            "ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151"
+          ],
+          "fact_ids": [
+            "fact:8dfd6cdd3263e14449269b5079042316df964571caa33c9e9b03c0233a5599a2"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Có dependency get_current_active_superuser; không kết luận cơ chế xác thực"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/users/me": {
+      "delete": {
+        "operationId": "op_3e201257ba6dca29",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message_c646cac5"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:0e73af1d11111c0706d47c17c235b4299f5b9932de6e471ee694fd29de3a1e1a",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:5375c28363324af6442c268028517108b4887b31e6b4008968d146aa9bae732b",
+            "ev:5e704c97d2f9bb77222001f73270f1de4df012ecd8327b2a50dda453694f6f5a",
+            "ev:8bc819952b91841bbaba79d0b88a118348038ebfa1eba387651c70a6a52b4bc2",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9a73a11e93996b74ab785c8a60408d7163b84d587096265d4707a2b247c8b1fb",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:f4feeae4d4a52d9ebb120c8bd90e47c2d6029d4751b5e68ad787e9cdaa0d6b2c",
+            "ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12",
+            "ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151"
+          ],
+          "fact_ids": [
+            "fact:3e201257ba6dca2980276dafe5cf31e24b69ebee769421788ad2c32781d3e117"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            },
+            {
+              "name": "current_user",
+              "reason": "Kiểu CurrentUser khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      },
+      "get": {
+        "operationId": "op_69a36c722f6777d9",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic_41d16c36"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:079d5f2d3e80990d055e575d29e218a5202c72dd3aa93d846797a94469a27957",
+            "ev:4b2aee7b0f69380437d770cac1f9d16eb4376c986659652222989f2b0c1791ca",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:8dfc2c23b97e4522add055d210bd9b888bc1bc83f4e168ae808660ae30de7693",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:ee0a5bf793b7129ef27db9b229ea5fc558d13cd98e722e66cf2be340dc058118",
+            "ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12",
+            "ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151",
+            "ev:ffdf4c01c830686009bbcbca3182df07a261a19608be9ce702846a4a157202f6"
+          ],
+          "fact_ids": [
+            "fact:69a36c722f6777d962ab7baffe6b92d7e576191601854885b656c775fb0db87d"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "current_user",
+              "reason": "Kiểu CurrentUser khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số current_user có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      },
+      "patch": {
+        "operationId": "op_c408685844538d3d",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdateMe_d4cea860"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic_41d16c36"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:03c8e6da203b4783c797dd0c690937ae942d19f5f0802c34c821edd1d0ff371f",
+            "ev:2fdc1ca49be44f194df2c3e6ff53ca38847dd7057c24d1e23fe6c59fc9200620",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:63bc89f5ef4e588c35216b52149c486c342456c4e236b5129c552f714ba75e7b",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:abff758ae11a0dc145b29ab64a5f6e293356c5d7a2a38408e81175eeec9d78a6",
+            "ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:c23a2341a9153f93e941082a4ab0a94092f6996875a6ca2c62baed7b79c048bd",
+            "ev:cf62edcd586c14a9add7a5ab8ff96ff1bf595530699d6264e80665169a3daca5",
+            "ev:e80ec64ce1ef729172e153f1d808d2f902774662b796498fd3837eed00669e11",
+            "ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12",
+            "ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151"
+          ],
+          "fact_ids": [
+            "fact:c408685844538d3d68492b8da4a7322c73f545ce5ec702f4c346e952b6447036"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            },
+            {
+              "name": "current_user",
+              "reason": "Kiểu CurrentUser khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/users/me/password": {
+      "patch": {
+        "operationId": "op_7008485e465b6acb",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePassword_65772047"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message_c646cac5"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:068ab61c5d677f80b3a2fc8838daf71932fa165c1edb541ba833ab2152fdae79",
+            "ev:31c4604b80c7a0cae4e20cdfcbe5446e5a927c98138bdf6c5d54641c2c259654",
+            "ev:3fc30bce8b2cdb8a1247b392c64a7e190d9167e11fc6d1fc3cf0dc7d36a866ae",
+            "ev:41f077c47aab9ac3b3e50d9fadfc2740d31f8fc0c398c61ff90badcca4597b31",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:68f4e6a9fc9d235e31d0030f41c122a73a37236afa9e56253fac765c60b4286f",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:eac561a8b57377e9d80ce039a7bf38ba361e0cf3c8af7e322cd3cef240fa7935",
+            "ev:eb257976e134bf1ad6bb86726af2a0af610f1ba4bcb57536423ac4be933cfb0a",
+            "ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12",
+            "ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151"
+          ],
+          "fact_ids": [
+            "fact:7008485e465b6acb894957f88465f21cf0c0672219948f2ec69f814df21de25b"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            },
+            {
+              "name": "current_user",
+              "reason": "Kiểu CurrentUser khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/users/signup": {
+      "post": {
+        "operationId": "op_6f0731c8b2622351",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRegister_3dbd53d3"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic_41d16c36"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:086938ea9f2d704a4db59953d39c945ada0cb93308be4de659468655061b7900",
+            "ev:0f177e33a0b214aa500d47d0de12d9797df341c36c3fce7b76aa51d32ef3342b",
+            "ev:14ad1064b715192aaadaf0e2e5090492e36791fb99d34b24d43f7f109ded1950",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:bb492ba0aa90c096d5f9ea494e99ca0e8ea4bfb02cdd977dd5fb9e6788ea6f4f",
+            "ev:c20bf5e3bae8de49c227cca0b285878c6a453ed835b52565f26288c32b18af7b",
+            "ev:c6be1e816fd5a07262191c8541d4044190d2b06ba489aefb9ccea15aafddae58",
+            "ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12",
+            "ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151"
+          ],
+          "fact_ids": [
+            "fact:6f0731c8b2622351fb6492e6cc0c20d12b7a459059196282876d47edd6efc7e9"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số session có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/users/{user_id}": {
+      "delete": {
+        "operationId": "op_ca6a9bfdea5bdbb5",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message_c646cac5"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:09dfcf92da0a3b726f948b7bdf65d6b839860708c37d77115f206c1fa2049be2",
+            "ev:30145a0a1a0bafbff91471e818cbd7693aa364b6d8b48962828ac45e7e4ba060",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:687ea86fa7544cf972cb1963c81b0f9d520f1ce486097318153fc7ba69010c41",
+            "ev:8a7d7e193d154bf81a1ab316a2676591b5a1f454b2f73da01dc9b1ed7abac106",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:acba9d4ac07784cfc3de300d18d7b81b394419a5f1e0fc2b7dd55cf942ed267b",
+            "ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:d759dfc7e1486b155d97806f1dc65d1b66bd3ecdb3d04a2550788265d06d287b",
+            "ev:db4dcd2f1d2d935469bb8084dc25dea692673daf30325fd9086b1ac4927c18ac",
+            "ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12",
+            "ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151"
+          ],
+          "fact_ids": [
+            "fact:ca6a9bfdea5bdbb56bdde5429d116f9a7b451122ce954dd0b2ae270075e67cb8"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            },
+            {
+              "name": "current_user",
+              "reason": "Kiểu CurrentUser khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Có dependency get_current_active_superuser; không kết luận cơ chế xác thực"
+            }
+          ]
+        }
+      },
+      "get": {
+        "operationId": "op_d46b020437dbfd11",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic_41d16c36"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:061acb935836826f27cf2bd3974b685a8a3ca6383849fdbe6f00c3807aeec6d5",
+            "ev:10394f0f0eb3b403d488365093c0b855919bcfd05e8dfb1045350801797279b3",
+            "ev:4833e02f5b34c57da0a5ffcef9fe6ef2f39d3db0d98a32d1c028e224545b3f22",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:82451a5e2a3b400ef2dba36dcad12b7a625c0c3cbd62d9a71bb85c7e0ffb958b",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:a76b8a413b76118a98452fab7c225cb842eba9c17261f818d55b70d479cfbd0d",
+            "ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:c685c0097eeecbeb85bb4260104d433b84432be61bc5790ec0a20bac8d42bafd",
+            "ev:cf79514d3ba15a65e214308b23fb4394d84f4d4fc1d88e2fc94b2ebcde9d43aa",
+            "ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12",
+            "ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151"
+          ],
+          "fact_ids": [
+            "fact:d46b020437dbfd11d302c75fe18d59a0f37370dac74f3c855f6006d2fd2ce33b"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            },
+            {
+              "name": "current_user",
+              "reason": "Kiểu CurrentUser khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Tham số session, current_user có kiểu từ file không đọc được; không kết luận xác thực"
+            }
+          ]
+        }
+      },
+      "patch": {
+        "operationId": "op_288e9e25b4053dc2",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdate_14393f54"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic_41d16c36"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi-status-default-v1"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:12909f3593f6b745dea31842ff7ccc345382e8f9b52ccee053879df9133edf77",
+            "ev:40819ebab623a244f5c563c0bc23aebb4fa714eb57110961cc09aaa7508431ba",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:575298b0812b3e27023343aa3b42f5379ea479a8c99662c113d2431ef670941e",
+            "ev:5cb50cbbf7d4ddd4311a347e7a22724dd756920039d614d45c35ce957a5edf27",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:99131f58c71c5ccc641efd29db6c4e3cf1b49013da3914933925a08b11d4c3cf",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:a4aee09f9c61efc4287f5e8da8c2a50f719b84b7b3e7610e63c3436aaeb04bbb",
+            "ev:b01949e6d05c7581361871fe8823759e4fbd52535069e973c22f6ee64eec2a5d",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:e52cf5c61bc9ce12f3ec41fe092bc8760556cdf253fc7ae7d1ef71d306c622a7",
+            "ev:f62876ae7d1cb008cc8cb6a7f21642c017e463860bf7e438c0b91753b3a46a12",
+            "ev:fc55e5caa9229268a45c6710b6dca88d97e91d8c8682e2e77376a5d5e09a1151"
+          ],
+          "fact_ids": [
+            "fact:288e9e25b4053dc25ae2a792e7f66189d8e6a41899631fd3f679f00f3113682c"
+          ],
+          "parameters_unknown": [
+            {
+              "name": "session",
+              "reason": "Kiểu SessionDep khai ở file không đọc được (backend.app.api.deps); chưa biết là tham số hay dependency"
+            }
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Có dependency get_current_active_superuser; không kết luận cơ chế xác thực"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/utils/health-check/": {
+      "get": {
+        "operationId": "op_6f5671770f3e62d7",
+        "responses": {
+          "200": {
+            "description": "Status code suy theo fastapi-status-default-v1; nội dung response chưa xác định"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:07701253e055c5953084e59dc1a76fef0f3f4179318fc4ff0254cbd34a819989",
+            "ev:2e6be342e06a23ff38a0a1748cdd59913a8c4fff6537c718fb71c1cd70905743",
+            "ev:48f1b095a789c8629a3e73328549a1ad3859a0b53eb41258ab6e0d816da2cc40",
+            "ev:497245bfceea5891ed27c42f5fc187079e2d9077056089fdd5947a2212e2bac9",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:6bd5c11846af0d81e69702c1c9b64f109a5eed0d4b00b9481fb7ab3c6043adbe",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:ba9eab285e2e2e0c3b77db993ad111852d337d38fbba2188d2724e3e5870630d"
+          ],
+          "fact_ids": [
+            "fact:6f5671770f3e62d7ae6d4b1fc95c3358065cd7604796317f5baed8fc90cef046"
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Không thấy dependency; không kết luận route công khai"
+            },
+            {
+              "field": "response_model_ids",
+              "reason": "Response model không phải Pydantic model trong repo: bool"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/utils/test-email/": {
+      "post": {
+        "operationId": "op_e02881d4c9d5b6b1",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "email_to",
+            "required": true,
+            "schema": {},
+            "x-analysis": {
+              "unknown": "Kiểu EmailStr chưa được biểu diễn"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message_c646cac5"
+                }
+              }
+            },
+            "description": "Status code lấy từ source"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:backend/app/main.py::app",
+          "evidence_ids": [
+            "ev:2e6be342e06a23ff38a0a1748cdd59913a8c4fff6537c718fb71c1cd70905743",
+            "ev:473333ea26c9db6fef00fdd1f6fca49d0c735be51ac1b48f6339886bbaa93b72",
+            "ev:497245bfceea5891ed27c42f5fc187079e2d9077056089fdd5947a2212e2bac9",
+            "ev:503cea1056b653440bae444ec5cb7392af6d907e08d5abf502e45c8961018afb",
+            "ev:504346df14bc4202e61b58da4066b035560de25b41d2c72319ea770cf97da9a9",
+            "ev:64845c16edef8810b5857654148ea2889f8abdc1388cec8acf03dc9e51613fe2",
+            "ev:6bd5c11846af0d81e69702c1c9b64f109a5eed0d4b00b9481fb7ab3c6043adbe",
+            "ev:9165864e9ace51a13cb5af5144ffbaa3650c1a0b471e3b7991e4ebbae6e0969a",
+            "ev:9a9767c9a5dd87451cc53f252cb9f323ea6d63f4aa2caaf27214c04c195f1856",
+            "ev:9f737b6fad62152a431fe91eb53ac6d69a1a2bc64e4049b3a64d4d62d2c88f41",
+            "ev:a97970251c9b26781372cefeb180889ebbf6167b2b0909c8ef6e3dac117496af",
+            "ev:b3b537d9df595182394ee92be32dbd0003cbcecd12ee35db2691d2980bf7debc",
+            "ev:eb590638b9267a6e493114a10603c3718375e3fd2d3f17222668e555006d2fed",
+            "ev:f6fd5726e8ac418911dbb5b231680471b3b3368a58717b949aa901052365486b"
+          ],
+          "fact_ids": [
+            "fact:e02881d4c9d5b6b1deecc103422bb2d89a9596fc87ffea1ce4e52b25daeb7aa3"
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Có dependency get_current_active_superuser; không kết luận cơ chế xác thực"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "x-analysis": {
+    "omitted_operations": []
+  }
+}
+```

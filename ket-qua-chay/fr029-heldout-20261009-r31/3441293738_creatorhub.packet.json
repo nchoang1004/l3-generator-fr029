@@ -1,0 +1,260 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos4\\3441293738_creatorhub",
+  "files": 109,
+  "route_decorators": 184,
+  "decorators_refused": [],
+  "dependencies": [],
+  "suspects": [
+    {
+      "at": "app/engine/compose.py:112",
+      "looks_like": "http",
+      "text": "r = await cli.post(base + \"/chat/completions\", json=body,"
+    },
+    {
+      "at": "app/engine/downloader.py:88",
+      "looks_like": "http",
+      "text": "async with cli.stream(\"GET\", url, headers=headers) as r:"
+    },
+    {
+      "at": "app/main.py:285",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, account_id)"
+    },
+    {
+      "at": "app/main.py:1949",
+      "looks_like": "http",
+      "text": "row = session.get(model, task_id)"
+    },
+    {
+      "at": "app/main.py:2267",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, account_id)"
+    },
+    {
+      "at": "app/main.py:2296",
+      "looks_like": "http",
+      "text": "state = session.get(AccountRiskState, account_id)"
+    },
+    {
+      "at": "app/main.py:2297",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, account_id)"
+    },
+    {
+      "at": "app/main.py:2324",
+      "looks_like": "http",
+      "text": "if not session.get(DouyinAccount, account_id):"
+    },
+    {
+      "at": "app/main.py:2326",
+      "looks_like": "http",
+      "text": "state = session.get(AccountRiskState, account_id)"
+    },
+    {
+      "at": "app/main.py:2362",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, account_id)"
+    },
+    {
+      "at": "app/main.py:2674",
+      "looks_like": "http",
+      "text": "session.delete(row)"
+    },
+    {
+      "at": "app/main.py:2746",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, account_id)"
+    },
+    {
+      "at": "app/main.py:2893",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, account_id)"
+    },
+    {
+      "at": "app/main.py:2918",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, account_id)"
+    },
+    {
+      "at": "app/main.py:2954",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, account_id)"
+    },
+    {
+      "at": "app/main.py:3025",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, account_id)"
+    },
+    {
+      "at": "app/main.py:3044",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, account_id)"
+    },
+    {
+      "at": "app/main.py:4246",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, body.account_id)"
+    },
+    {
+      "at": "app/main.py:4260",
+      "looks_like": "http",
+      "text": "rule = session.get(DmAutoReplyRule, rule_id)"
+    },
+    {
+      "at": "app/main.py:4273",
+      "looks_like": "http",
+      "text": "rule = session.get(DmAutoReplyRule, rule_id)"
+    },
+    {
+      "at": "app/main.py:4276",
+      "looks_like": "http",
+      "text": "session.delete(rule); session.commit()"
+    },
+    {
+      "at": "app/main.py:4293",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, account_id)"
+    },
+    {
+      "at": "app/main.py:4400",
+      "looks_like": "http",
+      "text": "task = session.get(AccountActionTask, task_id)"
+    },
+    {
+      "at": "app/main.py:4410",
+      "looks_like": "http",
+      "text": "task = session.get(AccountActionTask, task_id)"
+    },
+    {
+      "at": "app/main.py:4423",
+      "looks_like": "http",
+      "text": "task = session.get(AccountActionTask, task_id)"
+    },
+    {
+      "at": "app/main.py:4899",
+      "looks_like": "http",
+      "text": "r = await cli.get(test_url)"
+    },
+    {
+      "at": "app/main.py:4944",
+      "looks_like": "http",
+      "text": "g = parser((await cli.get(url)).json())"
+    },
+    {
+      "at": "app/main.py:5931",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, account_id)"
+    },
+    {
+      "at": "app/main.py:6704",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, body.account_id)"
+    },
+    {
+      "at": "app/main.py:6731",
+      "looks_like": "http",
+      "text": "job = session.get(KeywordCollectionJob, job_id)"
+    },
+    {
+      "at": "app/main.py:6738",
+      "looks_like": "http",
+      "text": "account = session.get(DouyinAccount, body.account_id)"
+    },
+    {
+      "at": "app/main.py:6775",
+      "looks_like": "http",
+      "text": "job = session.get(KeywordCollectionJob, job_id)"
+    },
+    {
+      "at": "app/main.py:6787",
+      "looks_like": "http",
+      "text": "if not session.get(KeywordCollectionJob, job_id):"
+    },
+    {
+      "at": "app/main.py:6808",
+      "looks_like": "http",
+      "text": "row = session.get(KeywordCollectionContent, content_id)"
+    },
+    {
+      "at": "app/main.py:6840",
+      "looks_like": "route",
+      "text": "@app.api_route("
+    },
+    {
+      "at": "app/main.py:6901",
+      "looks_like": "http",
+      "text": "content = session.get(KeywordCollectionContent, content_id)"
+    },
+    {
+      "at": "app/main.py:6917",
+      "looks_like": "http",
+      "text": "job = session.get(KeywordCollectionJob, job_id)"
+    },
+    {
+      "at": "app/main.py:6936",
+      "looks_like": "http",
+      "text": "job = session.get(KeywordCollectionJob, job_id)"
+    },
+    {
+      "at": "app/main.py:6959",
+      "looks_like": "http",
+      "text": "job = session.get(KeywordCollectionJob, job_id)"
+    },
+    {
+      "at": "app/main.py:6967",
+      "looks_like": "http",
+      "text": "session.delete(row)"
+    },
+    {
+      "at": "app/main.py:6971",
+      "looks_like": "http",
+      "text": "session.delete(row)"
+    },
+    {
+      "at": "app/main.py:6972",
+      "looks_like": "http",
+      "text": "session.delete(job); session.commit()"
+    },
+    {
+      "at": "app/main.py:6979",
+      "looks_like": "http",
+      "text": "job = session.get(KeywordCollectionJob, job_id)"
+    },
+    {
+      "at": "app/main.py:8213",
+      "looks_like": "route",
+      "text": "@app.api_route(\"/api/contents/{cid}/local-media\", methods=[\"GET\", \"HEAD\"])"
+    },
+    {
+      "at": "app/main.py:8559",
+      "looks_like": "http",
+      "text": "watch = session.get(model, watch_id) if watch_id > 0 else None"
+    },
+    {
+      "at": "app/notifier/__init__.py:30",
+      "looks_like": "http",
+      "text": "r = await c.get(url, params={\"group\": \"douyin-monitor\"})"
+    },
+    {
+      "at": "app/notifier/__init__.py:47",
+      "looks_like": "http",
+      "text": "r = await c.post(webhook, json={\"msgtype\": \"text\", \"text\": {\"content\": content}})"
+    },
+    {
+      "at": "app/notifier/__init__.py:62",
+      "looks_like": "http",
+      "text": "r = await c.post(f\"{api}/bot{token}/sendMessage\","
+    },
+    {
+      "at": "creatorhub.py:209",
+      "looks_like": "other_http",
+      "text": "with urllib.request.urlopen(health_url, timeout=1) as response:"
+    },
+    {
+      "at": "desktop/updates.py:160",
+      "looks_like": "other_http",
+      "text": "with urllib.request.urlopen(request, timeout=12) as response:"
+    }
+  ],
+  "seconds": 15.02
+}

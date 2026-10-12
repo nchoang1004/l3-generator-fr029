@@ -1,0 +1,107 @@
+{
+  "invalid_status_20_against_source_200": {
+    "verified": {
+      "state": "known",
+      "value": [
+        20
+      ],
+      "evidence_ids": [
+        "ev:304eb0238501bb6660019111003ae57e2c09bb9e1f5030e9c101bb5311801c67"
+      ]
+    },
+    "published_ready": [
+      "README.md",
+      "architecture.mmd",
+      "architecture.svg",
+      "result.json",
+      "tech-specs/APP/api/API-PROBE-APP-v1.md"
+    ]
+  },
+  "document_wrong_status_same_ids": {
+    "changed": true,
+    "checker_error": null
+  },
+  "same_repo_local_zip": {
+    "local_files": [
+      "main.py"
+    ],
+    "zip_files": [
+      ".venv/dependency.py",
+      "main.py"
+    ],
+    "same_snapshot": false
+  },
+  "synthetic_credential_redaction": {
+    "marker_in_result": true,
+    "config_values": [
+      {
+        "state": "known",
+        "value": "postgresql://demo:FAKE_REVIEW_PASSWORD_123@localhost/db",
+        "evidence_ids": [
+          "ev:4ae26cb2c102b02294345107b992d90c0a8b2606b36d6b557fc3cfc673f930d6"
+        ]
+      }
+    ],
+    "marker_survives_egress_mask": true
+  },
+  "malformed_manifest_worker": {
+    "exception": "TypeError: 'int' object is not iterable",
+    "state": "running",
+    "stage": "extraction"
+  },
+  "nullable_array_item": [
+    {
+      "state": "known",
+      "value": [
+        {
+          "name": {
+            "state": "known",
+            "value": "values",
+            "evidence_ids": [
+              "ev:cb4a35c15329201e5c9b4e7dde6c17f0cc455eba270755b347557ed7fd2a02d2"
+            ]
+          },
+          "type": {
+            "state": "known",
+            "value": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              }
+            },
+            "evidence_ids": [
+              "ev:afafef07bf7e1b6969bae139ed2377f2bea5b0ad457078d424b0b0b135139028"
+            ]
+          },
+          "required": {
+            "state": "known",
+            "value": true,
+            "evidence_ids": [
+              "ev:afafef07bf7e1b6969bae139ed2377f2bea5b0ad457078d424b0b0b135139028"
+            ]
+          },
+          "nullable": {
+            "state": "known",
+            "value": false,
+            "evidence_ids": [
+              "ev:afafef07bf7e1b6969bae139ed2377f2bea5b0ad457078d424b0b0b135139028"
+            ]
+          }
+        }
+      ],
+      "evidence_ids": [
+        "ev:582ac020f63ea7519bab778e749847caa84f35ea4aefd2b167f328b1003520d2"
+      ]
+    }
+  ],
+  "optional_body": {
+    "source_default": "None",
+    "generated_required": true
+  },
+  "golden_route_labels": {
+    "product_confidence": "inferred",
+    "adapter_confidence": "exact",
+    "product_completeness": "partial",
+    "adapter_completeness": "full"
+  }
+}

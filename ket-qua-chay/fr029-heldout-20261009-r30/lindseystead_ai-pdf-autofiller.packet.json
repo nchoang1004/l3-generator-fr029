@@ -1,0 +1,30 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos4\\lindseystead_ai-pdf-autofiller",
+  "files": 33,
+  "route_decorators": 8,
+  "decorators_refused": [],
+  "dependencies": [],
+  "suspects": [
+    {
+      "at": "src/pdf_autofiller/client.py:67",
+      "looks_like": "http",
+      "text": "response = http.get(f\"{self.base_url}/health\", headers=self._headers())"
+    },
+    {
+      "at": "src/pdf_autofiller/client.py:93",
+      "looks_like": "http",
+      "text": "response = http.post("
+    },
+    {
+      "at": "src/pdf_autofiller/client.py:124",
+      "looks_like": "http",
+      "text": "response = http.post("
+    },
+    {
+      "at": "src/pdf_autofiller/client.py:172",
+      "looks_like": "http",
+      "text": "response = http.post("
+    }
+  ],
+  "seconds": 1.33
+}

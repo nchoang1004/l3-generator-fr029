@@ -1,0 +1,135 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "pycg-returns-imported_call",
+  "source_digest": "ab20d629668247f653b4d16aa28d691148b66e5df360e7b250e2fb088760f518",
+  "status": "facts_only",
+  "entities": [
+    {
+      "id": "main.py::__module__",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 4,
+      "symbol": "__module__",
+      "kind": "module"
+    },
+    {
+      "id": "to_import.py::func",
+      "path": "to_import.py",
+      "line_start": 4,
+      "line_end": 5,
+      "symbol": "func",
+      "kind": "function"
+    },
+    {
+      "id": "to_import.py::return_func",
+      "path": "to_import.py",
+      "line_start": 1,
+      "line_end": 2,
+      "symbol": "return_func",
+      "kind": "function"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e0cf1a144245f09d8",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 4,
+      "sha256": "d8d4c5c02b92169421100635492b1c0063ba08c593290c4ee3205131bef29704"
+    },
+    {
+      "id": "e20c0b89ced45fc58",
+      "path": "main.py",
+      "line_start": 4,
+      "line_end": 4,
+      "sha256": "d8d4c5c02b92169421100635492b1c0063ba08c593290c4ee3205131bef29704"
+    },
+    {
+      "id": "e27aa757cc4d83610",
+      "path": "main.py",
+      "line_start": 3,
+      "line_end": 3,
+      "sha256": "d8d4c5c02b92169421100635492b1c0063ba08c593290c4ee3205131bef29704"
+    },
+    {
+      "id": "e95031662844757b5",
+      "path": "to_import.py",
+      "line_start": 1,
+      "line_end": 2,
+      "sha256": "5d2e4d692734bfccc07c8e0420e61c0b792c8656622be3a79dfac80bb3212c53"
+    },
+    {
+      "id": "e97711e62509db1f9",
+      "path": "to_import.py",
+      "line_start": 4,
+      "line_end": 5,
+      "sha256": "5d2e4d692734bfccc07c8e0420e61c0b792c8656622be3a79dfac80bb3212c53"
+    },
+    {
+      "id": "eca569f8bc6347931",
+      "path": "to_import.py",
+      "line_start": 1,
+      "line_end": 5,
+      "sha256": "5d2e4d692734bfccc07c8e0420e61c0b792c8656622be3a79dfac80bb3212c53"
+    },
+    {
+      "id": "edd31e9a5573396b8",
+      "path": "requirements.txt",
+      "line_start": 2,
+      "line_end": 2,
+      "sha256": "5a186804fd0c020f245e90ee71fe6ef81fc09e0a0e4ae39ad84e8335fa12dcc5"
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:8ba77526a9f1a4a78af6402253f77d31588c0fedbdb973b5614fc8e0698469ac",
+      "evidence_refs": [
+        "e0cf1a144245f09d8",
+        "e27aa757cc4d83610"
+      ],
+      "target_id": "to_import.py::func",
+      "kind": "reference",
+      "source_id": "main.py::__module__",
+      "context": "main.py:3:4",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:d0d70c5e6f181e92ccf02aa19bb66237dc8e3a256b71ec286efb2cc9814d249e",
+      "evidence_refs": [
+        "e0cf1a144245f09d8",
+        "e20c0b89ced45fc58"
+      ],
+      "target_id": "to_import.py::return_func",
+      "kind": "reference",
+      "source_id": "main.py::__module__",
+      "context": "main.py:4:0",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "inferred",
+      "completeness": "full",
+      "reason": "Đích theo luồng giá trị: biến/tham số giữ hàm này"
+    }
+  ],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v3",
+    "unsupported": []
+  }
+}

@@ -1,0 +1,728 @@
+{
+  "artifacts": [
+    {
+      "artifact_id": "art_024704883092ebe158bebf7e",
+      "bytes": 2117,
+      "error": null,
+      "kind": "readme",
+      "media_type": "text/markdown",
+      "path": "README.md",
+      "sha256": "3ecfe5f8592f6c8cee31aec2f46e02dda8c3bd4f13e6f2e0538cd85f371c3801",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_56d198c977eb65f8bd772d44",
+      "bytes": 65,
+      "error": null,
+      "kind": "diagram_source",
+      "media_type": "text/plain",
+      "path": "architecture.mmd",
+      "sha256": "ea0b2bf2afb793a3bc2c838c7776f2393c7c2887e796eb4fae454b60c26a3d50",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_016b476d9133c5a10fc4ed89",
+      "bytes": 1142,
+      "error": null,
+      "kind": "diagram_image",
+      "media_type": "image/svg+xml",
+      "path": "architecture.svg",
+      "sha256": "75db1716c5b5443451e270b3d4e5b3433fb3e84ad96973e7ec4437ea547d5334",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_3731f939b43276607d73e672",
+      "bytes": 27583,
+      "error": null,
+      "kind": "json",
+      "media_type": "application/json",
+      "path": "result.json",
+      "sha256": "163834ba3354a130fca79ad22ccf4ffd62d3cf60e3de46c2edd80ad25d8c9bd8",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_8792ea82a6440826dce6b1b0",
+      "bytes": 2074,
+      "error": null,
+      "kind": "event",
+      "media_type": "text/markdown",
+      "path": "tech-specs/ORDERS/events/EVT-KAFKA-ORDERS-ORDER-CREATED.md",
+      "sha256": "945206413489df8a2accf08e4be0d7b9f9cf30d22e826d90d232589cd423f86c",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_e87d9105f839ea5d1fbc4557",
+      "bytes": 2073,
+      "error": null,
+      "kind": "event",
+      "media_type": "text/markdown",
+      "path": "tech-specs/STOCK/events/EVT-KAFKA-STOCK-ORDER-CREATED.md",
+      "sha256": "fc83066980ffaa1cb3bd9b50e15e3b2779fe70b0c81efb4777ab08c3aa49a526",
+      "status": "ready"
+    }
+  ],
+  "export_context": {
+    "component_slugs": {
+      "cmp_053e352ca24100eb6bff9b5feaf362811e73d59dec0647ec9bd45c2869035cd3": "STOCK",
+      "cmp_b99af8888eed0555ea9cd3ceb3162fe572f70056691b80c883abef994dbde1fa": "ORDERS"
+    },
+    "renderer_version": "slice-render-v2",
+    "repository_name": "kafka",
+    "system_slug": "KAFKA",
+    "template_version": "slice-template-v1"
+  },
+  "render_notices": [
+    {
+      "artifact_path": "tech-specs/STOCK/events/EVT-KAFKA-STOCK-ORDER-CREATED.md",
+      "code": "EVENT_BINDING_UNRESOLVED",
+      "fact_ids": [
+        "fact:83e0f5ee0813baedbf0e41e675a278fd553613c6e4a2bc70c82bcf9ff637b540"
+      ],
+      "field_paths": [
+        "/attributes/namespace"
+      ],
+      "reason": "Chưa chứng minh broker/namespace/serialization/topic; điểm này giữ riêng"
+    },
+    {
+      "artifact_path": "tech-specs/ORDERS/events/EVT-KAFKA-ORDERS-ORDER-CREATED.md",
+      "code": "EVENT_BINDING_UNRESOLVED",
+      "fact_ids": [
+        "fact:f4b9d6de1bd3516522a009e570c0caa078b452a5a476f9de34d3f4de8ca5914e"
+      ],
+      "field_paths": [
+        "/attributes/namespace"
+      ],
+      "reason": "Chưa chứng minh broker/namespace/serialization/topic; điểm này giữ riêng"
+    },
+    {
+      "artifact_path": "tech-specs/STOCK/events/EVT-KAFKA-STOCK-ORDER-CREATED.md",
+      "code": "EVENT_PAYLOAD_UNKNOWN",
+      "fact_ids": [
+        "fact:83e0f5ee0813baedbf0e41e675a278fd553613c6e4a2bc70c82bcf9ff637b540"
+      ],
+      "field_paths": [
+        "/attributes/payload"
+      ],
+      "reason": "Payload không có schema đọc được"
+    },
+    {
+      "artifact_path": "tech-specs/ORDERS/events/EVT-KAFKA-ORDERS-ORDER-CREATED.md",
+      "code": "EVENT_PAYLOAD_UNKNOWN",
+      "fact_ids": [
+        "fact:f4b9d6de1bd3516522a009e570c0caa078b452a5a476f9de34d3f4de8ca5914e"
+      ],
+      "field_paths": [
+        "/attributes/payload"
+      ],
+      "reason": "Payload không có schema đọc được"
+    }
+  ],
+  "result": {
+    "decisions": [
+      {
+        "evidence_ids": [
+          "ev:8c86e2d13bf0485ab4bef55e6af60f7639051461f518543d04dd666105fe0381",
+          "ev:bf4c9eb056dba0d13af84f4f5866794558ed9fb40953a341483cf18500e9703e",
+          "ev:e66a0935c849399a7b182cbd3d54c0f9ac1028f62caae7941f4438235e79220d"
+        ],
+        "fact_ids": [
+          "fact:2a54d1519d942ad458753066a5ba549d3aa3277dde3aebba778352ff33dfc8b2",
+          "fact:83e0f5ee0813baedbf0e41e675a278fd553613c6e4a2bc70c82bcf9ff637b540"
+        ],
+        "reason": "File thành viên có trong snapshot; component có evidence nguồn",
+        "rule_id": "MEMBER-SOURCE",
+        "rule_version": "1",
+        "subject_id": "cmp_053e352ca24100eb6bff9b5feaf362811e73d59dec0647ec9bd45c2869035cd3",
+        "verdict": "accepted"
+      },
+      {
+        "evidence_ids": [
+          "ev:130c14fb8eb723f517c8179ec3c59392241ce8b619376186b3c94114f2c14faf",
+          "ev:53313ad94919ec3fa3a99f82fdc9b28b39974a2f6c0e2a762d925d2c1c75dbc7",
+          "ev:b948e3e11d6827596135b945c8e1bd7da61c0c21f0df98493a73d8430c3fc471",
+          "ev:fbe9b27adb596eb48b7b00ee924875793149d79fa588ef38e7f788efcec342c4"
+        ],
+        "fact_ids": [
+          "fact:012a5538a3e395e3fbff2a7e2675d6e5fa20eecb15a10c8e21b1c5b08f57b57f",
+          "fact:65669b27aa600c8f0104880651a51e9fa935126fbc9cf670337362a0aaf5a666",
+          "fact:f4b9d6de1bd3516522a009e570c0caa078b452a5a476f9de34d3f4de8ca5914e"
+        ],
+        "reason": "File thành viên có trong snapshot; component có evidence nguồn",
+        "rule_id": "MEMBER-SOURCE",
+        "rule_version": "1",
+        "subject_id": "cmp_b99af8888eed0555ea9cd3ceb3162fe572f70056691b80c883abef994dbde1fa",
+        "verdict": "accepted"
+      },
+      {
+        "evidence_ids": [
+          "ev:130c14fb8eb723f517c8179ec3c59392241ce8b619376186b3c94114f2c14faf",
+          "ev:bf4c9eb056dba0d13af84f4f5866794558ed9fb40953a341483cf18500e9703e",
+          "ev:e66a0935c849399a7b182cbd3d54c0f9ac1028f62caae7941f4438235e79220d",
+          "ev:fbe9b27adb596eb48b7b00ee924875793149d79fa588ef38e7f788efcec342c4"
+        ],
+        "fact_ids": [
+          "fact:83e0f5ee0813baedbf0e41e675a278fd553613c6e4a2bc70c82bcf9ff637b540",
+          "fact:f4b9d6de1bd3516522a009e570c0caa078b452a5a476f9de34d3f4de8ca5914e"
+        ],
+        "reason": "Hai đầu cùng broker/namespace/serialization/topic; chiều gửi → nhận đúng",
+        "rule_id": "event-binding",
+        "rule_version": "1-draft",
+        "subject_id": "edge_f14f0c3407ada4af099b074ae141ae8c11c6f4c1191cfe6443d72ac2c219f67f",
+        "verdict": "accepted"
+      }
+    ],
+    "evidence_index": [
+      {
+        "end_column": 51,
+        "end_line": 8,
+        "file_id": "file:fb38d0df85c48da6e2c17251488f45126b32737736f7112c2fc7b502c9d0bbb0",
+        "id": "ev:130c14fb8eb723f517c8179ec3c59392241ce8b619376186b3c94114f2c14faf",
+        "path": "orders.py",
+        "sha256": "2532fed6e4f5879793e98ee9bc4d5c5826e590a3baf4fc6492051898df4ca438",
+        "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+        "start_column": 4,
+        "start_line": 8
+      },
+      {
+        "end_column": null,
+        "end_line": 8,
+        "file_id": "file:fb38d0df85c48da6e2c17251488f45126b32737736f7112c2fc7b502c9d0bbb0",
+        "id": "ev:53313ad94919ec3fa3a99f82fdc9b28b39974a2f6c0e2a762d925d2c1c75dbc7",
+        "path": "orders.py",
+        "sha256": "2532fed6e4f5879793e98ee9bc4d5c5826e590a3baf4fc6492051898df4ca438",
+        "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+        "start_column": null,
+        "start_line": 1
+      },
+      {
+        "end_column": null,
+        "end_line": 5,
+        "file_id": "file:93c61b75e3e28f3d40ff951cad1db11505144e2b36c3ee55411c04fa7a99c0ad",
+        "id": "ev:8c86e2d13bf0485ab4bef55e6af60f7639051461f518543d04dd666105fe0381",
+        "path": "stock.py",
+        "sha256": "73e25497f252c53f1ef3f78bdcc1049fd0193fc6d7f4037cff990cc094c41034",
+        "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+        "start_column": null,
+        "start_line": 1
+      },
+      {
+        "end_column": null,
+        "end_line": 8,
+        "file_id": "file:fb38d0df85c48da6e2c17251488f45126b32737736f7112c2fc7b502c9d0bbb0",
+        "id": "ev:b948e3e11d6827596135b945c8e1bd7da61c0c21f0df98493a73d8430c3fc471",
+        "path": "orders.py",
+        "sha256": "2532fed6e4f5879793e98ee9bc4d5c5826e590a3baf4fc6492051898df4ca438",
+        "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+        "start_column": null,
+        "start_line": 7
+      },
+      {
+        "end_column": 40,
+        "end_line": 5,
+        "file_id": "file:93c61b75e3e28f3d40ff951cad1db11505144e2b36c3ee55411c04fa7a99c0ad",
+        "id": "ev:bf4c9eb056dba0d13af84f4f5866794558ed9fb40953a341483cf18500e9703e",
+        "path": "stock.py",
+        "sha256": "73e25497f252c53f1ef3f78bdcc1049fd0193fc6d7f4037cff990cc094c41034",
+        "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+        "start_column": 25,
+        "start_line": 5
+      },
+      {
+        "end_column": 104,
+        "end_line": 5,
+        "file_id": "file:93c61b75e3e28f3d40ff951cad1db11505144e2b36c3ee55411c04fa7a99c0ad",
+        "id": "ev:e66a0935c849399a7b182cbd3d54c0f9ac1028f62caae7941f4438235e79220d",
+        "path": "stock.py",
+        "sha256": "73e25497f252c53f1ef3f78bdcc1049fd0193fc6d7f4037cff990cc094c41034",
+        "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+        "start_column": 11,
+        "start_line": 5
+      },
+      {
+        "end_column": 33,
+        "end_line": 8,
+        "file_id": "file:fb38d0df85c48da6e2c17251488f45126b32737736f7112c2fc7b502c9d0bbb0",
+        "id": "ev:fbe9b27adb596eb48b7b00ee924875793149d79fa588ef38e7f788efcec342c4",
+        "path": "orders.py",
+        "sha256": "2532fed6e4f5879793e98ee9bc4d5c5826e590a3baf4fc6492051898df4ca438",
+        "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+        "start_column": 18,
+        "start_line": 8
+      }
+    ],
+    "facts": {
+      "extractor_version": "slice-ast-v3",
+      "facts": [
+        {
+          "attributes": {
+            "local_name": {
+              "evidence_ids": [
+                "ev:b948e3e11d6827596135b945c8e1bd7da61c0c21f0df98493a73d8430c3fc471"
+              ],
+              "state": "known",
+              "value": "place_order"
+            },
+            "name": {
+              "evidence_ids": [
+                "ev:b948e3e11d6827596135b945c8e1bd7da61c0c21f0df98493a73d8430c3fc471"
+              ],
+              "state": "known",
+              "value": "orders.place_order"
+            },
+            "signature": {
+              "evidence_ids": [
+                "ev:b948e3e11d6827596135b945c8e1bd7da61c0c21f0df98493a73d8430c3fc471"
+              ],
+              "state": "known",
+              "value": "()"
+            },
+            "symbol_kind": {
+              "evidence_ids": [
+                "ev:b948e3e11d6827596135b945c8e1bd7da61c0c21f0df98493a73d8430c3fc471"
+              ],
+              "state": "known",
+              "value": "function"
+            }
+          },
+          "completeness": "full",
+          "confidence": "exact",
+          "evidence": [
+            {
+              "end_column": null,
+              "end_line": 8,
+              "file_id": "file:fb38d0df85c48da6e2c17251488f45126b32737736f7112c2fc7b502c9d0bbb0",
+              "id": "ev:b948e3e11d6827596135b945c8e1bd7da61c0c21f0df98493a73d8430c3fc471",
+              "path": "orders.py",
+              "sha256": "2532fed6e4f5879793e98ee9bc4d5c5826e590a3baf4fc6492051898df4ca438",
+              "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+              "start_column": null,
+              "start_line": 7
+            }
+          ],
+          "id": "fact:012a5538a3e395e3fbff2a7e2675d6e5fa20eecb15a10c8e21b1c5b08f57b57f",
+          "kind": "symbol",
+          "resolution": "not_applicable",
+          "target_fact_ids": [],
+          "unit_id": "unit:66d0dbfc8bd955e017b5587014b9533a4cb9c1190cdd2f8e947b64fd597373f4"
+        },
+        {
+          "attributes": {
+            "local_name": {
+              "evidence_ids": [
+                "ev:8c86e2d13bf0485ab4bef55e6af60f7639051461f518543d04dd666105fe0381"
+              ],
+              "state": "known",
+              "value": "__module__"
+            },
+            "name": {
+              "evidence_ids": [
+                "ev:8c86e2d13bf0485ab4bef55e6af60f7639051461f518543d04dd666105fe0381"
+              ],
+              "state": "known",
+              "value": "stock.__module__"
+            },
+            "signature": {
+              "reason": "Module không có chữ ký",
+              "state": "not_applicable"
+            },
+            "symbol_kind": {
+              "evidence_ids": [
+                "ev:8c86e2d13bf0485ab4bef55e6af60f7639051461f518543d04dd666105fe0381"
+              ],
+              "state": "known",
+              "value": "module"
+            }
+          },
+          "completeness": "full",
+          "confidence": "exact",
+          "evidence": [
+            {
+              "end_column": null,
+              "end_line": 5,
+              "file_id": "file:93c61b75e3e28f3d40ff951cad1db11505144e2b36c3ee55411c04fa7a99c0ad",
+              "id": "ev:8c86e2d13bf0485ab4bef55e6af60f7639051461f518543d04dd666105fe0381",
+              "path": "stock.py",
+              "sha256": "73e25497f252c53f1ef3f78bdcc1049fd0193fc6d7f4037cff990cc094c41034",
+              "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+              "start_column": null,
+              "start_line": 1
+            }
+          ],
+          "id": "fact:2a54d1519d942ad458753066a5ba549d3aa3277dde3aebba778352ff33dfc8b2",
+          "kind": "symbol",
+          "resolution": "not_applicable",
+          "target_fact_ids": [],
+          "unit_id": "unit:66d0dbfc8bd955e017b5587014b9533a4cb9c1190cdd2f8e947b64fd597373f4"
+        },
+        {
+          "attributes": {
+            "local_name": {
+              "evidence_ids": [
+                "ev:53313ad94919ec3fa3a99f82fdc9b28b39974a2f6c0e2a762d925d2c1c75dbc7"
+              ],
+              "state": "known",
+              "value": "__module__"
+            },
+            "name": {
+              "evidence_ids": [
+                "ev:53313ad94919ec3fa3a99f82fdc9b28b39974a2f6c0e2a762d925d2c1c75dbc7"
+              ],
+              "state": "known",
+              "value": "orders.__module__"
+            },
+            "signature": {
+              "reason": "Module không có chữ ký",
+              "state": "not_applicable"
+            },
+            "symbol_kind": {
+              "evidence_ids": [
+                "ev:53313ad94919ec3fa3a99f82fdc9b28b39974a2f6c0e2a762d925d2c1c75dbc7"
+              ],
+              "state": "known",
+              "value": "module"
+            }
+          },
+          "completeness": "full",
+          "confidence": "exact",
+          "evidence": [
+            {
+              "end_column": null,
+              "end_line": 8,
+              "file_id": "file:fb38d0df85c48da6e2c17251488f45126b32737736f7112c2fc7b502c9d0bbb0",
+              "id": "ev:53313ad94919ec3fa3a99f82fdc9b28b39974a2f6c0e2a762d925d2c1c75dbc7",
+              "path": "orders.py",
+              "sha256": "2532fed6e4f5879793e98ee9bc4d5c5826e590a3baf4fc6492051898df4ca438",
+              "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+              "start_column": null,
+              "start_line": 1
+            }
+          ],
+          "id": "fact:65669b27aa600c8f0104880651a51e9fa935126fbc9cf670337362a0aaf5a666",
+          "kind": "symbol",
+          "resolution": "not_applicable",
+          "target_fact_ids": [],
+          "unit_id": "unit:66d0dbfc8bd955e017b5587014b9533a4cb9c1190cdd2f8e947b64fd597373f4"
+        },
+        {
+          "attributes": {
+            "action": {
+              "evidence_ids": [
+                "ev:e66a0935c849399a7b182cbd3d54c0f9ac1028f62caae7941f4438235e79220d"
+              ],
+              "state": "known",
+              "value": "consume"
+            },
+            "broker": {
+              "evidence_ids": [
+                "ev:e66a0935c849399a7b182cbd3d54c0f9ac1028f62caae7941f4438235e79220d"
+              ],
+              "state": "known",
+              "value": "kafka:kafka:9092"
+            },
+            "declaration_evidence_id": {
+              "evidence_ids": [
+                "ev:e66a0935c849399a7b182cbd3d54c0f9ac1028f62caae7941f4438235e79220d"
+              ],
+              "state": "known",
+              "value": "ev:e66a0935c849399a7b182cbd3d54c0f9ac1028f62caae7941f4438235e79220d"
+            },
+            "namespace": {
+              "reason": "Kafka không có namespace riêng; channel xác định bằng broker + topic",
+              "state": "not_applicable"
+            },
+            "payload": {
+              "reason": "Payload không có schema đọc được",
+              "state": "unknown"
+            },
+            "serialization_context": {
+              "evidence_ids": [
+                "ev:e66a0935c849399a7b182cbd3d54c0f9ac1028f62caae7941f4438235e79220d"
+              ],
+              "state": "known",
+              "value": "json"
+            },
+            "topic": {
+              "evidence_ids": [
+                "ev:bf4c9eb056dba0d13af84f4f5866794558ed9fb40953a341483cf18500e9703e"
+              ],
+              "state": "known",
+              "value": "order-created"
+            }
+          },
+          "completeness": "partial",
+          "completeness_reason": "Trường chưa xác định: payload",
+          "confidence": "exact",
+          "evidence": [
+            {
+              "end_column": 104,
+              "end_line": 5,
+              "file_id": "file:93c61b75e3e28f3d40ff951cad1db11505144e2b36c3ee55411c04fa7a99c0ad",
+              "id": "ev:e66a0935c849399a7b182cbd3d54c0f9ac1028f62caae7941f4438235e79220d",
+              "path": "stock.py",
+              "sha256": "73e25497f252c53f1ef3f78bdcc1049fd0193fc6d7f4037cff990cc094c41034",
+              "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+              "start_column": 11,
+              "start_line": 5
+            },
+            {
+              "end_column": 40,
+              "end_line": 5,
+              "file_id": "file:93c61b75e3e28f3d40ff951cad1db11505144e2b36c3ee55411c04fa7a99c0ad",
+              "id": "ev:bf4c9eb056dba0d13af84f4f5866794558ed9fb40953a341483cf18500e9703e",
+              "path": "stock.py",
+              "sha256": "73e25497f252c53f1ef3f78bdcc1049fd0193fc6d7f4037cff990cc094c41034",
+              "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+              "start_column": 25,
+              "start_line": 5
+            }
+          ],
+          "id": "fact:83e0f5ee0813baedbf0e41e675a278fd553613c6e4a2bc70c82bcf9ff637b540",
+          "kind": "event",
+          "resolution": "not_applicable",
+          "target_fact_ids": [],
+          "unit_id": "unit:66d0dbfc8bd955e017b5587014b9533a4cb9c1190cdd2f8e947b64fd597373f4"
+        },
+        {
+          "attributes": {
+            "action": {
+              "evidence_ids": [
+                "ev:130c14fb8eb723f517c8179ec3c59392241ce8b619376186b3c94114f2c14faf"
+              ],
+              "state": "known",
+              "value": "publish"
+            },
+            "broker": {
+              "evidence_ids": [
+                "ev:130c14fb8eb723f517c8179ec3c59392241ce8b619376186b3c94114f2c14faf"
+              ],
+              "state": "known",
+              "value": "kafka:kafka:9092"
+            },
+            "declaration_evidence_id": {
+              "evidence_ids": [
+                "ev:130c14fb8eb723f517c8179ec3c59392241ce8b619376186b3c94114f2c14faf"
+              ],
+              "state": "known",
+              "value": "ev:130c14fb8eb723f517c8179ec3c59392241ce8b619376186b3c94114f2c14faf"
+            },
+            "namespace": {
+              "reason": "Kafka không có namespace riêng; channel xác định bằng broker + topic",
+              "state": "not_applicable"
+            },
+            "payload": {
+              "reason": "Payload không có schema đọc được",
+              "state": "unknown"
+            },
+            "serialization_context": {
+              "evidence_ids": [
+                "ev:130c14fb8eb723f517c8179ec3c59392241ce8b619376186b3c94114f2c14faf"
+              ],
+              "state": "known",
+              "value": "json"
+            },
+            "topic": {
+              "evidence_ids": [
+                "ev:fbe9b27adb596eb48b7b00ee924875793149d79fa588ef38e7f788efcec342c4"
+              ],
+              "state": "known",
+              "value": "order-created"
+            }
+          },
+          "completeness": "partial",
+          "completeness_reason": "Trường chưa xác định: payload",
+          "confidence": "exact",
+          "evidence": [
+            {
+              "end_column": 51,
+              "end_line": 8,
+              "file_id": "file:fb38d0df85c48da6e2c17251488f45126b32737736f7112c2fc7b502c9d0bbb0",
+              "id": "ev:130c14fb8eb723f517c8179ec3c59392241ce8b619376186b3c94114f2c14faf",
+              "path": "orders.py",
+              "sha256": "2532fed6e4f5879793e98ee9bc4d5c5826e590a3baf4fc6492051898df4ca438",
+              "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+              "start_column": 4,
+              "start_line": 8
+            },
+            {
+              "end_column": 33,
+              "end_line": 8,
+              "file_id": "file:fb38d0df85c48da6e2c17251488f45126b32737736f7112c2fc7b502c9d0bbb0",
+              "id": "ev:fbe9b27adb596eb48b7b00ee924875793149d79fa588ef38e7f788efcec342c4",
+              "path": "orders.py",
+              "sha256": "2532fed6e4f5879793e98ee9bc4d5c5826e590a3baf4fc6492051898df4ca438",
+              "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+              "start_column": 18,
+              "start_line": 8
+            }
+          ],
+          "id": "fact:f4b9d6de1bd3516522a009e570c0caa078b452a5a476f9de34d3f4de8ca5914e",
+          "kind": "event",
+          "resolution": "not_applicable",
+          "target_fact_ids": [],
+          "unit_id": "unit:66d0dbfc8bd955e017b5587014b9533a4cb9c1190cdd2f8e947b64fd597373f4"
+        }
+      ],
+      "limitations": [],
+      "schema_version": "0.1.0",
+      "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09"
+    },
+    "inventory": {
+      "excluded": [],
+      "grouping_policy_version": "fixture-membership-v1",
+      "limitations": [
+        {
+          "affected_ids": [
+            "unit:66d0dbfc8bd955e017b5587014b9533a4cb9c1190cdd2f8e947b64fd597373f4"
+          ],
+          "code": "SLICE_SCOPE",
+          "message": "Lát cắt đầu chỉ nhận route FastAPI và bảng SQLAlchemy Column",
+          "stage": "inventory"
+        }
+      ],
+      "outcome": "ready",
+      "schema_version": "0.1.0",
+      "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09",
+      "support_matrix_version": "slice-v1",
+      "units": [
+        {
+          "file_ids": [
+            "file:fb38d0df85c48da6e2c17251488f45126b32737736f7112c2fc7b502c9d0bbb0",
+            "file:93c61b75e3e28f3d40ff951cad1db11505144e2b36c3ee55411c04fa7a99c0ad"
+          ],
+          "flat": false,
+          "framework": "FastAPI/SQLAlchemy",
+          "id": "unit:66d0dbfc8bd955e017b5587014b9533a4cb9c1190cdd2f8e947b64fd597373f4",
+          "language": "Python",
+          "root_path": ".",
+          "support": "partial"
+        }
+      ]
+    },
+    "limitations": [
+      {
+        "affected_ids": [
+          "unit:66d0dbfc8bd955e017b5587014b9533a4cb9c1190cdd2f8e947b64fd597373f4"
+        ],
+        "code": "SLICE_SCOPE",
+        "message": "Lát cắt đầu chỉ nhận route FastAPI và bảng SQLAlchemy Column",
+        "stage": "inventory"
+      },
+      {
+        "affected_ids": [
+          "cmp_053e352ca24100eb6bff9b5feaf362811e73d59dec0647ec9bd45c2869035cd3",
+          "cmp_b99af8888eed0555ea9cd3ceb3162fe572f70056691b80c883abef994dbde1fa"
+        ],
+        "code": "MODEL_NOT_RUN",
+        "message": "Không gọi provider; tên component lấy từ membership",
+        "stage": "model"
+      }
+    ],
+    "model": {
+      "components": [
+        {
+          "completeness": "full",
+          "confidence": "inferred",
+          "evidence_ids": [
+            "ev:8c86e2d13bf0485ab4bef55e6af60f7639051461f518543d04dd666105fe0381",
+            "ev:bf4c9eb056dba0d13af84f4f5866794558ed9fb40953a341483cf18500e9703e",
+            "ev:e66a0935c849399a7b182cbd3d54c0f9ac1028f62caae7941f4438235e79220d"
+          ],
+          "grouping_source": "code",
+          "id": "cmp_053e352ca24100eb6bff9b5feaf362811e73d59dec0647ec9bd45c2869035cd3",
+          "inference_reason": "Membership soạn sẵn trong fixture, không phải kết quả thuật toán chia nhóm",
+          "label_status": "path_fallback",
+          "member_file_ids": [
+            "file:93c61b75e3e28f3d40ff951cad1db11505144e2b36c3ee55411c04fa7a99c0ad"
+          ],
+          "name": "Stock",
+          "unit_id": "unit:66d0dbfc8bd955e017b5587014b9533a4cb9c1190cdd2f8e947b64fd597373f4"
+        },
+        {
+          "completeness": "full",
+          "confidence": "inferred",
+          "evidence_ids": [
+            "ev:130c14fb8eb723f517c8179ec3c59392241ce8b619376186b3c94114f2c14faf",
+            "ev:53313ad94919ec3fa3a99f82fdc9b28b39974a2f6c0e2a762d925d2c1c75dbc7",
+            "ev:b948e3e11d6827596135b945c8e1bd7da61c0c21f0df98493a73d8430c3fc471",
+            "ev:fbe9b27adb596eb48b7b00ee924875793149d79fa588ef38e7f788efcec342c4"
+          ],
+          "grouping_source": "code",
+          "id": "cmp_b99af8888eed0555ea9cd3ceb3162fe572f70056691b80c883abef994dbde1fa",
+          "inference_reason": "Membership soạn sẵn trong fixture, không phải kết quả thuật toán chia nhóm",
+          "label_status": "path_fallback",
+          "member_file_ids": [
+            "file:fb38d0df85c48da6e2c17251488f45126b32737736f7112c2fc7b502c9d0bbb0"
+          ],
+          "name": "Orders",
+          "unit_id": "unit:66d0dbfc8bd955e017b5587014b9533a4cb9c1190cdd2f8e947b64fd597373f4"
+        }
+      ],
+      "contract_owners": [
+        {
+          "component_id": "cmp_053e352ca24100eb6bff9b5feaf362811e73d59dec0647ec9bd45c2869035cd3",
+          "contract_kind": "event",
+          "evidence_ids": [
+            "ev:e66a0935c849399a7b182cbd3d54c0f9ac1028f62caae7941f4438235e79220d"
+          ],
+          "fact_id": "fact:83e0f5ee0813baedbf0e41e675a278fd553613c6e4a2bc70c82bcf9ff637b540",
+          "rule_id": "declaration-file",
+          "rule_version": "1-draft"
+        },
+        {
+          "component_id": "cmp_b99af8888eed0555ea9cd3ceb3162fe572f70056691b80c883abef994dbde1fa",
+          "contract_kind": "event",
+          "evidence_ids": [
+            "ev:130c14fb8eb723f517c8179ec3c59392241ce8b619376186b3c94114f2c14faf"
+          ],
+          "fact_id": "fact:f4b9d6de1bd3516522a009e570c0caa078b452a5a476f9de34d3f4de8ca5914e",
+          "rule_id": "declaration-file",
+          "rule_version": "1-draft"
+        }
+      ],
+      "edges": [
+        {
+          "completeness": "full",
+          "confidence": "exact",
+          "evidence_ids": [
+            "ev:130c14fb8eb723f517c8179ec3c59392241ce8b619376186b3c94114f2c14faf",
+            "ev:bf4c9eb056dba0d13af84f4f5866794558ed9fb40953a341483cf18500e9703e",
+            "ev:e66a0935c849399a7b182cbd3d54c0f9ac1028f62caae7941f4438235e79220d",
+            "ev:fbe9b27adb596eb48b7b00ee924875793149d79fa588ef38e7f788efcec342c4"
+          ],
+          "fact_ids": [
+            "fact:83e0f5ee0813baedbf0e41e675a278fd553613c6e4a2bc70c82bcf9ff637b540",
+            "fact:f4b9d6de1bd3516522a009e570c0caa078b452a5a476f9de34d3f4de8ca5914e"
+          ],
+          "id": "edge_f14f0c3407ada4af099b074ae141ae8c11c6f4c1191cfe6443d72ac2c219f67f",
+          "origin": "static",
+          "relation_type": "publishes",
+          "rule_id": "event-binding",
+          "rule_version": "1-draft",
+          "source_component_id": "cmp_b99af8888eed0555ea9cd3ceb3162fe572f70056691b80c883abef994dbde1fa",
+          "target_component_id": "cmp_053e352ca24100eb6bff9b5feaf362811e73d59dec0647ec9bd45c2869035cd3"
+        }
+      ],
+      "external_systems": [],
+      "limitations": [
+        {
+          "affected_ids": [
+            "cmp_053e352ca24100eb6bff9b5feaf362811e73d59dec0647ec9bd45c2869035cd3",
+            "cmp_b99af8888eed0555ea9cd3ceb3162fe572f70056691b80c883abef994dbde1fa"
+          ],
+          "code": "MODEL_NOT_RUN",
+          "message": "Không gọi provider; tên component lấy từ membership",
+          "stage": "model"
+        }
+      ],
+      "partition_version": "fixture-membership-v1",
+      "rejected_proposals": [],
+      "schema_version": "0.1.0",
+      "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09"
+    },
+    "schema_version": "0.1.0",
+    "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09"
+  },
+  "run_id": "run_511bccbdd4b74762",
+  "schema_version": "0.1.0",
+  "snapshot_id": "snap:193008397fc6e5a13fa5f1b7e8adbca4357fea55797a181e0b72f3e7c058bf09"
+}

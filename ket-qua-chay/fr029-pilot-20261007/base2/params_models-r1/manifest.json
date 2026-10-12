@@ -1,0 +1,217 @@
+{
+  "agent": {
+    "reason": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+    "status": "partial",
+    "tokens_in": 2593,
+    "tokens_out": 34,
+    "turns": 1,
+    "usage_missing_turns": 0
+  },
+  "architecture_parity": {
+    "reason": "Chưa được cấp archdia.json cùng snapshot",
+    "status": "not_evaluated"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "art_6732f320642cbadba8f14dc7",
+      "bytes": 1572,
+      "error": null,
+      "kind": "readme",
+      "media_type": "text/markdown",
+      "path": "README.md",
+      "sha256": "55659871d1527bbc7c87517805be3188e713163761691c8f31b7947b14cca0d1",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_76c5e3ab144aff6a232225ee",
+      "bytes": 4948,
+      "error": null,
+      "kind": "json",
+      "media_type": "application/json",
+      "path": "result.json",
+      "sha256": "20a88a6073621f3a38611f4abc3f83824e355df061c3b40a87802091f9657df1",
+      "status": "ready"
+    }
+  ],
+  "components": [
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/main.py"
+      ],
+      "id": "cmp_3d94b4f8a44126168ca99804a78044e71c12633786e05c2433541fedfd247817",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd"
+      ],
+      "name": "Khởi động"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/deps.py",
+        "app/routes.py",
+        "app/schemas/items.py",
+        "app/schemas/legacy.py"
+      ],
+      "id": "cmp_fe304613f1619f2a0e6c2fceda4b62b6182690944bc247bbc4bba710413e0cc0",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:950de7d3853e11605274217b2b7eb934fb7643902d1324f0b7eae329a457717d",
+        "file:ce094bb56453cead866c2fd651ed6e035cf8ff38890df94ef0bf8df01a64f54b",
+        "file:e38c243c1b489e081467da5fce6f798197da8d15e57252dedeaa03b789168f0a",
+        "file:f67826701212aab477be0634a23fdcd7ffdfe748b8ce35eb27b8f690d334c732"
+      ],
+      "name": "Mặt hàng"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/__init__.py",
+        "app/schemas/__init__.py",
+        "requirements.txt"
+      ],
+      "id": "cmp_636b6251563eeaa98f6e78e0213915d3d8dcf8fca371e466e4817761aa36ffc5",
+      "kind": "other",
+      "member_file_ids": [
+        "file:4d7c51b1efe9043e44439a949dfd92e5827321b34082903477fd04876edb7552",
+        "file:6e8f919a6d4fadb3bc8ab59063772e2db733dbb02d71e04ae8f9c22cb79e20a8",
+        "file:9cec7b11237bc29d77a439e81c9b7acfac003d8e8855731eb6bc130b5a8ce602"
+      ],
+      "name": "Khác"
+    }
+  ],
+  "contract_owners": {},
+  "coverage": {
+    "complete": false,
+    "files": [
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 18,
+        "missing": [
+          [
+            1,
+            18
+          ]
+        ],
+        "path": "app/deps.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 6,
+        "missing": [
+          [
+            1,
+            6
+          ]
+        ],
+        "path": "app/main.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 69,
+        "missing": [
+          [
+            1,
+            69
+          ]
+        ],
+        "path": "app/routes.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/schemas/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 30,
+        "missing": [
+          [
+            1,
+            30
+          ]
+        ],
+        "path": "app/schemas/items.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 6,
+        "missing": [
+          [
+            1,
+            6
+          ]
+        ],
+        "path": "app/schemas/legacy.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 3,
+        "missing": [
+          [
+            1,
+            3
+          ]
+        ],
+        "path": "requirements.txt",
+        "processed_lines": 0,
+        "status": "unread"
+      }
+    ],
+    "not_readable": []
+  },
+  "dismissed_suspects": [],
+  "evidence_index": [],
+  "excluded_from_snapshot": [],
+  "facts": [],
+  "limitations": [
+    {
+      "code": "ANALYSIS_PARTIAL",
+      "message": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+      "stage": "agent"
+    },
+    {
+      "code": "SOURCE_NOT_FULLY_READ",
+      "message": "app/deps.py thiếu [[1, 18]]; app/main.py thiếu [[1, 6]]; app/routes.py thiếu [[1, 69]]; app/schemas/items.py thiếu [[1, 30]]; app/schemas/legacy.py thiếu [[1, 6]]; requirements.txt thiếu [[1, 3]]",
+      "stage": "agent"
+    }
+  ],
+  "pipeline_version": "fr029-doc-v1",
+  "provenance": {
+    "model": "openai/gpt-oss-120b",
+    "prompt_version": "fr029-agent-prompt-v2",
+    "provider": "https://api.groq.com/openai/v1"
+  },
+  "rejected_claims": [],
+  "render_notices": [],
+  "repository_name": "params_models",
+  "run_id": "pilot_params_models_r1",
+  "schema_version": "0.1.0",
+  "snapshot_id": "snap:f4c379df5bbe6f7ce12b9a2921b44ec8e7f9d4e100c82e340d37e1075b5c8b60",
+  "unassigned": []
+}

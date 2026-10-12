@@ -1,0 +1,176 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "fastapi-docs-schema_extra_example-tutorial001",
+  "source_digest": "8cacde833a238896b082c1bec850d5edbfae108c1db7415e8cc4300885393041",
+  "status": "facts_only",
+  "entities": [
+    {
+      "id": "schema_extra_example/tutorial001_py310.py::update_item",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 28,
+      "line_end": 30,
+      "symbol": "update_item",
+      "kind": "function"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e00deea8a287d5484",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 8,
+      "line_end": 8,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "e1a3aefd273feff2f",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 8,
+      "line_end": 8,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "e230d45da06c5da0e",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 28,
+      "line_end": 28,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "e25b55db9c5ba43e5",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 10,
+      "line_end": 10,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "e26731b1d6e3d2842",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 1,
+      "line_end": 30,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "e35d4202024ea8bec",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 9,
+      "line_end": 9,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "e581f4de55c6b8e02",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 27,
+      "line_end": 28,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "e5ab2dce68a4b3f7a",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 27,
+      "line_end": 27,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "e82dac56adb4eff10",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 28,
+      "line_end": 28,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "eb4f4ac90ff6aebf8",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 11,
+      "line_end": 11,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "ec40000c93a0147c1",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 7,
+      "line_end": 24,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "ec94f9f0c0bf7d2a8",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 11,
+      "line_end": 11,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "ed2971f594e9c6861",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 28,
+      "line_end": 30,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "edb86bb1f8488d7c7",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 4,
+      "line_end": 4,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "ede901556e68df7e7",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 10,
+      "line_end": 10,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "ee1dab5260bc3ea7a",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 9,
+      "line_end": 9,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    },
+    {
+      "id": "efd2bc46da9b21527",
+      "path": "schema_extra_example/tutorial001_py310.py",
+      "line_start": 27,
+      "line_end": 27,
+      "sha256": "954941c1af84ed36610b04c81e8643ecfda559acde6927a0a248bb0b62012531"
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:afe6532140ac4cbbc97d6b8480bfee2aa6e49499c42e5c76ea5ed225a39548b9",
+      "evidence_refs": [
+        "e230d45da06c5da0e",
+        "e581f4de55c6b8e02",
+        "e5ab2dce68a4b3f7a",
+        "e82dac56adb4eff10",
+        "edb86bb1f8488d7c7",
+        "efd2bc46da9b21527"
+      ],
+      "target_id": null,
+      "kind": "route",
+      "source_id": "schema_extra_example/tutorial001_py310.py::update_item",
+      "context": "schema_extra_example/tutorial001_py310.py::app",
+      "attributes": {
+        "method": "PUT",
+        "path": "/items/{item_id}",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    }
+  ],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v3",
+    "unsupported": []
+  }
+}

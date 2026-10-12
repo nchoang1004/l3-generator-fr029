@@ -1,0 +1,16 @@
+flowchart LR
+  n0["Test"]
+  n1["Router HTTP API"]
+  n2["Mô hình dữ liệu"]
+  n3["Hạ tầng database"]
+  n4["Dùng chung"]
+  n5["Service quản lý ghi chú"]
+  n6["Khởi tạo ứng dụng"]
+  n7["Migration"]
+  n5 -->|depends_on| n2
+  n0 -->|calls| n2
+  n5 -->|calls| n2
+  n0 -->|depends_on| n2
+  n1 -->|calls| n5
+  n5 -->|depends_on| n3
+  n1 -->|depends_on| n5

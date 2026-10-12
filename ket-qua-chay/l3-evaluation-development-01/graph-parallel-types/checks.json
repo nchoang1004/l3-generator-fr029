@@ -1,0 +1,11 @@
+{
+  "status": "error",
+  "reason": "Fixture violates input schema",
+  "traceback": "Traceback (most recent call last):\n  File \"D:\\VSF\\l3-generator-l3\\slice\\evaluation_l3\\runner.py\", line 70, in run_case\n    validate(v,7,'VerifiedResult')\n  File \"D:\\VSF\\l3-generator-l3\\slice\\evaluation_l3\\contracts.py\", line 28, in validate\n    format_checker=FormatChecker()).validate(value)\n                                    ^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\scripts\\.venv\\Lib\\site-packages\\jsonschema\\validators.py\", line 451, in validate\n    raise error\njsonschema.exceptions.ValidationError: 'depends' is not one of ['calls', 'http', 'publishes', 'consumes', 'depends_on']\n\nFailed validating 'enum' in schema['properties']['model']['properties']['edges']['items']['properties']['relation_type']:\n    {'enum': ['calls', 'http', 'publishes', 'consumes', 'depends_on']}\n\nOn instance['model']['edges'][1]['relation_type']:\n    'depends'\n",
+  "checks": [],
+  "id": "graph-parallel-types",
+  "group": "graph",
+  "title": "Same endpoints, distinct relation types are retained",
+  "requirement": "AC-L3GEN-025-02/04; API-008 §3",
+  "seconds": 0.0387
+}

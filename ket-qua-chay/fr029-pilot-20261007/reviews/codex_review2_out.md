@@ -1,0 +1,38 @@
+| # | Kết luận | Căn cứ và input còn lọt |
+|---|---|---|
+| 1 | **đã đóng** | Kiểm kiểu trước membership ở [docfacts.py:317](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:317), [434](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:434); hai input `unknown` cũ không crash. |
+| 2 | **đã đóng** | Model chưa nộp chuyển thành unknown: [docfacts.py:667](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:667), [808](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:808). |
+| 3 | **đóng một phần** | [source_tools.py:62](D:/VSF/l3-generator-l3/slice/l3slice/source_tools.py:62) vẫn che từng dòng. Input `password="""\ndemo-only-password\n"""` còn gửi nguyên mật khẩu. |
+| 4 | **đóng một phần** | [docfacts.py:248](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:248) kiểm dấu hiệu nhưng chưa kiểm chuỗi đăng ký. Đảo hai phần đầu `CREATE.path_parts` vẫn được nhận, sinh `/v1/api/items/`. |
+| 5 | **đóng một phần** | [docfacts.py:288](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:288) chặn mượn handler khác, chưa kiểm receiver. `app=FastAPI(); @db.get("/fake")` trên các dòng riêng vẫn nhận route `/fake`. |
+| 6 | **không sửa** | [docfacts.py:208](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:208). Chủ ý giao ngữ nghĩa cho agent/gold **hợp hướng**; scorer có so type/required/nullable. Đây là quyết định kiến trúc, không phải validator đã chặn: `Tag.label` vẫn nhận `integer,false,true`. |
+| 7 | **không sửa** | [docfacts.py:385](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:385). Giao giải import cho agent hợp hướng, nhưng phép đo chưa đủ: route import `a.User` vẫn nhận `b.py::User`; scorer còn bỏ danh tính file của ref lồng/request tại [fr029_score.py:29](D:/VSF/l3-generator-l3/slice/tools/fr029_score.py:29). Chưa đủ căn cứ đóng bằng gold. |
+| 8 | **đóng một phần** | Status mượn decorator khác bị chặn; auth vẫn chỉ kiểm vị trí tại [docfacts.py:275](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:275). Input `READ.auth={"value":"OAuth2 admin required","at":"app/api/items.py:9"}` vẫn được nhận. |
+| 9 | **đóng một phần** | [docfacts.py:428](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:428) vẫn chỉ kiểm import trong file. `import httpx` rồi `db.get("https://fake.example")` vẫn được nhận là HTTP. |
+| 10 | **đóng một phần** | [docfacts.py:489](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:489) bổ sung vài signal; cạnh gọi Service chưa được kiểm. File chỉ có `x=1`, nộp `role="Hạ tầng", at="m.py:1"` vẫn được nhận. |
+| 11 | **đã đóng** | [docagent.py:237](D:/VSF/l3-generator-l3/slice/l3slice/docagent.py:237) chỉ rút gọn message đã gửi; input `max_context_chars=1` vẫn gửi receipt đầy đủ lần đầu. |
+| 12 | **đã đóng** | [render.py:364](D:/VSF/l3-generator-l3/slice/l3slice/render.py:364) dựng object theo `request_inline.fields`, giữ lớp bọc và tên trường. |
+| 13 | **đóng một phần** | Archdia thiếu snapshot đã thành `not_evaluated`; [docpipeline.py:29](D:/VSF/l3-generator-l3/slice/l3slice/docpipeline.py:29) chưa kiểm snapshot/version membership. Membership đúng files nhưng `snapshot_id="wrong", schema_version="999"` vẫn được nhận. |
+| 14 | **đóng một phần** | Marker và layout `src/` đã xử lý; [snapshot.py:19](D:/VSF/l3-generator-l3/slice/l3slice/snapshot.py:19) vẫn loại `venv/` vô điều kiện. `venv/task.py` chứa `from app import api`, không có marker, vẫn bị loại. |
+| 15 | **đóng một phần** | `suspects` hợp lý để nhắc agent, chưa bảo đảm đủ inventory. [docfacts.py:549](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:549) đánh dấu mọi decorator trong khoảng là đã xử lý: `@app.get("/a")` rồi `@app.post("/b")` cùng handler, chỉ nộp GET vẫn `completed`. Lý do bác còn mất khi xuất, xem lỗi mới. |
+| 16 | **đóng một phần** | Prefix value/application đã vào khóa, nhưng khóa claim và fact chưa đồng nhất: [docfacts.py:281](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:281), [861](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:861). Nộp hai `CREATE`, application lần lượt `app/main.py:5` và `app/main.py:5-6`: nhận hai claim nhưng sinh cùng fact ID. |
+| 17 | **đóng một phần** | URL đã che được nhận; [docfacts.py:464](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:464) vẫn nhận cả bản gốc. Nộp target `https://u:demo-only-password@host/` vẫn xuất nguyên mật khẩu tại [724](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:724). |
+| 18 | **đã đóng** | [docagent.py:225](D:/VSF/l3-generator-l3/slice/l3slice/docagent.py:225) kết thúc `partial/SOURCE_LINES_CUT`; dòng 500 ký tự không còn báo completed. |
+| 19 | **đã đóng** | Unknown field được tính đệ quy tại [docfacts.py:630](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:630); bảng ghi alias tại [render.py:293](D:/VSF/l3-generator-l3/slice/l3slice/render.py:293). |
+| 20 | **đóng một phần** | README đã bỏ link artifact lỗi; [docpipeline.py:143](D:/VSF/l3-generator-l3/slice/l3slice/docpipeline.py:143) vẫn đối chiếu toàn bộ facts. Mock `check_doc → "bad"` với archdia khớp: API payload `None`, parity vẫn `passed`. |
+| 21 | **không sửa** | [docpipeline.py:140](D:/VSF/l3-generator-l3/slice/l3slice/docpipeline.py:140) vẫn `retryable=False`. Có thể hoãn có chủ ý, nhưng yêu cầu V2 về retry từ dữ liệu đóng băng chưa đạt. |
+| 22 | **đã đóng** | Prompt đã xét response class ở app/router và `pydantic.v1`: [docagent.py:86](D:/VSF/l3-generator-l3/slice/l3slice/docagent.py:86), [116](D:/VSF/l3-generator-l3/slice/l3slice/docagent.py:116). |
+
+Lỗi mới — đã tái hiện trong bộ nhớ:
+
+- **Cao — [docfacts.py:497](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:497): crash `StopIteration`.** Regex toàn file nhận signal qua xuống dòng, nhưng `next()` tìm từng dòng không thấy. Input source `if (__name__ ==\n    "__main__"):\n    pass`; nộp `file_roles=[{"file":"m.py","role":"Khác","at":"m.py:1"}]`.
+
+- **Cao — [render.py:780](D:/VSF/l3-generator-l3/slice/l3slice/render.py:780): mọi body Form/File theo format mới bị kiểm cuối từ chối.** Input `def login(user: str = Form()): ...`, claim `models=[], fields=[user:string]`. Renderer dựng body đúng nhưng `check_doc` trả “requestBody không có trong dữ kiện”, làm mất cả file API component. Test [test_docagent.py:432](D:/VSF/l3-generator-l3/slice/tests/test_docagent.py:432) chỉ validate OpenAPI, không chạy `check_doc`.
+
+- **Vừa — [docfacts.py:439](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:439): bác HTTP hợp lệ dùng keyword.** Input `httpx.request(url="https://right.example", method="GET")`; claim GET đúng URL bị bác vì lấy literal đầu tiên làm method.
+
+- **Vừa — [docfacts.py:830](D:/VSF/l3-generator-l3/slice/l3slice/docfacts.py:830), [render.py:369](D:/VSF/l3-generator-l3/slice/l3slice/render.py:369): mất unknown của required trong body mới.** Input body embedded/Form có `required={"unknown":"runtime"}` ở body và field. Giá trị bị đổi thành `None`, lý do mất; route có thể thành `full`, OpenAPI bỏ required và không ghi unknown.
+
+- **Vừa — [docpipeline.py:159](D:/VSF/l3-generator-l3/slice/l3slice/docpipeline.py:159): không xuất audit `dismissed`.** Input fixture đầy đủ, thay limitation `app/main.py:13` bằng dismissal có lý do. Run `completed`, nhưng `result.json` không chứa dismissal hay lý do; không thể review căn cứ bỏ sót đã được agent viện dẫn.
+
+- **Vừa — [fr029_score.py:60](D:/VSF/l3-generator-l3/slice/tools/fr029_score.py:60), [96](D:/VSF/l3-generator-l3/slice/tools/fr029_score.py:96): scorer bỏ qua fields của body mới.** Gold Form có `user:string, required=true`; result đổi thành `wrong:integer, required=false`, giữ media/body-required. Scorer vẫn báo `request_body.correct=1`, không có lỗi.

@@ -1,0 +1,7 @@
+51e502b788bff0c7fde64580a89e584af4fafba9fed95ab0fe75ca12d764b35f *fastapi_best_architecture/out/TAI-LIEU.md
+083ef8730c574905e73b07850289bbe91690e872514244468e124c96797b90d3 *fastapi_best_architecture/out/tech-specs/BACKEND/schema/TBL-FASTAPI-BEST-ARCHITECTURE-BACKEND.md
+3673a4a17eeb670ff9f13335cc00eb90eec10896287d65cbd235be3caab36495 *full-stack-fastapi-template/out/TAI-LIEU.md
+1585a210aad76cef776b945fe408ecc5242638c402d71e36db73ea17a3907784 *full-stack-fastapi-template/out/tech-specs/BACKEND/schema/TBL-FULL-STACK-FASTAPI-TEMPLATE-BACKEND.md
+735dc63bc252ef20c8b6fc501882e15a32d91eb7be4be97b666eda20ea2f3297 *orderflow/out/TAI-LIEU.md
+6be2fd0dc76eda212f85211588533bc8e9a6fb1d13144d90f999e6bb9b5126b4 *orderflow/out/tech-specs/SERVICES/schema/TBL-ORDERFLOW-SERVICES.md
+c33564ef915ae52da6deb3c8ea31ca843e247d23a50c110cd693648a4129561b *tdd-docker/out/TAI-LIEU.md

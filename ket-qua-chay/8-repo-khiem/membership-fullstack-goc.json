@@ -1,0 +1,106 @@
+{
+ "partition_version": "fixture-membership-v1",
+ "components": [
+  {
+   "name": "Khởi tạo dữ liệu",
+   "files": [
+    "backend/app/initial_data.py"
+   ]
+  },
+  {
+   "name": "Ứng dụng FastAPI",
+   "files": [
+    "backend/app/main.py"
+   ]
+  },
+  {
+   "name": "Router API",
+   "files": [
+    "backend/app/api/__init__.py",
+    "backend/app/api/main.py",
+    "backend/app/api/routes/__init__.py",
+    "backend/app/api/routes/items.py",
+    "backend/app/api/routes/login.py",
+    "backend/app/api/routes/private.py",
+    "backend/app/api/routes/users.py",
+    "backend/app/api/routes/utils.py"
+   ]
+  },
+  {
+   "name": "Xác thực người dùng",
+   "files": [
+    "backend/app/api/deps.py",
+    "backend/app/core/security.py"
+   ]
+  },
+  {
+   "name": "Mô hình và CRUD",
+   "files": [
+    "backend/app/__init__.py",
+    "backend/app/alembic/env.py",
+    "backend/app/alembic/versions/1a31ce608336_add_cascade_delete_relationships.py",
+    "backend/app/alembic/versions/9c0a54914c78_add_max_length_for_string_varchar_.py",
+    "backend/app/alembic/versions/d98dd8ec85a3_edit_replace_id_integers_in_all_models_.py",
+    "backend/app/alembic/versions/e2412789c190_initialize_models.py",
+    "backend/app/alembic/versions/fe56fa70289e_add_created_at_to_user_and_item.py",
+    "backend/app/crud.py",
+    "backend/app/models.py"
+   ]
+  },
+  {
+   "name": "Cơ sở dữ liệu",
+   "files": [
+    "backend/app/core/__init__.py",
+    "backend/app/core/db.py"
+   ]
+  },
+  {
+   "name": "SMTP email service",
+   "files": [
+    "backend/app/utils.py"
+   ]
+  },
+  {
+   "name": "Dùng chung",
+   "files": [
+    "backend/app/core/config.py",
+    "hooks/post_gen_project.py"
+   ]
+  },
+  {
+   "name": "Ngoài sơ đồ: (gốc)",
+   "files": [
+    "pyproject.toml"
+   ]
+  },
+  {
+   "name": "Ngoài sơ đồ: backend",
+   "files": [
+    "backend/pyproject.toml",
+    "backend/tests/__init__.py",
+    "backend/tests/api/__init__.py",
+    "backend/tests/api/routes/__init__.py",
+    "backend/tests/api/routes/test_items.py",
+    "backend/tests/api/routes/test_login.py",
+    "backend/tests/api/routes/test_private.py",
+    "backend/tests/api/routes/test_users.py",
+    "backend/tests/conftest.py",
+    "backend/tests/crud/__init__.py",
+    "backend/tests/crud/test_user.py",
+    "backend/tests/scripts/__init__.py",
+    "backend/tests/utils/__init__.py",
+    "backend/tests/utils/item.py",
+    "backend/tests/utils/user.py",
+    "backend/tests/utils/utils.py"
+   ]
+  },
+  {
+   "name": "Ngoài sơ đồ: scripts",
+   "files": [
+    "scripts/add_latest_release_date.py",
+    "scripts/prepare_release.py"
+   ]
+  }
+ ],
+ "_ghi_chu": "Khối lấy từ D:/VSF/l3-generator-quote-evidence/evaluation/quote-evidence/runs/v8-draft-fullstack/graph.json; file Khiêm không xếp được gán theo luật trong build_membership.py"
+}

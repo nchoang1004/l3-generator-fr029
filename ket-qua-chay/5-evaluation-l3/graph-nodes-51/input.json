@@ -1,0 +1,1437 @@
+{
+  "schema_version": "0.1.0",
+  "snapshot_id": "snapshot-render-eval-v1",
+  "inventory": {
+    "schema_version": "0.1.0",
+    "snapshot_id": "snapshot-render-eval-v1",
+    "support_matrix_version": "synthetic-v1",
+    "grouping_policy_version": "synthetic-v1",
+    "outcome": "ready",
+    "units": [
+      {
+        "id": "unit-app",
+        "root_path": "app",
+        "language": "Python",
+        "framework": "synthetic",
+        "support": "partial",
+        "file_ids": [
+          "file-api",
+          "file-1",
+          "file-2",
+          "file-3",
+          "file-4",
+          "file-5",
+          "file-6",
+          "file-7",
+          "file-8",
+          "file-9",
+          "file-10",
+          "file-11",
+          "file-12",
+          "file-13",
+          "file-14",
+          "file-15",
+          "file-16",
+          "file-17",
+          "file-18",
+          "file-19",
+          "file-20",
+          "file-21",
+          "file-22",
+          "file-23",
+          "file-24",
+          "file-25",
+          "file-26",
+          "file-27",
+          "file-28",
+          "file-29",
+          "file-30",
+          "file-31",
+          "file-32",
+          "file-33",
+          "file-34",
+          "file-35",
+          "file-36",
+          "file-37",
+          "file-38",
+          "file-39",
+          "file-40",
+          "file-41",
+          "file-42",
+          "file-43",
+          "file-44",
+          "file-45",
+          "file-46",
+          "file-47",
+          "file-48",
+          "file-49",
+          "file-50"
+        ],
+        "flat": false
+      }
+    ],
+    "excluded": [],
+    "limitations": []
+  },
+  "facts": {
+    "schema_version": "0.1.0",
+    "snapshot_id": "snapshot-render-eval-v1",
+    "extractor_version": "hand-authored-not-extracted",
+    "facts": [],
+    "limitations": []
+  },
+  "model": {
+    "schema_version": "0.1.0",
+    "snapshot_id": "snapshot-render-eval-v1",
+    "partition_version": "synthetic-not-D03",
+    "components": [
+      {
+        "id": "cmp-000",
+        "unit_id": "unit-app",
+        "name": "Component 0",
+        "member_file_ids": [
+          "file-api"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-001",
+        "unit_id": "unit-app",
+        "name": "Component 1",
+        "member_file_ids": [
+          "file-1"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-002",
+        "unit_id": "unit-app",
+        "name": "Component 2",
+        "member_file_ids": [
+          "file-2"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-003",
+        "unit_id": "unit-app",
+        "name": "Component 3",
+        "member_file_ids": [
+          "file-3"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-004",
+        "unit_id": "unit-app",
+        "name": "Component 4",
+        "member_file_ids": [
+          "file-4"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-005",
+        "unit_id": "unit-app",
+        "name": "Component 5",
+        "member_file_ids": [
+          "file-5"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-006",
+        "unit_id": "unit-app",
+        "name": "Component 6",
+        "member_file_ids": [
+          "file-6"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-007",
+        "unit_id": "unit-app",
+        "name": "Component 7",
+        "member_file_ids": [
+          "file-7"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-008",
+        "unit_id": "unit-app",
+        "name": "Component 8",
+        "member_file_ids": [
+          "file-8"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-009",
+        "unit_id": "unit-app",
+        "name": "Component 9",
+        "member_file_ids": [
+          "file-9"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-010",
+        "unit_id": "unit-app",
+        "name": "Component 10",
+        "member_file_ids": [
+          "file-10"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-011",
+        "unit_id": "unit-app",
+        "name": "Component 11",
+        "member_file_ids": [
+          "file-11"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-012",
+        "unit_id": "unit-app",
+        "name": "Component 12",
+        "member_file_ids": [
+          "file-12"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-013",
+        "unit_id": "unit-app",
+        "name": "Component 13",
+        "member_file_ids": [
+          "file-13"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-014",
+        "unit_id": "unit-app",
+        "name": "Component 14",
+        "member_file_ids": [
+          "file-14"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-015",
+        "unit_id": "unit-app",
+        "name": "Component 15",
+        "member_file_ids": [
+          "file-15"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-016",
+        "unit_id": "unit-app",
+        "name": "Component 16",
+        "member_file_ids": [
+          "file-16"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-017",
+        "unit_id": "unit-app",
+        "name": "Component 17",
+        "member_file_ids": [
+          "file-17"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-018",
+        "unit_id": "unit-app",
+        "name": "Component 18",
+        "member_file_ids": [
+          "file-18"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-019",
+        "unit_id": "unit-app",
+        "name": "Component 19",
+        "member_file_ids": [
+          "file-19"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-020",
+        "unit_id": "unit-app",
+        "name": "Component 20",
+        "member_file_ids": [
+          "file-20"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-021",
+        "unit_id": "unit-app",
+        "name": "Component 21",
+        "member_file_ids": [
+          "file-21"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-022",
+        "unit_id": "unit-app",
+        "name": "Component 22",
+        "member_file_ids": [
+          "file-22"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-023",
+        "unit_id": "unit-app",
+        "name": "Component 23",
+        "member_file_ids": [
+          "file-23"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-024",
+        "unit_id": "unit-app",
+        "name": "Component 24",
+        "member_file_ids": [
+          "file-24"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-025",
+        "unit_id": "unit-app",
+        "name": "Component 25",
+        "member_file_ids": [
+          "file-25"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-026",
+        "unit_id": "unit-app",
+        "name": "Component 26",
+        "member_file_ids": [
+          "file-26"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-027",
+        "unit_id": "unit-app",
+        "name": "Component 27",
+        "member_file_ids": [
+          "file-27"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-028",
+        "unit_id": "unit-app",
+        "name": "Component 28",
+        "member_file_ids": [
+          "file-28"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-029",
+        "unit_id": "unit-app",
+        "name": "Component 29",
+        "member_file_ids": [
+          "file-29"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-030",
+        "unit_id": "unit-app",
+        "name": "Component 30",
+        "member_file_ids": [
+          "file-30"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-031",
+        "unit_id": "unit-app",
+        "name": "Component 31",
+        "member_file_ids": [
+          "file-31"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-032",
+        "unit_id": "unit-app",
+        "name": "Component 32",
+        "member_file_ids": [
+          "file-32"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-033",
+        "unit_id": "unit-app",
+        "name": "Component 33",
+        "member_file_ids": [
+          "file-33"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-034",
+        "unit_id": "unit-app",
+        "name": "Component 34",
+        "member_file_ids": [
+          "file-34"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-035",
+        "unit_id": "unit-app",
+        "name": "Component 35",
+        "member_file_ids": [
+          "file-35"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-036",
+        "unit_id": "unit-app",
+        "name": "Component 36",
+        "member_file_ids": [
+          "file-36"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-037",
+        "unit_id": "unit-app",
+        "name": "Component 37",
+        "member_file_ids": [
+          "file-37"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-038",
+        "unit_id": "unit-app",
+        "name": "Component 38",
+        "member_file_ids": [
+          "file-38"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-039",
+        "unit_id": "unit-app",
+        "name": "Component 39",
+        "member_file_ids": [
+          "file-39"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-040",
+        "unit_id": "unit-app",
+        "name": "Component 40",
+        "member_file_ids": [
+          "file-40"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-041",
+        "unit_id": "unit-app",
+        "name": "Component 41",
+        "member_file_ids": [
+          "file-41"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-042",
+        "unit_id": "unit-app",
+        "name": "Component 42",
+        "member_file_ids": [
+          "file-42"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-043",
+        "unit_id": "unit-app",
+        "name": "Component 43",
+        "member_file_ids": [
+          "file-43"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-044",
+        "unit_id": "unit-app",
+        "name": "Component 44",
+        "member_file_ids": [
+          "file-44"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-045",
+        "unit_id": "unit-app",
+        "name": "Component 45",
+        "member_file_ids": [
+          "file-45"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-046",
+        "unit_id": "unit-app",
+        "name": "Component 46",
+        "member_file_ids": [
+          "file-46"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-047",
+        "unit_id": "unit-app",
+        "name": "Component 47",
+        "member_file_ids": [
+          "file-47"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-048",
+        "unit_id": "unit-app",
+        "name": "Component 48",
+        "member_file_ids": [
+          "file-48"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-049",
+        "unit_id": "unit-app",
+        "name": "Component 49",
+        "member_file_ids": [
+          "file-49"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp-050",
+        "unit_id": "unit-app",
+        "name": "Component 50",
+        "member_file_ids": [
+          "file-50"
+        ],
+        "grouping_source": "code",
+        "confidence": "exact",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev-render-eval"
+        ],
+        "label_status": "path_fallback"
+      }
+    ],
+    "external_systems": [],
+    "edges": [],
+    "contract_owners": [],
+    "limitations": [],
+    "rejected_proposals": []
+  },
+  "evidence_index": [
+    {
+      "id": "ev-render-eval",
+      "snapshot_id": "snapshot-render-eval-v1",
+      "file_id": "file-api",
+      "path": "app/api.py",
+      "sha256": "fe5f20871d12f723c2073ad0cde5a6dae2b08ea2d5bcf8772897a815b69584e9",
+      "start_line": 1,
+      "end_line": 1,
+      "start_column": null,
+      "end_column": null
+    }
+  ],
+  "decisions": [
+    {
+      "subject_id": "cmp-000",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-001",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-002",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-003",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-004",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-005",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-006",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-007",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-008",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-009",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-010",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-011",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-012",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-013",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-014",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-015",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-016",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-017",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-018",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-019",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-020",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-021",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-022",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-023",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-024",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-025",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-026",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-027",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-028",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-029",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-030",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-031",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-032",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-033",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-034",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-035",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-036",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-037",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-038",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-039",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-040",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-041",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-042",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-043",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-044",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-045",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-046",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-047",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-048",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-049",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    },
+    {
+      "subject_id": "cmp-050",
+      "verdict": "accepted",
+      "rule_id": "synthetic-reviewed",
+      "rule_version": "eval-v1",
+      "fact_ids": [],
+      "evidence_ids": [
+        "ev-render-eval"
+      ],
+      "reason": "Synthetic accepted input for renderer isolation"
+    }
+  ],
+  "limitations": []
+}

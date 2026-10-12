@@ -1,0 +1,42 @@
+== teamhide-fastapi-boilerplate: bảng gold 1, đọc được 1, khớp 1; cột gold 9, khớp 9, thừa 0
+  nullable lệch user.lat: gold None | got True
+  kiểu khác user.lat: gold float | got None (state=unknown)
+  nullable lệch user.lng: gold None | got True
+  kiểu khác user.lng: gold float | got None (state=unknown)
+  giới hạn tĩnh: ['VALUE_REDACTED']
+== full-stack-fastapi-template: bảng gold 2, đọc được 2, khớp 2; cột gold 12, khớp 12, thừa 0
+  kiểu khác item.created_at: gold datetime | None | got DateTime(timezone=True) (state=unknown)
+  kiểu khác item.description: gold str | None | got str, max_length=255 (state=unknown)
+  kiểu khác item.title: gold str | got str, max_length=255 (state=unknown)
+  kiểu khác user.created_at: gold datetime | None | got DateTime(timezone=True) (state=unknown)
+  kiểu khác user.email: gold EmailStr | got EmailStr, max_length=255 (state=unknown)
+  kiểu khác user.full_name: gold str | None | got str, max_length=255 (state=unknown)
+  giới hạn tĩnh: ['PARSE_FAILED']
+== igorbenav-FastAPI-boilerplate: bảng gold 6, đọc được 6, khớp 6; cột gold 72, khớp 72, thừa 0
+  giới hạn tĩnh: ['QUEUE_LIBRARY_UNSUPPORTED']
+== fastapi_best_architecture: bảng gold 23, đọc được 23, khớp 23; cột gold 248, khớp 248, thừa 0
+  kiểu khác code_gen_business.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác code_gen_column.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác code_gen_column.sort: gold int | None | got int (state=unknown)
+  kiểu khác sys_config.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác sys_data_rule.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác sys_data_scope.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác sys_dept.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác sys_dict_data.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác sys_dict_type.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác sys_login_log.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác sys_menu.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác sys_notice.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác sys_opera_log.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác sys_role.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác sys_user.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác sys_user_password_history.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác sys_user_social.id: gold id_key | got BigInteger (state=unknown)
+  nullable lệch task_result.status: gold None | got True
+  nullable lệch task_result.task_id: gold None | got True
+  kiểu khác task_scheduler.expire_seconds: gold int | None | got int (state=unknown)
+  kiểu khác task_scheduler.id: gold id_key | got BigInteger (state=unknown)
+  kiểu khác task_scheduler.interval_every: gold int | None | got int (state=unknown)
+  nullable lệch task_set_result.taskset_id: gold None | got True
+  giới hạn tĩnh: []
+TỔNG {'gold_tables': 32, 'got_tables': 32, 'tables_tp': 32, 'gold_cols': 341, 'cols_tp': 341, 'pk_checked': 341, 'nullable_checked': 341, 'fk_checked': 341, 'type_checked': 341, 'nullable_wrong': 5, 'type_diff': 28}

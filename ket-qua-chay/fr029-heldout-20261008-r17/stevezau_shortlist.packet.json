@@ -1,0 +1,273 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos3\\stevezau_shortlist",
+  "files": 182,
+  "route_decorators": 163,
+  "decorators_refused": [],
+  "dependencies": [
+    {
+      "name": "require_browser_owner",
+      "called": false,
+      "first_use": "shortlist/server/api/requests.py:711",
+      "params": []
+    },
+    {
+      "name": "require_owner",
+      "called": false,
+      "first_use": "shortlist/server/api/settings.py:528",
+      "params": []
+    }
+  ],
+  "suspects": [
+    {
+      "at": "scripts/fetch_demo_posters.py:43",
+      "looks_like": "http",
+      "text": "response = client.get("
+    },
+    {
+      "at": "scripts/fetch_demo_posters.py:52",
+      "looks_like": "http",
+      "text": "response = client.get(f\"https://api.themoviedb.org/3/{path}\", params={\"api_key\": key, \"query\": title})"
+    },
+    {
+      "at": "scripts/fetch_demo_posters.py:78",
+      "looks_like": "http",
+      "text": "target.write_bytes(client.get(f\"{TMDB_IMAGE}{poster}\").content)"
+    },
+    {
+      "at": "shortlist/engine/clients/arr.py:116",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/arr.py:139",
+      "looks_like": "http",
+      "text": "r = http_retry.request("
+    },
+    {
+      "at": "shortlist/engine/clients/http_retry.py:181",
+      "looks_like": "http",
+      "text": "response = httpx.request(method, url, **kwargs)"
+    },
+    {
+      "at": "shortlist/engine/clients/mdblist.py:141",
+      "looks_like": "http",
+      "text": "r = http_retry.get(f\"{API}/tmdb/{kind}/{tmdb_id}\", params={\"apikey\": self._api_key}, timeout=self._timeout)"
+    },
+    {
+      "at": "shortlist/engine/clients/mdblist.py:192",
+      "looks_like": "http",
+      "text": "r = http_retry.get(f\"{API}/user\", params={\"apikey\": self._api_key}, timeout=self._timeout)"
+    },
+    {
+      "at": "shortlist/engine/clients/plex_pms.py:551",
+      "looks_like": "http",
+      "text": "return original(method, url, **kwargs)"
+    },
+    {
+      "at": "shortlist/engine/clients/plex_pms.py:1802",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/plex_pms.py:1815",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/plex_pms.py:1870",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/plex_pms.py:1895",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/plex_pms.py:1951",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/plex_pms.py:2044",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/plex_pms.py:2129",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/plex_pms.py:2203",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/plex_pms.py:2619",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/plex_pms.py:2675",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/plex_pms.py:2773",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/plextv.py:146",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/plextv.py:206",
+      "looks_like": "http",
+      "text": "r = http_retry.get(f\"{PLEXTV}/api/home/users\", headers=self._headers(), timeout=self._timeout)"
+    },
+    {
+      "at": "shortlist/engine/clients/plextv.py:269",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/plextv.py:298",
+      "looks_like": "http",
+      "text": "r = httpx.put(url, params=fields, headers=self._headers(), timeout=self._timeout)"
+    },
+    {
+      "at": "shortlist/engine/clients/plextv.py:362",
+      "looks_like": "http",
+      "text": "r = http_retry.get(f\"{PLEXTV}/api/v2/home/users\", headers=self._headers(json=True), timeout=self._timeout)"
+    },
+    {
+      "at": "shortlist/engine/clients/plextv.py:379",
+      "looks_like": "http",
+      "text": "r = http_retry.request("
+    },
+    {
+      "at": "shortlist/engine/clients/plextv.py:387",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/search.py:471",
+      "looks_like": "http",
+      "text": "response = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/seerr.py:174",
+      "looks_like": "http",
+      "text": "r = http_retry.get("
+    },
+    {
+      "at": "shortlist/engine/clients/seerr.py:197",
+      "looks_like": "http",
+      "text": "r = http_retry.request("
+    },
+    {
+      "at": "shortlist/engine/clients/trakt.py:45",
+      "looks_like": "http",
+      "text": "r = http_retry.get(f\"{TRAKT_API}{path}\", headers=self._headers(), timeout=self._timeout)"
+    },
+    {
+      "at": "shortlist/server/api/requests.py:242",
+      "looks_like": "http",
+      "text": "session.delete(row)"
+    },
+    {
+      "at": "shortlist/server/api/requests.py:674",
+      "looks_like": "http",
+      "text": "row = session.get(RequestCandidate, entry[\"candidate_id\"])"
+    },
+    {
+      "at": "shortlist/server/api/requests.py:763",
+      "looks_like": "http",
+      "text": "claim = session.get(AssistantRequestDispatch, claim_id)"
+    },
+    {
+      "at": "shortlist/server/api/setup.py:106",
+      "looks_like": "http",
+      "text": "response = await client.get("
+    },
+    {
+      "at": "shortlist/server/api/setup.py:125",
+      "looks_like": "http",
+      "text": "r = await client.get(f\"{uri}/identity\")"
+    },
+    {
+      "at": "shortlist/server/api/support.py:1946",
+      "looks_like": "http",
+      "text": "response = httpx.get("
+    },
+    {
+      "at": "shortlist/server/auth.py:118",
+      "looks_like": "http",
+      "text": "response = await client.get("
+    },
+    {
+      "at": "shortlist/server/auth.py:184",
+      "looks_like": "http",
+      "text": "response = await client.get("
+    },
+    {
+      "at": "shortlist/server/auth.py:373",
+      "looks_like": "http",
+      "text": "r = await client.post("
+    },
+    {
+      "at": "shortlist/server/auth.py:407",
+      "looks_like": "http",
+      "text": "r = await client.get(f\"{PLEXTV}/api/v2/pins/{pin_id}\", headers=_client_headers(state.client_id), timeout=15)"
+    },
+    {
+      "at": "shortlist/server/auth.py:415",
+      "looks_like": "http",
+      "text": "account = await client.get("
+    },
+    {
+      "at": "shortlist/server/services/notify.py:215",
+      "looks_like": "http",
+      "text": "response = httpx.post(url, json=webhook_body(item), headers=headers, timeout=TIMEOUT_S, follow_redirects=False)"
+    },
+    {
+      "at": "shortlist/server/services/notify.py:258",
+      "looks_like": "http",
+      "text": "run = session.get(Run, run_id)"
+    },
+    {
+      "at": "shortlist/server/services/notify.py:290",
+      "looks_like": "http",
+      "text": "run = session.get(Run, run_id)"
+    },
+    {
+      "at": "shortlist/server/services/notify.py:334",
+      "looks_like": "http",
+      "text": "job = session.get(Job, job_id)"
+    },
+    {
+      "at": "shortlist/server/services/notify.py:371",
+      "looks_like": "http",
+      "text": "run = session.get(Run, run_id)"
+    },
+    {
+      "at": "shortlist/server/services/setup_probe.py:19",
+      "looks_like": "http",
+      "text": "r = httpx.get("
+    },
+    {
+      "at": "shortlist/server/version_check.py:50",
+      "looks_like": "http",
+      "text": "response = httpx.get(_RELEASES_URL, timeout=3, headers={\"Accept\": \"application/vnd.github+json\"})"
+    },
+    {
+      "at": "shortlist/server/version_check.py:81",
+      "looks_like": "http",
+      "text": "response = httpx.get(_RELEASES_LIST_URL, timeout=5, headers={\"Accept\": \"application/vnd.github+json\"})"
+    }
+  ],
+  "seconds": 18.53
+}

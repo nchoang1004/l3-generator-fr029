@@ -1,0 +1,95 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "pycg-classes-static_method_call",
+  "source_digest": "8eb0d648a992921942fcc6ef3b0e6b1a6c625e1a1673c1389a7c45512eb657d0",
+  "status": "facts_only",
+  "entities": [
+    {
+      "id": "main.py::MyClass.func",
+      "path": "main.py",
+      "line_start": 3,
+      "line_end": 4,
+      "symbol": "MyClass.func",
+      "kind": "function"
+    },
+    {
+      "id": "main.py::__module__",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 6,
+      "symbol": "__module__",
+      "kind": "module"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e5fd482903c5a6fc6",
+      "path": "requirements.txt",
+      "line_start": 2,
+      "line_end": 2,
+      "sha256": "5a186804fd0c020f245e90ee71fe6ef81fc09e0a0e4ae39ad84e8335fa12dcc5"
+    },
+    {
+      "id": "e6471b903b26397c4",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 6,
+      "sha256": "beb26954fefa3bbd5cd92c6992c6e4b17d16fd4b6d820691028b634da87aa666"
+    },
+    {
+      "id": "e8a5199c25d4d387b",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 4,
+      "sha256": "beb26954fefa3bbd5cd92c6992c6e4b17d16fd4b6d820691028b634da87aa666"
+    },
+    {
+      "id": "e9419e52267f764a6",
+      "path": "main.py",
+      "line_start": 3,
+      "line_end": 4,
+      "sha256": "beb26954fefa3bbd5cd92c6992c6e4b17d16fd4b6d820691028b634da87aa666"
+    },
+    {
+      "id": "ecb496a310cb28484",
+      "path": "main.py",
+      "line_start": 6,
+      "line_end": 6,
+      "sha256": "beb26954fefa3bbd5cd92c6992c6e4b17d16fd4b6d820691028b634da87aa666"
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:7a0b117a7996370c71b145bd7bbe85fb6a42ad981d54be96531e3707d353ebc3",
+      "evidence_refs": [
+        "e6471b903b26397c4",
+        "ecb496a310cb28484"
+      ],
+      "target_id": "main.py::MyClass.func",
+      "kind": "reference",
+      "source_id": "main.py::__module__",
+      "context": "main.py:6:0",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    }
+  ],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v4",
+    "unsupported": []
+  }
+}

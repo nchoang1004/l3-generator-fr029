@@ -1,0 +1,2147 @@
+{
+  "suite_version": "1.0.0",
+  "scope": "isolated-CMP-008-synthetic-contract-regression",
+  "acceptance_status": "not_evaluated",
+  "counts": {
+    "pass": 1,
+    "fail": 0,
+    "error": 0
+  },
+  "selected_case_count": 1,
+  "all_catalog_cases_selected": false,
+  "not_run": [
+    {
+      "id": "manual-diagram-readability",
+      "status": "not_run",
+      "reason": "Human review at 1/10/50 nodes, long labels, arrow visibility and overlapping edges is still required; XML parity is not visual quality."
+    },
+    {
+      "id": "real-verified-result-integration",
+      "status": "not_run",
+      "reason": "Synthetic CMP-008 boundary only; no independent real-repository accepted input corpus in this suite."
+    },
+    {
+      "id": "web-download-expiry-concurrency",
+      "status": "out_of_scope",
+      "reason": "CMP-001 facade: expiry, download authorization and concurrent writers require separate integration tests."
+    },
+    {
+      "id": "source-truth-LLM-component-quality",
+      "status": "out_of_scope",
+      "reason": "Extractor accuracy, LLM reasoning and D-03 partition quality are not renderer metrics."
+    },
+    {
+      "id": "external-user-and-NFR-benchmark",
+      "status": "not_run",
+      "reason": "No pilot, OS matrix, large-file performance or acceptance sampling claim; elapsed seconds are diagnostic only."
+    },
+    {
+      "id": "full-crash-matrix",
+      "status": "not_run",
+      "reason": "Tests staging write failure and crash after artifact install; not every OS rename/disk-full/process-kill boundary."
+    }
+  ],
+  "results": [
+    {
+      "status": "pass",
+      "checks": [
+        {
+          "code": "contract-schema",
+          "location": "manifest.json",
+          "passed": true,
+          "expected": null,
+          "actual": null
+        },
+        {
+          "code": "contract-schema",
+          "location": "result.json",
+          "passed": true,
+          "expected": null,
+          "actual": null
+        },
+        {
+          "code": "manifest-result-parity",
+          "location": "result.json",
+          "passed": true,
+          "expected": {
+            "export_context": {
+              "component_slugs": {
+                "cmp-000": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "cmp-001": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-2"
+              },
+              "renderer_version": "slice-render-v2",
+              "repository_name": "Review shop",
+              "system_slug": "REVIEW-SHOP",
+              "template_version": "slice-template-v1"
+            },
+            "render_notices": [],
+            "result": {
+              "decisions": [
+                {
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "fact_ids": [],
+                  "reason": "Synthetic accepted input for renderer isolation",
+                  "rule_id": "synthetic-reviewed",
+                  "rule_version": "eval-v1",
+                  "subject_id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                  "verdict": "accepted"
+                },
+                {
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "fact_ids": [],
+                  "reason": "Synthetic accepted input for renderer isolation",
+                  "rule_id": "synthetic-reviewed",
+                  "rule_version": "eval-v1",
+                  "subject_id": "cmp-000",
+                  "verdict": "accepted"
+                },
+                {
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "fact_ids": [],
+                  "reason": "Synthetic accepted input for renderer isolation",
+                  "rule_id": "synthetic-reviewed",
+                  "rule_version": "eval-v1",
+                  "subject_id": "cmp-001",
+                  "verdict": "accepted"
+                }
+              ],
+              "evidence_index": [
+                {
+                  "end_column": null,
+                  "end_line": 1,
+                  "file_id": "file-api",
+                  "id": "ev-render-eval",
+                  "path": "app/api.py",
+                  "sha256": "fe5f20871d12f723c2073ad0cde5a6dae2b08ea2d5bcf8772897a815b69584e9",
+                  "snapshot_id": "snapshot-render-eval-v1",
+                  "start_column": null,
+                  "start_line": 1
+                }
+              ],
+              "facts": {
+                "extractor_version": "hand-authored-not-extracted",
+                "facts": [
+                  {
+                    "attributes": {
+                      "application_id": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": "app-main"
+                      },
+                      "auth": {
+                        "reason": "Synthetic case: upstream could not establish this field",
+                        "state": "unknown"
+                      },
+                      "bodies": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": []
+                      },
+                      "declaration_evidence_id": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": "ev-render-eval"
+                      },
+                      "handler": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": "app.api.orders"
+                      },
+                      "method": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": "GET"
+                      },
+                      "parameters": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": []
+                      },
+                      "path": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": "/v1/orders"
+                      },
+                      "registration_context": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": "app-main:include-1"
+                      },
+                      "request_model_ids": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": []
+                      },
+                      "response_model_ids": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": []
+                      },
+                      "status_codes": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": [
+                          200
+                        ]
+                      }
+                    },
+                    "completeness": "full",
+                    "confidence": "exact",
+                    "evidence": [
+                      {
+                        "end_column": null,
+                        "end_line": 1,
+                        "file_id": "file-api",
+                        "id": "ev-render-eval",
+                        "path": "app/api.py",
+                        "sha256": "fe5f20871d12f723c2073ad0cde5a6dae2b08ea2d5bcf8772897a815b69584e9",
+                        "snapshot_id": "snapshot-render-eval-v1",
+                        "start_column": null,
+                        "start_line": 1
+                      }
+                    ],
+                    "id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                    "kind": "route",
+                    "resolution": "not_applicable",
+                    "target_fact_ids": [],
+                    "unit_id": "unit-app"
+                  }
+                ],
+                "limitations": [],
+                "schema_version": "0.1.0",
+                "snapshot_id": "snapshot-render-eval-v1"
+              },
+              "inventory": {
+                "excluded": [],
+                "grouping_policy_version": "synthetic-v1",
+                "limitations": [],
+                "outcome": "ready",
+                "schema_version": "0.1.0",
+                "snapshot_id": "snapshot-render-eval-v1",
+                "support_matrix_version": "synthetic-v1",
+                "units": [
+                  {
+                    "file_ids": [
+                      "file-api",
+                      "file-1"
+                    ],
+                    "flat": false,
+                    "framework": "synthetic",
+                    "id": "unit-app",
+                    "language": "Python",
+                    "root_path": "app",
+                    "support": "partial"
+                  }
+                ]
+              },
+              "limitations": [],
+              "model": {
+                "components": [
+                  {
+                    "completeness": "full",
+                    "confidence": "exact",
+                    "evidence_ids": [
+                      "ev-render-eval"
+                    ],
+                    "grouping_source": "code",
+                    "id": "cmp-000",
+                    "label_status": "path_fallback",
+                    "member_file_ids": [
+                      "file-api"
+                    ],
+                    "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                    "unit_id": "unit-app"
+                  },
+                  {
+                    "completeness": "full",
+                    "confidence": "exact",
+                    "evidence_ids": [
+                      "ev-render-eval"
+                    ],
+                    "grouping_source": "code",
+                    "id": "cmp-001",
+                    "label_status": "path_fallback",
+                    "member_file_ids": [
+                      "file-1"
+                    ],
+                    "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                    "unit_id": "unit-app"
+                  }
+                ],
+                "contract_owners": [
+                  {
+                    "component_id": "cmp-000",
+                    "contract_kind": "api",
+                    "evidence_ids": [
+                      "ev-render-eval"
+                    ],
+                    "fact_id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                    "rule_id": "declaration-file",
+                    "rule_version": "1-draft"
+                  }
+                ],
+                "edges": [],
+                "external_systems": [],
+                "limitations": [],
+                "partition_version": "synthetic-not-D03",
+                "rejected_proposals": [],
+                "schema_version": "0.1.0",
+                "snapshot_id": "snapshot-render-eval-v1"
+              },
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1"
+            },
+            "run_id": "run_eval",
+            "schema_version": "0.1.0",
+            "snapshot_id": "snapshot-render-eval-v1"
+          },
+          "actual": {
+            "export_context": {
+              "component_slugs": {
+                "cmp-000": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "cmp-001": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-2"
+              },
+              "renderer_version": "slice-render-v2",
+              "repository_name": "Review shop",
+              "system_slug": "REVIEW-SHOP",
+              "template_version": "slice-template-v1"
+            },
+            "render_notices": [],
+            "result": {
+              "decisions": [
+                {
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "fact_ids": [],
+                  "reason": "Synthetic accepted input for renderer isolation",
+                  "rule_id": "synthetic-reviewed",
+                  "rule_version": "eval-v1",
+                  "subject_id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                  "verdict": "accepted"
+                },
+                {
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "fact_ids": [],
+                  "reason": "Synthetic accepted input for renderer isolation",
+                  "rule_id": "synthetic-reviewed",
+                  "rule_version": "eval-v1",
+                  "subject_id": "cmp-000",
+                  "verdict": "accepted"
+                },
+                {
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "fact_ids": [],
+                  "reason": "Synthetic accepted input for renderer isolation",
+                  "rule_id": "synthetic-reviewed",
+                  "rule_version": "eval-v1",
+                  "subject_id": "cmp-001",
+                  "verdict": "accepted"
+                }
+              ],
+              "evidence_index": [
+                {
+                  "end_column": null,
+                  "end_line": 1,
+                  "file_id": "file-api",
+                  "id": "ev-render-eval",
+                  "path": "app/api.py",
+                  "sha256": "fe5f20871d12f723c2073ad0cde5a6dae2b08ea2d5bcf8772897a815b69584e9",
+                  "snapshot_id": "snapshot-render-eval-v1",
+                  "start_column": null,
+                  "start_line": 1
+                }
+              ],
+              "facts": {
+                "extractor_version": "hand-authored-not-extracted",
+                "facts": [
+                  {
+                    "attributes": {
+                      "application_id": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": "app-main"
+                      },
+                      "auth": {
+                        "reason": "Synthetic case: upstream could not establish this field",
+                        "state": "unknown"
+                      },
+                      "bodies": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": []
+                      },
+                      "declaration_evidence_id": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": "ev-render-eval"
+                      },
+                      "handler": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": "app.api.orders"
+                      },
+                      "method": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": "GET"
+                      },
+                      "parameters": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": []
+                      },
+                      "path": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": "/v1/orders"
+                      },
+                      "registration_context": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": "app-main:include-1"
+                      },
+                      "request_model_ids": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": []
+                      },
+                      "response_model_ids": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": []
+                      },
+                      "status_codes": {
+                        "evidence_ids": [
+                          "ev-render-eval"
+                        ],
+                        "state": "known",
+                        "value": [
+                          200
+                        ]
+                      }
+                    },
+                    "completeness": "full",
+                    "confidence": "exact",
+                    "evidence": [
+                      {
+                        "end_column": null,
+                        "end_line": 1,
+                        "file_id": "file-api",
+                        "id": "ev-render-eval",
+                        "path": "app/api.py",
+                        "sha256": "fe5f20871d12f723c2073ad0cde5a6dae2b08ea2d5bcf8772897a815b69584e9",
+                        "snapshot_id": "snapshot-render-eval-v1",
+                        "start_column": null,
+                        "start_line": 1
+                      }
+                    ],
+                    "id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                    "kind": "route",
+                    "resolution": "not_applicable",
+                    "target_fact_ids": [],
+                    "unit_id": "unit-app"
+                  }
+                ],
+                "limitations": [],
+                "schema_version": "0.1.0",
+                "snapshot_id": "snapshot-render-eval-v1"
+              },
+              "inventory": {
+                "excluded": [],
+                "grouping_policy_version": "synthetic-v1",
+                "limitations": [],
+                "outcome": "ready",
+                "schema_version": "0.1.0",
+                "snapshot_id": "snapshot-render-eval-v1",
+                "support_matrix_version": "synthetic-v1",
+                "units": [
+                  {
+                    "file_ids": [
+                      "file-api",
+                      "file-1"
+                    ],
+                    "flat": false,
+                    "framework": "synthetic",
+                    "id": "unit-app",
+                    "language": "Python",
+                    "root_path": "app",
+                    "support": "partial"
+                  }
+                ]
+              },
+              "limitations": [],
+              "model": {
+                "components": [
+                  {
+                    "completeness": "full",
+                    "confidence": "exact",
+                    "evidence_ids": [
+                      "ev-render-eval"
+                    ],
+                    "grouping_source": "code",
+                    "id": "cmp-000",
+                    "label_status": "path_fallback",
+                    "member_file_ids": [
+                      "file-api"
+                    ],
+                    "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                    "unit_id": "unit-app"
+                  },
+                  {
+                    "completeness": "full",
+                    "confidence": "exact",
+                    "evidence_ids": [
+                      "ev-render-eval"
+                    ],
+                    "grouping_source": "code",
+                    "id": "cmp-001",
+                    "label_status": "path_fallback",
+                    "member_file_ids": [
+                      "file-1"
+                    ],
+                    "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                    "unit_id": "unit-app"
+                  }
+                ],
+                "contract_owners": [
+                  {
+                    "component_id": "cmp-000",
+                    "contract_kind": "api",
+                    "evidence_ids": [
+                      "ev-render-eval"
+                    ],
+                    "fact_id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                    "rule_id": "declaration-file",
+                    "rule_version": "1-draft"
+                  }
+                ],
+                "edges": [],
+                "external_systems": [],
+                "limitations": [],
+                "partition_version": "synthetic-not-D03",
+                "rejected_proposals": [],
+                "schema_version": "0.1.0",
+                "snapshot_id": "snapshot-render-eval-v1"
+              },
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1"
+            },
+            "run_id": "run_eval",
+            "schema_version": "0.1.0",
+            "snapshot_id": "snapshot-render-eval-v1"
+          }
+        },
+        {
+          "code": "frozen-input",
+          "location": "result.json/result",
+          "passed": true,
+          "expected": {
+            "schema_version": "0.1.0",
+            "snapshot_id": "snapshot-render-eval-v1",
+            "inventory": {
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1",
+              "support_matrix_version": "synthetic-v1",
+              "grouping_policy_version": "synthetic-v1",
+              "outcome": "ready",
+              "units": [
+                {
+                  "id": "unit-app",
+                  "root_path": "app",
+                  "language": "Python",
+                  "framework": "synthetic",
+                  "support": "partial",
+                  "file_ids": [
+                    "file-api",
+                    "file-1"
+                  ],
+                  "flat": false
+                }
+              ],
+              "excluded": [],
+              "limitations": []
+            },
+            "facts": {
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1",
+              "extractor_version": "hand-authored-not-extracted",
+              "facts": [
+                {
+                  "id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                  "unit_id": "unit-app",
+                  "kind": "route",
+                  "attributes": {
+                    "application_id": {
+                      "state": "known",
+                      "value": "app-main",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "method": {
+                      "state": "known",
+                      "value": "GET",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "path": {
+                      "state": "known",
+                      "value": "/v1/orders",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "handler": {
+                      "state": "known",
+                      "value": "app.api.orders",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "registration_context": {
+                      "state": "known",
+                      "value": "app-main:include-1",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "declaration_evidence_id": {
+                      "state": "known",
+                      "value": "ev-render-eval",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "request_model_ids": {
+                      "state": "known",
+                      "value": [],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "response_model_ids": {
+                      "state": "known",
+                      "value": [],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "status_codes": {
+                      "state": "known",
+                      "value": [
+                        200
+                      ],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "auth": {
+                      "state": "unknown",
+                      "reason": "Synthetic case: upstream could not establish this field"
+                    },
+                    "parameters": {
+                      "state": "known",
+                      "value": [],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "bodies": {
+                      "state": "known",
+                      "value": [],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    }
+                  },
+                  "evidence": [
+                    {
+                      "id": "ev-render-eval",
+                      "snapshot_id": "snapshot-render-eval-v1",
+                      "file_id": "file-api",
+                      "path": "app/api.py",
+                      "sha256": "fe5f20871d12f723c2073ad0cde5a6dae2b08ea2d5bcf8772897a815b69584e9",
+                      "start_line": 1,
+                      "end_line": 1,
+                      "start_column": null,
+                      "end_column": null
+                    }
+                  ],
+                  "resolution": "not_applicable",
+                  "target_fact_ids": [],
+                  "confidence": "exact",
+                  "completeness": "full"
+                }
+              ],
+              "limitations": []
+            },
+            "model": {
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1",
+              "partition_version": "synthetic-not-D03",
+              "components": [
+                {
+                  "id": "cmp-000",
+                  "unit_id": "unit-app",
+                  "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                  "member_file_ids": [
+                    "file-api"
+                  ],
+                  "grouping_source": "code",
+                  "confidence": "exact",
+                  "completeness": "full",
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "label_status": "path_fallback"
+                },
+                {
+                  "id": "cmp-001",
+                  "unit_id": "unit-app",
+                  "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                  "member_file_ids": [
+                    "file-1"
+                  ],
+                  "grouping_source": "code",
+                  "confidence": "exact",
+                  "completeness": "full",
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "label_status": "path_fallback"
+                }
+              ],
+              "external_systems": [],
+              "edges": [],
+              "contract_owners": [
+                {
+                  "fact_id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                  "contract_kind": "api",
+                  "component_id": "cmp-000",
+                  "rule_id": "declaration-file",
+                  "rule_version": "1-draft",
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ]
+                }
+              ],
+              "limitations": [],
+              "rejected_proposals": []
+            },
+            "evidence_index": [
+              {
+                "id": "ev-render-eval",
+                "snapshot_id": "snapshot-render-eval-v1",
+                "file_id": "file-api",
+                "path": "app/api.py",
+                "sha256": "fe5f20871d12f723c2073ad0cde5a6dae2b08ea2d5bcf8772897a815b69584e9",
+                "start_line": 1,
+                "end_line": 1,
+                "start_column": null,
+                "end_column": null
+              }
+            ],
+            "decisions": [
+              {
+                "subject_id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                "verdict": "accepted",
+                "rule_id": "synthetic-reviewed",
+                "rule_version": "eval-v1",
+                "fact_ids": [],
+                "evidence_ids": [
+                  "ev-render-eval"
+                ],
+                "reason": "Synthetic accepted input for renderer isolation"
+              },
+              {
+                "subject_id": "cmp-000",
+                "verdict": "accepted",
+                "rule_id": "synthetic-reviewed",
+                "rule_version": "eval-v1",
+                "fact_ids": [],
+                "evidence_ids": [
+                  "ev-render-eval"
+                ],
+                "reason": "Synthetic accepted input for renderer isolation"
+              },
+              {
+                "subject_id": "cmp-001",
+                "verdict": "accepted",
+                "rule_id": "synthetic-reviewed",
+                "rule_version": "eval-v1",
+                "fact_ids": [],
+                "evidence_ids": [
+                  "ev-render-eval"
+                ],
+                "reason": "Synthetic accepted input for renderer isolation"
+              }
+            ],
+            "limitations": []
+          },
+          "actual": {
+            "decisions": [
+              {
+                "evidence_ids": [
+                  "ev-render-eval"
+                ],
+                "fact_ids": [],
+                "reason": "Synthetic accepted input for renderer isolation",
+                "rule_id": "synthetic-reviewed",
+                "rule_version": "eval-v1",
+                "subject_id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                "verdict": "accepted"
+              },
+              {
+                "evidence_ids": [
+                  "ev-render-eval"
+                ],
+                "fact_ids": [],
+                "reason": "Synthetic accepted input for renderer isolation",
+                "rule_id": "synthetic-reviewed",
+                "rule_version": "eval-v1",
+                "subject_id": "cmp-000",
+                "verdict": "accepted"
+              },
+              {
+                "evidence_ids": [
+                  "ev-render-eval"
+                ],
+                "fact_ids": [],
+                "reason": "Synthetic accepted input for renderer isolation",
+                "rule_id": "synthetic-reviewed",
+                "rule_version": "eval-v1",
+                "subject_id": "cmp-001",
+                "verdict": "accepted"
+              }
+            ],
+            "evidence_index": [
+              {
+                "end_column": null,
+                "end_line": 1,
+                "file_id": "file-api",
+                "id": "ev-render-eval",
+                "path": "app/api.py",
+                "sha256": "fe5f20871d12f723c2073ad0cde5a6dae2b08ea2d5bcf8772897a815b69584e9",
+                "snapshot_id": "snapshot-render-eval-v1",
+                "start_column": null,
+                "start_line": 1
+              }
+            ],
+            "facts": {
+              "extractor_version": "hand-authored-not-extracted",
+              "facts": [
+                {
+                  "attributes": {
+                    "application_id": {
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ],
+                      "state": "known",
+                      "value": "app-main"
+                    },
+                    "auth": {
+                      "reason": "Synthetic case: upstream could not establish this field",
+                      "state": "unknown"
+                    },
+                    "bodies": {
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ],
+                      "state": "known",
+                      "value": []
+                    },
+                    "declaration_evidence_id": {
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ],
+                      "state": "known",
+                      "value": "ev-render-eval"
+                    },
+                    "handler": {
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ],
+                      "state": "known",
+                      "value": "app.api.orders"
+                    },
+                    "method": {
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ],
+                      "state": "known",
+                      "value": "GET"
+                    },
+                    "parameters": {
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ],
+                      "state": "known",
+                      "value": []
+                    },
+                    "path": {
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ],
+                      "state": "known",
+                      "value": "/v1/orders"
+                    },
+                    "registration_context": {
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ],
+                      "state": "known",
+                      "value": "app-main:include-1"
+                    },
+                    "request_model_ids": {
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ],
+                      "state": "known",
+                      "value": []
+                    },
+                    "response_model_ids": {
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ],
+                      "state": "known",
+                      "value": []
+                    },
+                    "status_codes": {
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ],
+                      "state": "known",
+                      "value": [
+                        200
+                      ]
+                    }
+                  },
+                  "completeness": "full",
+                  "confidence": "exact",
+                  "evidence": [
+                    {
+                      "end_column": null,
+                      "end_line": 1,
+                      "file_id": "file-api",
+                      "id": "ev-render-eval",
+                      "path": "app/api.py",
+                      "sha256": "fe5f20871d12f723c2073ad0cde5a6dae2b08ea2d5bcf8772897a815b69584e9",
+                      "snapshot_id": "snapshot-render-eval-v1",
+                      "start_column": null,
+                      "start_line": 1
+                    }
+                  ],
+                  "id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                  "kind": "route",
+                  "resolution": "not_applicable",
+                  "target_fact_ids": [],
+                  "unit_id": "unit-app"
+                }
+              ],
+              "limitations": [],
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1"
+            },
+            "inventory": {
+              "excluded": [],
+              "grouping_policy_version": "synthetic-v1",
+              "limitations": [],
+              "outcome": "ready",
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1",
+              "support_matrix_version": "synthetic-v1",
+              "units": [
+                {
+                  "file_ids": [
+                    "file-api",
+                    "file-1"
+                  ],
+                  "flat": false,
+                  "framework": "synthetic",
+                  "id": "unit-app",
+                  "language": "Python",
+                  "root_path": "app",
+                  "support": "partial"
+                }
+              ]
+            },
+            "limitations": [],
+            "model": {
+              "components": [
+                {
+                  "completeness": "full",
+                  "confidence": "exact",
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "grouping_source": "code",
+                  "id": "cmp-000",
+                  "label_status": "path_fallback",
+                  "member_file_ids": [
+                    "file-api"
+                  ],
+                  "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                  "unit_id": "unit-app"
+                },
+                {
+                  "completeness": "full",
+                  "confidence": "exact",
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "grouping_source": "code",
+                  "id": "cmp-001",
+                  "label_status": "path_fallback",
+                  "member_file_ids": [
+                    "file-1"
+                  ],
+                  "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                  "unit_id": "unit-app"
+                }
+              ],
+              "contract_owners": [
+                {
+                  "component_id": "cmp-000",
+                  "contract_kind": "api",
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "fact_id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                  "rule_id": "declaration-file",
+                  "rule_version": "1-draft"
+                }
+              ],
+              "edges": [],
+              "external_systems": [],
+              "limitations": [],
+              "partition_version": "synthetic-not-D03",
+              "rejected_proposals": [],
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1"
+            },
+            "schema_version": "0.1.0",
+            "snapshot_id": "snapshot-render-eval-v1"
+          }
+        },
+        {
+          "code": "unique-artifact-artifact_id",
+          "location": "manifest.json",
+          "passed": true,
+          "expected": 5,
+          "actual": 5
+        },
+        {
+          "code": "unique-artifact-path",
+          "location": "manifest.json",
+          "passed": true,
+          "expected": 5,
+          "actual": 5
+        },
+        {
+          "code": "path-containment",
+          "location": "README.md",
+          "passed": true,
+          "expected": "inside output",
+          "actual": "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\eval-names64\\names-64\\output\\README.md"
+        },
+        {
+          "code": "artifact-exists",
+          "location": "README.md",
+          "passed": true,
+          "expected": true,
+          "actual": true
+        },
+        {
+          "code": "artifact-hash",
+          "location": "README.md",
+          "passed": true,
+          "expected": "0e8d97f0e0126a4c4652a2a11bbeaf14936a58429c3f70d5fa96c29249332af3",
+          "actual": "0e8d97f0e0126a4c4652a2a11bbeaf14936a58429c3f70d5fa96c29249332af3"
+        },
+        {
+          "code": "artifact-bytes",
+          "location": "README.md",
+          "passed": true,
+          "expected": 1024,
+          "actual": 1024
+        },
+        {
+          "code": "utf8-lf",
+          "location": "README.md",
+          "passed": true,
+          "expected": "UTF-8 no BOM, LF",
+          "actual": "checked"
+        },
+        {
+          "code": "path-containment",
+          "location": "architecture.mmd",
+          "passed": true,
+          "expected": "inside output",
+          "actual": "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\eval-names64\\names-64\\output\\architecture.mmd"
+        },
+        {
+          "code": "artifact-exists",
+          "location": "architecture.mmd",
+          "passed": true,
+          "expected": true,
+          "actual": true
+        },
+        {
+          "code": "artifact-hash",
+          "location": "architecture.mmd",
+          "passed": true,
+          "expected": "df456c0cf5d3e92a400f8871de8449416ada039f9a7252be1b0013411758facf",
+          "actual": "df456c0cf5d3e92a400f8871de8449416ada039f9a7252be1b0013411758facf"
+        },
+        {
+          "code": "artifact-bytes",
+          "location": "architecture.mmd",
+          "passed": true,
+          "expected": 159,
+          "actual": 159
+        },
+        {
+          "code": "utf8-lf",
+          "location": "architecture.mmd",
+          "passed": true,
+          "expected": "UTF-8 no BOM, LF",
+          "actual": "checked"
+        },
+        {
+          "code": "path-containment",
+          "location": "architecture.svg",
+          "passed": true,
+          "expected": "inside output",
+          "actual": "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\eval-names64\\names-64\\output\\architecture.svg"
+        },
+        {
+          "code": "artifact-exists",
+          "location": "architecture.svg",
+          "passed": true,
+          "expected": true,
+          "actual": true
+        },
+        {
+          "code": "artifact-hash",
+          "location": "architecture.svg",
+          "passed": true,
+          "expected": "6fe1cbbd3ec302930e70ddfaae9695a3bd5c5ab9b994711e738ecc2d29fb3ed4",
+          "actual": "6fe1cbbd3ec302930e70ddfaae9695a3bd5c5ab9b994711e738ecc2d29fb3ed4"
+        },
+        {
+          "code": "artifact-bytes",
+          "location": "architecture.svg",
+          "passed": true,
+          "expected": 868,
+          "actual": 868
+        },
+        {
+          "code": "utf8-lf",
+          "location": "architecture.svg",
+          "passed": true,
+          "expected": "UTF-8 no BOM, LF",
+          "actual": "checked"
+        },
+        {
+          "code": "path-containment",
+          "location": "result.json",
+          "passed": true,
+          "expected": "inside output",
+          "actual": "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\eval-names64\\names-64\\output\\result.json"
+        },
+        {
+          "code": "artifact-exists",
+          "location": "result.json",
+          "passed": true,
+          "expected": true,
+          "actual": true
+        },
+        {
+          "code": "artifact-hash",
+          "location": "result.json",
+          "passed": true,
+          "expected": "45f18c428e3d8c171c5a0aca9b302b3e5f5432a169ebadfb07924ed5573dc823",
+          "actual": "45f18c428e3d8c171c5a0aca9b302b3e5f5432a169ebadfb07924ed5573dc823"
+        },
+        {
+          "code": "artifact-bytes",
+          "location": "result.json",
+          "passed": true,
+          "expected": 7481,
+          "actual": 7481
+        },
+        {
+          "code": "utf8-lf",
+          "location": "result.json",
+          "passed": true,
+          "expected": "UTF-8 no BOM, LF",
+          "actual": "checked"
+        },
+        {
+          "code": "path-containment",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": "inside output",
+          "actual": "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\eval-names64\\names-64\\output\\tech-specs\\AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\\api\\API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md"
+        },
+        {
+          "code": "artifact-exists",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": true,
+          "actual": true
+        },
+        {
+          "code": "artifact-hash",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": "4e7a9fad1fcc198dbe5e17369304e783d224192ba4b15a2d5b58911be22b126e",
+          "actual": "4e7a9fad1fcc198dbe5e17369304e783d224192ba4b15a2d5b58911be22b126e"
+        },
+        {
+          "code": "artifact-bytes",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": 1988,
+          "actual": 1988
+        },
+        {
+          "code": "utf8-lf",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": "UTF-8 no BOM, LF",
+          "actual": "checked"
+        },
+        {
+          "code": "generated-label",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": true,
+          "actual": true
+        },
+        {
+          "code": "non-normative-label",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": true,
+          "actual": true
+        },
+        {
+          "code": "snapshot-label",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": "snapshot-render-eval-v1",
+          "actual": "snapshot-render-eval-v1"
+        },
+        {
+          "code": "evidence-preserved",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": "ev-render-eval + path:line",
+          "actual": "present"
+        },
+        {
+          "code": "one-openapi-block",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": "<=1",
+          "actual": 1
+        },
+        {
+          "code": "local-openapi-refs",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": [],
+          "actual": []
+        },
+        {
+          "code": "openapi-3.1-format",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": [],
+          "actual": []
+        },
+        {
+          "code": "one-operation-per-fact",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": "unique",
+          "actual": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976"
+        },
+        {
+          "code": "route-row-cardinality",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md:fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+          "passed": true,
+          "expected": 1,
+          "actual": 1
+        },
+        {
+          "code": "markdown-value",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md:application_id",
+          "passed": true,
+          "expected": "app-main",
+          "actual": "app-main"
+        },
+        {
+          "code": "markdown-value",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md:method",
+          "passed": true,
+          "expected": "GET",
+          "actual": "GET"
+        },
+        {
+          "code": "markdown-value",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md:path",
+          "passed": true,
+          "expected": "/v1/orders",
+          "actual": "/v1/orders"
+        },
+        {
+          "code": "markdown-value",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md:handler",
+          "passed": true,
+          "expected": "app.api.orders",
+          "actual": "app.api.orders"
+        },
+        {
+          "code": "markdown-value",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md:request_model_ids",
+          "passed": true,
+          "expected": "(rỗng)",
+          "actual": "(rỗng)"
+        },
+        {
+          "code": "markdown-value",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md:response_model_ids",
+          "passed": true,
+          "expected": "(rỗng)",
+          "actual": "(rỗng)"
+        },
+        {
+          "code": "markdown-value",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md:status_codes",
+          "passed": true,
+          "expected": "200",
+          "actual": "200"
+        },
+        {
+          "code": "markdown-state-reason",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md:auth",
+          "passed": true,
+          "expected": "unknown + reason",
+          "actual": "unknown — Synthetic case: upstream could not establish this field"
+        },
+        {
+          "code": "openapi-path",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": "/v1/orders",
+          "actual": "/v1/orders"
+        },
+        {
+          "code": "openapi-method",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": "GET",
+          "actual": "GET"
+        },
+        {
+          "code": "openapi-status",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": [
+            "200"
+          ],
+          "actual": [
+            "200"
+          ]
+        },
+        {
+          "code": "openapi-application",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": "app-main",
+          "actual": "app-main"
+        },
+        {
+          "code": "operation-identity-known",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": "known app and registration identity, else omitted",
+          "actual": {
+            "application_id": {
+              "state": "known",
+              "value": "app-main",
+              "evidence_ids": [
+                "ev-render-eval"
+              ]
+            },
+            "method": {
+              "state": "known",
+              "value": "GET",
+              "evidence_ids": [
+                "ev-render-eval"
+              ]
+            },
+            "path": {
+              "state": "known",
+              "value": "/v1/orders",
+              "evidence_ids": [
+                "ev-render-eval"
+              ]
+            },
+            "handler": {
+              "state": "known",
+              "value": "app.api.orders",
+              "evidence_ids": [
+                "ev-render-eval"
+              ]
+            },
+            "registration_context": {
+              "state": "known",
+              "value": "app-main:include-1",
+              "evidence_ids": [
+                "ev-render-eval"
+              ]
+            },
+            "declaration_evidence_id": {
+              "state": "known",
+              "value": "ev-render-eval",
+              "evidence_ids": [
+                "ev-render-eval"
+              ]
+            },
+            "request_model_ids": {
+              "state": "known",
+              "value": [],
+              "evidence_ids": [
+                "ev-render-eval"
+              ]
+            },
+            "response_model_ids": {
+              "state": "known",
+              "value": [],
+              "evidence_ids": [
+                "ev-render-eval"
+              ]
+            },
+            "status_codes": {
+              "state": "known",
+              "value": [
+                200
+              ],
+              "evidence_ids": [
+                "ev-render-eval"
+              ]
+            },
+            "auth": {
+              "state": "unknown",
+              "reason": "Synthetic case: upstream could not establish this field"
+            },
+            "parameters": {
+              "state": "known",
+              "value": [],
+              "evidence_ids": [
+                "ev-render-eval"
+              ]
+            },
+            "bodies": {
+              "state": "known",
+              "value": [],
+              "evidence_ids": [
+                "ev-render-eval"
+              ]
+            }
+          }
+        },
+        {
+          "code": "no-invented-auth",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": "no security declaration",
+          "actual": null
+        },
+        {
+          "code": "parameter-semantics",
+          "location": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "passed": true,
+          "expected": [],
+          "actual": []
+        },
+        {
+          "code": "no-unregistered-files",
+          "location": "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\eval-names64\\names-64\\output",
+          "passed": true,
+          "expected": [
+            "README.md",
+            "architecture.mmd",
+            "architecture.svg",
+            "manifest.json",
+            "result.json",
+            "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md"
+          ],
+          "actual": [
+            "README.md",
+            "architecture.mmd",
+            "architecture.svg",
+            "manifest.json",
+            "result.json",
+            "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md"
+          ]
+        },
+        {
+          "code": "readme-mermaid-parity",
+          "location": "README.md",
+          "passed": true,
+          "expected": [
+            "flowchart LR\n  n0[\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"]\n  n1[\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"]"
+          ],
+          "actual": [
+            "flowchart LR\n  n0[\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"]\n  n1[\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"]"
+          ]
+        },
+        {
+          "code": "mermaid-node-count",
+          "location": "architecture.mmd",
+          "passed": true,
+          "expected": [
+            "n0",
+            "n1"
+          ],
+          "actual": [
+            "n0",
+            "n1"
+          ]
+        },
+        {
+          "code": "mermaid-edge-parity",
+          "location": "architecture.mmd",
+          "passed": true,
+          "expected": {},
+          "actual": {}
+        },
+        {
+          "code": "svg-node-parity",
+          "location": "architecture.svg",
+          "passed": true,
+          "expected": [
+            "cmp-000",
+            "cmp-001"
+          ],
+          "actual": [
+            "cmp-000",
+            "cmp-001"
+          ]
+        },
+        {
+          "code": "svg-edge-parity",
+          "location": "architecture.svg",
+          "passed": true,
+          "expected": {},
+          "actual": {}
+        },
+        {
+          "code": "svg-active-content",
+          "location": "architecture.svg",
+          "passed": true,
+          "expected": [],
+          "actual": []
+        },
+        {
+          "code": "readme-index",
+          "location": "README.md",
+          "passed": true,
+          "expected": "tech-specs/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/api/API-REVIEW-SHOP-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-v1.md",
+          "actual": "present"
+        },
+        {
+          "code": "ownership-placement",
+          "location": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+          "passed": true,
+          "expected": [
+            [
+              "api",
+              "cmp-000"
+            ]
+          ],
+          "actual": [
+            [
+              "api",
+              "cmp-000"
+            ]
+          ]
+        },
+        {
+          "code": "slug-length",
+          "location": "export_context",
+          "passed": true,
+          "expected": 64,
+          "actual": [
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-2"
+          ]
+        },
+        {
+          "code": "unique-slugs",
+          "location": "export_context",
+          "passed": true,
+          "expected": 2,
+          "actual": 2
+        },
+        {
+          "code": "input-not-mutated",
+          "location": "input.json",
+          "passed": true,
+          "expected": {
+            "schema_version": "0.1.0",
+            "snapshot_id": "snapshot-render-eval-v1",
+            "inventory": {
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1",
+              "support_matrix_version": "synthetic-v1",
+              "grouping_policy_version": "synthetic-v1",
+              "outcome": "ready",
+              "units": [
+                {
+                  "id": "unit-app",
+                  "root_path": "app",
+                  "language": "Python",
+                  "framework": "synthetic",
+                  "support": "partial",
+                  "file_ids": [
+                    "file-api",
+                    "file-1"
+                  ],
+                  "flat": false
+                }
+              ],
+              "excluded": [],
+              "limitations": []
+            },
+            "facts": {
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1",
+              "extractor_version": "hand-authored-not-extracted",
+              "facts": [
+                {
+                  "id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                  "unit_id": "unit-app",
+                  "kind": "route",
+                  "attributes": {
+                    "application_id": {
+                      "state": "known",
+                      "value": "app-main",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "method": {
+                      "state": "known",
+                      "value": "GET",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "path": {
+                      "state": "known",
+                      "value": "/v1/orders",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "handler": {
+                      "state": "known",
+                      "value": "app.api.orders",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "registration_context": {
+                      "state": "known",
+                      "value": "app-main:include-1",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "declaration_evidence_id": {
+                      "state": "known",
+                      "value": "ev-render-eval",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "request_model_ids": {
+                      "state": "known",
+                      "value": [],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "response_model_ids": {
+                      "state": "known",
+                      "value": [],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "status_codes": {
+                      "state": "known",
+                      "value": [
+                        200
+                      ],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "auth": {
+                      "state": "unknown",
+                      "reason": "Synthetic case: upstream could not establish this field"
+                    },
+                    "parameters": {
+                      "state": "known",
+                      "value": [],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "bodies": {
+                      "state": "known",
+                      "value": [],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    }
+                  },
+                  "evidence": [
+                    {
+                      "id": "ev-render-eval",
+                      "snapshot_id": "snapshot-render-eval-v1",
+                      "file_id": "file-api",
+                      "path": "app/api.py",
+                      "sha256": "fe5f20871d12f723c2073ad0cde5a6dae2b08ea2d5bcf8772897a815b69584e9",
+                      "start_line": 1,
+                      "end_line": 1,
+                      "start_column": null,
+                      "end_column": null
+                    }
+                  ],
+                  "resolution": "not_applicable",
+                  "target_fact_ids": [],
+                  "confidence": "exact",
+                  "completeness": "full"
+                }
+              ],
+              "limitations": []
+            },
+            "model": {
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1",
+              "partition_version": "synthetic-not-D03",
+              "components": [
+                {
+                  "id": "cmp-000",
+                  "unit_id": "unit-app",
+                  "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                  "member_file_ids": [
+                    "file-api"
+                  ],
+                  "grouping_source": "code",
+                  "confidence": "exact",
+                  "completeness": "full",
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "label_status": "path_fallback"
+                },
+                {
+                  "id": "cmp-001",
+                  "unit_id": "unit-app",
+                  "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                  "member_file_ids": [
+                    "file-1"
+                  ],
+                  "grouping_source": "code",
+                  "confidence": "exact",
+                  "completeness": "full",
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "label_status": "path_fallback"
+                }
+              ],
+              "external_systems": [],
+              "edges": [],
+              "contract_owners": [
+                {
+                  "fact_id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                  "contract_kind": "api",
+                  "component_id": "cmp-000",
+                  "rule_id": "declaration-file",
+                  "rule_version": "1-draft",
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ]
+                }
+              ],
+              "limitations": [],
+              "rejected_proposals": []
+            },
+            "evidence_index": [
+              {
+                "id": "ev-render-eval",
+                "snapshot_id": "snapshot-render-eval-v1",
+                "file_id": "file-api",
+                "path": "app/api.py",
+                "sha256": "fe5f20871d12f723c2073ad0cde5a6dae2b08ea2d5bcf8772897a815b69584e9",
+                "start_line": 1,
+                "end_line": 1,
+                "start_column": null,
+                "end_column": null
+              }
+            ],
+            "decisions": [
+              {
+                "subject_id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                "verdict": "accepted",
+                "rule_id": "synthetic-reviewed",
+                "rule_version": "eval-v1",
+                "fact_ids": [],
+                "evidence_ids": [
+                  "ev-render-eval"
+                ],
+                "reason": "Synthetic accepted input for renderer isolation"
+              },
+              {
+                "subject_id": "cmp-000",
+                "verdict": "accepted",
+                "rule_id": "synthetic-reviewed",
+                "rule_version": "eval-v1",
+                "fact_ids": [],
+                "evidence_ids": [
+                  "ev-render-eval"
+                ],
+                "reason": "Synthetic accepted input for renderer isolation"
+              },
+              {
+                "subject_id": "cmp-001",
+                "verdict": "accepted",
+                "rule_id": "synthetic-reviewed",
+                "rule_version": "eval-v1",
+                "fact_ids": [],
+                "evidence_ids": [
+                  "ev-render-eval"
+                ],
+                "reason": "Synthetic accepted input for renderer isolation"
+              }
+            ],
+            "limitations": []
+          },
+          "actual": {
+            "schema_version": "0.1.0",
+            "snapshot_id": "snapshot-render-eval-v1",
+            "inventory": {
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1",
+              "support_matrix_version": "synthetic-v1",
+              "grouping_policy_version": "synthetic-v1",
+              "outcome": "ready",
+              "units": [
+                {
+                  "id": "unit-app",
+                  "root_path": "app",
+                  "language": "Python",
+                  "framework": "synthetic",
+                  "support": "partial",
+                  "file_ids": [
+                    "file-api",
+                    "file-1"
+                  ],
+                  "flat": false
+                }
+              ],
+              "excluded": [],
+              "limitations": []
+            },
+            "facts": {
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1",
+              "extractor_version": "hand-authored-not-extracted",
+              "facts": [
+                {
+                  "id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                  "unit_id": "unit-app",
+                  "kind": "route",
+                  "attributes": {
+                    "application_id": {
+                      "state": "known",
+                      "value": "app-main",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "method": {
+                      "state": "known",
+                      "value": "GET",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "path": {
+                      "state": "known",
+                      "value": "/v1/orders",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "handler": {
+                      "state": "known",
+                      "value": "app.api.orders",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "registration_context": {
+                      "state": "known",
+                      "value": "app-main:include-1",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "declaration_evidence_id": {
+                      "state": "known",
+                      "value": "ev-render-eval",
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "request_model_ids": {
+                      "state": "known",
+                      "value": [],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "response_model_ids": {
+                      "state": "known",
+                      "value": [],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "status_codes": {
+                      "state": "known",
+                      "value": [
+                        200
+                      ],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "auth": {
+                      "state": "unknown",
+                      "reason": "Synthetic case: upstream could not establish this field"
+                    },
+                    "parameters": {
+                      "state": "known",
+                      "value": [],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    },
+                    "bodies": {
+                      "state": "known",
+                      "value": [],
+                      "evidence_ids": [
+                        "ev-render-eval"
+                      ]
+                    }
+                  },
+                  "evidence": [
+                    {
+                      "id": "ev-render-eval",
+                      "snapshot_id": "snapshot-render-eval-v1",
+                      "file_id": "file-api",
+                      "path": "app/api.py",
+                      "sha256": "fe5f20871d12f723c2073ad0cde5a6dae2b08ea2d5bcf8772897a815b69584e9",
+                      "start_line": 1,
+                      "end_line": 1,
+                      "start_column": null,
+                      "end_column": null
+                    }
+                  ],
+                  "resolution": "not_applicable",
+                  "target_fact_ids": [],
+                  "confidence": "exact",
+                  "completeness": "full"
+                }
+              ],
+              "limitations": []
+            },
+            "model": {
+              "schema_version": "0.1.0",
+              "snapshot_id": "snapshot-render-eval-v1",
+              "partition_version": "synthetic-not-D03",
+              "components": [
+                {
+                  "id": "cmp-000",
+                  "unit_id": "unit-app",
+                  "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                  "member_file_ids": [
+                    "file-api"
+                  ],
+                  "grouping_source": "code",
+                  "confidence": "exact",
+                  "completeness": "full",
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "label_status": "path_fallback"
+                },
+                {
+                  "id": "cmp-001",
+                  "unit_id": "unit-app",
+                  "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                  "member_file_ids": [
+                    "file-1"
+                  ],
+                  "grouping_source": "code",
+                  "confidence": "exact",
+                  "completeness": "full",
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ],
+                  "label_status": "path_fallback"
+                }
+              ],
+              "external_systems": [],
+              "edges": [],
+              "contract_owners": [
+                {
+                  "fact_id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                  "contract_kind": "api",
+                  "component_id": "cmp-000",
+                  "rule_id": "declaration-file",
+                  "rule_version": "1-draft",
+                  "evidence_ids": [
+                    "ev-render-eval"
+                  ]
+                }
+              ],
+              "limitations": [],
+              "rejected_proposals": []
+            },
+            "evidence_index": [
+              {
+                "id": "ev-render-eval",
+                "snapshot_id": "snapshot-render-eval-v1",
+                "file_id": "file-api",
+                "path": "app/api.py",
+                "sha256": "fe5f20871d12f723c2073ad0cde5a6dae2b08ea2d5bcf8772897a815b69584e9",
+                "start_line": 1,
+                "end_line": 1,
+                "start_column": null,
+                "end_column": null
+              }
+            ],
+            "decisions": [
+              {
+                "subject_id": "fact:8a84e406c08ac9594f47222406598f7598e15c55f8044b04813e28c9dee70976",
+                "verdict": "accepted",
+                "rule_id": "synthetic-reviewed",
+                "rule_version": "eval-v1",
+                "fact_ids": [],
+                "evidence_ids": [
+                  "ev-render-eval"
+                ],
+                "reason": "Synthetic accepted input for renderer isolation"
+              },
+              {
+                "subject_id": "cmp-000",
+                "verdict": "accepted",
+                "rule_id": "synthetic-reviewed",
+                "rule_version": "eval-v1",
+                "fact_ids": [],
+                "evidence_ids": [
+                  "ev-render-eval"
+                ],
+                "reason": "Synthetic accepted input for renderer isolation"
+              },
+              {
+                "subject_id": "cmp-001",
+                "verdict": "accepted",
+                "rule_id": "synthetic-reviewed",
+                "rule_version": "eval-v1",
+                "fact_ids": [],
+                "evidence_ids": [
+                  "ev-render-eval"
+                ],
+                "reason": "Synthetic accepted input for renderer isolation"
+              }
+            ],
+            "limitations": []
+          }
+        }
+      ],
+      "failures": [],
+      "id": "names-64",
+      "group": "security",
+      "title": "Stable safe unique component slugs: AAAAAAAAAAAAAAAAAAAAAAAA",
+      "requirement": "SEC-002; API-008 §4/7",
+      "seconds": 0.1237
+    }
+  ]
+}

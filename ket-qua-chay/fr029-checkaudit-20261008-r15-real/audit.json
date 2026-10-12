@@ -1,0 +1,841 @@
+{
+  "mutations": {
+    "route": "method không có trong decorator; handler là hàm route có thật khác của cùng file; tên handler không có",
+    "route_negative": "route gold ghi not_fastapi (receiver không phải FastAPI/APIRouter) phải bị từ chối",
+    "dependency": "dependency có thật khác (dùng ở route khác của repo) không có trên dòng; tên không tồn tại",
+    "http": "URL thêm '/x-audit'; URL cụt 1 ký tự; literal khác có trong cùng file; thư viện khác; method khác",
+    "http_negative": "dòng gold ghi non_http_calls (dict.get, Session.get, BeautifulSoup) nộp như lời gọi HTTP phải bị từ chối",
+    "sanity": "chạy lại với bộ kiểm giả 'luôn nhận' và 'luôn từ chối': phép đo phải báo lỗi lớn"
+  },
+  "rows": [
+    {
+      "case": "tdd-docker",
+      "group": "nghiệm thu",
+      "files": 15,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.02
+    },
+    {
+      "case": "agentgpt",
+      "group": "nghiệm thu",
+      "files": 85,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.14
+    },
+    {
+      "case": "kibo",
+      "group": "nghiệm thu",
+      "files": 138,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.42
+    },
+    {
+      "case": "fixture/exclusions",
+      "group": "fixture",
+      "files": 7,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/file_roles",
+      "group": "fixture",
+      "files": 13,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/http_calls",
+      "group": "fixture",
+      "files": 8,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/params_models",
+      "group": "fixture",
+      "files": 8,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/prefix_chain",
+      "group": "fixture",
+      "files": 12,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/pydantic_v1",
+      "group": "fixture",
+      "files": 3,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "fixture/fr029_e2e",
+      "group": "fixture",
+      "files": 5,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "teamhide-fastapi-boilerplate",
+      "group": "golden v1",
+      "files": 84,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.1
+    },
+    {
+      "case": "full-stack-fastapi-template",
+      "group": "golden v1",
+      "files": 22,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.11
+    },
+    {
+      "case": "igorbenav-FastAPI-boilerplate",
+      "group": "golden v1",
+      "files": 112,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.46
+    },
+    {
+      "case": "fastapi_best_architecture",
+      "group": "golden v1",
+      "files": 296,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.79
+    },
+    {
+      "case": "dev/orders-base",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.03
+    },
+    {
+      "case": "dev/orders-prefix",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-two-apps",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 2,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-wrapper-real",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-wrapper-fake",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 1,
+        "examples": [
+          {
+            "at": "routes.py:9",
+            "looks_like": "route",
+            "text": "@router.post(\"/orders\")"
+          }
+        ],
+        "gold_items": 0,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-dynamic-prefix",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/dispatch-case-read",
+      "group": "ca dev",
+      "files": 10,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.1
+    },
+    {
+      "case": "dev/fastapi-docs-body_updates-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 2,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 4,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 2,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 2,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/fastapi-docs-first_steps-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-handling_errors-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-path_params-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-query_params_str_validations-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-schema_extra_example-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-conditional-route",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-derived-tablename",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-mount",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-plugin-import",
+      "group": "ca dev",
+      "files": 11,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-runtime-dispatch",
+      "group": "ca dev",
+      "files": 9,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-syntax-error",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    }
+  ]
+}

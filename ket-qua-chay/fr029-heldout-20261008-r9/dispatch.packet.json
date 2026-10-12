@@ -1,0 +1,157 @@
+{
+  "repository": "D:\\VSF\\VSF-L3 Generator\\sample-repos\\dispatch",
+  "files": 657,
+  "route_decorators": 291,
+  "decorators_refused": [
+    {
+      "at": "src/dispatch/plugins/dispatch_slack/incident/interactive.py:253",
+      "why": [
+        "decorator: app không phải FastAPI(...)/APIRouter(...) (xét nơi tạo hoặc nơi import)"
+      ]
+    }
+  ],
+  "dependencies": {
+    "common_parameters": {
+      "first_use": "src/dispatch/ai/prompt/views.py:30",
+      "params": [
+        {
+          "in": "query",
+          "name": "page",
+          "at": "src/dispatch/database/service.py:587"
+        },
+        {
+          "in": "query",
+          "name": "itemsPerPage",
+          "at": "src/dispatch/database/service.py:588"
+        },
+        {
+          "in": "query",
+          "name": "q",
+          "at": "src/dispatch/database/service.py:589"
+        },
+        {
+          "in": "query",
+          "name": "filter",
+          "at": "src/dispatch/database/service.py:590"
+        },
+        {
+          "in": "query",
+          "name": "sortBy[]",
+          "at": "src/dispatch/database/service.py:591"
+        },
+        {
+          "in": "query",
+          "name": "descending[]",
+          "at": "src/dispatch/database/service.py:592"
+        },
+        {
+          "in": "query",
+          "name": "security_event_only",
+          "at": "src/dispatch/database/service.py:594"
+        }
+      ]
+    },
+    "get_db": {
+      "first_use": "src/dispatch/ai/prompt/views.py:51",
+      "params": []
+    },
+    "get_current_user": {
+      "first_use": "src/dispatch/ai/prompt/views.py:70",
+      "params": []
+    },
+    "PermissionsDependency": {
+      "first_use": "src/dispatch/ai/prompt/views.py:65",
+      "params": []
+    },
+    "get_current_case": {
+      "first_use": "src/dispatch/case/views.py:87",
+      "params": []
+    },
+    "get_current_incident": {
+      "first_use": "src/dispatch/incident/views.py:111",
+      "params": []
+    },
+    "get_body": {
+      "first_use": "src/dispatch/plugins/dispatch_slack/endpoints.py:82",
+      "params": []
+    }
+  },
+  "suspects": [
+    {
+      "at": "src/dispatch/cli.py:1071",
+      "looks_like": "http",
+      "text": "r = session.post("
+    },
+    {
+      "at": "src/dispatch/plugins/dispatch_atlassian_confluence/plugin.py:135",
+      "looks_like": "http",
+      "text": "response = requests.request(\"PUT\", url, headers=headers, auth=auth)"
+    },
+    {
+      "at": "src/dispatch/plugins/dispatch_core/plugin.py:129",
+      "looks_like": "http",
+      "text": "keys = requests.get(DISPATCH_AUTHENTICATION_PROVIDER_PKCE_JWKS).json()[\"keys\"]"
+    },
+    {
+      "at": "src/dispatch/plugins/dispatch_core/plugin.py:188",
+      "looks_like": "http",
+      "text": "req = requests.get(url)"
+    },
+    {
+      "at": "src/dispatch/plugins/dispatch_github/plugin.py:94",
+      "looks_like": "http",
+      "text": "resp = requests.get(request_url, headers=headers)"
+    },
+    {
+      "at": "src/dispatch/plugins/dispatch_jira/plugin.py:88",
+      "looks_like": "http",
+      "text": "response = requests.request(\"GET\", url, headers=headers, auth=HTTPBasicAuth(*auth))"
+    },
+    {
+      "at": "src/dispatch/plugins/dispatch_jira/plugin.py:98",
+      "looks_like": "http",
+      "text": "response = requests.request(\"GET\", url, headers=headers, auth=HTTPBasicAuth(*auth))"
+    },
+    {
+      "at": "src/dispatch/plugins/dispatch_microsoft_teams/conference/client.py:66",
+      "looks_like": "http",
+      "text": "graph_data = requests.post(  # Use token to call downstream service"
+    },
+    {
+      "at": "src/dispatch/plugins/dispatch_opsgenie/service.py:13",
+      "looks_like": "http",
+      "text": "response = requests.get("
+    },
+    {
+      "at": "src/dispatch/plugins/dispatch_opsgenie/service.py:43",
+      "looks_like": "http",
+      "text": "response = requests.post("
+    },
+    {
+      "at": "src/dispatch/plugins/dispatch_zoom/client.py:28",
+      "looks_like": "http",
+      "text": "return requests.get("
+    },
+    {
+      "at": "src/dispatch/plugins/dispatch_zoom/client.py:36",
+      "looks_like": "http",
+      "text": "return requests.post("
+    },
+    {
+      "at": "src/dispatch/plugins/dispatch_zoom/client.py:44",
+      "looks_like": "http",
+      "text": "return requests.delete("
+    },
+    {
+      "at": "src/dispatch/plugins/generic_workflow/plugin.py:95",
+      "looks_like": "http",
+      "text": "resp = requests.get(api_url, params=fields, headers=headers)"
+    },
+    {
+      "at": "src/dispatch/plugins/generic_workflow/plugin.py:111",
+      "looks_like": "http",
+      "text": "resp = requests.post(api_url, data=json.dumps(obj), headers=headers)"
+    }
+  ],
+  "seconds": 20.44
+}

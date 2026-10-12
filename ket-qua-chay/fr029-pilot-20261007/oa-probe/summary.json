@@ -1,0 +1,93 @@
+[
+  {
+    "fixture": "prefix_chain",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6.1-sol",
+    "status": "failed",
+    "reason": "MODEL_ERROR: HTTP 400",
+    "turns": 0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "waited_s": 0,
+    "seconds": 3,
+    "cost_usd": 0.0,
+    "coverage_complete": false,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 11,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('GET', '/', 'app/main.py:14')",
+          "('GET', '/api/v1/accounts/users/me', 'app/api/users.py:6')",
+          "('GET', '/api/v1/items/', 'app/api/items.py:6')",
+          "('GET', '/api/v1/items/{item_id}', 'app/api/items.py:11')",
+          "('GET', '/api/v1/items/{item_id}/sync', 'app/api/items.py:16')",
+          "('GET', '/internal/status/ping', 'app/api/health.py:6')",
+          "('GET', '/public/status/ping', 'app/api/health.py:6')",
+          "('GET', '/sub/hello', 'app/sub.py:6')",
+          "('GET', '/v1/api/items/{item_id}', 'app/api/legacy.py:6')",
+          "('GET', None, 'app/api/admin.py:6')",
+          "('POST', '/api/v1/items/{item_id}/sync', 'app/api/items.py:16')"
+        ],
+        "attributes": {
+          "params": {
+            "correct": 0,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 0,
+            "wrong": []
+          },
+          "response": {
+            "correct": 0,
+            "wrong": []
+          },
+          "status": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  }
+]

@@ -1,0 +1,596 @@
+[
+  {
+    "fixture": "pydantic_v1",
+    "run": 1,
+    "key_env": "GROQ_API_KEY",
+    "model": "openai/gpt-oss-120b",
+    "status": "failed",
+    "reason": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+    "turns": 0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "waited_s": 720,
+    "seconds": 728,
+    "coverage_complete": false,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('GET', '/notes/{note_id}', 'app/main.py:20')",
+          "('POST', '/notes', 'app/main.py:15')"
+        ],
+        "attributes": {
+          "params": {
+            "correct": 0,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 0,
+            "wrong": []
+          },
+          "response": {
+            "correct": 0,
+            "wrong": []
+          },
+          "status": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('app/main.py', 'Note')"
+        ],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  },
+  {
+    "fixture": "prefix_chain",
+    "run": 1,
+    "key_env": "GROQ_API_KEY",
+    "model": "openai/gpt-oss-120b",
+    "status": "failed",
+    "reason": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+    "turns": 0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "waited_s": 720,
+    "seconds": 729,
+    "coverage_complete": false,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 11,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('GET', '/', 'app/main.py:14')",
+          "('GET', '/api/v1/accounts/users/me', 'app/api/users.py:6')",
+          "('GET', '/api/v1/items/', 'app/api/items.py:6')",
+          "('GET', '/api/v1/items/{item_id}', 'app/api/items.py:11')",
+          "('GET', '/api/v1/items/{item_id}/sync', 'app/api/items.py:16')",
+          "('GET', '/internal/status/ping', 'app/api/health.py:6')",
+          "('GET', '/public/status/ping', 'app/api/health.py:6')",
+          "('GET', '/sub/hello', 'app/sub.py:6')",
+          "('GET', '/v1/api/items/{item_id}', 'app/api/legacy.py:6')",
+          "('GET', None, 'app/api/admin.py:6')",
+          "('POST', '/api/v1/items/{item_id}/sync', 'app/api/items.py:16')"
+        ],
+        "attributes": {
+          "params": {
+            "correct": 0,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 0,
+            "wrong": []
+          },
+          "response": {
+            "correct": 0,
+            "wrong": []
+          },
+          "status": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  },
+  {
+    "fixture": "params_models",
+    "run": 1,
+    "key_env": "GROQ_API_KEY",
+    "model": "openai/gpt-oss-120b",
+    "status": "failed",
+    "reason": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+    "turns": 0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "waited_s": 720,
+    "seconds": 726,
+    "coverage_complete": false,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 11,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('DELETE', '/items/{item_id}', 'app/routes.py:47')",
+          "('GET', '/go', 'app/routes.py:67')",
+          "('GET', '/items', 'app/routes.py:13')",
+          "('GET', '/items/{item_id}', 'app/routes.py:18')",
+          "('GET', '/items/{item_id}/full', 'app/routes.py:27')",
+          "('GET', '/legacy/items/{code}', 'app/routes.py:62')",
+          "('PATCH', '/items/{item_id}/tag', 'app/routes.py:42')",
+          "('POST', '/items', 'app/routes.py:32')",
+          "('POST', '/login', 'app/routes.py:57')",
+          "('POST', '/uploads', 'app/routes.py:52')",
+          "('PUT', '/items/{item_id}', 'app/routes.py:37')"
+        ],
+        "attributes": {
+          "params": {
+            "correct": 0,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 0,
+            "wrong": []
+          },
+          "response": {
+            "correct": 0,
+            "wrong": []
+          },
+          "status": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 5,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('app/schemas/items.py', 'Item')",
+          "('app/schemas/items.py', 'ItemCreate')",
+          "('app/schemas/items.py', 'ItemPublic')",
+          "('app/schemas/items.py', 'Tag')",
+          "('app/schemas/legacy.py', 'Item')"
+        ],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  },
+  {
+    "fixture": "exclusions",
+    "run": 1,
+    "key_env": "GROQ_API_KEY",
+    "model": "openai/gpt-oss-120b",
+    "status": "partial",
+    "reason": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+    "turns": 1,
+    "tokens_in": 2659,
+    "tokens_out": 35,
+    "waited_s": 999,
+    "seconds": 1133,
+    "coverage_complete": false,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('GET', '/orders', 'app/routers/orders.py:8')"
+        ],
+        "attributes": {
+          "params": {
+            "correct": 0,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 0,
+            "wrong": []
+          },
+          "response": {
+            "correct": 0,
+            "wrong": []
+          },
+          "status": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 3,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('add_api_route', 'app/main.py:23')",
+          "('add_route', 'app/main.py:24')",
+          "('add_websocket_route', 'app/main.py:25')"
+        ],
+        "attributes": {}
+      },
+      "out_of_scope": {
+        "ok": true,
+        "got": {
+          "test": 3,
+          "conditional_out": 1
+        },
+        "want": {
+          "test": 3,
+          "conditional_out": 1
+        }
+      }
+    }
+  },
+  {
+    "fixture": "http_calls",
+    "run": 1,
+    "key_env": "GROQ_API_KEY",
+    "model": "openai/gpt-oss-120b",
+    "status": "partial",
+    "reason": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+    "turns": 1,
+    "tokens_in": 2594,
+    "tokens_out": 26,
+    "waited_s": 1127,
+    "seconds": 1138,
+    "coverage_complete": false,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 3,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('GET', '/orders/{order_id}', 'app/routes.py:10')",
+          "('POST', '/orders/{order_id}/reserve', 'app/routes.py:21')",
+          "('POST', '/rates/refresh', 'app/routes.py:16')"
+        ],
+        "attributes": {
+          "params": {
+            "correct": 0,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 0,
+            "wrong": []
+          },
+          "response": {
+            "correct": 0,
+            "wrong": []
+          },
+          "status": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 11,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "app/clients.py:13",
+          "app/clients.py:18",
+          "app/clients.py:23",
+          "app/clients.py:28",
+          "app/clients.py:33",
+          "app/clients.py:37",
+          "app/clients.py:42",
+          "app/clients.py:46",
+          "app/clients.py:51",
+          "app/clients.py:56",
+          "app/clients.py:60"
+        ],
+        "attributes": {
+          "library": {
+            "correct": 0,
+            "wrong": []
+          },
+          "method": {
+            "correct": 0,
+            "wrong": []
+          },
+          "target": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('unsupported_http_library', 'app/clients.py:64')"
+        ],
+        "attributes": {}
+      }
+    }
+  },
+  {
+    "fixture": "file_roles",
+    "run": 1,
+    "key_env": "GROQ_API_KEY",
+    "model": "openai/gpt-oss-120b",
+    "status": "partial",
+    "reason": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+    "turns": 1,
+    "tokens_in": 2684,
+    "tokens_out": 34,
+    "waited_s": 1134,
+    "seconds": 1144,
+    "coverage_complete": false,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 3,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('GET', '/orders/{order_id}', 'app/api/orders.py:15')",
+          "('GET', '/reports/daily', 'app/api/reports.py:10')",
+          "('POST', '/orders', 'app/api/orders.py:10')"
+        ],
+        "attributes": {
+          "params": {
+            "correct": 0,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 0,
+            "wrong": []
+          },
+          "response": {
+            "correct": 0,
+            "wrong": []
+          },
+          "status": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('app/schemas.py', 'OrderIn')",
+          "('app/schemas.py', 'OrderOut')"
+        ],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 10,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "app/api/orders.py",
+          "app/api/reports.py",
+          "app/config.py",
+          "app/db.py",
+          "app/main.py",
+          "app/models.py",
+          "app/repository.py",
+          "app/schemas.py",
+          "app/service_utils.py",
+          "app/services.py"
+        ],
+        "attributes": {
+          "role": {
+            "correct": 0,
+            "wrong": []
+          },
+          "label": {
+            "correct": 0,
+            "wrong": []
+          },
+          "line": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  }
+]

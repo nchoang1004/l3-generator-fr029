@@ -1,0 +1,85 @@
+[
+  {
+    "fixture": "pydantic_v1",
+    "run": 1,
+    "key_env": "GROQ_API_KEY",
+    "model": "openai/gpt-oss-120b",
+    "status": "failed",
+    "reason": "MODEL_ERROR: HTTP 403",
+    "turns": 0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "waited_s": 0,
+    "seconds": 1,
+    "coverage_complete": false,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 2,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('GET', '/notes/{note_id}', 'app/main.py:20')",
+          "('POST', '/notes', 'app/main.py:15')"
+        ],
+        "attributes": {
+          "params": {
+            "correct": 0,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 0,
+            "wrong": []
+          },
+          "response": {
+            "correct": 0,
+            "wrong": []
+          },
+          "status": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 1,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive": [],
+        "false_negative": [
+          "('app/main.py', 'Note')"
+        ],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  }
+]

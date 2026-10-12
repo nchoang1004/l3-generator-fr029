@@ -1,0 +1,128 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "pycg-decorators-call",
+  "source_digest": "bba7a9e8184ad6f700946ce233df174fa38efbede9fab944c96dada22759d49f",
+  "status": "facts_only",
+  "entities": [
+    {
+      "id": "main.py::__module__",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 8,
+      "symbol": "__module__",
+      "kind": "module"
+    },
+    {
+      "id": "main.py::dec",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 2,
+      "symbol": "dec",
+      "kind": "function"
+    },
+    {
+      "id": "main.py::func",
+      "path": "main.py",
+      "line_start": 5,
+      "line_end": 6,
+      "symbol": "func",
+      "kind": "function"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e002f5e8e571e346b",
+      "path": "main.py",
+      "line_start": 8,
+      "line_end": 8,
+      "sha256": "2abc38e6402fa3890fc6bf9484b01cf08d7afea29c9226d751a92f44569a2185"
+    },
+    {
+      "id": "e415b58460b4ee927",
+      "path": "requirements.txt",
+      "line_start": 2,
+      "line_end": 2,
+      "sha256": "5a186804fd0c020f245e90ee71fe6ef81fc09e0a0e4ae39ad84e8335fa12dcc5"
+    },
+    {
+      "id": "e5eb64390c0c97717",
+      "path": "main.py",
+      "line_start": 5,
+      "line_end": 6,
+      "sha256": "2abc38e6402fa3890fc6bf9484b01cf08d7afea29c9226d751a92f44569a2185"
+    },
+    {
+      "id": "e730309ae099d3137",
+      "path": "main.py",
+      "line_start": 4,
+      "line_end": 4,
+      "sha256": "2abc38e6402fa3890fc6bf9484b01cf08d7afea29c9226d751a92f44569a2185"
+    },
+    {
+      "id": "ef00f9272dc711a7f",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 2,
+      "sha256": "2abc38e6402fa3890fc6bf9484b01cf08d7afea29c9226d751a92f44569a2185"
+    },
+    {
+      "id": "ef465c9e4d9c028df",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 8,
+      "sha256": "2abc38e6402fa3890fc6bf9484b01cf08d7afea29c9226d751a92f44569a2185"
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:dc0bef0cbc4c62456e6e623d1b165ce9dbdfbd323a92621fdd34ecf78539eb8f",
+      "evidence_refs": [
+        "e730309ae099d3137",
+        "ef465c9e4d9c028df"
+      ],
+      "target_id": "main.py::dec",
+      "kind": "reference",
+      "source_id": "main.py::__module__",
+      "context": "main.py:4:1",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:e7ce87fd524f5be8fc7318fdc2c0433904b1980c9c0fdb9e2d6b169da4cf2615",
+      "evidence_refs": [
+        "e002f5e8e571e346b",
+        "ef465c9e4d9c028df"
+      ],
+      "target_id": "main.py::func",
+      "kind": "reference",
+      "source_id": "main.py::__module__",
+      "context": "main.py:8:0",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    }
+  ],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v4",
+    "unsupported": []
+  }
+}

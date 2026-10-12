@@ -1,0 +1,136 @@
+[
+  {
+    "case": "shop_full",
+    "command": [
+      "D:\\VSF\\l3-generator-l3\\scripts\\.venv\\Scripts\\python.exe",
+      "-m",
+      "l3slice",
+      "--source",
+      "tests/fixtures/shop_full",
+      "--membership",
+      "tests/fixtures/shop_full.membership.json",
+      "--output",
+      "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\demo-mentor-20261001\\shop_full-recorded"
+    ],
+    "exit_code": 3,
+    "artifacts": [
+      {
+        "path": "README.md",
+        "status": "ready",
+        "sha256": "fc6985c74958cd3be37d2abcd31ff631649270a9ba157eca23bd78fe8473ef8d"
+      },
+      {
+        "path": "architecture.mmd",
+        "status": "ready",
+        "sha256": "49f1bf719c6d7ac9694a2ec2b6429efca072d0ca7f256e6f57f70fa57a817b84"
+      },
+      {
+        "path": "architecture.svg",
+        "status": "ready",
+        "sha256": "a8e803dd18a04ff07afec1cd57027921edb521aada4cdea3ab76f42b3475719b"
+      },
+      {
+        "path": "result.json",
+        "status": "ready",
+        "sha256": "3e45f585c0a0326640379e4238aebdcd84c023f144ad60ee68debf00fd755637"
+      },
+      {
+        "path": "tech-specs/CUA-HANG-API/api/API-SHOP-FULL-CUA-HANG-API-v1.md",
+        "status": "ready",
+        "sha256": "a6233a5a7aa339d8f3affdf15b0c3b4b40dfd98695ec9356f6cf4b08d6b8159b"
+      },
+      {
+        "path": "tech-specs/LUU-TRU/schema/TBL-SHOP-FULL-LUU-TRU.md",
+        "status": "ready",
+        "sha256": "9fa2eb1e1d8d03b80654fecd76c75c4ebc9454326b01c9c7698e9995a7d074f9"
+      }
+    ],
+    "components": 2
+  },
+  {
+    "case": "shop_partial",
+    "command": [
+      "D:\\VSF\\l3-generator-l3\\scripts\\.venv\\Scripts\\python.exe",
+      "-m",
+      "l3slice",
+      "--source",
+      "tests/fixtures/shop_partial",
+      "--membership",
+      "tests/fixtures/shop_partial.membership.json",
+      "--output",
+      "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\demo-mentor-20261001\\shop_partial-recorded"
+    ],
+    "exit_code": 3,
+    "artifacts": [
+      {
+        "path": "README.md",
+        "status": "ready",
+        "sha256": "cf828ebd56b4b8c7f391fc1fa64803160f9fae0fd1c7f5acdda1584fa6216a9f"
+      },
+      {
+        "path": "architecture.mmd",
+        "status": "ready",
+        "sha256": "895d56f5289d28cebcbdc4b81a72b73cb35d0451c81b59c853e26abe11b40c28"
+      },
+      {
+        "path": "architecture.svg",
+        "status": "ready",
+        "sha256": "e7d93f800f31d3814ab5b22dd28d62d1e622631d332375faebb2e90f5e299f78"
+      },
+      {
+        "path": "result.json",
+        "status": "ready",
+        "sha256": "d84840dcbff50bfc35f7159e6a513fcc881491cc3a973905e06aa69fb4b5add0"
+      },
+      {
+        "path": "tech-specs/ORDERS-API/api/API-SHOP-PARTIAL-ORDERS-API-v1.md",
+        "status": "ready",
+        "sha256": "d590168157ca0ba761836d6ee6e62a95cc13235944744dbc4ed53fee9eee1087"
+      },
+      {
+        "path": "tech-specs/ORDERS-DB/schema/TBL-SHOP-PARTIAL-ORDERS-DB.md",
+        "status": "ready",
+        "sha256": "638b7894a6ccd0363180cb89a27f669e05599f6d57f808ad999ac8b8de65d942"
+      }
+    ],
+    "components": 2
+  },
+  {
+    "case": "events",
+    "command": [
+      "D:\\VSF\\l3-generator-l3\\scripts\\.venv\\Scripts\\python.exe",
+      "-m",
+      "l3slice",
+      "--source",
+      "tests/fixtures/events",
+      "--membership",
+      "tests/fixtures/events.membership.json",
+      "--output",
+      "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\demo-mentor-20261001\\events-recorded"
+    ],
+    "exit_code": 3,
+    "artifacts": [
+      {
+        "path": "README.md",
+        "status": "ready",
+        "sha256": "d8d83faa4dbdc9ff171e3682b0157ba12be1d3d24ea1e3a6f10226b879390feb"
+      },
+      {
+        "path": "architecture.mmd",
+        "status": "ready",
+        "sha256": "2209d0aa131d231e31023cc8b4923a124d64feca0383a94a4526d173a0b2be62"
+      },
+      {
+        "path": "architecture.svg",
+        "status": "ready",
+        "sha256": "7c0761f2d0e40c2dab2be5132d5561c94536f40c6768f89ae5cd6ad1f030eeec"
+      },
+      {
+        "path": "result.json",
+        "status": "ready",
+        "sha256": "b93f4f1bcc2927b8832e0eef57a840800dfec68356272f8db95118a75c2fe5e1"
+      }
+    ],
+    "components": 3
+  }
+]

@@ -1,0 +1,1042 @@
+{
+  "mutations": {
+    "route": "method không có trong decorator; handler là hàm route có thật khác của cùng file; tên handler không có",
+    "route_negative": "route gold ghi not_fastapi (receiver không phải FastAPI/APIRouter) phải bị từ chối",
+    "dependency": "dependency có thật khác (dùng ở route khác của repo) không có trên dòng; tên không tồn tại",
+    "http": "URL thêm '/x-audit'; URL cụt 1 ký tự; literal khác có trong cùng file; thư viện khác; method khác",
+    "http_negative": "dòng gold ghi non_http_calls (dict.get, Session.get, BeautifulSoup) nộp như lời gọi HTTP phải bị từ chối",
+    "sanity": "chạy lại với bộ kiểm giả 'luôn nhận' và 'luôn từ chối': phép đo phải báo lỗi lớn"
+  },
+  "rows": [
+    {
+      "case": "tdd-docker",
+      "group": "nghiệm thu",
+      "files": 15,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.02
+    },
+    {
+      "case": "agentgpt",
+      "group": "nghiệm thu",
+      "files": 85,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.11
+    },
+    {
+      "case": "kibo",
+      "group": "nghiệm thu",
+      "files": 138,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.3
+    },
+    {
+      "case": "fixture/exclusions",
+      "group": "fixture",
+      "files": 7,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "fixture/file_roles",
+      "group": "fixture",
+      "files": 13,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/http_calls",
+      "group": "fixture",
+      "files": 8,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "fixture/params_models",
+      "group": "fixture",
+      "files": 8,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "fixture/prefix_chain",
+      "group": "fixture",
+      "files": 12,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/pydantic_v1",
+      "group": "fixture",
+      "files": 3,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "fixture/fr029_e2e",
+      "group": "fixture",
+      "files": 5,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "teamhide-fastapi-boilerplate",
+      "group": "golden v1",
+      "files": 84,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.07
+    },
+    {
+      "case": "full-stack-fastapi-template",
+      "group": "golden v1",
+      "files": 22,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.09
+    },
+    {
+      "case": "igorbenav-FastAPI-boilerplate",
+      "group": "golden v1",
+      "files": 112,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.35
+    },
+    {
+      "case": "fastapi_best_architecture",
+      "group": "golden v1",
+      "files": 296,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.46
+    },
+    {
+      "case": "dev/orders-base",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": "path ['/orders']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-prefix",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": "path ['/orders']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-two-apps",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": "path ['/orders']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 2,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint",
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-wrapper-real",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": "path ['/orders']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-wrapper-fake",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 0,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-dynamic-prefix",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": "path ['/orders']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/dispatch-case-read",
+      "group": "ca dev",
+      "files": 10,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.07
+    },
+    {
+      "case": "dev/fastapi-docs-body_updates-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 2,
+        "false_rejection": [
+          {
+            "route": "GET body_updates/tutorial001_py310.py::read_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET body_updates/tutorial001_py310.py::read_item",
+            "why": "path ['/items/{item_id}']"
+          },
+          {
+            "route": "PUT body_updates/tutorial001_py310.py::update_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT body_updates/tutorial001_py310.py::update_item",
+            "why": "path ['/items/{item_id}']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 4,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 2,
+        "gold_not_flagged": [
+          "route body_updates/tutorial001_py310.py::read_item",
+          "route body_updates/tutorial001_py310.py::update_item"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-first_steps-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "GET first_steps/tutorial001_py310.py::root",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET first_steps/tutorial001_py310.py::root",
+            "why": "path ['/']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route first_steps/tutorial001_py310.py::root"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-handling_errors-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "GET handling_errors/tutorial001_py310.py::read_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET handling_errors/tutorial001_py310.py::read_item",
+            "why": "path ['/items/{item_id}']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route handling_errors/tutorial001_py310.py::read_item"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-path_params-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "GET path_params/tutorial001_py310.py::read_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET path_params/tutorial001_py310.py::read_item",
+            "why": "path ['/items/{item_id}']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route path_params/tutorial001_py310.py::read_item"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-query_params_str_validations-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "GET query_params_str_validations/tutorial001_py310.py::read_items",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "GET query_params_str_validations/tutorial001_py310.py::read_items",
+            "why": "path ['/items/']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route query_params_str_validations/tutorial001_py310.py::read_items"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-schema_extra_example-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "PUT schema_extra_example/tutorial001_py310.py::update_item",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "PUT schema_extra_example/tutorial001_py310.py::update_item",
+            "why": "path ['/items/{item_id}']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route schema_extra_example/tutorial001_py310.py::update_item"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-conditional-route",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": "path ['/orders']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-derived-tablename",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": "path ['/orders']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-mount",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": "path ['/orders']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-plugin-import",
+      "group": "ca dev",
+      "files": 11,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-runtime-dispatch",
+      "group": "ca dev",
+      "files": 9,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-syntax-error",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": [
+              "giả"
+            ]
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "why": "path ['/orders']"
+          }
+        ],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 0,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": [
+          "route routes.py::create_order_endpoint"
+        ]
+      },
+      "seconds": 0.0
+    }
+  ]
+}

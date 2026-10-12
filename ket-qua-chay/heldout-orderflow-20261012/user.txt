@@ -1,0 +1,1941 @@
+Components given by the architecture step (do not change them):
+[{"name": "Toàn bộ", "kind": "normal", "files": ["services/catalog-service/catalog_app/__init__.py", "services/catalog-service/catalog_app/api/__init__.py", "services/catalog-service/catalog_app/api/router.py", "services/catalog-service/catalog_app/api/routes/__init__.py", "services/catalog-service/catalog_app/api/routes/products.py", "services/catalog-service/catalog_app/core/__init__.py", "services/catalog-service/catalog_app/core/config.py", "services/catalog-service/catalog_app/core/database.py", "services/catalog-service/catalog_app/main.py", "services/catalog-service/catalog_app/models.py", "services/catalog-service/catalog_app/services/__init__.py", "services/catalog-service/catalog_app/services/products.py", "services/gateway/gateway_app/__init__.py", "services/gateway/gateway_app/api/__init__.py", "services/gateway/gateway_app/api/router.py", "services/gateway/gateway_app/api/routes/__init__.py", "services/gateway/gateway_app/api/routes/proxy.py", "services/gateway/gateway_app/core/__init__.py", "services/gateway/gateway_app/core/clients.py", "services/gateway/gateway_app/core/config.py", "services/gateway/gateway_app/core/proxy.py", "services/gateway/gateway_app/main.py", "services/notification-service/notification_app/__init__.py", "services/notification-service/notification_app/api/__init__.py", "services/notification-service/notification_app/api/router.py", "services/notification-service/notification_app/api/routes/__init__.py", "services/notification-service/notification_app/api/routes/notifications.py", "services/notification-service/notification_app/core/__init__.py", "services/notification-service/notification_app/core/config.py", "services/notification-service/notification_app/core/database.py", "services/notification-service/notification_app/main.py", "services/notification-service/notification_app/models.py", "services/notification-service/notification_app/services/__init__.py", "services/notification-service/notification_app/services/notifications.py", "services/order-service/order_app/__init__.py", "services/order-service/order_app/api/__init__.py", "services/order-service/order_app/api/router.py", "services/order-service/order_app/api/routes/__init__.py", "services/order-service/order_app/api/routes/orders.py", "services/order-service/order_app/core/__init__.py", "services/order-service/order_app/core/catalog_client.py", "services/order-service/order_app/core/config.py", "services/order-service/order_app/core/database.py", "services/order-service/order_app/core/resilience.py", "services/order-service/order_app/main.py", "services/order-service/order_app/models.py", "services/order-service/order_app/services/__init__.py", "services/order-service/order_app/services/orders.py", "shared/__init__.py", "shared/context.py", "shared/contracts.py", "shared/errors.py", "shared/events.py", "shared/logs.py", "tests/conftest.py", "tests/test_catalog.py", "tests/test_contracts.py", "tests/test_gateway.py", "tests/test_notifications.py", "tests/test_orders.py", "tests/test_resilience.py"]}, {"name": "Khác", "kind": "other", "files": ["pyproject.toml", "requirements-dev.txt", "requirements.txt", "tests/__init__.py"]}]
+
+FILES THAT NEED A ROLE (54):
+services/catalog-service/catalog_app/__init__.py
+services/catalog-service/catalog_app/api/__init__.py
+services/catalog-service/catalog_app/api/router.py
+services/catalog-service/catalog_app/api/routes/__init__.py
+services/catalog-service/catalog_app/api/routes/products.py
+services/catalog-service/catalog_app/core/__init__.py
+services/catalog-service/catalog_app/core/config.py
+services/catalog-service/catalog_app/core/database.py
+services/catalog-service/catalog_app/main.py
+services/catalog-service/catalog_app/models.py
+services/catalog-service/catalog_app/services/__init__.py
+services/catalog-service/catalog_app/services/products.py
+services/gateway/gateway_app/__init__.py
+services/gateway/gateway_app/api/__init__.py
+services/gateway/gateway_app/api/router.py
+services/gateway/gateway_app/api/routes/__init__.py
+services/gateway/gateway_app/api/routes/proxy.py
+services/gateway/gateway_app/core/__init__.py
+services/gateway/gateway_app/core/clients.py
+services/gateway/gateway_app/core/config.py
+services/gateway/gateway_app/core/proxy.py
+services/gateway/gateway_app/main.py
+services/notification-service/notification_app/__init__.py
+services/notification-service/notification_app/api/__init__.py
+services/notification-service/notification_app/api/router.py
+services/notification-service/notification_app/api/routes/__init__.py
+services/notification-service/notification_app/api/routes/notifications.py
+services/notification-service/notification_app/core/__init__.py
+services/notification-service/notification_app/core/config.py
+services/notification-service/notification_app/core/database.py
+services/notification-service/notification_app/main.py
+services/notification-service/notification_app/models.py
+services/notification-service/notification_app/services/__init__.py
+services/notification-service/notification_app/services/notifications.py
+services/order-service/order_app/__init__.py
+services/order-service/order_app/api/__init__.py
+services/order-service/order_app/api/router.py
+services/order-service/order_app/api/routes/__init__.py
+services/order-service/order_app/api/routes/orders.py
+services/order-service/order_app/core/__init__.py
+services/order-service/order_app/core/catalog_client.py
+services/order-service/order_app/core/config.py
+services/order-service/order_app/core/database.py
+services/order-service/order_app/core/resilience.py
+services/order-service/order_app/main.py
+services/order-service/order_app/models.py
+services/order-service/order_app/services/__init__.py
+services/order-service/order_app/services/orders.py
+shared/__init__.py
+shared/context.py
+shared/contracts.py
+shared/errors.py
+shared/events.py
+shared/logs.py
+
+SOURCE
+=== pyproject.toml (78 dòng) ===
+    1| [build-system]
+    2| requires = ["setuptools>=68"]
+    3| build-backend = "setuptools.build_meta"
+    4| 
+    5| [project]
+    6| name = "orderflow-services"
+    7| version = "1.0.0"
+    8| description = "OrderFlow Services вЂ” РґРµРєРѕРјРїРѕР·РёС†РёСЏ РјРѕРЅРѕР»РёС‚Р° РЅР° 4 РјРёРєСЂРѕСЃРµСЂРІРёСЃР° РІ РѕРґРЅРѕРј СЂРµРїРѕР·РёС‚РѕСЂРёРё"
+    9| readme = "README.md"
+   10| license = { text = "MIT" }
+   11| requires-python = ">=3.12"
+   12| dependencies = [
+   13|     "fastapi>=0.115",
+   14|     "uvicorn[standard]>=0.30",
+   15|     "httpx>=0.27",
+   16|     "tenacity>=8.2",
+   17|     "redis>=5.0",
+   18|     "sqlalchemy[asyncio]>=2.0",
+   19|     "aiosqlite>=0.20",
+   20|     "pydantic>=2.7",
+   21|     "pydantic-settings>=2.3",
+   22|     "asyncpg>=0.29",
+   23| ]
+   24| 
+   25| [project.optional-dependencies]
+   26| dev = [
+   27|     "pytest>=8.0",
+   28|     "pytest-asyncio>=0.23",
+   29|     "pytest-cov>=5.0",
+   30|     "fakeredis>=2.26",
+   31|     "ruff>=0.5",
+   32|     "mypy>=1.10",
+   33| ]
+   34| 
+   35| [tool.setuptools.packages.find]
+   36| where = [".", "services/gateway", "services/order-service", "services/catalog-service", "services/notification-service"]
+   37| include = ["shared*", "gateway_app*", "order_app*", "catalog_app*", "notification_app*"]
+   38| 
+   39| [tool.ruff]
+   40| line-length = 100
+   41| target-version = "py312"
+   42| src = [".", "services/gateway", "services/order-service", "services/catalog-service", "services/notification-service"]
+   43| 
+   44| [tool.ruff.lint]
+   45| select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+   46| ignore = [
+   47|     "B008",  # Depends()/Query() РІ Р°СЂРіСѓРјРµРЅС‚Р°С… РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ вЂ” РёРґРёРѕРјР°С‚РёС‡РЅРѕ РґР»СЏ FastAPI
+   48| ]
+   49| 
+   50| [tool.ruff.lint.isort]
+   51| known-first-party = ["shared", "gateway_app", "order_app", "catalog_app", "notification_app"]
+   52| 
+   53| [tool.mypy]
+   54| python_version = "3.12"
+   55| strict = true
+   56| plugins = ["pydantic.mypy"]
+   57| files = [
+   58|     "shared",
+   59|     "services/gateway/gateway_app",
+   60|     "services/order-service/order_app",
+   61|     "services/catalog-service/catalog_app",
+   62|     "services/notification-service/notification_app",
+   63| ]
+   64| 
+   65| [tool.pytest.ini_options]
+   66| asyncio_mode = "auto"
+   67| asyncio_default_fixture_loop_scope = "function"
+   68| testpaths = ["tests"]
+   69| pythonpath = [".", "services/gateway", "services/order-service", "services/catalog-service", "services/notification-service"]
+   70| addopts = "--strict-markers"
+   71| 
+   72| [tool.coverage.run]
+   73| source_pkgs = ["shared", "gateway_app", "order_app", "catalog_app", "notification_app"]
+   74| 
+   75| [tool.coverage.report]
+   76| show_missing = true
+   77| fail_under = 70
+   78| skip_empty = true
+
+=== requirements-dev.txt (6 dòng) ===
+    1| pytest>=8.0
+    2| pytest-asyncio>=0.23
+    3| pytest-cov>=5.0
+    4| fakeredis>=2.26
+    5| ruff>=0.5
+    6| mypy>=1.10
+
+=== requirements.txt (10 dòng) ===
+    1| fastapi>=0.115
+    2| uvicorn[standard]>=0.30
+    3| httpx>=0.27
+    4| tenacity>=8.2
+    5| redis>=5.0
+    6| sqlalchemy[asyncio]>=2.0
+    7| aiosqlite>=0.20
+    8| pydantic>=2.7
+    9| pydantic-settings>=2.3
+   10| asyncpg>=0.29
+
+=== services/catalog-service/catalog_app/__init__.py (1 dòng) ===
+    1| """Catalog Service — каталог товаров с собственной схемой БД."""
+
+=== services/catalog-service/catalog_app/api/__init__.py (1 dòng) ===
+    1| """HTTP-слой catalog-service."""
+
+=== services/catalog-service/catalog_app/api/router.py (6 dòng) ===
+    1| from fastapi import APIRouter
+    2| 
+    3| from catalog_app.api.routes import products
+    4| 
+    5| api_router = APIRouter(prefix="/api/v1")
+    6| api_router.include_router(products.router)
+
+=== services/catalog-service/catalog_app/api/routes/__init__.py (1 dòng) ===
+    1| """Маршруты catalog-service."""
+
+=== services/catalog-service/catalog_app/api/routes/products.py (47 dòng) ===
+    1| """Маршруты каталога: /api/v1/products."""
+    2| 
+    3| from fastapi import APIRouter, Depends, Query, Response, status
+    4| from sqlalchemy.ext.asyncio import AsyncSession
+    5| 
+    6| from catalog_app.core.database import get_session
+    7| from catalog_app.models import Product
+    8| from catalog_app.services import products as products_service
+    9| from shared.contracts import ProductCreate, ProductRead, ProductUpdate
+   10| 
+   11| router = APIRouter(prefix="/products", tags=["products"])
+   12| 
+   13| 
+   14| @router.get("", response_model=list[ProductRead])
+   15| async def list_products(
+   16|     offset: int = Query(0, ge=0),
+   17|     limit: int = Query(50, ge=1, le=200),
+   18|     session: AsyncSession = Depends(get_session),
+   19| ) -> list[Product]:
+   20|     return await products_service.list_products(session, offset=offset, limit=limit)
+   21| 
+   22| 
+   23| @router.get("/{product_id}", response_model=ProductRead)
+   24| async def get_product(product_id: int, session: AsyncSession = Depends(get_session)) -> Product:
+   25|     return await products_service.get_product(session, product_id)
+   26| 
+   27| 
+   28| @router.post("", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
+   29| async def create_product(
+   30|     payload: ProductCreate, session: AsyncSession = Depends(get_session)
+   31| ) -> Product:
+   32|     return await products_service.create_product(session, payload)
+   33| 
+   34| 
+   35| @router.put("/{product_id}", response_model=ProductRead)
+   36| async def update_product(
+   37|     product_id: int,
+   38|     payload: ProductUpdate,
+   39|     session: AsyncSession = Depends(get_session),
+   40| ) -> Product:
+   41|     return await products_service.update_product(session, product_id, payload)
+   42| 
+   43| 
+   44| @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+   45| async def delete_product(product_id: int, session: AsyncSession = Depends(get_session)) -> Response:
+   46|     await products_service.delete_product(session, product_id)
+   47|     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+=== services/catalog-service/catalog_app/core/__init__.py (1 dòng) ===
+    1| """Ядро catalog-service: конфигурация и доступ к БД."""
+
+=== services/catalog-service/catalog_app/core/config.py (15 dòng) ===
+    1| from functools import lru_cache
+    2| 
+    3| from pydantic_settings import BaseSettings, SettingsConfigDict
+    4| 
+    5| 
+    6| class Settings(BaseSettings):
+    7|     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    8| 
+    9|     app_name: str = "OrderFlow Catalog Service"
+   10|     database_url: str = "sqlite+aiosqlite:///./catalog.db"
+   11| 
+   12| 
+   13| @lru_cache
+   14| def get_settings() -> Settings:
+   15|     return Settings()
+
+=== services/catalog-service/catalog_app/core/database.py (50 dòng) ===
+    1| """Асинхронный доступ к собственной БД каталога."""
+    2| 
+    3| from collections.abc import AsyncIterator
+    4| 
+    5| from fastapi import Request
+    6| from sqlalchemy.ext.asyncio import (
+    7|     AsyncEngine,
+    8|     AsyncSession,
+    9|     async_sessionmaker,
+   10|     create_async_engine,
+   11| )
+   12| from sqlalchemy.orm import DeclarativeBase
+   13| 
+   14| from catalog_app.core.config import get_settings
+   15| 
+   16| 
+   17| class Base(DeclarativeBase):
+   18|     pass
+   19| 
+   20| 
+   21| _engine: AsyncEngine | None = None
+   22| _session_factory: async_sessionmaker[AsyncSession] | None = None
+   23| 
+   24| 
+   25| def get_engine() -> AsyncEngine:
+   26|     global _engine
+   27|     if _engine is None:
+   28|         _engine = create_async_engine(get_settings().database_url, pool_pre_ping=True)
+   29|     return _engine
+   30| 
+   31| 
+   32| def get_session_factory() -> async_sessionmaker[AsyncSession]:
+   33|     global _session_factory
+   34|     if _session_factory is None:
+   35|         _session_factory = async_sessionmaker(get_engine(), expire_on_commit=False)
+   36|     return _session_factory
+   37| 
+   38| 
+   39| async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
+   40|     factory: async_sessionmaker[AsyncSession] = request.app.state.session_factory
+   41|     async with factory() as session:
+   42|         yield session
+   43| 
+   44| 
+   45| async def dispose_engine() -> None:
+   46|     global _engine, _session_factory
+   47|     if _engine is not None:
+   48|         await _engine.dispose()
+   49|         _engine = None
+   50|         _session_factory = None
+
+=== services/catalog-service/catalog_app/main.py (41 dòng) ===
+    1| """Точка входа catalog-service: create_app() + /health."""
+    2| 
+    3| from collections.abc import AsyncIterator
+    4| from contextlib import asynccontextmanager
+    5| 
+    6| from fastapi import FastAPI
+    7| from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+    8| 
+    9| from catalog_app.api.router import api_router
+   10| from catalog_app.core.config import get_settings
+   11| from catalog_app.core.database import dispose_engine, get_session_factory
+   12| from shared.context import RequestIdMiddleware
+   13| from shared.contracts import HealthResponse
+   14| from shared.errors import register_exception_handlers
+   15| from shared.logs import configure_logging
+   16| 
+   17| SERVICE_NAME = "catalog-service"
+   18| 
+   19| 
+   20| @asynccontextmanager
+   21| async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+   22|     yield
+   23|     await dispose_engine()
+   24| 
+   25| 
+   26| def create_app(*, session_factory: async_sessionmaker[AsyncSession] | None = None) -> FastAPI:
+   27|     settings = get_settings()
+   28|     logger = configure_logging(SERVICE_NAME, __name__)
+   29|     app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
+   30|     app.state.session_factory = (
+   31|         session_factory if session_factory is not None else get_session_factory()
+   32|     )
+   33|     app.add_middleware(RequestIdMiddleware, logger=logger)
+   34|     register_exception_handlers(app)
+   35|     app.include_router(api_router)
+   36| 
+   37|     @app.get("/health", tags=["health"], response_model=HealthResponse)
+   38|     async def health() -> HealthResponse:
+   39|         return HealthResponse(service=SERVICE_NAME)
+   40| 
+   41|     return app
+
+=== services/catalog-service/catalog_app/models.py (20 dòng) ===
+    1| """ORM-модели catalog-service (схема БД принадлежит только этому сервису)."""
+    2| 
+    3| from datetime import datetime
+    4| from decimal import Decimal
+    5| 
+    6| from sqlalchemy import DateTime, Numeric, String, func
+    7| from sqlalchemy.orm import Mapped, mapped_column
+    8| 
+    9| from catalog_app.core.database import Base
+   10| 
+   11| 
+   12| class Product(Base):
+   13|     __tablename__ = "products"
+   14| 
+   15|     id: Mapped[int] = mapped_column(primary_key=True)
+   16|     sku: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+   17|     name: Mapped[str] = mapped_column(String(255))
+   18|     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+   19|     stock: Mapped[int] = mapped_column(default=0)
+   20|     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+=== services/catalog-service/catalog_app/services/__init__.py (1 dòng) ===
+    1| """Бизнес-логика catalog-service."""
+
+=== services/catalog-service/catalog_app/services/products.py (49 dòng) ===
+    1| """CRUD товаров."""
+    2| 
+    3| from sqlalchemy import select
+    4| from sqlalchemy.ext.asyncio import AsyncSession
+    5| 
+    6| from catalog_app.models import Product
+    7| from shared.contracts import ProductCreate, ProductUpdate
+    8| from shared.errors import ConflictError, NotFoundError
+    9| 
+   10| 
+   11| async def list_products(
+   12|     session: AsyncSession, *, offset: int = 0, limit: int = 50
+   13| ) -> list[Product]:
+   14|     result = await session.scalars(select(Product).order_by(Product.id).offset(offset).limit(limit))
+   15|     return list(result)
+   16| 
+   17| 
+   18| async def get_product(session: AsyncSession, product_id: int) -> Product:
+   19|     product = await session.get(Product, product_id)
+   20|     if product is None:
+   21|         raise NotFoundError("Product not found")
+   22|     return product
+   23| 
+   24| 
+   25| async def create_product(session: AsyncSession, payload: ProductCreate) -> Product:
+   26|     existing = await session.scalar(select(Product).where(Product.sku == payload.sku))
+   27|     if existing is not None:
+   28|         raise ConflictError(f"SKU {payload.sku} already exists")
+   29|     product = Product(**payload.model_dump())
+   30|     session.add(product)
+   31|     await session.commit()
+   32|     await session.refresh(product)
+   33|     return product
+   34| 
+   35| 
+   36| async def update_product(session: AsyncSession, product_id: int, payload: ProductUpdate) -> Product:
+   37|     product = await get_product(session, product_id)
+   38|     changes = payload.model_dump(exclude_unset=True)
+   39|     for field, value in changes.items():
+   40|         setattr(product, field, value)
+   41|     await session.commit()
+   42|     await session.refresh(product)
+   43|     return product
+   44| 
+   45| 
+   46| async def delete_product(session: AsyncSession, product_id: int) -> None:
+   47|     product = await get_product(session, product_id)
+   48|     await session.delete(product)
+   49|     await session.commit()
+
+=== services/gateway/gateway_app/__init__.py (1 dòng) ===
+    1| """Gateway — единая точка входа /api/v1/*."""
+
+=== services/gateway/gateway_app/api/__init__.py (1 dòng) ===
+    1| """HTTP-слой шлюза."""
+
+=== services/gateway/gateway_app/api/router.py (6 dòng) ===
+    1| from fastapi import APIRouter
+    2| 
+    3| from gateway_app.api.routes import proxy
+    4| 
+    5| api_router = APIRouter(prefix="/api/v1")
+    6| api_router.include_router(proxy.router)
+
+=== services/gateway/gateway_app/api/routes/__init__.py (1 dòng) ===
+    1| """Маршруты шлюза."""
+
+=== services/gateway/gateway_app/api/routes/proxy.py (84 dòng) ===
+    1| """Единая точка входа шлюза: маршрутизация /api/v1/* по сервисам."""
+    2| 
+    3| from fastapi import APIRouter, Depends, Request, Response
+    4| 
+    5| from gateway_app.core.clients import CATALOG, NOTIFICATION, ORDER, ServiceClients
+    6| from gateway_app.core.proxy import proxy_request
+    7| from shared.contracts import NotificationRead, OrderRead, ProductRead
+    8| 
+    9| router = APIRouter(tags=["gateway"])
+   10| 
+   11| 
+   12| def get_clients(request: Request) -> ServiceClients:
+   13|     clients: ServiceClients = request.app.state.clients
+   14|     return clients
+   15| 
+   16| 
+   17| # --- catalog-service -------------------------------------------------------
+   18| 
+   19| 
+   20| @router.get("/products", response_model=list[ProductRead])
+   21| async def list_products(
+   22|     request: Request, clients: ServiceClients = Depends(get_clients)
+   23| ) -> Response:
+   24|     return await proxy_request(clients.get(CATALOG), request, service="catalog-service")
+   25| 
+   26| 
+   27| @router.post("/products", response_model=ProductRead, status_code=201)
+   28| async def create_product(
+   29|     request: Request, clients: ServiceClients = Depends(get_clients)
+   30| ) -> Response:
+   31|     return await proxy_request(clients.get(CATALOG), request, service="catalog-service")
+   32| 
+   33| 
+   34| @router.get("/products/{product_id}", response_model=ProductRead)
+   35| async def get_product(
+   36|     product_id: int, request: Request, clients: ServiceClients = Depends(get_clients)
+   37| ) -> Response:
+   38|     return await proxy_request(clients.get(CATALOG), request, service="catalog-service")
+   39| 
+   40| 
+   41| @router.put("/products/{product_id}", response_model=ProductRead)
+   42| async def update_product(
+   43|     product_id: int, request: Request, clients: ServiceClients = Depends(get_clients)
+   44| ) -> Response:
+   45|     return await proxy_request(clients.get(CATALOG), request, service="catalog-service")
+   46| 
+   47| 
+   48| @router.delete("/products/{product_id}", status_code=204)
+   49| async def delete_product(
+   50|     product_id: int, request: Request, clients: ServiceClients = Depends(get_clients)
+   51| ) -> Response:
+   52|     return await proxy_request(clients.get(CATALOG), request, service="catalog-service")
+   53| 
+   54| 
+   55| # --- order-service ---------------------------------------------------------
+   56| 
+   57| 
+   58| @router.post("/orders", response_model=OrderRead, status_code=201)
+   59| async def create_order(
+   60|     request: Request, clients: ServiceClients = Depends(get_clients)
+   61| ) -> Response:
+   62|     return await proxy_request(clients.get(ORDER), request, service="order-service")
+   63| 
+   64| 
+   65| @router.get("/orders", response_model=list[OrderRead])
+   66| async def list_orders(request: Request, clients: ServiceClients = Depends(get_clients)) -> Response:
+   67|     return await proxy_request(clients.get(ORDER), request, service="order-service")
+   68| 
+   69| 
+   70| @router.get("/orders/{order_id}", response_model=OrderRead)
+   71| async def get_order(
+   72|     order_id: int, request: Request, clients: ServiceClients = Depends(get_clients)
+   73| ) -> Response:
+   74|     return await proxy_request(clients.get(ORDER), request, service="order-service")
+   75| 
+   76| 
+   77| # --- notification-service --------------------------------------------------
+   78| 
+   79| 
+   80| @router.get("/notifications", response_model=list[NotificationRead])
+   81| async def list_notifications(
+   82|     request: Request, clients: ServiceClients = Depends(get_clients)
+   83| ) -> Response:
+   84|     return await proxy_request(clients.get(NOTIFICATION), request, service="notification-service")
+
+=== services/gateway/gateway_app/core/__init__.py (1 dòng) ===
+    1| """Ядро шлюза: конфигурация, клиенты, проксирование."""
+
+=== services/gateway/gateway_app/core/clients.py (47 dòng) ===
+    1| """HTTP-клиенты шлюза: по одному на каждый downstream-сервис."""
+    2| 
+    3| from collections.abc import Mapping
+    4| 
+    5| import httpx
+    6| 
+    7| from gateway_app.core.config import Settings
+    8| 
+    9| CATALOG = "catalog"
+   10| ORDER = "order"
+   11| NOTIFICATION = "notification"
+   12| 
+   13| 
+   14| class ServiceClients:
+   15|     """Пул клиентов httpx; в тестах вместо сети подставляется ASGITransport."""
+   16| 
+   17|     def __init__(
+   18|         self,
+   19|         settings: Settings,
+   20|         *,
+   21|         transports: Mapping[str, httpx.AsyncBaseTransport] | None = None,
+   22|     ) -> None:
+   23|         routes = dict(transports or {})
+   24|         self._clients: dict[str, httpx.AsyncClient] = {
+   25|             CATALOG: httpx.AsyncClient(
+   26|                 base_url=settings.catalog_service_url,
+   27|                 transport=routes.get(CATALOG),
+   28|                 timeout=settings.timeout,
+   29|             ),
+   30|             ORDER: httpx.AsyncClient(
+   31|                 base_url=settings.order_service_url,
+   32|                 transport=routes.get(ORDER),
+   33|                 timeout=settings.timeout,
+   34|             ),
+   35|             NOTIFICATION: httpx.AsyncClient(
+   36|                 base_url=settings.notification_service_url,
+   37|                 transport=routes.get(NOTIFICATION),
+   38|                 timeout=settings.timeout,
+   39|             ),
+   40|         }
+   41| 
+   42|     def get(self, service: str) -> httpx.AsyncClient:
+   43|         return self._clients[service]
+   44| 
+   45|     async def aclose(self) -> None:
+   46|         for client in self._clients.values():
+   47|             await client.aclose()
+
+=== services/gateway/gateway_app/core/config.py (19 dòng) ===
+    1| from functools import lru_cache
+    2| 
+    3| from pydantic_settings import BaseSettings, SettingsConfigDict
+    4| 
+    5| 
+    6| class Settings(BaseSettings):
+    7|     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    8| 
+    9|     app_name: str = "OrderFlow Gateway"
+   10| 
+   11|     catalog_service_url: str = "http://localhost:8001"
+   12|     order_service_url: str = "http://localhost:8002"
+   13|     notification_service_url: str = "http://localhost:8003"
+   14|     timeout: float = 5.0
+   15| 
+   16| 
+   17| @lru_cache
+   18| def get_settings() -> Settings:
+   19|     return Settings()
+
+=== services/gateway/gateway_app/core/proxy.py (35 dòng) ===
+    1| """Проксирование запросов шлюза в downstream-сервисы."""
+    2| 
+    3| import httpx
+    4| from fastapi import Request
+    5| from fastapi.responses import Response
+    6| 
+    7| from shared.context import get_request_id
+    8| from shared.errors import ServiceUnavailableError
+    9| 
+   10| 
+   11| async def proxy_request(client: httpx.AsyncClient, request: Request, *, service: str) -> Response:
+   12|     """Пересылает метод/путь/query/тело и обязательно — X-Request-ID."""
+   13|     body = await request.body()
+   14|     url = request.url.path
+   15|     if request.url.query:
+   16|         url = f"{url}?{request.url.query}"
+   17| 
+   18|     request_id = get_request_id()
+   19|     headers: dict[str, str] = {"X-Request-ID": request_id} if request_id else {}
+   20|     content_type = request.headers.get("content-type")
+   21|     if content_type:
+   22|         headers["Content-Type"] = content_type
+   23| 
+   24|     try:
+   25|         upstream = await client.request(request.method, url, content=body or None, headers=headers)
+   26|     except httpx.TimeoutException as exc:
+   27|         raise ServiceUnavailableError(f"{service} did not respond in time") from exc
+   28|     except httpx.TransportError as exc:
+   29|         raise ServiceUnavailableError(f"{service} is unavailable") from exc
+   30| 
+   31|     return Response(
+   32|         content=upstream.content,
+   33|         status_code=upstream.status_code,
+   34|         media_type=upstream.headers.get("content-type", "application/json"),
+   35|     )
+
+=== services/gateway/gateway_app/main.py (43 dòng) ===
+    1| """Точка входа шлюза: create_app() + /health."""
+    2| 
+    3| from collections.abc import AsyncIterator, Mapping
+    4| from contextlib import asynccontextmanager
+    5| 
+    6| import httpx
+    7| from fastapi import FastAPI
+    8| 
+    9| from gateway_app.api.router import api_router
+   10| from gateway_app.core.clients import ServiceClients
+   11| from gateway_app.core.config import get_settings
+   12| from shared.context import RequestIdMiddleware
+   13| from shared.contracts import HealthResponse
+   14| from shared.errors import register_exception_handlers
+   15| from shared.logs import configure_logging
+   16| 
+   17| SERVICE_NAME = "gateway"
+   18| 
+   19| 
+   20| @asynccontextmanager
+   21| async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+   22|     yield
+   23|     clients: ServiceClients = app.state.clients
+   24|     await clients.aclose()
+   25| 
+   26| 
+   27| def create_app(
+   28|     *,
+   29|     transports: Mapping[str, httpx.AsyncBaseTransport] | None = None,
+   30| ) -> FastAPI:
+   31|     settings = get_settings()
+   32|     logger = configure_logging(SERVICE_NAME, __name__)
+   33|     app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
+   34|     app.state.clients = ServiceClients(settings, transports=transports)
+   35|     app.add_middleware(RequestIdMiddleware, logger=logger)
+   36|     register_exception_handlers(app)
+   37|     app.include_router(api_router)
+   38| 
+   39|     @app.get("/health", tags=["health"], response_model=HealthResponse)
+   40|     async def health() -> HealthResponse:
+   41|         return HealthResponse(service=SERVICE_NAME)
+   42| 
+   43|     return app
+
+=== services/notification-service/notification_app/__init__.py (1 dòng) ===
+    1| """Notification Service — подписка на order.created и доставка уведомлений."""
+
+=== services/notification-service/notification_app/api/__init__.py (1 dòng) ===
+    1| """HTTP-слой notification-service."""
+
+=== services/notification-service/notification_app/api/router.py (6 dòng) ===
+    1| from fastapi import APIRouter
+    2| 
+    3| from notification_app.api.routes import notifications
+    4| 
+    5| api_router = APIRouter(prefix="/api/v1")
+    6| api_router.include_router(notifications.router)
+
+=== services/notification-service/notification_app/api/routes/__init__.py (1 dòng) ===
+    1| """Маршруты notification-service."""
+
+=== services/notification-service/notification_app/api/routes/notifications.py (30 dòng) ===
+    1| """Маршруты уведомлений: /api/v1/notifications."""
+    2| 
+    3| from fastapi import APIRouter, Depends, Query
+    4| from sqlalchemy.ext.asyncio import AsyncSession
+    5| 
+    6| from notification_app.core.database import get_session
+    7| from notification_app.models import Notification
+    8| from notification_app.services import notifications as notifications_service
+    9| from shared.contracts import NotificationRead
+   10| 
+   11| router = APIRouter(prefix="/notifications", tags=["notifications"])
+   12| 
+   13| 
+   14| @router.get("", response_model=list[NotificationRead])
+   15| async def list_notifications(
+   16|     order_id: int,
+   17|     offset: int = Query(0, ge=0),
+   18|     limit: int = Query(50, ge=1, le=200),
+   19|     session: AsyncSession = Depends(get_session),
+   20| ) -> list[Notification]:
+   21|     return await notifications_service.list_by_order(
+   22|         session, order_id=order_id, offset=offset, limit=limit
+   23|     )
+   24| 
+   25| 
+   26| @router.get("/{notification_id}", response_model=NotificationRead)
+   27| async def get_notification(
+   28|     notification_id: int, session: AsyncSession = Depends(get_session)
+   29| ) -> Notification:
+   30|     return await notifications_service.get_notification(session, notification_id)
+
+=== services/notification-service/notification_app/core/__init__.py (1 dòng) ===
+    1| """Ядро notification-service: конфигурация и доступ к БД."""
+
+=== services/notification-service/notification_app/core/config.py (18 dòng) ===
+    1| from functools import lru_cache
+    2| 
+    3| from pydantic_settings import BaseSettings, SettingsConfigDict
+    4| 
+    5| 
+    6| class Settings(BaseSettings):
+    7|     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    8| 
+    9|     app_name: str = "OrderFlow Notification Service"
+   10|     database_url: str = "sqlite+aiosqlite:///./notification.db"
+   11| 
+   12|     bus_backend: str = "redis"
+   13|     redis_url: str = "redis://localhost:6379/0"
+   14| 
+   15| 
+   16| @lru_cache
+   17| def get_settings() -> Settings:
+   18|     return Settings()
+
+=== services/notification-service/notification_app/core/database.py (50 dòng) ===
+    1| """Асинхронный доступ к собственной БД уведомлений."""
+    2| 
+    3| from collections.abc import AsyncIterator
+    4| 
+    5| from fastapi import Request
+    6| from sqlalchemy.ext.asyncio import (
+    7|     AsyncEngine,
+    8|     AsyncSession,
+    9|     async_sessionmaker,
+   10|     create_async_engine,
+   11| )
+   12| from sqlalchemy.orm import DeclarativeBase
+   13| 
+   14| from notification_app.core.config import get_settings
+   15| 
+   16| 
+   17| class Base(DeclarativeBase):
+   18|     pass
+   19| 
+   20| 
+   21| _engine: AsyncEngine | None = None
+   22| _session_factory: async_sessionmaker[AsyncSession] | None = None
+   23| 
+   24| 
+   25| def get_engine() -> AsyncEngine:
+   26|     global _engine
+   27|     if _engine is None:
+   28|         _engine = create_async_engine(get_settings().database_url, pool_pre_ping=True)
+   29|     return _engine
+   30| 
+   31| 
+   32| def get_session_factory() -> async_sessionmaker[AsyncSession]:
+   33|     global _session_factory
+   34|     if _session_factory is None:
+   35|         _session_factory = async_sessionmaker(get_engine(), expire_on_commit=False)
+   36|     return _session_factory
+   37| 
+   38| 
+   39| async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
+   40|     factory: async_sessionmaker[AsyncSession] = request.app.state.session_factory
+   41|     async with factory() as session:
+   42|         yield session
+   43| 
+   44| 
+   45| async def dispose_engine() -> None:
+   46|     global _engine, _session_factory
+   47|     if _engine is not None:
+   48|         await _engine.dispose()
+   49|         _engine = None
+   50|         _session_factory = None
+
+=== services/notification-service/notification_app/main.py (78 dòng) ===
+    1| """Точка входа notification-service: create_app(), /health и подписка на шину."""
+    2| 
+    3| import logging
+    4| from collections.abc import AsyncIterator, Mapping
+    5| from contextlib import asynccontextmanager
+    6| from typing import Any
+    7| 
+    8| from fastapi import FastAPI
+    9| from pydantic import ValidationError
+   10| from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+   11| 
+   12| from notification_app.api.router import api_router
+   13| from notification_app.core.config import Settings, get_settings
+   14| from notification_app.core.database import dispose_engine, get_session_factory
+   15| from notification_app.services import notifications as notifications_service
+   16| from shared.context import RequestIdMiddleware
+   17| from shared.contracts import TOPIC_ORDER_CREATED, HealthResponse, OrderCreated
+   18| from shared.errors import register_exception_handlers
+   19| from shared.events import EventBus, EventHandler, create_event_bus
+   20| from shared.logs import configure_logging
+   21| 
+   22| SERVICE_NAME = "notification-service"
+   23| 
+   24| logger = logging.getLogger(__name__)
+   25| 
+   26| 
+   27| def _make_order_created_handler(app: FastAPI) -> EventHandler:
+   28|     async def handler(payload: Mapping[str, Any]) -> None:
+   29|         try:
+   30|             event = OrderCreated.model_validate(payload)
+   31|         except ValidationError as exc:
+   32|             logger.error("invalid order.created payload", extra={"error": str(exc)})
+   33|             return
+   34|         factory: async_sessionmaker[AsyncSession] = app.state.session_factory
+   35|         async with factory() as session:
+   36|             await notifications_service.send_order_notification(session, event)
+   37| 
+   38|     return handler
+   39| 
+   40| 
+   41| @asynccontextmanager
+   42| async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+   43|     bus: EventBus = app.state.bus
+   44|     await bus.subscribe(TOPIC_ORDER_CREATED, _make_order_created_handler(app))
+   45|     logger.info("subscribed to topic", extra={"topic": TOPIC_ORDER_CREATED})
+   46|     yield
+   47|     await bus.close()
+   48|     await dispose_engine()
+   49| 
+   50| 
+   51| def create_app(
+   52|     *,
+   53|     settings: Settings | None = None,
+   54|     session_factory: async_sessionmaker[AsyncSession] | None = None,
+   55|     bus: EventBus | None = None,
+   56| ) -> FastAPI:
+   57|     resolved_settings = settings if settings is not None else get_settings()
+   58|     pkg_logger = configure_logging(SERVICE_NAME, __name__)
+   59|     app = FastAPI(title=resolved_settings.app_name, version="1.0.0", lifespan=lifespan)
+   60|     app.state.session_factory = (
+   61|         session_factory if session_factory is not None else get_session_factory()
+   62|     )
+   63|     app.state.bus = (
+   64|         bus
+   65|         if bus is not None
+   66|         else create_event_bus(
+   67|             backend=resolved_settings.bus_backend, redis_url=resolved_settings.redis_url
+   68|         )
+   69|     )
+   70|     app.add_middleware(RequestIdMiddleware, logger=pkg_logger)
+   71|     register_exception_handlers(app)
+   72|     app.include_router(api_router)
+   73| 
+   74|     @app.get("/health", tags=["health"], response_model=HealthResponse)
+   75|     async def health() -> HealthResponse:
+   76|         return HealthResponse(service=SERVICE_NAME)
+   77| 
+   78|     return app
+
+=== services/notification-service/notification_app/models.py (20 dòng) ===
+    1| """ORM-модели notification-service (схема БД принадлежит только этому сервису)."""
+    2| 
+    3| from datetime import datetime
+    4| 
+    5| from sqlalchemy import DateTime, String, Text, func
+    6| from sqlalchemy.orm import Mapped, mapped_column
+    7| 
+    8| from notification_app.core.database import Base
+    9| 
+   10| 
+   11| class Notification(Base):
+   12|     __tablename__ = "notifications"
+   13| 
+   14|     id: Mapped[int] = mapped_column(primary_key=True)
+   15|     order_id: Mapped[int] = mapped_column(index=True)
+   16|     channel: Mapped[str] = mapped_column(String(32), default="email")
+   17|     subject: Mapped[str] = mapped_column(String(255))
+   18|     body: Mapped[str] = mapped_column(Text, default="")
+   19|     request_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+   20|     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+=== services/notification-service/notification_app/services/__init__.py (1 dòng) ===
+    1| """Бизнес-логика notification-service."""
+
+=== services/notification-service/notification_app/services/notifications.py (71 dòng) ===
+    1| """«Отправка» уведомлений: запись в свою БД + структурированный лог."""
+    2| 
+    3| import logging
+    4| 
+    5| from sqlalchemy import select
+    6| from sqlalchemy.ext.asyncio import AsyncSession
+    7| 
+    8| from notification_app.models import Notification
+    9| from shared.contracts import OrderCreated
+   10| from shared.errors import NotFoundError
+   11| 
+   12| logger = logging.getLogger(__name__)
+   13| 
+   14| 
+   15| async def send_order_notification(
+   16|     session: AsyncSession, event: OrderCreated
+   17| ) -> Notification | None:
+   18|     """Идемпотентно: на один заказ создаётся ровно одно уведомление."""
+   19|     existing = await session.scalar(
+   20|         select(Notification).where(Notification.order_id == event.order_id)
+   21|     )
+   22|     if existing is not None:
+   23|         return existing
+   24| 
+   25|     body_lines = [
+   26|         f"Клиент: {event.customer}",
+   27|         f"Сумма: {event.total}",
+   28|         f"Позиций: {len(event.items)}",
+   29|     ]
+   30|     if event.degraded:
+   31|         body_lines.append("Принято без проверки каталога (режим degraded)")
+   32| 
+   33|     notification = Notification(
+   34|         order_id=event.order_id,
+   35|         channel="email",
+   36|         subject=f"Заказ #{event.order_id} создан",
+   37|         body="\n".join(body_lines),
+   38|         request_id=event.request_id,
+   39|     )
+   40|     session.add(notification)
+   41|     await session.commit()
+   42|     await session.refresh(notification)
+   43|     logger.info(
+   44|         "notification sent",
+   45|         extra={
+   46|             "order_id": event.order_id,
+   47|             "channel": "email",
+   48|             "notification_id": notification.id,
+   49|         },
+   50|     )
+   51|     return notification
+   52| 
+   53| 
+   54| async def list_by_order(
+   55|     session: AsyncSession, *, order_id: int, offset: int = 0, limit: int = 50
+   56| ) -> list[Notification]:
+   57|     result = await session.scalars(
+   58|         select(Notification)
+   59|         .where(Notification.order_id == order_id)
+   60|         .order_by(Notification.id)
+   61|         .offset(offset)
+   62|         .limit(limit)
+   63|     )
+   64|     return list(result)
+   65| 
+   66| 
+   67| async def get_notification(session: AsyncSession, notification_id: int) -> Notification:
+   68|     notification = await session.get(Notification, notification_id)
+   69|     if notification is None:
+   70|         raise NotFoundError("Notification not found")
+   71|     return notification
+
+=== services/order-service/order_app/__init__.py (1 dòng) ===
+    1| """Order Service — заказы, вызов catalog-service и публикация order.created."""
+
+=== services/order-service/order_app/api/__init__.py (1 dòng) ===
+    1| """HTTP-слой order-service."""
+
+=== services/order-service/order_app/api/router.py (6 dòng) ===
+    1| from fastapi import APIRouter
+    2| 
+    3| from order_app.api.routes import orders
+    4| 
+    5| api_router = APIRouter(prefix="/api/v1")
+    6| api_router.include_router(orders.router)
+
+=== services/order-service/order_app/api/routes/__init__.py (1 dòng) ===
+    1| """Маршруты order-service."""
+
+=== services/order-service/order_app/api/routes/orders.py (62 dòng) ===
+    1| """Маршруты заказов: /api/v1/orders."""
+    2| 
+    3| import logging
+    4| 
+    5| from fastapi import APIRouter, Depends, Query, Request, status
+    6| from sqlalchemy.ext.asyncio import AsyncSession
+    7| 
+    8| from order_app.core.catalog_client import CatalogClient
+    9| from order_app.core.database import get_session
+   10| from order_app.models import Order
+   11| from order_app.services import orders as orders_service
+   12| from shared.context import get_request_id
+   13| from shared.contracts import OrderCreate, OrderRead
+   14| from shared.events import EventBus
+   15| 
+   16| logger = logging.getLogger(__name__)
+   17| 
+   18| router = APIRouter(prefix="/orders", tags=["orders"])
+   19| 
+   20| 
+   21| def get_catalog_client(request: Request) -> CatalogClient:
+   22|     client: CatalogClient = request.app.state.catalog_client
+   23|     return client
+   24| 
+   25| 
+   26| def get_event_bus(request: Request) -> EventBus:
+   27|     bus: EventBus = request.app.state.bus
+   28|     return bus
+   29| 
+   30| 
+   31| @router.post("", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
+   32| async def create_order(
+   33|     payload: OrderCreate,
+   34|     session: AsyncSession = Depends(get_session),
+   35|     catalog: CatalogClient = Depends(get_catalog_client),
+   36|     bus: EventBus = Depends(get_event_bus),
+   37| ) -> Order:
+   38|     order = await orders_service.create_order(
+   39|         session, payload=payload, catalog=catalog, request_id=get_request_id()
+   40|     )
+   41|     try:
+   42|         await orders_service.publish_order_created(bus, order)
+   43|     except Exception as exc:  # публикация не должна ломать ответ клиенту
+   44|         logger.warning(
+   45|             "failed to publish order.created",
+   46|             extra={"order_id": order.id, "error": str(exc)},
+   47|         )
+   48|     return order
+   49| 
+   50| 
+   51| @router.get("", response_model=list[OrderRead])
+   52| async def list_orders(
+   53|     offset: int = Query(0, ge=0),
+   54|     limit: int = Query(50, ge=1, le=200),
+   55|     session: AsyncSession = Depends(get_session),
+   56| ) -> list[Order]:
+   57|     return await orders_service.list_orders(session, offset=offset, limit=limit)
+   58| 
+   59| 
+   60| @router.get("/{order_id}", response_model=OrderRead)
+   61| async def get_order(order_id: int, session: AsyncSession = Depends(get_session)) -> Order:
+   62|     return await orders_service.get_order(session, order_id)
+
+=== services/order-service/order_app/core/__init__.py (1 dòng) ===
+    1| """Ядро order-service: конфигурация, БД, устойчивость вызовов."""
+
+=== services/order-service/order_app/core/catalog_client.py (105 dòng) ===
+    1| """Клиент catalog-service: retry (tenacity) + circuit breaker + фолбэк degraded."""
+    2| 
+    3| import logging
+    4| 
+    5| import httpx
+    6| from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt, wait_exponential
+    7| 
+    8| from order_app.core.resilience import CircuitBreaker, CircuitOpenError
+    9| from shared.context import get_request_id
+   10| from shared.contracts import ProductRead
+   11| from shared.errors import NotFoundError
+   12| 
+   13| logger = logging.getLogger(__name__)
+   14| 
+   15| 
+   16| class CatalogError(Exception):
+   17|     """Базовая ошибка обращения к catalog-service."""
+   18| 
+   19| 
+   20| class CatalogUnavailableError(CatalogError):
+   21|     """Сервис недоступен или контур разомкнут — заказ уйдёт в degraded."""
+   22| 
+   23| 
+   24| def _is_retryable(exception: BaseException) -> bool:
+   25|     if isinstance(exception, httpx.TransportError):
+   26|         return True
+   27|     if isinstance(exception, httpx.HTTPStatusError):
+   28|         return exception.response.status_code >= 500
+   29|     return False
+   30| 
+   31| 
+   32| class CatalogClient:
+   33|     """GET /api/v1/products/{id} с повторами и автоматическим размыканием контура."""
+   34| 
+   35|     def __init__(
+   36|         self,
+   37|         base_url: str,
+   38|         *,
+   39|         transport: httpx.AsyncBaseTransport | None = None,
+   40|         breaker: CircuitBreaker | None = None,
+   41|         timeout: float = 3.0,
+   42|         max_attempts: int = 3,
+   43|         wait_multiplier: float = 0.05,
+   44|         wait_max: float = 0.5,
+   45|     ) -> None:
+   46|         self._client = httpx.AsyncClient(base_url=base_url, transport=transport, timeout=timeout)
+   47|         self.breaker = breaker or CircuitBreaker()
+   48|         self._max_attempts = max_attempts
+   49|         self._wait_multiplier = wait_multiplier
+   50|         self._wait_max = wait_max
+   51| 
+   52|     async def get_product(self, product_id: int) -> ProductRead:
+   53|         try:
+   54|             self.breaker.before_call()
+   55|         except CircuitOpenError as exc:
+   56|             logger.warning("catalog circuit is open", extra={"product_id": product_id})
+   57|             raise CatalogUnavailableError(f"circuit open for product {product_id}") from exc
+   58| 
+   59|         try:
+   60|             product = await self._get_with_retry(product_id)
+   61|         except NotFoundError:
+   62|             self.breaker.record_success()
+   63|             raise
+   64|         except CatalogUnavailableError:
+   65|             self.breaker.record_failure()
+   66|             raise
+   67|         except httpx.HTTPStatusError as exc:
+   68|             if exc.response.status_code >= 500:
+   69|                 self.breaker.record_failure()
+   70|             raise CatalogUnavailableError(
+   71|                 f"catalog-service answered {exc.response.status_code}"
+   72|             ) from exc
+   73|         except httpx.TransportError as exc:
+   74|             self.breaker.record_failure()
+   75|             raise CatalogUnavailableError(f"catalog-service unreachable: {exc}") from exc
+   76| 
+   77|         self.breaker.record_success()
+   78|         return product
+   79| 
+   80|     async def _get_with_retry(self, product_id: int) -> ProductRead:
+   81|         retrying = AsyncRetrying(
+   82|             stop=stop_after_attempt(self._max_attempts),
+   83|             wait=wait_exponential(multiplier=self._wait_multiplier, max=self._wait_max),
+   84|             retry=retry_if_exception(_is_retryable),
+   85|             reraise=True,
+   86|         )
+   87|         async for attempt in retrying:
+   88|             with attempt:
+   89|                 return await self._request_product(product_id)
+   90|         # tenacity выходит из цикла только возвратом или исключением
+   91|         raise CatalogUnavailableError("retries exhausted")  # pragma: no cover
+   92| 
+   93|     async def _request_product(self, product_id: int) -> ProductRead:
+   94|         headers: dict[str, str] = {}
+   95|         request_id = get_request_id()
+   96|         if request_id:
+   97|             headers["X-Request-ID"] = request_id
+   98|         response = await self._client.get(f"/api/v1/products/{product_id}", headers=headers)
+   99|         if response.status_code == 404:
+  100|             raise NotFoundError(f"Product {product_id} not found")
+  101|         response.raise_for_status()
+  102|         return ProductRead.model_validate(response.json())
+  103| 
+  104|     async def aclose(self) -> None:
+  105|         await self._client.aclose()
+
+=== services/order-service/order_app/core/config.py (24 dòng) ===
+    1| from functools import lru_cache
+    2| 
+    3| from pydantic_settings import BaseSettings, SettingsConfigDict
+    4| 
+    5| 
+    6| class Settings(BaseSettings):
+    7|     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    8| 
+    9|     app_name: str = "OrderFlow Order Service"
+   10|     database_url: str = "sqlite+aiosqlite:///./order.db"
+   11| 
+   12|     bus_backend: str = "redis"
+   13|     redis_url: str = "redis://localhost:6379/0"
+   14| 
+   15|     catalog_service_url: str = "http://localhost:8001"
+   16|     catalog_timeout: float = 3.0
+   17|     catalog_max_attempts: int = 3
+   18|     catalog_failure_threshold: int = 3
+   19|     catalog_recovery_timeout: float = 30.0
+   20| 
+   21| 
+   22| @lru_cache
+   23| def get_settings() -> Settings:
+   24|     return Settings()
+
+=== services/order-service/order_app/core/database.py (50 dòng) ===
+    1| """Асинхронный доступ к собственной БД заказов."""
+    2| 
+    3| from collections.abc import AsyncIterator
+    4| 
+    5| from fastapi import Request
+    6| from sqlalchemy.ext.asyncio import (
+    7|     AsyncEngine,
+    8|     AsyncSession,
+    9|     async_sessionmaker,
+   10|     create_async_engine,
+   11| )
+   12| from sqlalchemy.orm import DeclarativeBase
+   13| 
+   14| from order_app.core.config import get_settings
+   15| 
+   16| 
+   17| class Base(DeclarativeBase):
+   18|     pass
+   19| 
+   20| 
+   21| _engine: AsyncEngine | None = None
+   22| _session_factory: async_sessionmaker[AsyncSession] | None = None
+   23| 
+   24| 
+   25| def get_engine() -> AsyncEngine:
+   26|     global _engine
+   27|     if _engine is None:
+   28|         _engine = create_async_engine(get_settings().database_url, pool_pre_ping=True)
+   29|     return _engine
+   30| 
+   31| 
+   32| def get_session_factory() -> async_sessionmaker[AsyncSession]:
+   33|     global _session_factory
+   34|     if _session_factory is None:
+   35|         _session_factory = async_sessionmaker(get_engine(), expire_on_commit=False)
+   36|     return _session_factory
+   37| 
+   38| 
+   39| async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
+   40|     factory: async_sessionmaker[AsyncSession] = request.app.state.session_factory
+   41|     async with factory() as session:
+   42|         yield session
+   43| 
+   44| 
+   45| async def dispose_engine() -> None:
+   46|     global _engine, _session_factory
+   47|     if _engine is not None:
+   48|         await _engine.dispose()
+   49|         _engine = None
+   50|         _session_factory = None
+
+=== services/order-service/order_app/core/resilience.py (56 dòng) ===
+    1| """Circuit breaker для вызовов catalog-service.
+    2| 
+    3| В tenacity 9.x встроенного CB больше нет, поэтому контур — своя небольшая
+    4| state-машина: closed -> open -> half_open -> closed.
+    5| """
+    6| 
+    7| import time
+    8| from dataclasses import dataclass, field
+    9| from enum import StrEnum
+   10| 
+   11| 
+   12| class CircuitState(StrEnum):
+   13|     closed = "closed"
+   14|     open = "open"
+   15|     half_open = "half_open"
+   16| 
+   17| 
+   18| class CircuitOpenError(Exception):
+   19|     """Контур разомкнут: вызов делать нельзя, нужен фолбэк."""
+   20| 
+   21| 
+   22| @dataclass
+   23| class CircuitBreaker:
+   24|     failure_threshold: int = 3
+   25|     recovery_timeout: float = 30.0
+   26|     _state: CircuitState = field(default=CircuitState.closed, init=False, repr=False)
+   27|     _failures: int = field(default=0, init=False, repr=False)
+   28|     _opened_at: float | None = field(default=None, init=False, repr=False)
+   29| 
+   30|     @property
+   31|     def state(self) -> CircuitState:
+   32|         """Текущее состояние; открытый контур уходит в half_open после паузы."""
+   33|         if self._state is CircuitState.open:
+   34|             opened_at = self._opened_at
+   35|             if opened_at is not None and time.monotonic() - opened_at >= self.recovery_timeout:
+   36|                 self._state = CircuitState.half_open
+   37|         return self._state
+   38| 
+   39|     @property
+   40|     def failures(self) -> int:
+   41|         return self._failures
+   42| 
+   43|     def before_call(self) -> None:
+   44|         if self.state is CircuitState.open:
+   45|             raise CircuitOpenError("catalog circuit breaker is open")
+   46| 
+   47|     def record_success(self) -> None:
+   48|         self._state = CircuitState.closed
+   49|         self._failures = 0
+   50|         self._opened_at = None
+   51| 
+   52|     def record_failure(self) -> None:
+   53|         self._failures += 1
+   54|         if self.state is CircuitState.half_open or self._failures >= self.failure_threshold:
+   55|             self._state = CircuitState.open
+   56|             self._opened_at = time.monotonic()
+
+=== services/order-service/order_app/main.py (74 dòng) ===
+    1| """Точка входа order-service: create_app() + /health."""
+    2| 
+    3| from collections.abc import AsyncIterator
+    4| from contextlib import asynccontextmanager
+    5| 
+    6| from fastapi import FastAPI
+    7| from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+    8| 
+    9| from order_app.api.router import api_router
+   10| from order_app.core.catalog_client import CatalogClient
+   11| from order_app.core.config import Settings, get_settings
+   12| from order_app.core.database import dispose_engine, get_session_factory
+   13| from order_app.core.resilience import CircuitBreaker
+   14| from shared.context import RequestIdMiddleware
+   15| from shared.contracts import HealthResponse
+   16| from shared.errors import register_exception_handlers
+   17| from shared.events import EventBus, create_event_bus
+   18| from shared.logs import configure_logging
+   19| 
+   20| SERVICE_NAME = "order-service"
+   21| 
+   22| 
+   23| @asynccontextmanager
+   24| async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+   25|     yield
+   26|     await dispose_engine()
+   27|     client: CatalogClient = app.state.catalog_client
+   28|     await client.aclose()
+   29|     bus: EventBus = app.state.bus
+   30|     await bus.close()
+   31| 
+   32| 
+   33| def create_app(
+   34|     *,
+   35|     settings: Settings | None = None,
+   36|     session_factory: async_sessionmaker[AsyncSession] | None = None,
+   37|     bus: EventBus | None = None,
+   38|     catalog_client: CatalogClient | None = None,
+   39| ) -> FastAPI:
+   40|     resolved_settings = settings if settings is not None else get_settings()
+   41|     logger = configure_logging(SERVICE_NAME, __name__)
+   42|     app = FastAPI(title=resolved_settings.app_name, version="1.0.0", lifespan=lifespan)
+   43|     app.state.session_factory = (
+   44|         session_factory if session_factory is not None else get_session_factory()
+   45|     )
+   46|     app.state.bus = (
+   47|         bus
+   48|         if bus is not None
+   49|         else create_event_bus(
+   50|             backend=resolved_settings.bus_backend, redis_url=resolved_settings.redis_url
+   51|         )
+   52|     )
+   53|     app.state.catalog_client = (
+   54|         catalog_client
+   55|         if catalog_client is not None
+   56|         else CatalogClient(
+   57|             resolved_settings.catalog_service_url,
+   58|             timeout=resolved_settings.catalog_timeout,
+   59|             max_attempts=resolved_settings.catalog_max_attempts,
+   60|             breaker=CircuitBreaker(
+   61|                 failure_threshold=resolved_settings.catalog_failure_threshold,
+   62|                 recovery_timeout=resolved_settings.catalog_recovery_timeout,
+   63|             ),
+   64|         )
+   65|     )
+   66|     app.add_middleware(RequestIdMiddleware, logger=logger)
+   67|     register_exception_handlers(app)
+   68|     app.include_router(api_router)
+   69| 
+   70|     @app.get("/health", tags=["health"], response_model=HealthResponse)
+   71|     async def health() -> HealthResponse:
+   72|         return HealthResponse(service=SERVICE_NAME)
+   73| 
+   74|     return app
+
+=== services/order-service/order_app/models.py (42 dòng) ===
+    1| """ORM-модели order-service (схема БД принадлежит только этому сервису)."""
+    2| 
+    3| from datetime import datetime
+    4| from decimal import Decimal
+    5| 
+    6| from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Numeric, String, func
+    7| from sqlalchemy.orm import Mapped, mapped_column, relationship
+    8| 
+    9| from order_app.core.database import Base
+   10| from shared.contracts import OrderStatus
+   11| 
+   12| 
+   13| class Order(Base):
+   14|     __tablename__ = "orders"
+   15| 
+   16|     id: Mapped[int] = mapped_column(primary_key=True)
+   17|     customer: Mapped[str] = mapped_column(String(255), index=True)
+   18|     status: Mapped[OrderStatus] = mapped_column(
+   19|         Enum(OrderStatus, name="order_status"), default=OrderStatus.created
+   20|     )
+   21|     degraded: Mapped[bool] = mapped_column(default=False)
+   22|     warnings: Mapped[list[str]] = mapped_column(JSON, default=list)
+   23|     total: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0"))
+   24|     request_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+   25|     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+   26| 
+   27|     items: Mapped[list["OrderItem"]] = relationship(
+   28|         back_populates="order", lazy="selectin", cascade="all, delete-orphan"
+   29|     )
+   30| 
+   31| 
+   32| class OrderItem(Base):
+   33|     __tablename__ = "order_items"
+   34| 
+   35|     id: Mapped[int] = mapped_column(primary_key=True)
+   36|     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), index=True)
+   37|     product_id: Mapped[int] = mapped_column()
+   38|     name: Mapped[str] = mapped_column(String(255), default="")
+   39|     quantity: Mapped[int] = mapped_column(default=1)
+   40|     unit_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0"))
+   41| 
+   42|     order: Mapped[Order] = relationship(back_populates="items")
+
+=== services/order-service/order_app/services/__init__.py (1 dòng) ===
+    1| """Бизнес-логика order-service."""
+
+=== services/order-service/order_app/services/orders.py (107 dòng) ===
+    1| """Создание заказа и публикация события order.created."""
+    2| 
+    3| import logging
+    4| from datetime import UTC, datetime
+    5| from decimal import Decimal
+    6| from uuid import uuid4
+    7| 
+    8| from sqlalchemy import select
+    9| from sqlalchemy.ext.asyncio import AsyncSession
+   10| 
+   11| from order_app.core.catalog_client import CatalogClient, CatalogUnavailableError
+   12| from order_app.models import Order, OrderItem
+   13| from shared.contracts import (
+   14|     TOPIC_ORDER_CREATED,
+   15|     OrderCreate,
+   16|     OrderCreated,
+   17|     OrderItemRead,
+   18|     OrderStatus,
+   19| )
+   20| from shared.errors import NotFoundError
+   21| from shared.events import EventBus
+   22| 
+   23| logger = logging.getLogger(__name__)
+   24| 
+   25| 
+   26| async def create_order(
+   27|     session: AsyncSession,
+   28|     *,
+   29|     payload: OrderCreate,
+   30|     catalog: CatalogClient,
+   31|     request_id: str,
+   32| ) -> Order:
+   33|     """Проверяет товары в catalog-service; при недоступности сервиса — degraded."""
+   34|     lines: list[OrderItem] = []
+   35|     warnings: list[str] = []
+   36|     degraded = False
+   37| 
+   38|     for item in payload.items:
+   39|         try:
+   40|             product = await catalog.get_product(item.product_id)
+   41|         except CatalogUnavailableError as exc:
+   42|             degraded = True
+   43|             warnings.append(f"product {item.product_id}: {exc}")
+   44|             lines.append(
+   45|                 OrderItem(
+   46|                     product_id=item.product_id,
+   47|                     name="",
+   48|                     quantity=item.quantity,
+   49|                     unit_price=Decimal("0"),
+   50|                 )
+   51|             )
+   52|             continue
+   53|         lines.append(
+   54|             OrderItem(
+   55|                 product_id=product.id,
+   56|                 name=product.name,
+   57|                 quantity=item.quantity,
+   58|                 unit_price=product.price,
+   59|             )
+   60|         )
+   61| 
+   62|     if degraded:
+   63|         warnings.insert(0, "catalog-service unavailable: prices and stock were not verified")
+   64| 
+   65|     order = Order(
+   66|         customer=payload.customer,
+   67|         status=OrderStatus.created,
+   68|         degraded=degraded,
+   69|         warnings=warnings,
+   70|         total=sum((line.unit_price * line.quantity for line in lines), Decimal("0")),
+   71|         request_id=request_id,
+   72|         items=lines,
+   73|     )
+   74|     session.add(order)
+   75|     await session.commit()
+   76|     await session.refresh(order)
+   77|     logger.info(
+   78|         "order created",
+   79|         extra={"order_id": order.id, "degraded": order.degraded, "total": str(order.total)},
+   80|     )
+   81|     return order
+   82| 
+   83| 
+   84| async def publish_order_created(bus: EventBus, order: Order) -> None:
+   85|     event = OrderCreated(
+   86|         event_id=uuid4(),
+   87|         order_id=order.id,
+   88|         customer=order.customer,
+   89|         degraded=order.degraded,
+   90|         total=order.total,
+   91|         items=[OrderItemRead.model_validate(item) for item in order.items],
+   92|         request_id=order.request_id,
+   93|         occurred_at=datetime.now(UTC),
+   94|     )
+   95|     await bus.publish(TOPIC_ORDER_CREATED, event.model_dump(mode="json"))
+   96| 
+   97| 
+   98| async def list_orders(session: AsyncSession, *, offset: int = 0, limit: int = 50) -> list[Order]:
+   99|     result = await session.scalars(select(Order).order_by(Order.id).offset(offset).limit(limit))
+  100|     return list(result)
+  101| 
+  102| 
+  103| async def get_order(session: AsyncSession, order_id: int) -> Order:
+  104|     order = await session.get(Order, order_id)
+  105|     if order is None:
+  106|         raise NotFoundError("Order not found")
+  107|     return order
+
+=== shared/__init__.py (5 dòng) ===
+    1| """Общие контракты и инфраструктура OrderFlow Services."""
+    2| 
+    3| __all__ = ["__version__"]
+    4| 
+    5| __version__ = "1.0.0"
+
+=== shared/context.py (55 dòng) ===
+    1| """Correlation id (X-Request-ID): контекст запроса и middleware."""
+    2| 
+    3| import logging
+    4| import time
+    5| from contextvars import ContextVar, Token
+    6| from uuid import uuid4
+    7| 
+    8| from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+    9| from starlette.requests import Request
+   10| from starlette.responses import Response
+   11| from starlette.types import ASGIApp
+   12| 
+   13| _request_id: ContextVar[str] = ContextVar("request_id", default="")
+   14| 
+   15| 
+   16| def get_request_id() -> str:
+   17|     """Идентификатор текущего запроса (пустая строка вне запроса)."""
+   18|     return _request_id.get()
+   19| 
+   20| 
+   21| def set_request_id(value: str) -> Token[str]:
+   22|     return _request_id.set(value)
+   23| 
+   24| 
+   25| def reset_request_id(token: Token[str]) -> None:
+   26|     _request_id.reset(token)
+   27| 
+   28| 
+   29| class RequestIdMiddleware(BaseHTTPMiddleware):
+   30|     """Прокидывает X-Request-ID по всему вызову и пишет access-лог с request_id."""
+   31| 
+   32|     def __init__(self, app: ASGIApp, *, logger: logging.Logger) -> None:
+   33|         super().__init__(app)
+   34|         self._logger = logger
+   35| 
+   36|     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+   37|         request_id = request.headers.get("X-Request-ID") or uuid4().hex
+   38|         token = set_request_id(request_id)
+   39|         started = time.perf_counter()
+   40|         try:
+   41|             response = await call_next(request)
+   42|         finally:
+   43|             reset_request_id(token)
+   44|         duration_ms = round((time.perf_counter() - started) * 1000, 2)
+   45|         response.headers["X-Request-ID"] = request_id
+   46|         self._logger.info(
+   47|             "request completed",
+   48|             extra={
+   49|                 "method": request.method,
+   50|                 "path": request.url.path,
+   51|                 "status": response.status_code,
+   52|                 "duration_ms": duration_ms,
+   53|             },
+   54|         )
+   55|         return response
+
+=== shared/contracts.py (123 dòng) ===
+    1| """Общие Pydantic-контракты: API-схемы и события шины.
+    2| 
+    3| Всё, что передаётся между сервисами (HTTP-тела, события), объявлено здесь.
+    4| Сервисные ORM-модели остаются локальными и в контрактах не участвуют.
+    5| """
+    6| 
+    7| from datetime import datetime
+    8| from decimal import Decimal
+    9| from enum import StrEnum
+   10| from typing import Literal
+   11| from uuid import UUID
+   12| 
+   13| from pydantic import BaseModel, ConfigDict, Field
+   14| 
+   15| # Топики шины событий
+   16| TOPIC_ORDER_CREATED = "order.created"
+   17| 
+   18| 
+   19| class ErrorBody(BaseModel):
+   20|     """Тело ошибки в едином формате всех сервисов."""
+   21| 
+   22|     code: str
+   23|     message: str
+   24|     request_id: str = ""
+   25| 
+   26| 
+   27| class ErrorEnvelope(BaseModel):
+   28|     """Обёрочка ошибки: {"error": {...}}."""
+   29| 
+   30|     error: ErrorBody
+   31| 
+   32| 
+   33| class HealthResponse(BaseModel):
+   34|     status: Literal["ok"] = "ok"
+   35|     service: str
+   36| 
+   37| 
+   38| class ProductCreate(BaseModel):
+   39|     model_config = ConfigDict(str_strip_whitespace=True)
+   40| 
+   41|     sku: str = Field(min_length=1, max_length=64)
+   42|     name: str = Field(min_length=1, max_length=255)
+   43|     price: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
+   44|     stock: int = Field(default=0, ge=0)
+   45| 
+   46| 
+   47| class ProductUpdate(BaseModel):
+   48|     model_config = ConfigDict(str_strip_whitespace=True)
+   49| 
+   50|     name: str | None = Field(default=None, min_length=1, max_length=255)
+   51|     price: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
+   52|     stock: int | None = Field(default=None, ge=0)
+   53| 
+   54| 
+   55| class ProductRead(ProductCreate):
+   56|     model_config = ConfigDict(from_attributes=True)
+   57| 
+   58|     id: int
+   59| 
+   60| 
+   61| class OrderItemIn(BaseModel):
+   62|     product_id: int = Field(ge=1)
+   63|     quantity: int = Field(gt=0, le=1000)
+   64| 
+   65| 
+   66| class OrderCreate(BaseModel):
+   67|     customer: str = Field(min_length=1, max_length=255)
+   68|     items: list[OrderItemIn] = Field(min_length=1, max_length=50)
+   69| 
+   70| 
+   71| class OrderItemRead(BaseModel):
+   72|     model_config = ConfigDict(from_attributes=True)
+   73| 
+   74|     product_id: int
+   75|     name: str
+   76|     quantity: int
+   77|     unit_price: Decimal
+   78| 
+   79| 
+   80| class OrderStatus(StrEnum):
+   81|     created = "created"
+   82|     shipped = "shipped"
+   83|     cancelled = "cancelled"
+   84| 
+   85| 
+   86| class OrderRead(BaseModel):
+   87|     model_config = ConfigDict(from_attributes=True)
+   88| 
+   89|     id: int
+   90|     customer: str
+   91|     status: OrderStatus
+   92|     degraded: bool
+   93|     warnings: list[str]
+   94|     total: Decimal
+   95|     items: list[OrderItemRead]
+   96|     request_id: str
+   97|     created_at: datetime
+   98| 
+   99| 
+  100| class NotificationRead(BaseModel):
+  101|     model_config = ConfigDict(from_attributes=True)
+  102| 
+  103|     id: int
+  104|     order_id: int
+  105|     channel: str
+  106|     subject: str
+  107|     body: str
+  108|     request_id: str
+  109|     created_at: datetime
+  110| 
+  111| 
+  112| class OrderCreated(BaseModel):
+  113|     """Событие order.created — публикуется order-service в шину."""
+  114| 
+  115|     event_id: UUID
+  116|     event_type: Literal["order.created"] = "order.created"
+  117|     order_id: int
+  118|     customer: str
+  119|     degraded: bool
+  120|     total: Decimal
+  121|     items: list[OrderItemRead]
+  122|     request_id: str
+  123|     occurred_at: datetime
+
+=== shared/errors.py (43 dòng) ===
+    1| """Единый формат ошибок и обработчики исключений для всех сервисов."""
+    2| 
+    3| from fastapi import FastAPI, Request
+    4| from fastapi.responses import JSONResponse
+    5| 
+    6| from shared.context import get_request_id
+    7| from shared.contracts import ErrorBody, ErrorEnvelope
+    8| 
+    9| 
+   10| class AppError(Exception):
+   11|     def __init__(self, message: str, code: str = "app_error", status_code: int = 400) -> None:
+   12|         super().__init__(message)
+   13|         self.message = message
+   14|         self.code = code
+   15|         self.status_code = status_code
+   16| 
+   17| 
+   18| class NotFoundError(AppError):
+   19|     def __init__(self, message: str = "Resource not found") -> None:
+   20|         super().__init__(message, code="not_found", status_code=404)
+   21| 
+   22| 
+   23| class ConflictError(AppError):
+   24|     def __init__(self, message: str = "Resource already exists") -> None:
+   25|         super().__init__(message, code="conflict", status_code=409)
+   26| 
+   27| 
+   28| class ServiceUnavailableError(AppError):
+   29|     def __init__(self, message: str = "Upstream service is unavailable") -> None:
+   30|         super().__init__(message, code="service_unavailable", status_code=503)
+   31| 
+   32| 
+   33| def register_exception_handlers(app: FastAPI) -> None:
+   34|     @app.exception_handler(AppError)
+   35|     async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
+   36|         envelope = ErrorEnvelope(
+   37|             error=ErrorBody(
+   38|                 code=exc.code,
+   39|                 message=exc.message,
+   40|                 request_id=get_request_id(),
+   41|             )
+   42|         )
+   43|         return JSONResponse(status_code=exc.status_code, content=envelope.model_dump(mode="json"))
+
+=== shared/events.py (103 dòng) ===
+    1| """Шина событий: интерфейс + in-memory реализация + Redis pub/sub."""
+    2| 
+    3| import asyncio
+    4| import contextlib
+    5| import json
+    6| import logging
+    7| from collections.abc import Awaitable, Callable, Mapping
+    8| from typing import Any, Protocol
+    9| 
+   10| import redis.asyncio as aioredis
+   11| from redis.asyncio.client import PubSub, Redis
+   12| 
+   13| logger = logging.getLogger(__name__)
+   14| 
+   15| EventHandler = Callable[[Mapping[str, Any]], Awaitable[None]]
+   16| 
+   17| 
+   18| class EventBus(Protocol):
+   19|     """Минимальный контракт шины: публикация и подписка на топик."""
+   20| 
+   21|     async def publish(self, topic: str, payload: Mapping[str, Any]) -> None: ...
+   22| 
+   23|     async def subscribe(self, topic: str, handler: EventHandler) -> None: ...
+   24| 
+   25|     async def close(self) -> None: ...
+   26| 
+   27| 
+   28| class InMemoryEventBus:
+   29|     """Бус внутри одного процесса: подписчики вызываются синхронно в publish.
+   30| 
+   31|     Использается в тестах и при локальном запуске без Redis — публикация
+   32|     детерминирована: когда POST /orders вернулся, уведомление уже создано.
+   33|     """
+   34| 
+   35|     def __init__(self) -> None:
+   36|         self._subscribers: dict[str, list[EventHandler]] = {}
+   37|         self.published: list[tuple[str, Mapping[str, Any]]] = []
+   38| 
+   39|     async def publish(self, topic: str, payload: Mapping[str, Any]) -> None:
+   40|         self.published.append((topic, payload))
+   41|         for handler in self._subscribers.get(topic, []):
+   42|             await handler(payload)
+   43| 
+   44|     async def subscribe(self, topic: str, handler: EventHandler) -> None:
+   45|         self._subscribers.setdefault(topic, []).append(handler)
+   46| 
+   47|     async def close(self) -> None:
+   48|         self._subscribers.clear()
+   49| 
+   50| 
+   51| class RedisEventBus:
+   52|     """Prod-реализация на Redis pub/sub: один канал на топик."""
+   53| 
+   54|     def __init__(self, client: Redis, *, channel_prefix: str = "orderflow") -> None:
+   55|         self._client = client
+   56|         self._channel_prefix = channel_prefix
+   57|         self._tasks: list[asyncio.Task[None]] = []
+   58|         self._pubsubs: list[PubSub] = []
+   59| 
+   60|     def _channel(self, topic: str) -> str:
+   61|         return f"{self._channel_prefix}:{topic}"
+   62| 
+   63|     async def publish(self, topic: str, payload: Mapping[str, Any]) -> None:
+   64|         message = json.dumps(payload, default=str)
+   65|         await self._client.publish(self._channel(topic), message)
+   66| 
+   67|     async def subscribe(self, topic: str, handler: EventHandler) -> None:
+   68|         pubsub = self._client.pubsub()
+   69|         await pubsub.subscribe(self._channel(topic))
+   70|         self._pubsubs.append(pubsub)
+   71|         self._tasks.append(asyncio.create_task(self._consume(pubsub, handler)))
+   72| 
+   73|     async def _consume(self, pubsub: PubSub, handler: EventHandler) -> None:
+   74|         try:
+   75|             async for message in pubsub.listen():
+   76|                 if message.get("type") != "message":
+   77|                     continue
+   78|                 data = message.get("data")
+   79|                 text = data.decode() if isinstance(data, bytes | bytearray) else str(data)
+   80|                 await handler(json.loads(text))
+   81|         except asyncio.CancelledError:
+   82|             raise
+   83|         except Exception:
+   84|             logger.exception("event consumer failed")
+   85| 
+   86|     async def close(self) -> None:
+   87|         for task in self._tasks:
+   88|             task.cancel()
+   89|         for task in self._tasks:
+   90|             with contextlib.suppress(asyncio.CancelledError):
+   91|                 await task
+   92|         self._tasks.clear()
+   93|         for pubsub in self._pubsubs:
+   94|             await pubsub.aclose()  # type: ignore[no-untyped-call]  # redis-py без аннотаций
+   95|         self._pubsubs.clear()
+   96|         await self._client.aclose()
+   97| 
+   98| 
+   99| def create_event_bus(*, backend: str, redis_url: str) -> EventBus:
+  100|     """Фабрика по конфигурации: ``memory`` для дев-окружения, ``redis`` для прода."""
+  101|     if backend == "redis":
+  102|         return RedisEventBus(aioredis.from_url(redis_url))
+  103|     return InMemoryEventBus()
+
+=== shared/logs.py (65 dòng) ===
+    1| """Структурированное (JSON) логирование с correlation id."""
+    2| 
+    3| import json
+    4| import logging
+    5| from datetime import UTC, datetime
+    6| from typing import Any
+    7| 
+    8| from shared.context import get_request_id
+    9| 
+   10| _RESERVED_FIELDS = frozenset(
+   11|     logging.LogRecord(
+   12|         name="", level=logging.INFO, pathname="", lineno=0, msg="", args=(), exc_info=None
+   13|     ).__dict__.keys()
+   14| ) | frozenset({"message", "asctime", "request_id"})
+   15| 
+   16| 
+   17| class RequestIdFilter(logging.Filter):
+   18|     """Подставляет в каждую запись текущий request_id, если он не задан явно."""
+   19| 
+   20|     def filter(self, record: logging.LogRecord) -> bool:
+   21|         if "request_id" not in record.__dict__:
+   22|             record.__dict__["request_id"] = get_request_id() or "-"
+   23|         return True
+   24| 
+   25| 
+   26| class JsonFormatter(logging.Formatter):
+   27|     """Одна строка JSON на событие: ts, level, service, logger, request_id + extras."""
+   28| 
+   29|     def __init__(self, service: str) -> None:
+   30|         super().__init__()
+   31|         self._service = service
+   32| 
+   33|     def format(self, record: logging.LogRecord) -> str:
+   34|         payload: dict[str, Any] = {
+   35|             "ts": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
+   36|             "level": record.levelname,
+   37|             "service": self._service,
+   38|             "logger": record.name,
+   39|             "request_id": record.__dict__.get("request_id", "-"),
+   40|             "message": record.getMessage(),
+   41|         }
+   42|         for key, value in record.__dict__.items():
+   43|             if key not in _RESERVED_FIELDS and not key.startswith("_"):
+   44|                 payload[key] = value
+   45|         if record.exc_info is not None:
+   46|             payload["exception"] = self.formatException(record.exc_info)
+   47|         return json.dumps(payload, ensure_ascii=False, default=str)
+   48| 
+   49| 
+   50| def configure_logging(service: str, module_name: str) -> logging.Logger:
+   51|     """Идемпотентно настраивает JSON-хендлер на корневом логгере пакета сервиса.
+   52| 
+   53|     ``module_name`` — ``__name__`` из ``<service_pkg>/main.py``; обработчик
+   54|     вешается на сам пакет, поэтому ``logging.getLogger(__name__)`` во всех
+   55|     модулях сервиса попадает в одну структурированную строку лога.
+   56|     """
+   57|     root = logging.getLogger(module_name.split(".")[0])
+   58|     if not root.handlers:
+   59|         handler = logging.StreamHandler()
+   60|         handler.setFormatter(JsonFormatter(service))
+   61|         handler.addFilter(RequestIdFilter())
+   62|         root.addHandler(handler)
+   63|         root.setLevel(logging.INFO)
+   64|         root.propagate = False
+   65|     return root

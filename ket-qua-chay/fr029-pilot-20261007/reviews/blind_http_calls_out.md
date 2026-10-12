@@ -1,0 +1,5 @@
+- **route** — `API-HTTP-CALLS-DON-HANG-v1.md:24,37`, `result.json` route GET `/orders/{order_id}`: chỉ ghi Auth `unknown`, bỏ dependency → phải ghi `db: Session = Depends(get_db)`; căn cứ `app/routes.py:11`, `app/db.py:20–25`.
+- **role** — `README.md:27`, `result.json:1561`: `app/clients.py` ghi `Service (inferred)` → phải là `Hạ tầng (exact)`, xét trước Service vì trực tiếp gọi HTTP ra ngoài; căn cứ `app/clients.py:13,18,23,46,51`.
+- **role** — `README.md:30`, `result.json:1709`: `app/inventory_client.py` ghi `Hạ tầng (exact)` → theo dấu hiệu FR-029 phải là `Khác (exact)`: chỉ khai lớp kế thừa và khởi tạo với timeout, không có URL/host/DSN hay lời gọi HTTP; căn cứ `app/inventory_client.py:4–6`.
+
+Đã kiểm: **3 route, 0 model API, 12 lời gọi HTTP (11 được hỗ trợ + 1 urllib), 8 file nguồn và 3 file đầu ra; 3 lỗi.**

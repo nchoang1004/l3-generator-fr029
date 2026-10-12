@@ -1,0 +1,89 @@
+{
+  "routes": {
+    "tp": 30,
+    "fp": [],
+    "fn": [
+      "('GET', '/docs', 'backend/src/infrastructure/app_factory.py::get_swagger_documentation')",
+      "('GET', '/health', 'backend/src/interfaces/main.py::health_check')",
+      "('GET', '/openapi.json', 'backend/src/infrastructure/app_factory.py::openapi')",
+      "('GET', '/redoc', 'backend/src/infrastructure/app_factory.py::get_redoc_documentation')"
+    ]
+  },
+  "models_on_matched_routes": {
+    "correct": 24,
+    "wrong": [
+      {
+        "route": "('GET', '/api/v1/api-keys/', 'backend/src/modules/api_keys/routes.py::get_user_api_keys')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[APIKeyRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/api-keys/{key_id}/usage', 'backend/src/modules/api_keys/routes.py::get_key_usage')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[KeyUsageRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/rate-limits/', 'backend/src/modules/rate_limit/routes.py::get_rate_limits')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[RateLimitRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/tiers/', 'backend/src/modules/tier/routes.py::get_tiers')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[TierRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/users/', 'backend/src/modules/user/routes.py::get_users')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[UserRead]"
+        ]
+      },
+      {
+        "route": "('POST', '/api/v1/auth/login', 'backend/src/infrastructure/auth/routes.py::login')",
+        "got": [
+          "unknown",
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, Any]"
+        ]
+      }
+    ]
+  },
+  "http_api": {
+    "tp": 0,
+    "fp": [],
+    "fn": [],
+    "out_of_scope": 0
+  }
+}

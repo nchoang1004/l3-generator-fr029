@@ -1,0 +1,1 @@
+{"partition_version": "fixture-membership-v1", "components": [{"name": "To\u00e0n b\u1ed9", "kind": "normal", "files": ["db.py", "legacy.py", "main.py", "models.py", "repository.py", "requirements.txt", "routes.py", "schemas.py", "service.py"]}]}

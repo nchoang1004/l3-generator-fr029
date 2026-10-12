@@ -1,0 +1,12 @@
+{
+ "model": "gpt-5-2025-08-07",
+ "effort": "low",
+ "prices": [
+  1.25,
+  0.125,
+  10.0
+ ],
+ "usage_based_cost_usd": 0.1916475,
+ "requests": 3,
+ "cap_usd": 0.3
+}

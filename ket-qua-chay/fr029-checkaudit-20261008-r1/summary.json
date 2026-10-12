@@ -1,0 +1,21 @@
+{
+  "cases": 33,
+  "errors": [],
+  "routes_checked": 358,
+  "routes_false_rejection": 0,
+  "routes_false_acceptance": 0,
+  "routes_not_found": 0,
+  "dependency_lines": 148,
+  "dependency_false_rejection": 3,
+  "dependency_false_acceptance": 0,
+  "reminders": 66,
+  "reminders_wrong": 0,
+  "gold_dep_params": 70,
+  "dep_params_missed": 4,
+  "http_calls": 27,
+  "http_false_rejection": 5,
+  "http_literal_checked": 11,
+  "http_false_acceptance": 0,
+  "suspects": 429,
+  "suspects_not_gold_item": 45
+}

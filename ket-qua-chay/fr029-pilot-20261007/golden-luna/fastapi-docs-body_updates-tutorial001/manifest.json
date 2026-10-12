@@ -1,0 +1,949 @@
+{
+  "agent": {
+    "reason": "",
+    "status": "completed",
+    "tokens_in": 12280,
+    "tokens_out": 930,
+    "turns": 4,
+    "usage_missing_turns": 0
+  },
+  "architecture_parity": {
+    "reason": "Chưa được cấp archdia.json cùng snapshot",
+    "status": "not_evaluated"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "art_c29b7a5cfcf880d04b1c6384",
+      "bytes": 1128,
+      "error": null,
+      "kind": "readme",
+      "media_type": "text/markdown",
+      "path": "README.md",
+      "sha256": "484d9676bd14b1ef89c2cf98504c3ddae4d1829da0c2d8cc3b346a66020f4c8e",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_0ae86cf71602dc000f1b7b5d",
+      "bytes": 35147,
+      "error": null,
+      "kind": "json",
+      "media_type": "application/json",
+      "path": "result.json",
+      "sha256": "4240d6187519b70c8e5f163a9690ec6b07225b8fdec4bfcc1b89bcbfa86e351a",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_ce813b625f5e2d3755b9eb69",
+      "bytes": 9356,
+      "error": null,
+      "kind": "api",
+      "media_type": "text/markdown",
+      "path": "tech-specs/TOAN-BO/api/API-FASTAPI-DOCS-BODY-UPDATES-TUTORIAL001-TOAN-BO-v1.md",
+      "sha256": "fcf04f8735cbe17f2b86a125a4db20f84ccf2aa98c3aed776092f9d85d9e89ac",
+      "status": "ready"
+    }
+  ],
+  "components": [
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "body_updates/tutorial001_py310.py"
+      ],
+      "id": "cmp_617cbac4f3d176f4e3dfe8cb20face2ddf3904332e308c59e5779a45c574c026",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0"
+      ],
+      "name": "Toàn bộ"
+    }
+  ],
+  "contract_owners": {
+    "fact:778d74dfff440aa856a0f7b517028a60e428f12634e67783a67340ae1afeda94": "cmp_617cbac4f3d176f4e3dfe8cb20face2ddf3904332e308c59e5779a45c574c026",
+    "fact:f51b64031a6661c3b510aed95273b407023f4e65527c28f1122437ba65bf0032": "cmp_617cbac4f3d176f4e3dfe8cb20face2ddf3904332e308c59e5779a45c574c026"
+  },
+  "coverage": {
+    "complete": true,
+    "files": [
+      {
+        "cut_lines": [],
+        "lines": 32,
+        "missing": [],
+        "path": "body_updates/tutorial001_py310.py",
+        "processed_lines": 32,
+        "status": "processed"
+      }
+    ],
+    "not_readable": []
+  },
+  "dismissed_suspects": [],
+  "evidence_index": [
+    {
+      "end_column": null,
+      "end_line": 29,
+      "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+      "id": "ev:0b88b8b7381ec9c9df6e2c45f714861b65f24b5b2ebb2ffdc63869eb8f5047b3",
+      "path": "body_updates/tutorial001_py310.py",
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+      "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+      "start_column": null,
+      "start_line": 28
+    },
+    {
+      "end_column": null,
+      "end_line": 29,
+      "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+      "id": "ev:207166c1be1cabc3296124c8ac9d2ff5d8bbe74a6aceffa6d308f74deacb439b",
+      "path": "body_updates/tutorial001_py310.py",
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+      "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+      "start_column": null,
+      "start_line": 29
+    },
+    {
+      "end_column": null,
+      "end_line": 10,
+      "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+      "id": "ev:34bdc6342828f0378f06ac9cf09330b8dcf5304f8f4f56faf86ea0914a0c5209",
+      "path": "body_updates/tutorial001_py310.py",
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+      "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+      "start_column": null,
+      "start_line": 10
+    },
+    {
+      "end_column": null,
+      "end_line": 24,
+      "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+      "id": "ev:3b5846b21fb78436a8a5b84970c16962cb14c991fa95c1c463af5d59612a056c",
+      "path": "body_updates/tutorial001_py310.py",
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+      "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+      "start_column": null,
+      "start_line": 24
+    },
+    {
+      "end_column": null,
+      "end_line": 5,
+      "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+      "id": "ev:3d74e3573800f42896b5aa06c1f2baf98698acfd17675e45da75b881ddc2259e",
+      "path": "body_updates/tutorial001_py310.py",
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+      "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+      "start_column": null,
+      "start_line": 5
+    },
+    {
+      "end_column": null,
+      "end_line": 8,
+      "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+      "id": "ev:4e5ff6d19e4d732430235cbceb9d47d250c48f0781fa9b5e3ffd03548ec1956d",
+      "path": "body_updates/tutorial001_py310.py",
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+      "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+      "start_column": null,
+      "start_line": 8
+    },
+    {
+      "end_column": null,
+      "end_line": 13,
+      "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+      "id": "ev:549ed6262bdccbba2dfcf2c90c4097942d5e89cbd06d5f6760e90e288fd665ef",
+      "path": "body_updates/tutorial001_py310.py",
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+      "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+      "start_column": null,
+      "start_line": 13
+    },
+    {
+      "end_column": null,
+      "end_line": 24,
+      "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+      "id": "ev:62713cbb424ed623b26261f21e7dfeed62fffa4f9143aca9261972d37be2f9b6",
+      "path": "body_updates/tutorial001_py310.py",
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+      "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+      "start_column": null,
+      "start_line": 23
+    },
+    {
+      "end_column": null,
+      "end_line": 23,
+      "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+      "id": "ev:867c9ce086af734888245aee0a521dfd78a92a84acf2672e15ecc3fe80661c62",
+      "path": "body_updates/tutorial001_py310.py",
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+      "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+      "start_column": null,
+      "start_line": 23
+    },
+    {
+      "end_column": null,
+      "end_line": 11,
+      "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+      "id": "ev:a74b97e0628b6921784183c8546ae3c864a5ed759cd9c508cdf188ec14ba38c0",
+      "path": "body_updates/tutorial001_py310.py",
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+      "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+      "start_column": null,
+      "start_line": 11
+    },
+    {
+      "end_column": null,
+      "end_line": 28,
+      "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+      "id": "ev:ee80a0462671fa5803eb06f087b081189a8881045c16da318c0f5935a9595083",
+      "path": "body_updates/tutorial001_py310.py",
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+      "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+      "start_column": null,
+      "start_line": 28
+    },
+    {
+      "end_column": null,
+      "end_line": 12,
+      "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+      "id": "ev:fa4d79acec67a557d8110bd7f107d2d1a0186ef796d6a753f6d8b17be4b5e7c8",
+      "path": "body_updates/tutorial001_py310.py",
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+      "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+      "start_column": null,
+      "start_line": 12
+    },
+    {
+      "end_column": null,
+      "end_line": 9,
+      "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+      "id": "ev:ff2268d333f43c6866a3696cacb812df141c63f417f533a0c002bc6fee259ead",
+      "path": "body_updates/tutorial001_py310.py",
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+      "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+      "start_column": null,
+      "start_line": 9
+    }
+  ],
+  "excluded_from_snapshot": [
+    {
+      "path": "LICENSE",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    }
+  ],
+  "facts": [
+    {
+      "attributes": {
+        "declared_in": {
+          "evidence_ids": [
+            "ev:4e5ff6d19e4d732430235cbceb9d47d250c48f0781fa9b5e3ffd03548ec1956d"
+          ],
+          "state": "known",
+          "value": "body_updates/tutorial001_py310.py"
+        },
+        "fields": {
+          "evidence_ids": [
+            "ev:4e5ff6d19e4d732430235cbceb9d47d250c48f0781fa9b5e3ffd03548ec1956d"
+          ],
+          "state": "known",
+          "value": [
+            {
+              "name": {
+                "evidence_ids": [
+                  "ev:ff2268d333f43c6866a3696cacb812df141c63f417f533a0c002bc6fee259ead"
+                ],
+                "state": "known",
+                "value": "name"
+              },
+              "nullable": {
+                "evidence_ids": [
+                  "ev:ff2268d333f43c6866a3696cacb812df141c63f417f533a0c002bc6fee259ead"
+                ],
+                "state": "known",
+                "value": true
+              },
+              "required": {
+                "evidence_ids": [
+                  "ev:ff2268d333f43c6866a3696cacb812df141c63f417f533a0c002bc6fee259ead"
+                ],
+                "state": "known",
+                "value": false
+              },
+              "type": {
+                "evidence_ids": [
+                  "ev:ff2268d333f43c6866a3696cacb812df141c63f417f533a0c002bc6fee259ead"
+                ],
+                "state": "known",
+                "value": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": {
+                "evidence_ids": [
+                  "ev:34bdc6342828f0378f06ac9cf09330b8dcf5304f8f4f56faf86ea0914a0c5209"
+                ],
+                "state": "known",
+                "value": "description"
+              },
+              "nullable": {
+                "evidence_ids": [
+                  "ev:34bdc6342828f0378f06ac9cf09330b8dcf5304f8f4f56faf86ea0914a0c5209"
+                ],
+                "state": "known",
+                "value": true
+              },
+              "required": {
+                "evidence_ids": [
+                  "ev:34bdc6342828f0378f06ac9cf09330b8dcf5304f8f4f56faf86ea0914a0c5209"
+                ],
+                "state": "known",
+                "value": false
+              },
+              "type": {
+                "evidence_ids": [
+                  "ev:34bdc6342828f0378f06ac9cf09330b8dcf5304f8f4f56faf86ea0914a0c5209"
+                ],
+                "state": "known",
+                "value": {
+                  "type": "string"
+                }
+              }
+            },
+            {
+              "name": {
+                "evidence_ids": [
+                  "ev:a74b97e0628b6921784183c8546ae3c864a5ed759cd9c508cdf188ec14ba38c0"
+                ],
+                "state": "known",
+                "value": "price"
+              },
+              "nullable": {
+                "evidence_ids": [
+                  "ev:a74b97e0628b6921784183c8546ae3c864a5ed759cd9c508cdf188ec14ba38c0"
+                ],
+                "state": "known",
+                "value": true
+              },
+              "required": {
+                "evidence_ids": [
+                  "ev:a74b97e0628b6921784183c8546ae3c864a5ed759cd9c508cdf188ec14ba38c0"
+                ],
+                "state": "known",
+                "value": false
+              },
+              "type": {
+                "evidence_ids": [
+                  "ev:a74b97e0628b6921784183c8546ae3c864a5ed759cd9c508cdf188ec14ba38c0"
+                ],
+                "state": "known",
+                "value": {
+                  "type": "number"
+                }
+              }
+            },
+            {
+              "name": {
+                "evidence_ids": [
+                  "ev:fa4d79acec67a557d8110bd7f107d2d1a0186ef796d6a753f6d8b17be4b5e7c8"
+                ],
+                "state": "known",
+                "value": "tax"
+              },
+              "nullable": {
+                "evidence_ids": [
+                  "ev:fa4d79acec67a557d8110bd7f107d2d1a0186ef796d6a753f6d8b17be4b5e7c8"
+                ],
+                "state": "known",
+                "value": false
+              },
+              "required": {
+                "evidence_ids": [
+                  "ev:fa4d79acec67a557d8110bd7f107d2d1a0186ef796d6a753f6d8b17be4b5e7c8"
+                ],
+                "state": "known",
+                "value": false
+              },
+              "type": {
+                "evidence_ids": [
+                  "ev:fa4d79acec67a557d8110bd7f107d2d1a0186ef796d6a753f6d8b17be4b5e7c8"
+                ],
+                "state": "known",
+                "value": {
+                  "type": "number"
+                }
+              }
+            },
+            {
+              "name": {
+                "evidence_ids": [
+                  "ev:549ed6262bdccbba2dfcf2c90c4097942d5e89cbd06d5f6760e90e288fd665ef"
+                ],
+                "state": "known",
+                "value": "tags"
+              },
+              "nullable": {
+                "evidence_ids": [
+                  "ev:549ed6262bdccbba2dfcf2c90c4097942d5e89cbd06d5f6760e90e288fd665ef"
+                ],
+                "state": "known",
+                "value": false
+              },
+              "required": {
+                "evidence_ids": [
+                  "ev:549ed6262bdccbba2dfcf2c90c4097942d5e89cbd06d5f6760e90e288fd665ef"
+                ],
+                "state": "known",
+                "value": false
+              },
+              "type": {
+                "evidence_ids": [
+                  "ev:549ed6262bdccbba2dfcf2c90c4097942d5e89cbd06d5f6760e90e288fd665ef"
+                ],
+                "state": "known",
+                "value": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              }
+            }
+          ]
+        },
+        "name": {
+          "evidence_ids": [
+            "ev:4e5ff6d19e4d732430235cbceb9d47d250c48f0781fa9b5e3ffd03548ec1956d"
+          ],
+          "state": "known",
+          "value": "Item"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 8,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:4e5ff6d19e4d732430235cbceb9d47d250c48f0781fa9b5e3ffd03548ec1956d",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 8
+        },
+        {
+          "end_column": null,
+          "end_line": 9,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:ff2268d333f43c6866a3696cacb812df141c63f417f533a0c002bc6fee259ead",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 9
+        },
+        {
+          "end_column": null,
+          "end_line": 10,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:34bdc6342828f0378f06ac9cf09330b8dcf5304f8f4f56faf86ea0914a0c5209",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 10
+        },
+        {
+          "end_column": null,
+          "end_line": 11,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:a74b97e0628b6921784183c8546ae3c864a5ed759cd9c508cdf188ec14ba38c0",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 11
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:fa4d79acec67a557d8110bd7f107d2d1a0186ef796d6a753f6d8b17be4b5e7c8",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 12
+        },
+        {
+          "end_column": null,
+          "end_line": 13,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:549ed6262bdccbba2dfcf2c90c4097942d5e89cbd06d5f6760e90e288fd665ef",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 13
+        }
+      ],
+      "id": "fact:4956f971e1e08f7ee4a9ec8fd8f8120b4124ce78833f3aab6257f1332251e10c",
+      "kind": "model",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:285ab8fa8c988a3c4690c02bb1b976e50bb49a1a7ef1fb60a9b171bbdb98dd46"
+    },
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:3d74e3573800f42896b5aa06c1f2baf98698acfd17675e45da75b881ddc2259e"
+          ],
+          "state": "known",
+          "value": "app:body_updates/tutorial001_py310.py:5"
+        },
+        "auth": {
+          "reason": "Không thấy khai báo cơ chế xác thực cho route này.",
+          "state": "unknown"
+        },
+        "bodies": {
+          "evidence_ids": [
+            "ev:62713cbb424ed623b26261f21e7dfeed62fffa4f9143aca9261972d37be2f9b6"
+          ],
+          "state": "known",
+          "value": [
+            {
+              "direction": "response",
+              "media_type": "application/json",
+              "model_id": "fact:4956f971e1e08f7ee4a9ec8fd8f8120b4124ce78833f3aab6257f1332251e10c",
+              "required": null,
+              "status": 200
+            }
+          ]
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:62713cbb424ed623b26261f21e7dfeed62fffa4f9143aca9261972d37be2f9b6"
+          ],
+          "state": "known",
+          "value": "ev:62713cbb424ed623b26261f21e7dfeed62fffa4f9143aca9261972d37be2f9b6"
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:62713cbb424ed623b26261f21e7dfeed62fffa4f9143aca9261972d37be2f9b6"
+          ],
+          "state": "known",
+          "value": "body_updates/tutorial001_py310.py::read_item"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:62713cbb424ed623b26261f21e7dfeed62fffa4f9143aca9261972d37be2f9b6"
+          ],
+          "state": "known",
+          "value": "GET"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:62713cbb424ed623b26261f21e7dfeed62fffa4f9143aca9261972d37be2f9b6"
+          ],
+          "state": "known",
+          "value": [
+            {
+              "in": {
+                "evidence_ids": [
+                  "ev:3b5846b21fb78436a8a5b84970c16962cb14c991fa95c1c463af5d59612a056c"
+                ],
+                "state": "known",
+                "value": "path"
+              },
+              "name": {
+                "evidence_ids": [
+                  "ev:3b5846b21fb78436a8a5b84970c16962cb14c991fa95c1c463af5d59612a056c"
+                ],
+                "state": "known",
+                "value": "item_id"
+              },
+              "required": {
+                "evidence_ids": [
+                  "ev:3b5846b21fb78436a8a5b84970c16962cb14c991fa95c1c463af5d59612a056c"
+                ],
+                "state": "known",
+                "value": true
+              },
+              "schema": {
+                "evidence_ids": [
+                  "ev:3b5846b21fb78436a8a5b84970c16962cb14c991fa95c1c463af5d59612a056c"
+                ],
+                "state": "known",
+                "value": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:867c9ce086af734888245aee0a521dfd78a92a84acf2672e15ecc3fe80661c62"
+          ],
+          "state": "known",
+          "value": "/items/{item_id}"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:867c9ce086af734888245aee0a521dfd78a92a84acf2672e15ecc3fe80661c62"
+          ],
+          "state": "known",
+          "value": "decorator@body_updates/tutorial001_py310.py:23"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:62713cbb424ed623b26261f21e7dfeed62fffa4f9143aca9261972d37be2f9b6"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:867c9ce086af734888245aee0a521dfd78a92a84acf2672e15ecc3fe80661c62"
+          ],
+          "state": "known",
+          "value": [
+            "fact:4956f971e1e08f7ee4a9ec8fd8f8120b4124ce78833f3aab6257f1332251e10c"
+          ]
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:867c9ce086af734888245aee0a521dfd78a92a84acf2672e15ecc3fe80661c62"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:867c9ce086af734888245aee0a521dfd78a92a84acf2672e15ecc3fe80661c62"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 24,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:62713cbb424ed623b26261f21e7dfeed62fffa4f9143aca9261972d37be2f9b6",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 23
+        },
+        {
+          "end_column": null,
+          "end_line": 23,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:867c9ce086af734888245aee0a521dfd78a92a84acf2672e15ecc3fe80661c62",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 23
+        },
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:3d74e3573800f42896b5aa06c1f2baf98698acfd17675e45da75b881ddc2259e",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 5
+        },
+        {
+          "end_column": null,
+          "end_line": 24,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:3b5846b21fb78436a8a5b84970c16962cb14c991fa95c1c463af5d59612a056c",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 24
+        }
+      ],
+      "id": "fact:f51b64031a6661c3b510aed95273b407023f4e65527c28f1122437ba65bf0032",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:285ab8fa8c988a3c4690c02bb1b976e50bb49a1a7ef1fb60a9b171bbdb98dd46"
+    },
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:3d74e3573800f42896b5aa06c1f2baf98698acfd17675e45da75b881ddc2259e"
+          ],
+          "state": "known",
+          "value": "app:body_updates/tutorial001_py310.py:5"
+        },
+        "auth": {
+          "reason": "Không thấy khai báo cơ chế xác thực cho route này.",
+          "state": "unknown"
+        },
+        "bodies": {
+          "evidence_ids": [
+            "ev:0b88b8b7381ec9c9df6e2c45f714861b65f24b5b2ebb2ffdc63869eb8f5047b3"
+          ],
+          "state": "known",
+          "value": [
+            {
+              "direction": "request",
+              "media_type": "application/json",
+              "model_id": "fact:4956f971e1e08f7ee4a9ec8fd8f8120b4124ce78833f3aab6257f1332251e10c",
+              "required": true,
+              "status": null
+            },
+            {
+              "direction": "response",
+              "media_type": "application/json",
+              "model_id": "fact:4956f971e1e08f7ee4a9ec8fd8f8120b4124ce78833f3aab6257f1332251e10c",
+              "required": null,
+              "status": 200
+            }
+          ]
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:0b88b8b7381ec9c9df6e2c45f714861b65f24b5b2ebb2ffdc63869eb8f5047b3"
+          ],
+          "state": "known",
+          "value": "ev:0b88b8b7381ec9c9df6e2c45f714861b65f24b5b2ebb2ffdc63869eb8f5047b3"
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:0b88b8b7381ec9c9df6e2c45f714861b65f24b5b2ebb2ffdc63869eb8f5047b3"
+          ],
+          "state": "known",
+          "value": "body_updates/tutorial001_py310.py::update_item"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:0b88b8b7381ec9c9df6e2c45f714861b65f24b5b2ebb2ffdc63869eb8f5047b3"
+          ],
+          "state": "known",
+          "value": "PUT"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:0b88b8b7381ec9c9df6e2c45f714861b65f24b5b2ebb2ffdc63869eb8f5047b3"
+          ],
+          "state": "known",
+          "value": [
+            {
+              "in": {
+                "evidence_ids": [
+                  "ev:207166c1be1cabc3296124c8ac9d2ff5d8bbe74a6aceffa6d308f74deacb439b"
+                ],
+                "state": "known",
+                "value": "path"
+              },
+              "name": {
+                "evidence_ids": [
+                  "ev:207166c1be1cabc3296124c8ac9d2ff5d8bbe74a6aceffa6d308f74deacb439b"
+                ],
+                "state": "known",
+                "value": "item_id"
+              },
+              "required": {
+                "evidence_ids": [
+                  "ev:207166c1be1cabc3296124c8ac9d2ff5d8bbe74a6aceffa6d308f74deacb439b"
+                ],
+                "state": "known",
+                "value": true
+              },
+              "schema": {
+                "evidence_ids": [
+                  "ev:207166c1be1cabc3296124c8ac9d2ff5d8bbe74a6aceffa6d308f74deacb439b"
+                ],
+                "state": "known",
+                "value": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:ee80a0462671fa5803eb06f087b081189a8881045c16da318c0f5935a9595083"
+          ],
+          "state": "known",
+          "value": "/items/{item_id}"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:ee80a0462671fa5803eb06f087b081189a8881045c16da318c0f5935a9595083"
+          ],
+          "state": "known",
+          "value": "decorator@body_updates/tutorial001_py310.py:28"
+        },
+        "request_body_param": {
+          "evidence_ids": [
+            "ev:207166c1be1cabc3296124c8ac9d2ff5d8bbe74a6aceffa6d308f74deacb439b"
+          ],
+          "state": "known",
+          "value": "item"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:0b88b8b7381ec9c9df6e2c45f714861b65f24b5b2ebb2ffdc63869eb8f5047b3"
+          ],
+          "state": "known",
+          "value": [
+            "fact:4956f971e1e08f7ee4a9ec8fd8f8120b4124ce78833f3aab6257f1332251e10c"
+          ]
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:ee80a0462671fa5803eb06f087b081189a8881045c16da318c0f5935a9595083"
+          ],
+          "state": "known",
+          "value": [
+            "fact:4956f971e1e08f7ee4a9ec8fd8f8120b4124ce78833f3aab6257f1332251e10c"
+          ]
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:ee80a0462671fa5803eb06f087b081189a8881045c16da318c0f5935a9595083"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:ee80a0462671fa5803eb06f087b081189a8881045c16da318c0f5935a9595083"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse; fastapi.model_param_body: Tham số kiểu Pydantic model không khai Body; FastAPI coi là body",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 29,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:0b88b8b7381ec9c9df6e2c45f714861b65f24b5b2ebb2ffdc63869eb8f5047b3",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 28
+        },
+        {
+          "end_column": null,
+          "end_line": 28,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:ee80a0462671fa5803eb06f087b081189a8881045c16da318c0f5935a9595083",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 28
+        },
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:3d74e3573800f42896b5aa06c1f2baf98698acfd17675e45da75b881ddc2259e",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 5
+        },
+        {
+          "end_column": null,
+          "end_line": 29,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:207166c1be1cabc3296124c8ac9d2ff5d8bbe74a6aceffa6d308f74deacb439b",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 29
+        }
+      ],
+      "id": "fact:778d74dfff440aa856a0f7b517028a60e428f12634e67783a67340ae1afeda94",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:285ab8fa8c988a3c4690c02bb1b976e50bb49a1a7ef1fb60a9b171bbdb98dd46"
+    },
+    {
+      "attributes": {
+        "file": {
+          "evidence_ids": [
+            "ev:3d74e3573800f42896b5aa06c1f2baf98698acfd17675e45da75b881ddc2259e"
+          ],
+          "state": "known",
+          "value": "body_updates/tutorial001_py310.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:3d74e3573800f42896b5aa06c1f2baf98698acfd17675e45da75b881ddc2259e"
+          ],
+          "state": "known",
+          "value": "Điểm vào"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:249086eb39884ac7852c43e0bb94d84d7712fb91c6d1aa0593bf3ece28fa49b0",
+          "id": "ev:3d74e3573800f42896b5aa06c1f2baf98698acfd17675e45da75b881ddc2259e",
+          "path": "body_updates/tutorial001_py310.py",
+          "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95",
+          "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+          "start_column": null,
+          "start_line": 5
+        }
+      ],
+      "id": "fact:fb16cb9089d3ae5b386f3457f9bf7803ca9e54f687bbd06b2526afa6c35e213a",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:285ab8fa8c988a3c4690c02bb1b976e50bb49a1a7ef1fb60a9b171bbdb98dd46"
+    }
+  ],
+  "limitations": [],
+  "pipeline_version": "fr029-doc-v1",
+  "provenance": {
+    "model": "gpt-6-luna",
+    "prompt_version": "fr029-agent-prompt-v5",
+    "provider": "https://api.openai.com/v1"
+  },
+  "rejected_claims": [],
+  "render_notices": [],
+  "repository_name": "fastapi-docs-body_updates-tutorial001",
+  "run_id": "golden_fastapi-docs-body_updates-tutorial001",
+  "schema_version": "0.1.0",
+  "snapshot_id": "snap:5221f8bbd9bc5868ad08768d2555ff71f5e929d4ba20726a1f041fc799d7bb9a",
+  "unassigned": []
+}

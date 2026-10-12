@@ -1,0 +1,1545 @@
+{
+  "agent": {
+    "open_problems": [],
+    "reason": "MODEL_ERROR: LOCAL_BUDGET_RESERVATION_STOP",
+    "status": "partial",
+    "tokens_in": 170039,
+    "tokens_out": 461,
+    "turns": 16,
+    "usage_missing_turns": 0
+  },
+  "architecture_parity": {
+    "reason": "Chưa được cấp archdia.json cùng snapshot",
+    "status": "not_evaluated"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "art_2f66b543b22266878114494b",
+      "bytes": 17369,
+      "error": null,
+      "kind": "readme",
+      "media_type": "text/markdown",
+      "path": "README.md",
+      "sha256": "791f065e6eb147e88114c63432e2af1db591ef5a8cf7d121bb0f70d6f779f10b",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_5efb1ac8bed21fb81b9cf915",
+      "bytes": 48674,
+      "error": null,
+      "kind": "json",
+      "media_type": "application/json",
+      "path": "result.json",
+      "sha256": "7263f7918487085fcb39494708db2c74b8a3f9e42be396b4595b8b1b947b4104",
+      "status": "ready"
+    }
+  ],
+  "components": [
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "main.py",
+        "pyproject.toml"
+      ],
+      "id": "cmp_074159e2aa1da5e669c66bc7ac5d5ea1548e191f7b560a7f5f647794fc4fb040",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:50c86b7ed8ac2cf95bd48334961bf0530cdc77b5a56f852c5c61b89d735fd711",
+        "file:b10564ab7d2c520cdd0243874879fb0a782862c3c902ab535faabe57d5a505e1"
+      ],
+      "name": "(root)"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/__init__.py",
+        "app/auth/__init__.py",
+        "app/auth/adapter/__init__.py",
+        "app/auth/adapter/input/__init__.py",
+        "app/auth/adapter/input/api/__init__.py",
+        "app/auth/adapter/input/api/v1/__init__.py",
+        "app/auth/adapter/input/api/v1/auth.py",
+        "app/auth/adapter/input/api/v1/request/__init__.py",
+        "app/auth/adapter/input/api/v1/response/__init__.py",
+        "app/auth/application/__init__.py",
+        "app/auth/application/dto/__init__.py",
+        "app/auth/application/exception/__init__.py",
+        "app/auth/application/service/__init__.py",
+        "app/auth/application/service/jwt.py",
+        "app/auth/domain/__init__.py",
+        "app/auth/domain/entity/__init__.py",
+        "app/auth/domain/usecase/__init__.py",
+        "app/auth/domain/usecase/jwt.py",
+        "app/container.py",
+        "app/server.py",
+        "app/user/__init__.py",
+        "app/user/adapter/__init__.py",
+        "app/user/adapter/input/__init__.py",
+        "app/user/adapter/input/api/__init__.py",
+        "app/user/adapter/input/api/v1/__init__.py",
+        "app/user/adapter/input/api/v1/request/__init__.py",
+        "app/user/adapter/input/api/v1/response/__init__.py",
+        "app/user/adapter/input/api/v1/user.py",
+        "app/user/adapter/output/__init__.py",
+        "app/user/adapter/output/persistence/__init__.py",
+        "app/user/adapter/output/persistence/repository_adapter.py",
+        "app/user/adapter/output/persistence/sqlalchemy/__init__.py",
+        "app/user/adapter/output/persistence/sqlalchemy/user.py",
+        "app/user/application/__init__.py",
+        "app/user/application/dto/__init__.py",
+        "app/user/application/exception/__init__.py",
+        "app/user/application/service/__init__.py",
+        "app/user/application/service/user.py",
+        "app/user/container.py",
+        "app/user/domain/__init__.py",
+        "app/user/domain/command/__init__.py",
+        "app/user/domain/entity/__init__.py",
+        "app/user/domain/entity/user.py",
+        "app/user/domain/repository/__init__.py",
+        "app/user/domain/repository/user.py",
+        "app/user/domain/usecase/__init__.py",
+        "app/user/domain/usecase/user.py",
+        "app/user/domain/vo/__init__.py",
+        "app/user/domain/vo/location.py"
+      ],
+      "id": "cmp_77d00468473b3d9cbf4115656fefa81533a7e1ded485391ddf934929803f1718",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:044c39dd5d4375d4a86d661f41c24d3e08c2e40ea8324f313060d0e74932a35d",
+        "file:0611e5a210ccd678834b52be029c1e0123188db34a452435152cf3226584e364",
+        "file:08b70518f71dd384cce87730cc429145d7af0ed4c3ab63865cd36c18714727e7",
+        "file:0aee136d5cf41f74c78554eafe07a8839a78e4549bc2c8d670bcbdbd48e774fc",
+        "file:138093dbe5c756ba0eb51e5e3a38ac4743d839d69091a7e04946db2fcb126320",
+        "file:174f9755b30fa5153cd59f4a634f6815f632836740675bc8006fd191ab9ce0b8",
+        "file:199f6dd6937b61a634ad55dd3c28aebfb1048915f45a816802f9bddbd952f09a",
+        "file:1fbf05004ded7403e18b55d974418329795d311b9ac9f4b2b11bcd06d2a63a7f",
+        "file:1fc61ea2ee424abe91110048a82d68a4204168f04ea8f0c6e081e432957ed8c8",
+        "file:2dd5a7937d470b325124f94b3a8f47175565ee0205191af8f2c5b73bf225bb69",
+        "file:2f0e0dd8dce2cf063a6c2083f8f65dbfd0cb7c106cfae0c7123d63737672c918",
+        "file:30c96943de00f920f54d23255da6c5e12d3c315fe53da6fa7bf424f5b1c008d9",
+        "file:339a231decdb69ccc474fae8760014b3fe57ddce9ad84242c91d3de6c14010b6",
+        "file:3521a62bbc3e65bfa7525117d426008ae2b172cba14012e5b5d7a2774e20b05c",
+        "file:36933d80eea741a43c35536df24e18bf7f9082f25a7480db5057b447fc21e08b",
+        "file:37c98504965c4ef1b3311235ed2fe3beb485e2066c8cca4b7ab63c9440e4641b",
+        "file:39e02554e3dd083190775a6a4cf04e54210db745370cee829a27d6c6252cea25",
+        "file:3eae1c27300020324fe4a3d87f388fd1ea0b779e882a4d62435b48d1f250c09b",
+        "file:48eb82d639764f6ff5749e685aa586df8a8b3556b1b41feb27854e62b045cd3d",
+        "file:5eaf31246a2393c77e0b8ecf4a0e5bd2589b9b42ba932cf09cd73b2c1a16649c",
+        "file:68ded6480dd81f89458c9729f601613ad183b312495af03a84c45c92f74ff10b",
+        "file:69bca64d451f2a65436f4d5e128978471e6c7ee85d9f22ede6c7c2a9b8882e66",
+        "file:6cd32ed0026134403d35d3927fe3762d04d7f5d5423ebf4540a9d32f81b85d84",
+        "file:77bc1ef710d2e331a51782f8644d86329012a44565b03cb7c0535fbe57c0e7e3",
+        "file:7e28eab95a62d46a54f899d81ab30acc9884bc353ffd5d6c6246f36117f304a1",
+        "file:7ff040ab7e28985dbe07c13260631d3adcd6f353381883ef4fa847a0aa1c76a8",
+        "file:80e1c60b2643769f2ba92d557740e5683f92933c75f5b867859e648b3e7f8487",
+        "file:852f0de70f17a827b5b234b26c85eb67a79a60c1537291b5e97c4cdf8e11e91e",
+        "file:8821a6e493c6828aba66bbb8d41917e30fa795b08cff36be9129cfaea70be3c8",
+        "file:89124b30cbc177ffdae304262c638b796f4854067cb3a6588c2ea8305250f5c0",
+        "file:8dacc2b98350eaba80ee496f87d1402e7944aeb599c47a4b2bcadd91ef8da9c5",
+        "file:8dc4b2798bced94ebef6b76b0d9a0c3575fa8058003890b4530075cbc614744a",
+        "file:8f805edf4fcf5651b251084d383961d22c35ee64f76a353fd86c19ae470c2052",
+        "file:960846ff2337b650f1546695bb53ce065544493a7027819c36c6596c6ad50cd9",
+        "file:9cec7b11237bc29d77a439e81c9b7acfac003d8e8855731eb6bc130b5a8ce602",
+        "file:a0b19e15c44f2bcb6d001c0dd49c35b89d017fa916fc9b863866a48e10834d60",
+        "file:a35fd5187ad5dbedf58fc030bf6d117a394e4c7145dfaec98f47d60c5cc2c364",
+        "file:a450bcf762502a971e9f787ad3114623fd532895b992c0aab2bb913e8a300f17",
+        "file:a579e62460615878032c044505cd339f244498d3f1eec8e818d4b8678dab1384",
+        "file:a5f34527cd965a6272630c32a010da7e88132c44399e810607a71fdf41505f82",
+        "file:b72a203b14465fc8e915aa77f8e3694def1a9a3f1d31ef6029627420f27b717b",
+        "file:bf47f81e8aa40be0767a4d94230a48db9d43068d84a4bcb4d6776abf38363a54",
+        "file:c2f70b0902165444151d28e68c5aa8715b5a72d1fc51d45c8613b884a11c6fc3",
+        "file:c414a5bc0cb096384c939310f73a4d83c59e476f00b0e293b2cbf774766e78ed",
+        "file:cc9079183a660a15c44e211432bcc43f725429120eb921b949865fa8c079be1b",
+        "file:e9bcce654f61b02863c1fb0de85a091f1ae9436a98e05c3e257bfc1b704da3da",
+        "file:f3e42288e4352d697d4145e53b16135f38dfabb6f34a0eeca5a043d6ae21e63a",
+        "file:f53b4616fe8aca41ec4fcd6555f052ed065a3da572445cac130384da5fa8ac51",
+        "file:ff85ea801810bd6fa53f31cc994efde06df8de3c0063cfb7f4c8d9c6cd9295d3"
+      ],
+      "name": "app"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "tests/__init__.py",
+        "tests/app/__init__.py",
+        "tests/app/auth/__init__.py",
+        "tests/app/auth/application/__init__.py",
+        "tests/app/auth/application/service/__init__.py",
+        "tests/app/auth/application/service/test_jwt.py",
+        "tests/app/user/__init__.py",
+        "tests/app/user/adapter/__init__.py",
+        "tests/app/user/adapter/input/__init__.py",
+        "tests/app/user/adapter/input/api/__init__.py",
+        "tests/app/user/adapter/input/api/v1/__init__.py",
+        "tests/app/user/adapter/input/api/v1/test_user.py",
+        "tests/app/user/adapter/output/__init__.py",
+        "tests/app/user/adapter/output/persistence/__init__.py",
+        "tests/app/user/adapter/output/persistence/sqlalchemy/__init__.py",
+        "tests/app/user/adapter/output/persistence/sqlalchemy/test_user.py",
+        "tests/app/user/adapter/output/persistence/test_repository_adapter.py",
+        "tests/app/user/application/__init__.py",
+        "tests/app/user/application/service/__init__.py",
+        "tests/app/user/application/service/test_user.py",
+        "tests/conftest.py",
+        "tests/core/__init__.py",
+        "tests/core/exceptions/__init__.py",
+        "tests/core/exceptions/test_base.py",
+        "tests/core/fastapi/__init__.py",
+        "tests/core/fastapi/dependencies/__init__.py",
+        "tests/core/fastapi/dependencies/test_permission.py",
+        "tests/core/fastapi/middlewares/__init__.py",
+        "tests/core/fastapi/middlewares/test_authentication.py",
+        "tests/core/fastapi/middlewares/test_sqlalchemy.py",
+        "tests/core/helpers/__init__.py",
+        "tests/core/helpers/cache/__init__.py",
+        "tests/core/helpers/cache/test_custom_key_maker.py",
+        "tests/core/helpers/cache/test_redis_backend.py",
+        "tests/core/helpers/test_token.py",
+        "tests/support/__init__.py",
+        "tests/support/test_db_coordinator.py",
+        "tests/support/token.py",
+        "tests/support/user_fixture.py"
+      ],
+      "id": "cmp_9d64398a6a415bf74d49932854e8533f50b71562c14ff1f19679089d349b4a44",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:001e61d97d9dee27d0c5aa1f23ba6c1972cd8a2e8320bac839656b0ab935b84d",
+        "file:0fe40a86d448a05334d8cc549a0e731c47bc3cbeeeda15b79883481b50ece0b2",
+        "file:127ff926ccf3198c654c8ee5a49965a5160c102d59a0d5605657be2a5024c0ad",
+        "file:16fefad2c258726c78216dacb99c9a850b097633f8d32c11cf217ce270a05b05",
+        "file:1ab45fd28f1448d6415c73a34ceba775f30da35d1d953d6e8b347e161d047f47",
+        "file:1f8c798b2d2c41076261a0807cf5ccff63059e23bb5e50698de4a4e265a7146a",
+        "file:23695cbbed353c0c6398f83d82e2548c784191f76a49c49572fd64828dc4ac38",
+        "file:3e3bd7d3e2b8a1f55566ecd7b318c3cdb38799949b2ed5d891808207201e245f",
+        "file:49e993598a966790e58b08e9a648b361c6ffb8a0b5d045e6494b63496b870750",
+        "file:4b7d436e2c353376c30f171b9ec1efd69c768defdbff5eade822075318582035",
+        "file:55fae88712951bca0e9d5b001dad15c53537224ed55009256366bfa7b559341e",
+        "file:56f7606f7cc0c27fc0f5caf12cb80204e6bd6c6fc5c16dc94a2dc32e303b56c1",
+        "file:5af3abc791aeb40d86b54728a037d8533a5ccfc77fd5be97c1b78c56cf9eb9c5",
+        "file:726b62b3bb5709d6edf36dcf3a2f64cff7c89d2a66c381b60640890940dc631a",
+        "file:732bcad7a1a05e32f5ea38c0b935d7039885424e09ee9f6b35a4525f0350a546",
+        "file:770176d71792ca7b0ee6314ec0fb086bff00bc9c4d93bc87245b3ab9848dd95d",
+        "file:77f710dc154282a834b51c5d7d80f87c9177e2013fbee7dd175d5c5da9917b86",
+        "file:7b9d9e6e9fd7ea85a48667fa55d1db4e0bdd7982047b26ddc87f82d663c70266",
+        "file:825db40e1390ed80e8bd22944a5d96082c2c8551b4a4fd75eae20ca849fe5a54",
+        "file:a763c7b7777cbe896eeef86695fc15053ffca302dad647d847174eb862690608",
+        "file:b0c4f038ace032cdc849acbca63ea7e615a55009124a4d07cc425281d7a95cae",
+        "file:b746d4c62a33089951ab1b436346834c04e1aa05cf979d38fdeec347f15d2114",
+        "file:bd9594e267ca8644a30db350588a9eae7c28ce99238ac6cbbb057f7e0025f388",
+        "file:bec190694741bb15ec763c56cb776489408ca96f85264c368467ed063c6e7a08",
+        "file:bf89e3c56c0cd2db3c8f14182a66ed7fc267730fe3c5bc69f552c05e6646cf25",
+        "file:c004223a83c04279e2f959ce48805efd1126231d970a6be287d00e6804401ca1",
+        "file:c33ed4a08be9113f3bc3cee56f21dedc0a5683d494f953b306c815b050db4f98",
+        "file:c5007cc795ffcc82fcd00e5d92af3cce14c20d9c373521c00b7f4c0cf18dae03",
+        "file:da52e3b688b265d857c5b4bd7744bc314afa539420465cee07b05ac932acd089",
+        "file:df08c1a5203174a06ef979b6a09609a7e62fb3f151935d7b7abe9983def1856c",
+        "file:e3c4e8afb7def030d32fa220bb86f2bbfeeece39788262720e67dc8a3407c4c5",
+        "file:e52e4ddd58b7ef887ab03c04116e676f6280b824ab7469d5d3080e5cba4f2128",
+        "file:e8b8ad2276e9e288e64735ba737788050edb5dcd72e2f2a20e48a9b2fcada2e0",
+        "file:e93190bb6d49f3fe988586ea8de40501fe76dc69b49694470ff9b4802a4bbac5",
+        "file:e9ffdde77366ee1b27ed8cb17bcf1847b3a825c9bb203084a8de0601dd4b7c90",
+        "file:ef013ac019476119a1cfcbeea8d7d1094e5c5630f4cd613032ef6970a819c2e1",
+        "file:f07b62f481e53c1d887719cfff5e24ecee3dada80c11daa96fd38f8fec8d6e34",
+        "file:f413c81fc8b084e1713f68da39457fbd981a8d73f3391cd1e0df5e51f2564768",
+        "file:fed3248b2c06db6ed9ddce22baba29d9a62e32d47cb2b596e19d4b1d867d97c1"
+      ],
+      "name": "tests"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "celery_task/__init__.py",
+        "celery_task/tasks/__init__.py"
+      ],
+      "id": "cmp_46de03b7b09ff68f640cfc61c24daa6784ea6c0a3666971e36f633001fab193c",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:5656453281db36b73cc26a960c5b36c3e2ea15fd74d4742fd90a458294c9c06f",
+        "file:d94a0b21896b46f863fafeb24bec526bf35c88a60590dea550e8ebe4adbd8517"
+      ],
+      "name": "celery_task"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "migrations/env.py",
+        "migrations/versions/59628dea39ff_init.py"
+      ],
+      "id": "cmp_7001d83346f9bf84e29bbbc3c0e1eec2a58bf333a00a0adb41423268b681fe98",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:a68d34631cfd735a0301ce04a1fe500b5244a54c878fc249268fc063c78cc0ea",
+        "file:dbafe8c24f845c168152b601cfc6970491eafd55a3020c5fc03ceae83e249beb"
+      ],
+      "name": "migrations"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "core/__init__.py",
+        "core/config.py",
+        "core/db/__init__.py",
+        "core/db/mixins/__init__.py",
+        "core/db/mixins/timestamp_mixin.py",
+        "core/db/session.py",
+        "core/db/transactional.py",
+        "core/exceptions/__init__.py",
+        "core/exceptions/base.py",
+        "core/fastapi/__init__.py",
+        "core/fastapi/dependencies/__init__.py",
+        "core/fastapi/dependencies/logging.py",
+        "core/fastapi/dependencies/permission.py",
+        "core/fastapi/middlewares/__init__.py",
+        "core/fastapi/middlewares/authentication.py",
+        "core/fastapi/middlewares/response_log.py",
+        "core/fastapi/middlewares/sqlalchemy.py",
+        "core/helpers/__init__.py",
+        "core/helpers/cache/__init__.py",
+        "core/helpers/cache/base/__init__.py",
+        "core/helpers/cache/base/backend.py",
+        "core/helpers/cache/base/key_maker.py",
+        "core/helpers/cache/cache_manager.py",
+        "core/helpers/cache/cache_tag.py",
+        "core/helpers/cache/custom_key_maker.py",
+        "core/helpers/cache/redis_backend.py",
+        "core/helpers/redis.py",
+        "core/helpers/token.py",
+        "core/repository/__init__.py",
+        "core/repository/base.py",
+        "core/repository/enum.py"
+      ],
+      "id": "cmp_ff7af69bf31531c2d55fe3d833814fd6fc8af1290e87663d3ec8976f77fc41de",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:17a71b981085d09013c7ff270debf99b5f230fef7d04e0e37e1057cd8d6c952d",
+        "file:1a6065dc18bdd861f809e2a04a880747325739d4ba4999fc04dbe5cdfdc5e81d",
+        "file:3145af8cdb3481fb023b2b1921c0bc2cf30f7a250915294749fcd284556a6081",
+        "file:3b5a05c7e20a04eda79cd04b397f0ccb5b26170fe4035f18b1fce6faa3a2130f",
+        "file:44caa3e07ff54f4c1738bf307ff6c0cc1f009c5b544631cebd1b4fa8d0b16c8a",
+        "file:4ba1867749f52fc500db33ae74e1150d51ab32cea378c1c90731536a59d41184",
+        "file:55a619100320037177367e4afd2efa0f55d6258c7dcd60c48eed52d02a9f2ff9",
+        "file:5fe462d467bc1c4c63927e2dbfc2c61a5024d16da0fcafef1356fd7e830887a6",
+        "file:6d9cace6fbbf85521d4253ec7126b99ebb23d7ad91bf91d2068321ca26b5f8bb",
+        "file:6e69b31b16ebffb36f555c4fec5fad5f63b2718c8bd7c34fbac8343349486d6a",
+        "file:6f2e61e6cce16c0104d4b2c77e178aadcde6d327c98737654ea35899670bb9a9",
+        "file:7778894eafd6eef5df2887c1ef1d5870c805284f9da27436444100d75edf75db",
+        "file:789c6d2237d22a7aed4e3805fa49a89aba8144ea39f8cd764995339273a0ad4a",
+        "file:855d492f78ceef9696e167d02b5677d300d87a55bc4311dbc381db0ec642c6f3",
+        "file:8f6f5009a48430cabde734d744b3c8f7839269514e5933cce79939fbec988883",
+        "file:9137d077b4e1c5539fd1e2b4a9faaaef6df0f95df9b1d645b97ced772f1042fe",
+        "file:93170aabcafdf6933b314155d5a34bcbd1199fd1e32276ddf19edd8c8a7e532e",
+        "file:97236b8eb5bfbc3f772879355540a11076fdc9a43645ce0770410546b49eea12",
+        "file:97ed6d1d0787c0eb92725a8c161e43c9b5281d1f671cc27d91809406ff084368",
+        "file:acfd57541b906ed7a1dd4f16330caabee94d23e82100b13083aab22c165683df",
+        "file:ad8f28c2326c202a88c0156e760e2c20355a1de90a3a9d00e59c3cad3ea5d063",
+        "file:b6c8bf9040dc82a85e86b2261731a1f090ede37d2c2318f1fc3935b6029133f8",
+        "file:b8817b0912491eac83ecf5ba46a008ff6af803ae0a8815e7a92c6773e92e4283",
+        "file:bdf24bc7cf304dd52f1c215086a2c9c2e43936be77d11ac4698f66014b09eb53",
+        "file:c13f4b2f0936f392da544251e6a68e54a330d55d012d576c67cd0a5c7ae20ee4",
+        "file:cefe4a2c0dc8d4692393209de1599d1e2339d0c8f41be0a02dd84568aa0b9c48",
+        "file:d2c4cfeca25c64fc3ab8dd56325a42f9bb473ee6658bc43a9b231b4927f943a8",
+        "file:dd141d90af32dc0eb153cac1a72314632c92a44b90725b1c905ce0a9241bc9b1",
+        "file:eaee2eac2fef0bacbd95bb77b386c665cafc9099aa2e459fef846609eea2d625",
+        "file:f219d154e9dd46d4dad719ff73ef74e02f87630ea1e0a8824102c82c79f81ec6",
+        "file:f5bc9e24b33bc21df374f8813d99625759eaf7518178fb070471b6a440a9193b"
+      ],
+      "name": "core"
+    }
+  ],
+  "contract_owners": {},
+  "coverage": {
+    "complete": false,
+    "files": [
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/adapter/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/adapter/input/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 9,
+        "missing": [],
+        "path": "app/auth/adapter/input/api/__init__.py",
+        "processed_lines": 9,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/adapter/input/api/v1/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 37,
+        "missing": [],
+        "path": "app/auth/adapter/input/api/v1/auth.py",
+        "processed_lines": 37,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 10,
+        "missing": [],
+        "path": "app/auth/adapter/input/api/v1/request/__init__.py",
+        "processed_lines": 10,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 6,
+        "missing": [],
+        "path": "app/auth/adapter/input/api/v1/response/__init__.py",
+        "processed_lines": 6,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/application/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 6,
+        "missing": [
+          [
+            1,
+            6
+          ]
+        ],
+        "path": "app/auth/application/dto/__init__.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 13,
+        "missing": [
+          [
+            1,
+            13
+          ]
+        ],
+        "path": "app/auth/application/exception/__init__.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/application/service/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 33,
+        "missing": [
+          [
+            1,
+            33
+          ]
+        ],
+        "path": "app/auth/application/service/jwt.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/domain/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/domain/entity/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/auth/domain/usecase/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 17,
+        "missing": [
+          [
+            1,
+            17
+          ]
+        ],
+        "path": "app/auth/domain/usecase/jwt.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 17,
+        "missing": [],
+        "path": "app/container.py",
+        "processed_lines": 17,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 92,
+        "missing": [],
+        "path": "app/server.py",
+        "processed_lines": 92,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/adapter/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/adapter/input/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 9,
+        "missing": [],
+        "path": "app/user/adapter/input/api/__init__.py",
+        "processed_lines": 9,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/adapter/input/api/v1/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 15,
+        "missing": [],
+        "path": "app/user/adapter/input/api/v1/request/__init__.py",
+        "processed_lines": 15,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 6,
+        "missing": [],
+        "path": "app/user/adapter/input/api/v1/response/__init__.py",
+        "processed_lines": 6,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 53,
+        "missing": [],
+        "path": "app/user/adapter/input/api/v1/user.py",
+        "processed_lines": 53,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/adapter/output/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/adapter/output/persistence/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 44,
+        "missing": [
+          [
+            1,
+            44
+          ]
+        ],
+        "path": "app/user/adapter/output/persistence/repository_adapter.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/adapter/output/persistence/sqlalchemy/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 59,
+        "missing": [
+          [
+            1,
+            59
+          ]
+        ],
+        "path": "app/user/adapter/output/persistence/sqlalchemy/user.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/application/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 24,
+        "missing": [],
+        "path": "app/user/application/dto/__init__.py",
+        "processed_lines": 24,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 19,
+        "missing": [
+          [
+            1,
+            19
+          ]
+        ],
+        "path": "app/user/application/exception/__init__.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/application/service/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 67,
+        "missing": [
+          [
+            1,
+            67
+          ]
+        ],
+        "path": "app/user/application/service/user.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 17,
+        "missing": [
+          [
+            1,
+            17
+          ]
+        ],
+        "path": "app/user/container.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/domain/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 10,
+        "missing": [
+          [
+            1,
+            10
+          ]
+        ],
+        "path": "app/user/domain/command/__init__.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/domain/entity/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 38,
+        "missing": [
+          [
+            1,
+            38
+          ]
+        ],
+        "path": "app/user/domain/entity/user.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/domain/repository/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 39,
+        "missing": [
+          [
+            1,
+            39
+          ]
+        ],
+        "path": "app/user/domain/repository/user.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/domain/usecase/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 27,
+        "missing": [
+          [
+            1,
+            27
+          ]
+        ],
+        "path": "app/user/domain/usecase/user.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/user/domain/vo/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 7,
+        "missing": [
+          [
+            1,
+            7
+          ]
+        ],
+        "path": "app/user/domain/vo/location.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 12,
+        "missing": [
+          [
+            1,
+            12
+          ]
+        ],
+        "path": "celery_task/__init__.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "celery_task/tasks/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "core/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 45,
+        "missing": [
+          [
+            1,
+            45
+          ]
+        ],
+        "path": "core/config.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 9,
+        "missing": [
+          [
+            1,
+            9
+          ]
+        ],
+        "path": "core/db/__init__.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 1,
+        "missing": [
+          [
+            1,
+            1
+          ]
+        ],
+        "path": "core/db/mixins/__init__.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 18,
+        "missing": [
+          [
+            1,
+            18
+          ]
+        ],
+        "path": "core/db/mixins/timestamp_mixin.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 76,
+        "missing": [
+          [
+            1,
+            76
+          ]
+        ],
+        "path": "core/db/session.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 19,
+        "missing": [
+          [
+            1,
+            19
+          ]
+        ],
+        "path": "core/db/transactional.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 6,
+        "missing": [
+          [
+            1,
+            6
+          ]
+        ],
+        "path": "core/exceptions/__init__.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 8,
+        "missing": [
+          [
+            1,
+            8
+          ]
+        ],
+        "path": "core/exceptions/base.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "core/fastapi/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 15,
+        "missing": [
+          [
+            1,
+            15
+          ]
+        ],
+        "path": "core/fastapi/dependencies/__init__.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 9,
+        "missing": [
+          [
+            1,
+            9
+          ]
+        ],
+        "path": "core/fastapi/dependencies/logging.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 67,
+        "missing": [
+          [
+            1,
+            67
+          ]
+        ],
+        "path": "core/fastapi/dependencies/permission.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 10,
+        "missing": [
+          [
+            1,
+            10
+          ]
+        ],
+        "path": "core/fastapi/middlewares/__init__.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 50,
+        "missing": [
+          [
+            1,
+            50
+          ]
+        ],
+        "path": "core/fastapi/middlewares/authentication.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 34,
+        "missing": [
+          [
+            1,
+            34
+          ]
+        ],
+        "path": "core/fastapi/middlewares/response_log.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 22,
+        "missing": [
+          [
+            1,
+            22
+          ]
+        ],
+        "path": "core/fastapi/middlewares/sqlalchemy.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "core/helpers/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 11,
+        "missing": [
+          [
+            1,
+            11
+          ]
+        ],
+        "path": "core/helpers/cache/__init__.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 7,
+        "missing": [
+          [
+            1,
+            7
+          ]
+        ],
+        "path": "core/helpers/cache/base/__init__.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 16,
+        "missing": [
+          [
+            1,
+            16
+          ]
+        ],
+        "path": "core/helpers/cache/base/backend.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 8,
+        "missing": [
+          [
+            1,
+            8
+          ]
+        ],
+        "path": "core/helpers/cache/base/key_maker.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 52,
+        "missing": [
+          [
+            1,
+            52
+          ]
+        ],
+        "path": "core/helpers/cache/cache_manager.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 5,
+        "missing": [
+          [
+            1,
+            5
+          ]
+        ],
+        "path": "core/helpers/cache/cache_tag.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 18,
+        "missing": [
+          [
+            1,
+            18
+          ]
+        ],
+        "path": "core/helpers/cache/custom_key_maker.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 28,
+        "missing": [
+          [
+            1,
+            28
+          ]
+        ],
+        "path": "core/helpers/cache/redis_backend.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 5,
+        "missing": [
+          [
+            1,
+            5
+          ]
+        ],
+        "path": "core/helpers/redis.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 57,
+        "missing": [
+          [
+            1,
+            57
+          ]
+        ],
+        "path": "core/helpers/token.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "core/repository/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 50,
+        "missing": [
+          [
+            1,
+            50
+          ]
+        ],
+        "path": "core/repository/base.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 7,
+        "missing": [
+          [
+            1,
+            7
+          ]
+        ],
+        "path": "core/repository/enum.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 34,
+        "missing": [],
+        "path": "main.py",
+        "processed_lines": 34,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 42,
+        "missing": [
+          [
+            1,
+            42
+          ]
+        ],
+        "path": "pyproject.toml",
+        "processed_lines": 0,
+        "status": "unread"
+      }
+    ],
+    "not_readable": [
+      {
+        "path": "migrations/env.py",
+        "reason": "File migration (FR-028 Phạm vi đọc)",
+        "scope": "migration"
+      },
+      {
+        "path": "migrations/versions/59628dea39ff_init.py",
+        "reason": "File migration (FR-028 Phạm vi đọc)",
+        "scope": "migration"
+      },
+      {
+        "path": "tests/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/auth/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/auth/application/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/auth/application/service/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/auth/application/service/test_jwt.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/input/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/input/api/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/input/api/v1/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/input/api/v1/test_user.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/output/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/output/persistence/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/output/persistence/sqlalchemy/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/output/persistence/sqlalchemy/test_user.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/adapter/output/persistence/test_repository_adapter.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/application/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/application/service/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/app/user/application/service/test_user.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/conftest.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/exceptions/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/exceptions/test_base.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/fastapi/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/fastapi/dependencies/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/fastapi/dependencies/test_permission.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/fastapi/middlewares/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/fastapi/middlewares/test_authentication.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/fastapi/middlewares/test_sqlalchemy.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/helpers/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/helpers/cache/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/helpers/cache/test_custom_key_maker.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/helpers/cache/test_redis_backend.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/core/helpers/test_token.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/support/__init__.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/support/test_db_coordinator.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/support/token.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "tests/support/user_fixture.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      }
+    ]
+  },
+  "dismissed_suspects": [],
+  "evidence_index": [],
+  "excluded_from_snapshot": [
+    {
+      "path": ".gitignore",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": ".pre-commit-config.yaml",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "Makefile",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "README.md",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "alembic.ini",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "docker/docker-compose.yml",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "docker/init.sql",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "migrations/README",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "migrations/script.py.mako",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "poetry.lock",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    },
+    {
+      "path": "pytest.ini",
+      "reason": "Chỉ đọc file .py và manifest Python"
+    }
+  ],
+  "facts": [],
+  "limitations": [
+    {
+      "code": "DIAGRAM_NOT_PROVIDED",
+      "message": "Chưa được cấp sơ đồ component từ bước kiến trúc (FR-028); README chưa đủ mục sơ đồ của AC-029-06",
+      "stage": "input"
+    },
+    {
+      "code": "ARCHITECTURE_NOT_EVALUATED",
+      "message": "Chưa đối chiếu được với archdia.json (AC-029-04): Chưa được cấp archdia.json cùng snapshot",
+      "stage": "input"
+    },
+    {
+      "code": "ANALYSIS_PARTIAL",
+      "message": "MODEL_ERROR: LOCAL_BUDGET_RESERVATION_STOP",
+      "stage": "agent"
+    },
+    {
+      "code": "SOURCE_NOT_FULLY_READ",
+      "message": "app/auth/application/dto/__init__.py thiếu [[1, 6]]; app/auth/application/exception/__init__.py thiếu [[1, 13]]; app/auth/application/service/jwt.py thiếu [[1, 33]]; app/auth/domain/usecase/jwt.py thiếu [[1, 17]]; app/user/adapter/output/persistence/repository_adapter.py thiếu [[1, 44]]; app/user/adapter/output/persistence/sqlalchemy/user.py thiếu [[1, 59]]; app/user/application/exception/__init__.py thiếu [[1, 19]]; app/user/application/service/user.py thiếu [[1, 67]]; app/user/container.py thiếu [[1, 17]]; app/user/domain/command/__init__.py thiếu [[1, 10]]; app/user/domain/entity/user.py thiếu [[1, 38]]; app/user/domain/repository/user.py thiếu [[1, 39]]; app/user/domain/usecase/user.py thiếu [[1, 27]]; app/user/domain/vo/location.py thiếu [[1, 7]]; celery_task/__init__.py thiếu [[1, 12]]; core/config.py thiếu [[1, 45]]; core/db/__init__.py thiếu [[1, 9]]; core/db/mixins/__init__.py thiếu [[1, 1]]; core/db/mixins/timestamp_mixin.py thiếu [[1, 18]]; core/db/session.py thiếu [[1, 76]]; core/db/transactional.py thiếu [[1, 19]]; core/exceptions/__init__.py thiếu [[1, 6]]; core/exceptions/base.py thiếu [[1, 8]]; core/fastapi/dependencies/__init__.py thiếu [[1, 15]]; core/fastapi/dependencies/logging.py thiếu [[1, 9]]; core/fastapi/dependencies/permission.py thiếu [[1, 67]]; core/fastapi/middlewares/__init__.py thiếu [[1, 10]]; core/fastapi/middlewares/authentication.py thiếu [[1, 50]]; core/fastapi/middlewares/response_log.py thiếu [[1, 34]]; core/fastapi/middlewares/sqlalchemy.py thiếu [[1, 22]]; core/helpers/cache/__init__.py thiếu [[1, 11]]; core/helpers/cache/base/__init__.py thiếu [[1, 7]]; core/helpers/cache/base/backend.py thiếu [[1, 16]]; core/helpers/cache/base/key_maker.py thiếu [[1, 8]]; core/helpers/cache/cache_manager.py thiếu [[1, 52]]; core/helpers/cache/cache_tag.py thiếu [[1, 5]]; core/helpers/cache/custom_key_maker.py thiếu [[1, 18]]; core/helpers/cache/redis_backend.py thiếu [[1, 28]]; core/helpers/redis.py thiếu [[1, 5]]; core/helpers/token.py thiếu [[1, 57]]; core/repository/base.py thiếu [[1, 50]]; core/repository/enum.py thiếu [[1, 7]]; pyproject.toml thiếu [[1, 42]]",
+      "stage": "agent"
+    },
+    {
+      "code": "OUT_OF_SCOPE_FILES",
+      "message": "migration: 2 file, test: 39 file. Route trong các file này không vào tài liệu (FR-028 Phạm vi đọc)",
+      "stage": "scope"
+    }
+  ],
+  "pipeline_version": "fr029-doc-v1",
+  "provenance": {
+    "model": "gpt-4.1-mini-2025-04-14",
+    "prompt_version": "fr029-agent-prompt-v14",
+    "provider": "https://api.openai.com/v1"
+  },
+  "rejected_claims": [],
+  "render_notices": [],
+  "repository_name": "teamhide",
+  "run_id": "run_paid_teamhide_20261011",
+  "schema_version": "0.1.0",
+  "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+  "unassigned": [],
+  "unreferenced_models": []
+}

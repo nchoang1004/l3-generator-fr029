@@ -1,0 +1,1288 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos3\\spatiumnorth_spatiumddi",
+  "files": 1058,
+  "route_decorators": 1184,
+  "decorators_refused": [],
+  "dependencies": [
+    {
+      "name": "get_db",
+      "called": false,
+      "first_use": "backend/app/api/acme_well_known.py:30",
+      "params": []
+    },
+    {
+      "name": "get_current_user",
+      "called": false,
+      "first_use": "backend/app/api/v1/acme/router.py:173",
+      "params": []
+    },
+    {
+      "name": "require_permission",
+      "called": true,
+      "first_use": "backend/app/api/v1/acme/router.py:168",
+      "params": []
+    },
+    {
+      "name": "_auth_acme",
+      "called": false,
+      "first_use": "backend/app/api/v1/acme/router.py:358",
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Api-User",
+          "at": "backend/app/api/v1/acme/router.py:308"
+        },
+        {
+          "in": "header",
+          "name": "X-Api-Key",
+          "at": "backend/app/api/v1/acme/router.py:309"
+        }
+      ]
+    },
+    {
+      "name": "require_superadmin",
+      "called": false,
+      "first_use": "backend/app/api/v1/admin/containers.py:117",
+      "params": []
+    },
+    {
+      "name": "_require_bootstrap_key",
+      "called": false,
+      "first_use": "backend/app/api/v1/dhcp/agents.py:420",
+      "params": [
+        {
+          "in": "header",
+          "name": "X-DHCP-Agent-Key",
+          "at": "backend/app/api/v1/dhcp/agents.py:373"
+        }
+      ]
+    },
+    {
+      "name": "_auth_agent",
+      "called": false,
+      "first_use": "backend/app/api/v1/dhcp/agents.py:551",
+      "params": [
+        {
+          "in": "header",
+          "name": "authorization",
+          "at": "backend/app/api/v1/dhcp/agents.py:393"
+        }
+      ]
+    },
+    {
+      "name": "_require_bootstrap_key",
+      "called": false,
+      "first_use": "backend/app/api/v1/dns/agents.py:257",
+      "params": [
+        {
+          "in": "header",
+          "name": "X-DNS-Agent-Key",
+          "at": "backend/app/api/v1/dns/agents.py:189"
+        }
+      ]
+    },
+    {
+      "name": "_auth_agent",
+      "called": false,
+      "first_use": "backend/app/api/v1/dns/agents.py:622",
+      "params": [
+        {
+          "in": "header",
+          "name": "authorization",
+          "at": "backend/app/api/v1/dns/agents.py:210"
+        }
+      ]
+    },
+    {
+      "name": "require_module",
+      "called": true,
+      "first_use": "backend/app/api/v1/dns/router.py:5334",
+      "params": []
+    },
+    {
+      "name": "require_resource_permission",
+      "called": true,
+      "first_use": "backend/app/api/v1/e911/held_router.py:162",
+      "params": []
+    },
+    {
+      "name": "_require_bootstrap_key",
+      "called": false,
+      "first_use": "backend/app/api/v1/looking_glass/agents.py:208",
+      "params": [
+        {
+          "in": "header",
+          "name": "X-LG-Agent-Key",
+          "at": "backend/app/api/v1/looking_glass/agents.py:160"
+        }
+      ]
+    },
+    {
+      "name": "_auth_agent",
+      "called": false,
+      "first_use": "backend/app/api/v1/looking_glass/agents.py:295",
+      "params": [
+        {
+          "in": "header",
+          "name": "authorization",
+          "at": "backend/app/api/v1/looking_glass/agents.py:180"
+        }
+      ]
+    },
+    {
+      "name": "require_any_permission",
+      "called": true,
+      "first_use": "backend/app/api/v1/reports/router.py:332",
+      "params": []
+    },
+    {
+      "name": "_maybe_current_user",
+      "called": false,
+      "first_use": "backend/app/api/v1/version/router.py:110",
+      "params": []
+    }
+  ],
+  "suspects": [
+    {
+      "at": "agent/dhcp/spatium_dhcp_agent/bootstrap.py:65",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dhcp/spatium_dhcp_agent/ha_status.py:118",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dhcp/spatium_dhcp_agent/heartbeat.py:116",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dhcp/spatium_dhcp_agent/heartbeat.py:125",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dhcp/spatium_dhcp_agent/push.py:98",
+      "looks_like": "http",
+      "text": "return c.post("
+    },
+    {
+      "at": "agent/dhcp/spatium_dhcp_agent/rogue_probe.py:177",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dhcp/spatium_dhcp_agent/sync.py:690",
+      "looks_like": "http",
+      "text": "resp = c.get(\"/api/v1/dhcp/agents/config\", headers=headers)"
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/admin_pusher.py:125",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/admin_pusher.py:184",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/bootstrap.py:69",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:783",
+      "looks_like": "http",
+      "text": "resp = client.get("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:891",
+      "looks_like": "http",
+      "text": "resp = client.patch(url, headers=headers, json={\"rrsets\": [desired]})"
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:913",
+      "looks_like": "http",
+      "text": "zone_resp = client.get(url, headers=headers)"
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:967",
+      "looks_like": "http",
+      "text": "resp = client.patch(url, headers=headers, json=body)"
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:1007",
+      "looks_like": "http",
+      "text": "existing = client.get("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:1029",
+      "looks_like": "http",
+      "text": "resp = client.post("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:1059",
+      "looks_like": "http",
+      "text": "after = client.get("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:1096",
+      "looks_like": "http",
+      "text": "existing = client.get("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:1104",
+      "looks_like": "http",
+      "text": "del_resp = client.delete("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:1130",
+      "looks_like": "http",
+      "text": "resp = client.put("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:1430",
+      "looks_like": "http",
+      "text": "existing = client.get(f\"{_PDNS_API_BASE}/zones\", headers=headers).json()"
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:1444",
+      "looks_like": "http",
+      "text": "resp = client.post("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:1475",
+      "looks_like": "http",
+      "text": "resp = client.patch("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:1559",
+      "looks_like": "http",
+      "text": "resp = client.post(f\"{_PDNS_API_BASE}/tsigkeys\", headers=headers, json=body)"
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:1563",
+      "looks_like": "http",
+      "text": "client.put("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:1587",
+      "looks_like": "http",
+      "text": "resp = client.put("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/powerdns.py:1593",
+      "looks_like": "http",
+      "text": "resp = client.delete("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/technitium.py:945",
+      "looks_like": "http",
+      "text": "resp = client.get(f\"{_API_BASE}/user/session/get\")"
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/technitium.py:1912",
+      "looks_like": "http",
+      "text": "resp = httpx.get("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/technitium.py:1990",
+      "looks_like": "http",
+      "text": "return client.get(f\"{_API_BASE}/{path}\", params=params, headers=headers)"
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/drivers/technitium.py:1991",
+      "looks_like": "http",
+      "text": "return client.post(f\"{_API_BASE}/{path}\", data=params, headers=headers)"
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/heartbeat.py:152",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/heartbeat.py:161",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/ingest.py:248",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/metrics.py:210",
+      "looks_like": "http",
+      "text": "resp = c.get(STATS_URL)"
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/metrics.py:235",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/query_log_shipper.py:183",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/sync.py:257",
+      "looks_like": "http",
+      "text": "resp = c.get(\"/api/v1/dns/agents/config\", headers=headers)"
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/sync.py:568",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/dns/spatium_dns_agent/sync.py:594",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/looking-glass/spatium_lg_agent/bootstrap.py:69",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/looking-glass/spatium_lg_agent/heartbeat.py:108",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/looking-glass/spatium_lg_agent/rib.py:577",
+      "looks_like": "http",
+      "text": "resp = c.post("
+    },
+    {
+      "at": "agent/looking-glass/spatium_lg_agent/sync.py:235",
+      "looks_like": "http",
+      "text": "resp = c.get(\"/api/v1/looking-glass/agents/config\", headers=headers)"
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/__main__.py:99",
+      "looks_like": "http",
+      "text": "resp = client.post("
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/cp_tls.py:210",
+      "looks_like": "http",
+      "text": "resp = httpx.get(url.rstrip(\"/\") + \"/\", follow_redirects=False, timeout=_CONNECT_TIMEOUT_S)"
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/cp_tls.py:376",
+      "looks_like": "http",
+      "text": "resp = c.get(_origin(target) + PIN_SET_PATH)"
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/heartbeat.py:803",
+      "looks_like": "http",
+      "text": "resp = client.post("
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/k8s_api.py:281",
+      "looks_like": "other_http",
+      "text": "conn = http.client.HTTPSConnection("
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/k8s_proxy.py:139",
+      "looks_like": "http",
+      "text": "resp = client.post(poll_url, headers=headers)"
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/k8s_proxy.py:192",
+      "looks_like": "http",
+      "text": "reply_resp = client.post(reply_url, headers=reply_headers, json=reply_body)"
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/k8s_proxy.py:255",
+      "looks_like": "other_http",
+      "text": "conn = http.client.HTTPSConnection(cfg.host, cfg.port, timeout=15.0, context=ctx)"
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/nettools_proxy.py:123",
+      "looks_like": "http",
+      "text": "resp = client.post(poll_url, headers=headers)"
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/nettools_proxy.py:210",
+      "looks_like": "http",
+      "text": "reply_resp = client.post(reply_url, headers=reply_headers, json=reply_body)"
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/pcap_proxy.py:196",
+      "looks_like": "http",
+      "text": "resp = client.post(base_url.rstrip(\"/\") + _POLL_PATH, headers=headers)"
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/pcap_proxy.py:327",
+      "looks_like": "http",
+      "text": "resp = client.post("
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/pcap_proxy.py:378",
+      "looks_like": "http",
+      "text": "resp = client.post("
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/pcap_proxy.py:408",
+      "looks_like": "http",
+      "text": "client.post("
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/register.py:125",
+      "looks_like": "http",
+      "text": "resp = client.post(url, json=payload, timeout=10.0)"
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/storage_proxy.py:117",
+      "looks_like": "http",
+      "text": "resp = client.post(base_url.rstrip(\"/\") + _POLL_PATH, headers=headers)"
+    },
+    {
+      "at": "agent/supervisor/spatium_supervisor/storage_proxy.py:246",
+      "looks_like": "http",
+      "text": "resp = client.post(base_url.rstrip(\"/\") + path, headers=headers, json=body)"
+    },
+    {
+      "at": "backend/app/api/v1/admin/containers.py:154",
+      "looks_like": "http",
+      "text": "list_resp = await client.get(\"/containers/json\", params=params)"
+    },
+    {
+      "at": "backend/app/api/v1/admin/containers.py:197",
+      "looks_like": "http",
+      "text": "stats_resp = await client.get("
+    },
+    {
+      "at": "backend/app/api/v1/appliance/upgrade_images.py:223",
+      "looks_like": "http",
+      "text": "resp = await client.put("
+    },
+    {
+      "at": "backend/app/api/v1/appliance/upgrade_images.py:291",
+      "looks_like": "http",
+      "text": "upstream = await client.send(request, stream=True)"
+    },
+    {
+      "at": "backend/app/api/v1/appliance/upgrade_images.py:366",
+      "looks_like": "http",
+      "text": "resp = await client.head(_mirror_url(image_id), headers=headers)"
+    },
+    {
+      "at": "backend/app/api/v1/appliance/upgrade_images.py:387",
+      "looks_like": "http",
+      "text": "resp = await client.delete(_mirror_url(image_id), headers=headers)"
+    },
+    {
+      "at": "backend/app/api/v1/appliance/upgrade_images.py:878",
+      "looks_like": "http",
+      "text": "sha_resp = await client.get(spec.checksum_asset_url)"
+    },
+    {
+      "at": "backend/app/api/v1/appliance/upgrade_images.py:913",
+      "looks_like": "http",
+      "text": "async with client.stream(\"GET\", spec.image_asset_url) as resp:"
+    },
+    {
+      "at": "backend/app/api/v1/appliance/upgrade_images.py:1244",
+      "looks_like": "route",
+      "text": "@router.api_route("
+    },
+    {
+      "at": "backend/app/api/v1/appliance/upgrade_images.py:1254",
+      "looks_like": "route",
+      "text": "@router.api_route("
+    },
+    {
+      "at": "backend/app/api/v1/appliance/upgrade_images.py:1267",
+      "looks_like": "route",
+      "text": "@router.api_route("
+    },
+    {
+      "at": "backend/app/api/v1/docker/router.py:237",
+      "looks_like": "http",
+      "text": "v = await client.get(\"/version\")"
+    },
+    {
+      "at": "backend/app/api/v1/docker/router.py:247",
+      "looks_like": "http",
+      "text": "info_resp = await client.get(\"/info\")"
+    },
+    {
+      "at": "backend/app/api/v1/kubernetes/router.py:239",
+      "looks_like": "http",
+      "text": "v = await client.get(\"/version\")"
+    },
+    {
+      "at": "backend/app/api/v1/kubernetes/router.py:256",
+      "looks_like": "http",
+      "text": "n = await client.get(\"/api/v1/nodes\", params={\"limit\": \"500\"})"
+    },
+    {
+      "at": "backend/app/api/v1/kubernetes/router.py:362",
+      "looks_like": "http",
+      "text": "resp = await client.get(\"/api/v1/nodes\", params={\"limit\": \"500\"})"
+    },
+    {
+      "at": "backend/app/api/v1/kubernetes/router.py:410",
+      "looks_like": "http",
+      "text": "resp = await client.get(path, params={\"limit\": \"50\"})"
+    },
+    {
+      "at": "backend/app/api/v1/opnsense/router.py:232",
+      "looks_like": "http",
+      "text": "v = await client.get(\"/api/core/firmware/status\")"
+    },
+    {
+      "at": "backend/app/api/v1/proxmox/router.py:242",
+      "looks_like": "http",
+      "text": "v = await client.get(\"/version\")"
+    },
+    {
+      "at": "backend/app/api/v1/proxmox/router.py:259",
+      "looks_like": "http",
+      "text": "c = await client.get(\"/cluster/status\")"
+    },
+    {
+      "at": "backend/app/api/v1/proxmox/router.py:271",
+      "looks_like": "http",
+      "text": "n = await client.get(\"/nodes\")"
+    },
+    {
+      "at": "backend/app/api/v1/tailscale/router.py:174",
+      "looks_like": "http",
+      "text": "r = await client.get(url, params={\"fields\": \"default\"})"
+    },
+    {
+      "at": "backend/app/api/v1/unifi/router.py:379",
+      "looks_like": "http",
+      "text": "login = await client.post("
+    },
+    {
+      "at": "backend/app/api/v1/unifi/router.py:393",
+      "looks_like": "http",
+      "text": "ver = await client.get(version_path)"
+    },
+    {
+      "at": "backend/app/api/v1/unifi/router.py:405",
+      "looks_like": "http",
+      "text": "r = await client.get(sites_path)"
+    },
+    {
+      "at": "backend/app/core/auth/oidc.py:100",
+      "looks_like": "http",
+      "text": "r = await client.get(cfg.discovery_url)"
+    },
+    {
+      "at": "backend/app/core/auth/oidc.py:118",
+      "looks_like": "http",
+      "text": "r = await client.get(jwks_uri)"
+    },
+    {
+      "at": "backend/app/core/auth/oidc.py:169",
+      "looks_like": "http",
+      "text": "r = await client.post("
+    },
+    {
+      "at": "backend/app/core/auth/oidc.py:215",
+      "looks_like": "http",
+      "text": "r = await client.get("
+    },
+    {
+      "at": "backend/app/core/auth/saml.py:344",
+      "looks_like": "http",
+      "text": "r = await client.get(metadata_url)"
+    },
+    {
+      "at": "backend/app/drivers/dhcp/fortigate.py:277",
+      "looks_like": "http",
+      "text": "resp = await client.get(\"/cmdb/system/interface\")"
+    },
+    {
+      "at": "backend/app/drivers/dhcp/fortigate.py:534",
+      "looks_like": "http",
+      "text": "resp = await client.get(\"/cmdb/system.dhcp/server\")"
+    },
+    {
+      "at": "backend/app/drivers/dhcp/fortigate.py:581",
+      "looks_like": "http",
+      "text": "resp = await client.post(\"/cmdb/system.dhcp/server\", json=body)"
+    },
+    {
+      "at": "backend/app/drivers/dhcp/fortigate.py:585",
+      "looks_like": "http",
+      "text": "resp = await client.put(f\"/cmdb/system.dhcp/server/{existing_id}\", json=body)"
+    },
+    {
+      "at": "backend/app/drivers/dhcp/fortigate.py:592",
+      "looks_like": "http",
+      "text": "resp = await client.post(\"/cmdb/system.dhcp/server\", json=body)"
+    },
+    {
+      "at": "backend/app/drivers/dhcp/fortigate.py:612",
+      "looks_like": "http",
+      "text": "resp = await client.put(f\"/cmdb/system.dhcp/server/{existing_id}\", json=body)"
+    },
+    {
+      "at": "backend/app/drivers/dhcp/fortigate.py:674",
+      "looks_like": "http",
+      "text": "resp = await client.delete(f\"/cmdb/system.dhcp/server/{mkey}/{table}/{stale_id}\")"
+    },
+    {
+      "at": "backend/app/drivers/dhcp/fortigate.py:702",
+      "looks_like": "http",
+      "text": "resp = await client.delete(f\"/cmdb/system.dhcp/server/{owned_mkey}\")"
+    },
+    {
+      "at": "backend/app/drivers/dhcp/fortigate.py:709",
+      "looks_like": "http",
+      "text": "resp = await client.get(\"/monitor/system/dhcp\")"
+    },
+    {
+      "at": "backend/app/drivers/dhcp/fortigate.py:754",
+      "looks_like": "http",
+      "text": "resp = await client.get(\"/cmdb/system.dhcp/server\")"
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:152",
+      "looks_like": "http",
+      "text": "resp = await client.get(\"/zones\", params={\"name\": name})"
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:184",
+      "looks_like": "http",
+      "text": "resp = await client.get(\"/zones\", params={\"per_page\": _PER_PAGE, \"page\": page})"
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:219",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:310",
+      "looks_like": "http",
+      "text": "resp = await client.get(f\"/zones/{zone_id}/dns_records\", params=params)"
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:336",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:413",
+      "looks_like": "http",
+      "text": "resp = await client.put(f\"/zones/{zone_id}/dns_records/{match['id']}\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:417",
+      "looks_like": "http",
+      "text": "resp = await client.post(f\"/zones/{zone_id}/dns_records\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:433",
+      "looks_like": "http",
+      "text": "resp = await client.delete(f\"/zones/{zone_id}/dns_records/{row['id']}\")"
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:451",
+      "looks_like": "http",
+      "text": "resp = await client.post(f\"/zones/{zone_id}/dns_records\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:468",
+      "looks_like": "http",
+      "text": "resp = await client.post(f\"/zones/{zone_id}/dns_records\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:475",
+      "looks_like": "http",
+      "text": "resp = await client.put("
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:493",
+      "looks_like": "http",
+      "text": "resp = await client.delete(f\"/zones/{zone_id}/dns_records/{rid}\")"
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:512",
+      "looks_like": "http",
+      "text": "resp = await client.post(\"/zones\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/cloudflare.py:518",
+      "looks_like": "http",
+      "text": "resp = await client.delete(f\"/zones/{zone_id}\")"
+    },
+    {
+      "at": "backend/app/drivers/dns/digitalocean.py:153",
+      "looks_like": "http",
+      "text": "resp = await client.get(\"/domains\", params={\"per_page\": _PER_PAGE, \"page\": page})"
+    },
+    {
+      "at": "backend/app/drivers/dns/digitalocean.py:194",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "backend/app/drivers/dns/digitalocean.py:264",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "backend/app/drivers/dns/digitalocean.py:298",
+      "looks_like": "http",
+      "text": "resp = await client.post(f\"/domains/{handle}/records\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/digitalocean.py:316",
+      "looks_like": "http",
+      "text": "resp = await client.post(f\"/domains/{handle}/records\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/digitalocean.py:319",
+      "looks_like": "http",
+      "text": "resp = await client.put(f\"/domains/{handle}/records/{rid}\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/digitalocean.py:336",
+      "looks_like": "http",
+      "text": "resp = await client.delete(f\"/domains/{handle}/records/{rid}\")"
+    },
+    {
+      "at": "backend/app/drivers/dns/digitalocean.py:349",
+      "looks_like": "http",
+      "text": "resp = await client.post(\"/domains\", json={\"name\": bare})"
+    },
+    {
+      "at": "backend/app/drivers/dns/digitalocean.py:354",
+      "looks_like": "http",
+      "text": "resp = await client.delete(f\"/domains/{bare}\")"
+    },
+    {
+      "at": "backend/app/drivers/dns/hetzner.py:181",
+      "looks_like": "http",
+      "text": "resp = await getattr(client, method)(path, **kwargs)"
+    },
+    {
+      "at": "backend/app/drivers/dns/hetzner.py:236",
+      "looks_like": "http",
+      "text": "resp = await client.get(f\"/zones/actions/{action['id']}\")"
+    },
+    {
+      "at": "backend/app/drivers/dns/hetzner.py:353",
+      "looks_like": "http",
+      "text": "resp = await client.get(path, params={\"page\": page, \"per_page\": per_page})"
+    },
+    {
+      "at": "backend/app/drivers/dns/hetzner.py:412",
+      "looks_like": "http",
+      "text": "resp = await client.get(self._rrset_path(zone_fqdn, name, rtype))"
+    },
+    {
+      "at": "backend/app/drivers/dns/linode.py:144",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "backend/app/drivers/dns/linode.py:201",
+      "looks_like": "http",
+      "text": "resp = await client.get(\"/domains\", params={\"page_size\": _PER_PAGE, \"page\": page})"
+    },
+    {
+      "at": "backend/app/drivers/dns/linode.py:233",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "backend/app/drivers/dns/linode.py:296",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "backend/app/drivers/dns/linode.py:331",
+      "looks_like": "http",
+      "text": "resp = await client.post(f\"/domains/{domain_id}/records\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/linode.py:348",
+      "looks_like": "http",
+      "text": "resp = await client.post(f\"/domains/{domain_id}/records\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/linode.py:351",
+      "looks_like": "http",
+      "text": "resp = await client.put(f\"/domains/{domain_id}/records/{rid}\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/linode.py:367",
+      "looks_like": "http",
+      "text": "resp = await client.delete(f\"/domains/{domain_id}/records/{rid}\")"
+    },
+    {
+      "at": "backend/app/drivers/dns/linode.py:387",
+      "looks_like": "http",
+      "text": "resp = await client.post(\"/domains\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/linode.py:393",
+      "looks_like": "http",
+      "text": "resp = await client.delete(f\"/domains/{domain_id}\")"
+    },
+    {
+      "at": "backend/app/drivers/dns/technitium_api.py:260",
+      "looks_like": "http",
+      "text": "resp = await client.get(f\"/api/{path}\", params=params or {})"
+    },
+    {
+      "at": "backend/app/drivers/dns/vultr.py:158",
+      "looks_like": "http",
+      "text": "resp = await client.get(\"/domains\", params=params)"
+    },
+    {
+      "at": "backend/app/drivers/dns/vultr.py:201",
+      "looks_like": "http",
+      "text": "resp = await client.get(f\"/domains/{label}/records\", params=params)"
+    },
+    {
+      "at": "backend/app/drivers/dns/vultr.py:265",
+      "looks_like": "http",
+      "text": "resp = await client.get(f\"/domains/{label}/records\", params=params)"
+    },
+    {
+      "at": "backend/app/drivers/dns/vultr.py:289",
+      "looks_like": "http",
+      "text": "resp = await client.post(f\"/domains/{label}/records\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/vultr.py:306",
+      "looks_like": "http",
+      "text": "resp = await client.post(f\"/domains/{label}/records\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/vultr.py:311",
+      "looks_like": "http",
+      "text": "resp = await client.patch(f\"/domains/{label}/records/{rid}\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/vultr.py:327",
+      "looks_like": "http",
+      "text": "resp = await client.delete(f\"/domains/{label}/records/{rid}\")"
+    },
+    {
+      "at": "backend/app/drivers/dns/vultr.py:342",
+      "looks_like": "http",
+      "text": "resp = await client.post(\"/domains\", json=payload)"
+    },
+    {
+      "at": "backend/app/drivers/dns/vultr.py:347",
+      "looks_like": "http",
+      "text": "resp = await client.delete(f\"/domains/{label}\")"
+    },
+    {
+      "at": "backend/app/main.py:1007",
+      "looks_like": "registration",
+      "text": "app.add_route(\"/metrics\", metrics_endpoint)"
+    },
+    {
+      "at": "backend/app/services/acme_client/engine.py:268",
+      "looks_like": "http",
+      "text": "resp = await self._http.get(self.directory_url)"
+    },
+    {
+      "at": "backend/app/services/acme_client/engine.py:280",
+      "looks_like": "http",
+      "text": "resp = await self._http.head(new_nonce_url)"
+    },
+    {
+      "at": "backend/app/services/acme_client/engine.py:284",
+      "looks_like": "http",
+      "text": "resp = await self._http.get(new_nonce_url)"
+    },
+    {
+      "at": "backend/app/services/acme_client/engine.py:335",
+      "looks_like": "http",
+      "text": "resp = await self._http.post("
+    },
+    {
+      "at": "backend/app/services/appliance/k8s.py:168",
+      "looks_like": "other_http",
+      "text": "conn = http.client.HTTPSConnection("
+    },
+    {
+      "at": "backend/app/services/appliance/k8s.py:384",
+      "looks_like": "other_http",
+      "text": "conn = http.client.HTTPSConnection("
+    },
+    {
+      "at": "backend/app/services/appliance/k8s.py:539",
+      "looks_like": "other_http",
+      "text": "conn = http.client.HTTPSConnection("
+    },
+    {
+      "at": "backend/app/services/appliance/releases.py:148",
+      "looks_like": "http",
+      "text": "resp = await client.get(url, headers=headers)"
+    },
+    {
+      "at": "backend/app/services/audit_forward.py:526",
+      "looks_like": "http",
+      "text": "resp = await client.post(url, json=payload, headers=headers)"
+    },
+    {
+      "at": "backend/app/services/audit_forward.py:1064",
+      "looks_like": "http",
+      "text": "ps = await session.get(PlatformSettings, _SINGLETON_ID)"
+    },
+    {
+      "at": "backend/app/services/backup/targets/https_put.py:356",
+      "looks_like": "http",
+      "text": "return await client.request("
+    },
+    {
+      "at": "backend/app/services/backup/targets/webdav.py:188",
+      "looks_like": "http",
+      "text": "resp = await client.put("
+    },
+    {
+      "at": "backend/app/services/backup/targets/webdav.py:213",
+      "looks_like": "http",
+      "text": "resp = await client.request("
+    },
+    {
+      "at": "backend/app/services/backup/targets/webdav.py:288",
+      "looks_like": "http",
+      "text": "resp = await client.get(target)"
+    },
+    {
+      "at": "backend/app/services/backup/targets/webdav.py:305",
+      "looks_like": "http",
+      "text": "resp = await client.delete(target)"
+    },
+    {
+      "at": "backend/app/services/backup/targets/webdav.py:325",
+      "looks_like": "http",
+      "text": "put = await client.put("
+    },
+    {
+      "at": "backend/app/services/backup/targets/webdav.py:344",
+      "looks_like": "http",
+      "text": "head = await client.head(probe_target)"
+    },
+    {
+      "at": "backend/app/services/backup/targets/webdav.py:354",
+      "looks_like": "http",
+      "text": "delete = await client.delete(probe_target)"
+    },
+    {
+      "at": "backend/app/services/bgp/peeringdb.py:73",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "backend/app/services/bgp/ripestat.py:58",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "backend/app/services/dns/pool_healthcheck.py:180",
+      "looks_like": "http",
+      "text": "resp = await client.request(method, url)"
+    },
+    {
+      "at": "backend/app/services/dns/tld_registry.py:278",
+      "looks_like": "http",
+      "text": "resp = await client.get(SOURCE_URL)"
+    },
+    {
+      "at": "backend/app/services/dns_import/powerdns.py:359",
+      "looks_like": "http",
+      "text": "resp = await client.get(zones_url)"
+    },
+    {
+      "at": "backend/app/services/dns_import/powerdns.py:416",
+      "looks_like": "http",
+      "text": "zresp = await client.get(full_url)"
+    },
+    {
+      "at": "backend/app/services/dns_import/powerdns.py:480",
+      "looks_like": "http",
+      "text": "resp = await client.get(url)"
+    },
+    {
+      "at": "backend/app/services/dns_import/technitium.py:221",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "backend/app/services/dns_import/technitium.py:290",
+      "looks_like": "http",
+      "text": "rec_resp = await client.get("
+    },
+    {
+      "at": "backend/app/services/dns_import/technitium.py:337",
+      "looks_like": "http",
+      "text": "resp = await client.get(_api_url(api_url, \"zones/list\"), params={\"token\": api_token})"
+    },
+    {
+      "at": "backend/app/services/docker/client.py:172",
+      "looks_like": "http",
+      "text": "resp = await self._client.get(path, params=params or None)"
+    },
+    {
+      "at": "backend/app/services/event_delivery.py:95",
+      "looks_like": "http",
+      "text": "resp = await client.post("
+    },
+    {
+      "at": "backend/app/services/fortinet/client.py:256",
+      "looks_like": "http",
+      "text": "resp = await self._client.get(path, params={\"vdom\": self._vdom})"
+    },
+    {
+      "at": "backend/app/services/influxdb/client.py:135",
+      "looks_like": "http",
+      "text": "resp = await client.post("
+    },
+    {
+      "at": "backend/app/services/kubernetes/client.py:152",
+      "looks_like": "http",
+      "text": "resp = await self._client.get(path, params=params)"
+    },
+    {
+      "at": "backend/app/services/meraki/client.py:260",
+      "looks_like": "http",
+      "text": "resp = await self._client.request(method, path, params=params, json=json)"
+    },
+    {
+      "at": "backend/app/services/netbird/client.py:115",
+      "looks_like": "http",
+      "text": "r = await self._client.get(path, params=params or None)"
+    },
+    {
+      "at": "backend/app/services/netbox_import/client.py:182",
+      "looks_like": "http",
+      "text": "resp = await self._client.get(target, params=params)"
+    },
+    {
+      "at": "backend/app/services/opnsense/client.py:545",
+      "looks_like": "http",
+      "text": "resp = await self._client.request(method, path, json=json)"
+    },
+    {
+      "at": "backend/app/services/panos/client.py:260",
+      "looks_like": "http",
+      "text": "resp = await self._client.get(path, params=params)"
+    },
+    {
+      "at": "backend/app/services/panos/client.py:297",
+      "looks_like": "http",
+      "text": "resp = await self._client.get(\"/api/\", params=query)"
+    },
+    {
+      "at": "backend/app/services/panos/client.py:340",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "backend/app/services/profiling/fingerbank.py:191",
+      "looks_like": "http",
+      "text": "resp = await client.post("
+    },
+    {
+      "at": "backend/app/services/proxmox/client.py:330",
+      "looks_like": "http",
+      "text": "resp = await self._client.get(path)"
+    },
+    {
+      "at": "backend/app/services/rdap.py:81",
+      "looks_like": "http",
+      "text": "resp = await client.get(_BOOTSTRAP_URL)"
+    },
+    {
+      "at": "backend/app/services/rdap.py:374",
+      "looks_like": "http",
+      "text": "resp = await client.get(url)"
+    },
+    {
+      "at": "backend/app/services/rdap_asn.py:218",
+      "looks_like": "http",
+      "text": "resp = await client.get(url)"
+    },
+    {
+      "at": "backend/app/services/rdap_ip.py:45",
+      "looks_like": "http",
+      "text": "resp = await client.get(url)"
+    },
+    {
+      "at": "backend/app/services/rdap_ip.py:214",
+      "looks_like": "http",
+      "text": "resp = await client.get(url)"
+    },
+    {
+      "at": "backend/app/services/rpki_roa.py:354",
+      "looks_like": "http",
+      "text": "async with client.stream(\"GET\", url) as resp:"
+    },
+    {
+      "at": "backend/app/services/service_control/compose.py:117",
+      "looks_like": "http",
+      "text": "resp = await client.get(f\"/containers/{ident}/json\")"
+    },
+    {
+      "at": "backend/app/services/service_control/compose.py:158",
+      "looks_like": "http",
+      "text": "resp = await client.get(\"/containers/json\", params={\"all\": \"true\", \"filters\": filters})"
+    },
+    {
+      "at": "backend/app/services/service_control/compose.py:191",
+      "looks_like": "http",
+      "text": "resp = await client.post(f\"/containers/{container_id}/{action}\")"
+    },
+    {
+      "at": "backend/app/services/tailscale/client.py:108",
+      "looks_like": "http",
+      "text": "r = await self._client.get(path, params=params or None)"
+    },
+    {
+      "at": "backend/app/services/tls_cert/ct_log.py:40",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "backend/app/services/unifi/client.py:289",
+      "looks_like": "http",
+      "text": "resp = await self._client.post("
+    },
+    {
+      "at": "backend/app/services/unifi/client.py:360",
+      "looks_like": "http",
+      "text": "resp = await self._client.get(path)"
+    },
+    {
+      "at": "backend/app/services/unifi/client.py:393",
+      "looks_like": "http",
+      "text": "resp = await self._client.post(path, json=payload, headers=headers)"
+    },
+    {
+      "at": "backend/app/services/upgrades/preflight.py:316",
+      "looks_like": "http",
+      "text": "resp = await client.get(url, headers=headers)"
+    },
+    {
+      "at": "backend/app/services/wol_scheduler/calendar.py:353",
+      "looks_like": "http",
+      "text": "resp = await client.get(current)"
+    },
+    {
+      "at": "backend/app/tasks/dns.py:76",
+      "looks_like": "http",
+      "text": "resp = await client.get(bl.feed_url)"
+    },
+    {
+      "at": "backend/app/tasks/oui_update.py:111",
+      "looks_like": "http",
+      "text": "resp = await client.get(_OUI_SOURCE_URL)"
+    },
+    {
+      "at": "backend/app/tasks/update_check.py:94",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "perf/generators/orchestrator/api_mutation_stream.py:102",
+      "looks_like": "http",
+      "text": "r = await client.get(f\"{self.api}/ipam/subnets\")"
+    },
+    {
+      "at": "perf/generators/orchestrator/api_mutation_stream.py:119",
+      "looks_like": "http",
+      "text": "r = await client.get(f\"{self.api}/dns/groups\")"
+    },
+    {
+      "at": "perf/generators/orchestrator/api_mutation_stream.py:123",
+      "looks_like": "http",
+      "text": "rz = await client.get("
+    },
+    {
+      "at": "perf/generators/orchestrator/api_mutation_stream.py:181",
+      "looks_like": "http",
+      "text": "r = await client.post("
+    },
+    {
+      "at": "perf/generators/orchestrator/api_mutation_stream.py:195",
+      "looks_like": "http",
+      "text": "r = await client.delete("
+    },
+    {
+      "at": "perf/generators/orchestrator/api_mutation_stream.py:205",
+      "looks_like": "http",
+      "text": "r = await client.put(f\"{self.api}/ipam/subnets/{sid}\", json=body)"
+    },
+    {
+      "at": "perf/generators/orchestrator/api_mutation_stream.py:218",
+      "looks_like": "http",
+      "text": "r = await client.put(f\"{self.api}/ipam/addresses/{ip_id}\", json=body)"
+    },
+    {
+      "at": "perf/generators/orchestrator/api_mutation_stream.py:229",
+      "looks_like": "http",
+      "text": "r = await client.get(f\"{self.api}/ipam/subnets/{sid}/addresses\")"
+    },
+    {
+      "at": "perf/generators/orchestrator/api_mutation_stream.py:260",
+      "looks_like": "http",
+      "text": "r = await client.post(f\"{self.api}/ipam/subnets/{sid}/bulk-allocate\", json=body)"
+    },
+    {
+      "at": "perf/generators/orchestrator/device_fleet.py:1095",
+      "looks_like": "http",
+      "text": "r = await c.get(url, params={\"status_filter\": \"dhcp\"})"
+    },
+    {
+      "at": "perf/generators/orchestrator/device_fleet.py:1101",
+      "looks_like": "http",
+      "text": "r2 = await c.get(url)"
+    },
+    {
+      "at": "perf/generators/orchestrator/synthetic_ui_probe.py:87",
+      "looks_like": "http",
+      "text": "r = await client.get(f\"{self.api}/dns/groups\")"
+    },
+    {
+      "at": "perf/generators/orchestrator/synthetic_ui_probe.py:91",
+      "looks_like": "http",
+      "text": "rz = await client.get("
+    },
+    {
+      "at": "perf/generators/orchestrator/synthetic_ui_probe.py:119",
+      "looks_like": "http",
+      "text": "r = await client.request(method, url)"
+    },
+    {
+      "at": "perf/seeder/_api.py:111",
+      "looks_like": "http",
+      "text": "resp = c.post(url, json={\"username\": user, \"password\": pw})"
+    },
+    {
+      "at": "perf/seeder/_api.py:128",
+      "looks_like": "http",
+      "text": "resp = self._client.request(method, path, **kw)"
+    },
+    {
+      "at": "perf/seeder/_api.py:163",
+      "looks_like": "http",
+      "text": "resp = self._client.get(url, **kw)"
+    },
+    {
+      "at": "perf/warroom/poller.py:154",
+      "looks_like": "http",
+      "text": "resp = self.client.get(base + path)"
+    }
+  ],
+  "seconds": 55.61
+}

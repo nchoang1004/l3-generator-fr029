@@ -1,0 +1,9 @@
+{"reviewer": "claude-opus", "repo": "teamhide-fastapi-boilerplate",
+ "checked": {"routes": 5, "files": 15, "http_calls": 0},
+ "errors": [
+  {"fixture": "teamhide-fastapi-boilerplate", "kind": "role", "item": "core/fastapi/dependencies/permission.py", "field": "role",
+   "doc_value": "Khác (exact) — permission.py:57 class PermissionDependency(SecurityBase)",
+   "correct_value": "Service (inferred, nằm trên đường gọi): route GET /api/v1/user khai dependencies=[Depends(PermissionDependency([IsAdmin]))] (user.py:18); PermissionDependency.__call__ gọi IsAdmin.has_permission (permission.py:66), hàm này gọi usecase.is_admin (permission.py:49) -> UserService.is_admin -> repository.get_user_by_id (service/user.py:49) -> UserSQLAlchemyRepo (truy cập dữ liệu). Cùng cách phân giải DI mà công cụ đã dùng cho service/user.py",
+   "evidence": "core/fastapi/dependencies/permission.py:49; core/fastapi/dependencies/permission.py:66; app/user/adapter/input/api/v1/user.py:18; app/user/application/service/user.py:49",
+   "confidence": "chưa chắc"}
+ ]}

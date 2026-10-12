@@ -1,0 +1,1047 @@
+{
+  "split": "development",
+  "gold_status": "candidate",
+  "human_review_complete": false,
+  "extractor_version": "slice-ast-v4",
+  "cases": 38,
+  "invalid": [],
+  "totals": {
+    "entity": {
+      "tp": 18,
+      "fp": 0,
+      "fn": 4
+    },
+    "limitation": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 0
+    },
+    "reference": {
+      "tp": 84,
+      "fp": 0,
+      "fn": 1
+    },
+    "route": {
+      "tp": 61,
+      "fp": 0,
+      "fn": 0
+    },
+    "entity_columns": {
+      "tp": 108,
+      "fp": 0,
+      "fn": 0
+    },
+    "false_exact": {
+      "count": 0
+    }
+  },
+  "by_family": {
+    "fastapi-docs/route": {
+      "tp": 7,
+      "fp": 0,
+      "fn": 0
+    },
+    "netflix-dispatch/entity": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 2
+    },
+    "netflix-dispatch/entity_columns": {
+      "tp": 60,
+      "fp": 0,
+      "fn": 0
+    },
+    "netflix-dispatch/limitation": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0
+    },
+    "netflix-dispatch/reference": {
+      "tp": 5,
+      "fp": 0,
+      "fn": 0
+    },
+    "netflix-dispatch/route": {
+      "tp": 18,
+      "fp": 0,
+      "fn": 0
+    },
+    "orders-fixture/entity": {
+      "tp": 11,
+      "fp": 0,
+      "fn": 2
+    },
+    "orders-fixture/entity_columns": {
+      "tp": 27,
+      "fp": 0,
+      "fn": 0
+    },
+    "orders-fixture/limitation": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 0
+    },
+    "orders-fixture/reference": {
+      "tp": 54,
+      "fp": 0,
+      "fn": 0
+    },
+    "orders-fixture/route": {
+      "tp": 15,
+      "fp": 0,
+      "fn": 0
+    },
+    "pycg/reference": {
+      "tp": 25,
+      "fp": 0,
+      "fn": 1
+    },
+    "sqlmodel-docs/entity": {
+      "tp": 5,
+      "fp": 0,
+      "fn": 0
+    },
+    "sqlmodel-docs/entity_columns": {
+      "tp": 21,
+      "fp": 0,
+      "fn": 0
+    },
+    "sqlmodel-docs/route": {
+      "tp": 21,
+      "fp": 0,
+      "fn": 0
+    }
+  },
+  "rows": [
+    {
+      "case_id": "orders-base",
+      "family": "orders-fixture",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "limitation": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "reference": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "orders-prefix",
+      "family": "orders-fixture",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "limitation": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "reference": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "orders-two-apps",
+      "family": "orders-fixture",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "limitation": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "reference": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "orders-wrapper-real",
+      "family": "orders-fixture",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "limitation": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "reference": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "orders-wrapper-fake",
+      "family": "orders-fixture",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "limitation": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "reference": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "orders-dynamic-prefix",
+      "family": "orders-fixture",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "limitation": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "reference": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "dispatch-case-read",
+      "family": "netflix-dispatch",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 2,
+          "status": "not_evaluated"
+        },
+        "limitation": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "reference": {
+          "tp": 5,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 18,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 60,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-classes-call",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-classes-direct_call",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-classes-imported_call",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-classes-imported_nested_attr_access",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-classes-nested_class_calls",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 5,
+          "fp": 0,
+          "fn": 1,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-classes-static_method_call",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-decorators-call",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-imports-parent_import",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-imports-relative_import_with_name",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-imports-simple_import",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-imports-submodule_import_as",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-mro-two_parents",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-parameters-assigned_call",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-parameters-call",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "pycg-returns-imported_call",
+      "family": "pycg",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "reference": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "fastapi-docs-body_updates-tutorial001",
+      "family": "fastapi-docs",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "route": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "fastapi-docs-first_steps-tutorial001",
+      "family": "fastapi-docs",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "route": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "fastapi-docs-handling_errors-tutorial001",
+      "family": "fastapi-docs",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "route": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "fastapi-docs-path_params-tutorial001",
+      "family": "fastapi-docs",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "route": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "fastapi-docs-query_params_str_validations-tutorial001",
+      "family": "fastapi-docs",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "route": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "fastapi-docs-schema_extra_example-tutorial001",
+      "family": "fastapi-docs",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "route": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "sqlmodel-docs-multiple_models-tutorial002",
+      "family": "sqlmodel-docs",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "sqlmodel-docs-session_with_dependency-tutorial001",
+      "family": "sqlmodel-docs",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 5,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "sqlmodel-docs-teams-tutorial001",
+      "family": "sqlmodel-docs",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 10,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 9,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "sqlmodel-docs-update-tutorial001",
+      "family": "sqlmodel-docs",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "orders-conditional-route",
+      "family": "orders-fixture",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "limitation": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "reference": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "orders-derived-tablename",
+      "family": "orders-fixture",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 2,
+          "status": "not_evaluated"
+        },
+        "limitation": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "reference": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 5,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "orders-mount",
+      "family": "orders-fixture",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "limitation": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "reference": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "orders-plugin-import",
+      "family": "orders-fixture",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "limitation": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "reference": {
+          "tp": 5,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "orders-runtime-dispatch",
+      "family": "orders-fixture",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "limitation": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "reference": {
+          "tp": 9,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    },
+    {
+      "case_id": "orders-syntax-error",
+      "family": "orders-fixture",
+      "status": "scored",
+      "errors": [],
+      "groups": {
+        "entity": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "limitation": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "reference": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "route": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        },
+        "entity_columns": {
+          "tp": 2,
+          "fp": 0,
+          "fn": 0,
+          "status": "not_evaluated"
+        }
+      },
+      "false_exact": 0
+    }
+  ]
+}

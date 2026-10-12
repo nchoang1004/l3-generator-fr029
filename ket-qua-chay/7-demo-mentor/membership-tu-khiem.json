@@ -1,0 +1,78 @@
+{
+ "partition_version": "fixture-membership-v1",
+ "components": [
+  {
+   "name": "Khởi tạo ứng dụng",
+   "files": [
+    "app/main.py",
+    "app/__init__.py"
+   ]
+  },
+  {
+   "name": "Router HTTP API",
+   "files": [
+    "app/api/main.py",
+    "app/api/notebooks/schema.py",
+    "app/api/notebooks/views.py",
+    "app/api/notes/schema.py",
+    "app/api/notes/views.py",
+    "app/api/__init__.py",
+    "app/api/notebooks/__init__.py",
+    "app/api/notes/__init__.py"
+   ]
+  },
+  {
+   "name": "Service quản lý ghi chú",
+   "files": [
+    "app/api/notebooks/use_cases.py",
+    "app/api/notes/use_cases.py"
+   ]
+  },
+  {
+   "name": "Mô hình dữ liệu",
+   "files": [
+    "app/models/__init__.py",
+    "app/models/base.py",
+    "app/models/notebooks.py",
+    "app/models/notes.py",
+    "app/models/schema.py"
+   ]
+  },
+  {
+   "name": "Hạ tầng database",
+   "files": [
+    "app/db.py"
+   ]
+  },
+  {
+   "name": "Dùng chung",
+   "files": [
+    "app/settings.py",
+    "pyproject.toml"
+   ]
+  },
+  {
+   "name": "Test",
+   "files": [
+    "app/tests/__init__.py",
+    "app/tests/api/__init__.py",
+    "app/tests/api/notebooks/__init__.py",
+    "app/tests/api/notebooks/test_views.py",
+    "app/tests/api/notes/__init__.py",
+    "app/tests/api/notes/test_views.py",
+    "app/tests/conftest.py",
+    "app/tests/test_main.py",
+    "app/tests/utils.py"
+   ]
+  },
+  {
+   "name": "Migration",
+   "files": [
+    "migrations/env.py",
+    "migrations/versions/24104b6e1e0c_add_tables.py",
+    "migrations/versions/a8483365f505_initial_empty.py"
+   ]
+  }
+ ],
+ "_ghi_chu": "6 khoi dau lay tu khiem-co-ai/graph.json (AI chia). __init__.py, Test, Migration, pyproject.toml do Claude ghep tay vi L3 doi membership phu moi file."
+}

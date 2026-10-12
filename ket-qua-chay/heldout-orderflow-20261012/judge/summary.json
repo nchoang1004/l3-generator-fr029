@@ -1,0 +1,34 @@
+{
+ "accuracy": {"checked": 213, "correct": 202, "wrong": 9, "unverifiable": 2},
+ "missing": [
+  "Sự kiện Redis pub/sub order.created: gửi order_app/api/routes/orders.py:42 -> services/orders.py:84-95 -> shared/events.py:63-65; nhận notification_app/main.py:27-44; payload OrderCreated shared/contracts.py:112",
+  "Model ErrorBody, ErrorEnvelope, OrderCreated, enum OrderStatus (shared/contracts.py:19,27,112,80)",
+  "Ràng buộc trường Pydantic và query (min/max, gt, ge, le, items 1..50, quantity 1..1000, limit 1..200)",
+  "Lỗi trả về 404/409/503/422 và dạng thân lỗi {error:{code,message,request_id}} (shared/errors.py:36-43; products.py:28; proxy.py:27,29)",
+  "Ràng buộc bảng: products.sku unique, các index, FK ondelete CASCADE (catalog_app/models.py:16; order_app/models.py:36); không có migration/create_all ngoài tests/conftest.py:40",
+  "Quan hệ giữa 4 service (gateway->3 service HTTP, order->catalog, order->notification qua Redis) và việc tách component",
+  "Tên biến môi trường và env_file .env; bus_backend khác redis chạy in-memory (shared/events.py:99-103)",
+  "Định nghĩa và hành vi RequestIdMiddleware (shared/context.py:29-54), lifespan",
+  "Thư viện: extras uvicorn[standard], sqlalchemy[asyncio]; python>=3.12; starlette được import nhưng không khai",
+  "Hành vi degraded, publish lỗi không hỏng response, thông báo idempotent (services/orders.py:41-63; routes/orders.py:41-47; notifications.py:19-23)",
+  "Cột service cho endpoint; gateway chuyển tiếp query/body nhưng ghi tham số 'không có'"
+ ],
+ "wrong": [
+  "Đầu tài liệu: 'Sự kiện, tác vụ nền | 0 điểm gửi/nhận' (sai, có Redis pub/sub order.created)",
+  "Vai trò sai: 4 file api/router.py ghi Khác (là Route)",
+  "Vai trò sai: shared/errors.py ghi Khác (Hạ tầng)",
+  "Vai trò sai: shared/context.py ghi Khác (middleware, Hạ tầng)",
+  "Vai trò sai: shared/logs.py ghi Khác (Hạ tầng)",
+  "Vai trò sai: order_app/core/resilience.py ghi Khác (circuit breaker, Hạ tầng/Service)",
+  "Gây hiểu sai (không tính vào số sai): endpoint gateway #2,5,7,11,13,19 ghi 'Tham số: không có'/'Vào —' dù chuyển tiếp query/body",
+  "Gây hiểu sai (không tính vào số sai): OrderRead.status ghi 'string', mất enum created/shipped/cancelled"
+ ],
+ "usability_score": 3,
+ "input_issues": [
+  "membership gộp 4 service + shared thành một component 'Toàn bộ' nên không có quan hệ giữa component",
+  "7 file test nằm trong 'Toàn bộ' nhưng bị loại khỏi phạm vi đọc, mâu thuẫn 61 file với 57/57",
+  "docker-compose.yml, .env.example, Dockerfile, ci.yml, README.md không được đọc: mất dialect PostgreSQL, cổng, tên biến môi trường, sơ đồ kiến trúc",
+  "không có archdia/sơ đồ nên quan hệ component không dựng được; nên dựng từ import và lời gọi với nhãn suy luận",
+  "bộ trích tĩnh bỏ sót bus sự kiện tự viết (EventBus), ràng buộc Field/unique/index/ondelete, và ánh xạ exception->mã lỗi"
+ ]
+}

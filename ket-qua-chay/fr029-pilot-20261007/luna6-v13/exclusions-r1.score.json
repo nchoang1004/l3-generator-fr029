@@ -1,0 +1,77 @@
+{
+  "routes": {
+    "tp": 1,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "handler": {
+        "correct": 1,
+        "wrong": []
+      },
+      "params": {
+        "correct": 1,
+        "wrong": []
+      },
+      "request_body": {
+        "correct": 1,
+        "wrong": []
+      },
+      "response": {
+        "correct": 1,
+        "wrong": []
+      },
+      "status": {
+        "correct": 1,
+        "wrong": []
+      }
+    }
+  },
+  "models": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "fields": {
+        "correct": 0,
+        "wrong": []
+      }
+    }
+  },
+  "http_calls": {
+    "status": "not_evaluated",
+    "reason": "Gold không có mục này"
+  },
+  "file_roles": {
+    "status": "not_evaluated",
+    "reason": "Gold không có mục này"
+  },
+  "limitations": {
+    "tp": 3,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {}
+  },
+  "out_of_scope": {
+    "ok": true,
+    "got": {
+      "test": 3,
+      "conditional_out": 1
+    },
+    "want": {
+      "test": 3,
+      "conditional_out": 1
+    }
+  }
+}

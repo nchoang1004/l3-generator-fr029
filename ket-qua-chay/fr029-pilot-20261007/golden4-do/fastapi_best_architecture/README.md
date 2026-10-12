@@ -1,0 +1,432 @@
+# fastapi_best_architecture — tài liệu L3 API (bản sinh tự động)
+
+Bản sinh tự động, chưa được chủ repository duyệt.
+
+- Snapshot: `snap:260e22171ce3349136089936d1c6b5d42a2d41871a06ecd7586f5df3a8fea4eb`
+- Trạng thái phân tích: partial — BUDGET_COST: chạm trần chi phí
+- Độ phủ đọc source: chưa đủ, xem Giới hạn
+
+## Mục lục contract
+
+- API: [tech-specs/TOAN-BO/api/API-FASTAPI-BEST-ARCHITECTURE-TOAN-BO-v1.md](tech-specs/TOAN-BO/api/API-FASTAPI-BEST-ARCHITECTURE-TOAN-BO-v1.md) — component Toàn bộ
+
+## Sơ đồ component
+
+Chưa được cấp sơ đồ từ bước kiến trúc (FR-028); công cụ này không tự dựng sơ đồ.
+
+## Cấu trúc component
+
+### Toàn bộ
+
+- Package `./`
+  - `pyproject.toml` — vai trò unknown: agent chưa xác định
+  - `requirements.txt` — vai trò unknown: agent chưa xác định
+- Package `backend/`
+  - `backend/__init__.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/__init__.py:17`: `__version__ = '1.15.1'`
+  - `backend/cli.py` — vai trò unknown: agent chưa xác định
+  - `backend/conftest.py` — vai trò unknown: agent chưa xác định
+  - `backend/main.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/main.py:46`: `app = register_app()`
+  - `backend/run.py` — vai trò unknown: agent chưa xác định
+- Package `backend/alembic/`
+  - `backend/alembic/env.py` — vai trò unknown: agent chưa xác định
+- Package `backend/app/`
+  - `backend/app/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/router.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/router.py:6`: `router = APIRouter()`
+- Package `backend/app/admin/`
+  - `backend/app/admin/__init__.py` — vai trò unknown: agent chưa xác định
+- Package `backend/app/admin/api/`
+  - `backend/app/admin/api/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/admin/api/router.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/admin/api/router.py:9`: `v1 = APIRouter(prefix=settings.FASTAPI_API_V1_PATH)`
+- Package `backend/app/admin/api/v1/`
+  - `backend/app/admin/api/v1/__init__.py` — vai trò unknown: agent chưa xác định
+- Package `backend/app/admin/api/v1/auth/`
+  - `backend/app/admin/api/v1/auth/__init__.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/admin/api/v1/auth/__init__.py:6`: `router = APIRouter(prefix='/auth')`
+  - `backend/app/admin/api/v1/auth/auth.py` — Route (exact) — `backend/app/admin/api/v1/auth/auth.py:19`: `@router.post('/login/swagger', summary='swagger 调试专用', description='用于快捷获取 token 进行 swagger 认证')`
+  - `backend/app/admin/api/v1/auth/captcha.py` — Route (exact) — `backend/app/admin/api/v1/auth/captcha.py:19`: `@router.get(`
+- Package `backend/app/admin/api/v1/log/`
+  - `backend/app/admin/api/v1/log/__init__.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/admin/api/v1/log/__init__.py:6`: `router = APIRouter(prefix='/logs')`
+  - `backend/app/admin/api/v1/log/login_log.py` — Route (exact) — `backend/app/admin/api/v1/log/login_log.py:17`: `@router.get(`
+  - `backend/app/admin/api/v1/log/opera_log.py` — Route (exact) — `backend/app/admin/api/v1/log/opera_log.py:17`: `@router.get(`
+- Package `backend/app/admin/api/v1/monitor/`
+  - `backend/app/admin/api/v1/monitor/__init__.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/admin/api/v1/monitor/__init__.py:7`: `router = APIRouter(prefix='/monitors')`
+  - `backend/app/admin/api/v1/monitor/online.py` — Route (exact) — `backend/app/admin/api/v1/monitor/online.py:22`: `@router.get('', summary='获取在线用户', dependencies=[DependsSuperUser])`
+  - `backend/app/admin/api/v1/monitor/redis.py` — Route (exact) — `backend/app/admin/api/v1/monitor/redis.py:12`: `@router.get('', summary='Redis 监控', dependencies=[DependsJwtAuth])`
+  - `backend/app/admin/api/v1/monitor/server.py` — Route (exact) — `backend/app/admin/api/v1/monitor/server.py:30`: `@router.get('', summary='Server 监控', dependencies=[DependsSuperUser])`
+- Package `backend/app/admin/api/v1/sys/`
+  - `backend/app/admin/api/v1/sys/__init__.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/admin/api/v1/sys/__init__.py:12`: `router = APIRouter(prefix='/sys')`
+  - `backend/app/admin/api/v1/sys/data_rule.py` — Route (exact) — `backend/app/admin/api/v1/sys/data_rule.py:24`: `@router.get('/models', summary='获取数据规则可用模型', dependencies=[DependsJwtAuth])`
+  - `backend/app/admin/api/v1/sys/data_scope.py` — Route (exact) — `backend/app/admin/api/v1/sys/data_scope.py:24`: `@router.get('/all', summary='获取所有数据范围', dependencies=[DependsJwtAuth])`
+  - `backend/app/admin/api/v1/sys/dept.py` — Route (exact) — `backend/app/admin/api/v1/sys/dept.py:18`: `@router.get('/{pk}', summary='获取部门详情', dependencies=[DependsJwtAuth])`
+  - `backend/app/admin/api/v1/sys/file.py` — Route (exact) — `backend/app/admin/api/v1/sys/file.py:14`: `@router.post(`
+  - `backend/app/admin/api/v1/sys/menu.py` — Route (exact) — `backend/app/admin/api/v1/sys/menu.py:16`: `@router.get('/sidebar', summary='获取用户菜单侧边栏', description='已适配 vben admin v5', dependencies=[DependsJwtAuth])`
+  - `backend/app/admin/api/v1/sys/plugin.py` — Route (exact) — `backend/app/admin/api/v1/sys/plugin.py:16`: `@router.get('', summary='获取所有插件', dependencies=[DependsSuperUser])`
+  - `backend/app/admin/api/v1/sys/role.py` — Route (exact) — `backend/app/admin/api/v1/sys/role.py:26`: `@router.get('/all', summary='获取所有角色', dependencies=[DependsJwtAuth])`
+  - `backend/app/admin/api/v1/sys/user.py` — Route (exact) — `backend/app/admin/api/v1/sys/user.py:25`: `@router.get('/me', summary='获取当前用户信息', dependencies=[DependsJwtAuth])`
+- Package `backend/app/admin/crud/`
+  - `backend/app/admin/crud/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/admin/crud/crud_data_rule.py` — Truy cập dữ liệu (exact) — `backend/app/admin/crud/crud_data_rule.py:23`: `return await self.select_model(db, pk, deleted=0)`
+  - `backend/app/admin/crud/crud_data_scope.py` — Truy cập dữ liệu (exact) — `backend/app/admin/crud/crud_data_scope.py:30`: `return await self.select_model(db, pk, deleted=0)`
+  - `backend/app/admin/crud/crud_dept.py` — Truy cập dữ liệu (exact) — `backend/app/admin/crud/crud_dept.py:25`: `return await self.select_model_by_column(db, id=dept_id, deleted=0)`
+  - `backend/app/admin/crud/crud_login_log.py` — Truy cập dữ liệu (exact) — `backend/app/admin/crud/crud_login_log.py:41`: `await self.create_model(db, obj, commit=True)`
+  - `backend/app/admin/crud/crud_menu.py` — Truy cập dữ liệu (exact) — `backend/app/admin/crud/crud_menu.py:23`: `return await self.select_model(db, menu_id, deleted=0)`
+  - `backend/app/admin/crud/crud_opera_log.py` — Truy cập dữ liệu (exact) — `backend/app/admin/crud/crud_opera_log.py:41`: `await self.create_model(db, obj)`
+  - `backend/app/admin/crud/crud_role.py` — Truy cập dữ liệu (exact) — `backend/app/admin/crud/crud_role.py:32`: `return await self.select_model(db, role_id, deleted=0)`
+  - `backend/app/admin/crud/crud_user.py` — Truy cập dữ liệu (exact) — `backend/app/admin/crud/crud_user.py:47`: `return await self.select_model(db, user_id, deleted=0)`
+  - `backend/app/admin/crud/crud_user_password_history.py` — Truy cập dữ liệu (exact) — `backend/app/admin/crud/crud_user_password_history.py:21`: `await self.create_model(db, obj)`
+- Package `backend/app/admin/model/`
+  - `backend/app/admin/model/__init__.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/admin/model/__init__.py:1`: `from backend.app.admin.model.data_rule import DataRule as DataRule`
+  - `backend/app/admin/model/data_rule.py` — Model bảng (exact) — `backend/app/admin/model/data_rule.py:11`: `__tablename__ = 'sys_data_rule'`
+  - `backend/app/admin/model/data_scope.py` — Model bảng (exact) — `backend/app/admin/model/data_scope.py:11`: `__tablename__ = 'sys_data_scope'`
+  - `backend/app/admin/model/dept.py` — Model bảng (exact) — `backend/app/admin/model/dept.py:11`: `__tablename__ = 'sys_dept'`
+  - `backend/app/admin/model/login_log.py` — Model bảng (exact) — `backend/app/admin/model/login_log.py:14`: `__tablename__ = 'sys_login_log'`
+  - `backend/app/admin/model/m2m.py` — Model bảng (exact) — `backend/app/admin/model/m2m.py:6`: `user_role = sa.Table(`
+  - `backend/app/admin/model/menu.py` — Model bảng (exact) — `backend/app/admin/model/menu.py:11`: `__tablename__ = 'sys_menu'`
+  - `backend/app/admin/model/opera_log.py` — Model bảng (exact) — `backend/app/admin/model/opera_log.py:14`: `__tablename__ = 'sys_opera_log'`
+  - `backend/app/admin/model/role.py` — Model bảng (exact) — `backend/app/admin/model/role.py:11`: `__tablename__ = 'sys_role'`
+  - `backend/app/admin/model/user.py` — Model bảng (exact) — `backend/app/admin/model/user.py:15`: `__tablename__ = 'sys_user'`
+  - `backend/app/admin/model/user_password_history.py` — Model bảng (exact) — `backend/app/admin/model/user_password_history.py:14`: `__tablename__ = 'sys_user_password_history'`
+- Package `backend/app/admin/schema/`
+  - `backend/app/admin/schema/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/admin/schema/captcha.py` — Schema API (exact) — `backend/app/admin/schema/captcha.py:6`: `class GetCaptchaDetail(SchemaBase):`
+  - `backend/app/admin/schema/data_rule.py` — Schema API (exact) — `backend/app/admin/schema/data_rule.py:20`: `class CreateDataRuleParam(DataRuleSchemaBase):`
+  - `backend/app/admin/schema/data_scope.py` — Schema API (exact) — `backend/app/admin/schema/data_scope.py:17`: `class CreateDataScopeParam(DataScopeSchemaBase):`
+  - `backend/app/admin/schema/dept.py` — Schema API (exact) — `backend/app/admin/schema/dept.py:21`: `class CreateDeptParam(DeptSchemaBase):`
+  - `backend/app/admin/schema/login_log.py` — Schema API (exact) — `backend/app/admin/schema/login_log.py:26`: `class CreateLoginLogParam(LoginLogSchemaBase):`
+  - `backend/app/admin/schema/menu.py` — Schema API (exact) — `backend/app/admin/schema/menu.py:28`: `class CreateMenuParam(MenuSchemaBase):`
+  - `backend/app/admin/schema/monitor.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/admin/schema/opera_log.py` — Schema API (exact) — `backend/app/admin/schema/opera_log.py:34`: `class CreateOperaLogParam(OperaLogSchemaBase):`
+  - `backend/app/admin/schema/role.py` — Schema API (exact) — `backend/app/admin/schema/role.py:20`: `class CreateRoleParam(RoleSchemaBase):`
+  - `backend/app/admin/schema/token.py` — Schema API (exact) — `backend/app/admin/schema/token.py:10`: `class GetSwaggerToken(SchemaBase):`
+  - `backend/app/admin/schema/user.py` — Schema API (exact) — `backend/app/admin/schema/user.py:20`: `class AuthLoginParam(AuthSchemaBase):`
+  - `backend/app/admin/schema/user_password_history.py` — Schema API (exact) — `backend/app/admin/schema/user_password_history.py:13`: `class CreateUserPasswordHistoryParam(UserPasswordHistorySchemaBase):`
+- Package `backend/app/admin/service/`
+  - `backend/app/admin/service/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/admin/service/auth_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/app/admin/api/v1/auth/auth.py:23`, `backend/app/admin/service/auth_service.py:72`, `backend/app/admin/service/auth_service.py:49`, `backend/app/admin/crud/crud_user.py:57`
+  - `backend/app/admin/service/data_rule_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/app/admin/api/v1/sys/data_rule.py:55`, `backend/app/admin/service/data_rule_service.py:36`, `backend/app/admin/crud/crud_data_rule.py:23`
+  - `backend/app/admin/service/data_scope_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/app/admin/api/v1/sys/data_scope.py:35`, `backend/app/admin/service/data_scope_service.py:33`, `backend/app/admin/crud/crud_data_scope.py:30`
+  - `backend/app/admin/service/dept_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/app/admin/api/v1/sys/dept.py:22`, `backend/app/admin/service/dept_service.py:26`, `backend/app/admin/crud/crud_dept.py:25`
+  - `backend/app/admin/service/login_log_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/app/admin/api/v1/log/login_log.py:31`, `backend/app/admin/service/login_log_service.py:28`, `backend/app/admin/crud/crud_login_log.py:31`
+  - `backend/app/admin/service/menu_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/app/admin/api/v1/sys/menu.py:36`, `backend/app/admin/service/menu_service.py:44`, `backend/app/admin/crud/crud_menu.py:51`
+  - `backend/app/admin/service/opera_log_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/app/admin/api/v1/log/opera_log.py:31`, `backend/app/admin/service/opera_log_service.py:24`, `backend/app/admin/crud/crud_opera_log.py:31`
+  - `backend/app/admin/service/plugin_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/app/admin/api/v1/sys/plugin.py:18`, `backend/app/admin/service/plugin_service.py:30`, `backend/database/redis.py:43`
+  - `backend/app/admin/service/role_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/app/admin/api/v1/sys/role.py:53`, `backend/app/admin/service/role_service.py:36`, `backend/app/admin/crud/crud_role.py:32`
+  - `backend/app/admin/service/user_password_history_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/app/admin/api/v1/sys/user.py:117`, `backend/app/admin/service/user_service.py:209`, `backend/app/admin/service/user_password_history_service.py:119`, `backend/app/admin/crud/crud_user_password_history.py:21`
+  - `backend/app/admin/service/user_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/app/admin/api/v1/sys/user.py:36`, `backend/app/admin/service/user_service.py:44`, `backend/app/admin/crud/crud_user.py:370`
+- Package `backend/app/admin/tests/`
+  - `backend/app/admin/tests/__init__.py` — vai trò unknown: agent chưa xác định
+- Package `backend/app/admin/tests/api_v1/`
+  - `backend/app/admin/tests/api_v1/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/admin/tests/api_v1/test_auth.py` — vai trò unknown: agent chưa xác định
+- Package `backend/app/admin/utils/`
+  - `backend/app/admin/utils/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/admin/utils/cache.py` — Truy cập dữ liệu (exact) — `backend/app/admin/utils/cache.py:34`: `result = await db.execute(stmt)`
+  - `backend/app/admin/utils/password_security.py` — Truy cập dữ liệu (exact) — `backend/app/admin/utils/password_security.py:62`: `password_history = await user_password_history_dao.get_by_user_id(db, user_id)`
+- Package `backend/app/task/`
+  - `backend/app/task/__init__.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/task/__init__.py:5`: `sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))`
+  - `backend/app/task/actions.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/task/actions.py:7`: `@sio.event`
+  - `backend/app/task/celery.py` — Hạ tầng (exact) — `backend/app/task/celery.py:61`: `app = celery.Celery(`
+  - `backend/app/task/database.py` — Truy cập dữ liệu (exact) — `backend/app/task/database.py:76`: `task = list(session.query(self.task_cls).filter(self.task_cls.task_id == task_id))`
+  - `backend/app/task/enums.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/task/enums.py:4`: `class TaskSchedulerType(IntEnum):`
+  - `backend/app/task/session.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/task/session.py:4`: `class SessionManager(CelerySessionManager):`
+- Package `backend/app/task/api/`
+  - `backend/app/task/api/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/task/api/router.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/task/api/router.py:8`: `v1 = APIRouter(prefix=settings.FASTAPI_API_V1_PATH, tags=['任务'])`
+- Package `backend/app/task/api/v1/`
+  - `backend/app/task/api/v1/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/task/api/v1/control.py` — Route (exact) — `backend/app/task/api/v1/control.py:17`: `@router.get('/registered', summary='获取已注册的任务', dependencies=[DependsJwtAuth])`
+  - `backend/app/task/api/v1/result.py` — Route (exact) — `backend/app/task/api/v1/result.py:17`: `@router.get('/{pk}', summary='获取任务结果详情', dependencies=[DependsJwtAuth])`
+  - `backend/app/task/api/v1/scheduler.py` — Route (exact) — `backend/app/task/api/v1/scheduler.py:21`: `@router.get('/all', summary='获取所有任务调度', dependencies=[DependsJwtAuth])`
+- Package `backend/app/task/crud/`
+  - `backend/app/task/crud/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/task/crud/crud_result.py` — Truy cập dữ liệu (exact) — `backend/app/task/crud/crud_result.py:19`: `return await self.select_model(db, pk)`
+  - `backend/app/task/crud/crud_scheduler.py` — Truy cập dữ liệu (exact) — `backend/app/task/crud/crud_scheduler.py:24`: `return await task_scheduler_dao.select_model(db, pk, deleted=0)`
+- Package `backend/app/task/model/`
+  - `backend/app/task/model/__init__.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/task/model/__init__.py:1`: `from backend.app.task.model.result import TaskExtended as TaskResult  # ruff:ignore[unused-import]`
+  - `backend/app/task/model/result.py` — Model bảng (exact) — `backend/app/task/model/result.py:17`: `__tablename__ = 'task_result'`
+  - `backend/app/task/model/scheduler.py` — Model bảng (exact) — `backend/app/task/model/scheduler.py:22`: `__tablename__ = 'task_scheduler'`
+- Package `backend/app/task/schema/`
+  - `backend/app/task/schema/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/task/schema/control.py` — Schema API (exact) — `backend/app/task/schema/control.py:6`: `class GetTaskRegisteredDetail(SchemaBase):`
+  - `backend/app/task/schema/result.py` — Schema API (exact) — `backend/app/task/schema/result.py:26`: `class DeleteTaskResultParam(SchemaBase):`
+  - `backend/app/task/schema/scheduler.py` — Schema API (exact) — `backend/app/task/schema/scheduler.py:32`: `class CreateTaskSchedulerParam(TaskSchedulerSchemaBase):`
+- Package `backend/app/task/service/`
+  - `backend/app/task/service/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/task/service/result_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/app/task/api/v1/result.py:22`, `backend/app/task/service/result_service.py:25`, `backend/app/task/crud/crud_result.py:19`
+  - `backend/app/task/service/scheduler_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/app/task/api/v1/scheduler.py:32`, `backend/app/task/service/scheduler_service.py:33`, `backend/app/task/crud/crud_scheduler.py:24`
+- Package `backend/app/task/tasks/`
+  - `backend/app/task/tasks/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/task/tasks/base.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/task/tasks/base.py:12`: `class TaskBase(Task):`
+  - `backend/app/task/tasks/beat.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/task/tasks/beat.py:8`: `def get_local_beat_schedule() -&gt; dict[str, dict[str, Any]]:`
+  - `backend/app/task/tasks/tasks.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/task/tasks/tasks.py:8`: `@celery_app.task(name='task_demo')`
+- Package `backend/app/task/tasks/db_log/`
+  - `backend/app/task/tasks/db_log/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/task/tasks/db_log/tasks.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/task/tasks/db_log/tasks.py:8`: `@shared_task`
+- Package `backend/app/task/utils/`
+  - `backend/app/task/utils/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/app/task/utils/schedulers.py` — Truy cập dữ liệu (exact) — `backend/app/task/utils/schedulers.py:104`: `query = await db.execute(stmt)`
+  - `backend/app/task/utils/tzcrontab.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/app/task/utils/tzcrontab.py:8`: `class TzAwareCrontab(schedules.crontab):`
+- Package `backend/common/`
+  - `backend/common/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/context.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/common/context.py:28`: `class TypedContext(TypedContextProtocol, _Context):`
+  - `backend/common/dataclasses.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/common/dataclasses.py:66`: `class UploadUrl:`
+  - `backend/common/enums.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/common/enums.py:8`: `class _EnumBase:`
+  - `backend/common/i18n.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/common/i18n.py:16`: `class I18n:`
+  - `backend/common/lifespan.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/common/lifespan.py:12`: `class LifespanManager:`
+  - `backend/common/log.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/common/log.py:17`: `class InterceptHandler(logging.Handler):`
+  - `backend/common/model.py` — Model bảng (exact) — `backend/common/model.py:137`: `def __tablename__(self) -&gt; str:`
+  - `backend/common/pagination.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/queue.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/schema.py` — Schema API (exact) — `backend/common/schema.py:21`: `class SchemaBase(BaseModel):`
+- Package `backend/common/cache/`
+  - `backend/common/cache/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/cache/decorator.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/common/cache/decorator.py:108`: `def cached(  # ruff:ignore[complex-structure]`
+  - `backend/common/cache/local.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/common/cache/local.py:8`: `class LocalCacheManager:`
+  - `backend/common/cache/pubsub.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/common/cache/pubsub.py:10`: `class CachePubSubManager:`
+- Package `backend/common/exception/`
+  - `backend/common/exception/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/exception/errors.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/common/exception/errors.py:9`: `class BaseExceptionError(Exception):`
+  - `backend/common/exception/exception_handler.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/common/exception/exception_handler.py:18`: `def _get_exception_code(status_code: int) -&gt; int:`
+- Package `backend/common/observability/`
+  - `backend/common/observability/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/observability/otel.py` — vai trò unknown: agent chưa xác định
+- Package `backend/common/observability/prometheus/`
+  - `backend/common/observability/prometheus/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/observability/prometheus/fastapi.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/observability/prometheus/queue.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/observability/prometheus/sqlalchemy.py` — vai trò unknown: agent chưa xác định
+- Package `backend/common/response/`
+  - `backend/common/response/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/response/response_code.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/response/response_schema.py` — Schema API (exact) — `backend/common/response/response_schema.py:12`: `class ResponseModel(BaseModel):`
+- Package `backend/common/security/`
+  - `backend/common/security/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/security/jwt.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/security/permission.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/security/rbac.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/security/token.py` — vai trò unknown: agent chưa xác định
+- Package `backend/common/socketio/`
+  - `backend/common/socketio/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/socketio/actions.py` — vai trò unknown: agent chưa xác định
+  - `backend/common/socketio/server.py` — vai trò unknown: agent chưa xác định
+- Package `backend/core/`
+  - `backend/core/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/core/conf.py` — Cấu hình (exact) — `backend/core/conf.py:14`: `class Settings(BaseSettings):`
+  - `backend/core/path_conf.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/core/path_conf.py:4`: `BASE_PATH = Path(__file__).resolve().parent.parent`
+  - `backend/core/registrar.py` — Điểm vào (exact) — `backend/core/registrar.py:96`: `app = FastAPI(`
+- Package `backend/database/`
+  - `backend/database/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/database/db.py` — vai trò unknown: agent chưa xác định
+  - `backend/database/redis.py` — Hạ tầng (exact) — `backend/database/redis.py:43`: `pool = BlockingConnectionPool(`
+- Package `backend/middleware/`
+  - `backend/middleware/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/middleware/access_middleware.py` — vai trò unknown: agent chưa xác định
+  - `backend/middleware/i18n_middleware.py` — vai trò unknown: agent chưa xác định
+  - `backend/middleware/jwt_auth_middleware.py` — vai trò unknown: agent chưa xác định
+  - `backend/middleware/opera_log_middleware.py` — vai trò unknown: agent chưa xác định
+  - `backend/middleware/state_middleware.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/`
+  - `backend/plugin/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/core.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/errors.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/hooks.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/installer.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/patching.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/requirements.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/router.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/plugin/router.py:101`: `def build_final_router() -&gt; APIRouter:`
+  - `backend/plugin/settings_source.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/sql.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/status.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/validator.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/code_generator/`
+  - `backend/plugin/code_generator/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/code_generator/enums.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/plugin/code_generator/enums.py:4`: `class GenMySQLColumnType(StrEnum):`
+  - `backend/plugin/code_generator/path_conf.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/plugin/code_generator/path_conf.py:4`: `JINJA2_TEMPLATE_DIR = PLUGIN_DIR / 'code_generator' / 'templates'`
+- Package `backend/plugin/code_generator/api/`
+  - `backend/plugin/code_generator/api/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/code_generator/api/router.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/plugin/code_generator/api/router.py:8`: `v1 = APIRouter(prefix=f'{settings.FASTAPI_API_V1_PATH}/code-generation', tags=['代码生成'])`
+- Package `backend/plugin/code_generator/api/v1/`
+  - `backend/plugin/code_generator/api/v1/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/code_generator/api/v1/business.py` — Route (exact) — `backend/plugin/code_generator/api/v1/business.py:23`: `@router.get('/all', summary='获取所有代码生成业务', dependencies=[DependsJwtAuth])`
+  - `backend/plugin/code_generator/api/v1/code_gen.py` — Route (exact) — `backend/plugin/code_generator/api/v1/code_gen.py:18`: `@router.get('/tables', summary='获取数据库表')`
+  - `backend/plugin/code_generator/api/v1/column.py` — Route (exact) — `backend/plugin/code_generator/api/v1/column.py:20`: `@router.get('/types', summary='获取代码生成模型列类型', dependencies=[DependsJwtAuth])`
+- Package `backend/plugin/code_generator/crud/`
+  - `backend/plugin/code_generator/crud/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/code_generator/crud/crud_business.py` — Truy cập dữ liệu (exact) — `backend/plugin/code_generator/crud/crud_business.py:23`: `return await self.select_model(db, pk, deleted=0)`
+  - `backend/plugin/code_generator/crud/crud_code_gen.py` — Truy cập dữ liệu (exact) — `backend/plugin/code_generator/crud/crud_code_gen.py:48`: `result = await db.execute(stmt)`
+  - `backend/plugin/code_generator/crud/crud_column.py` — Truy cập dữ liệu (exact) — `backend/plugin/code_generator/crud/crud_column.py:25`: `return await self.select_model(db, pk)`
+- Package `backend/plugin/code_generator/model/`
+  - `backend/plugin/code_generator/model/__init__.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/plugin/code_generator/model/__init__.py:1`: `from backend.plugin.code_generator.model.business import CodeGenBusiness as CodeGenBusiness`
+  - `backend/plugin/code_generator/model/business.py` — Model bảng (exact) — `backend/plugin/code_generator/model/business.py:11`: `__tablename__ = 'code_gen_business'`
+  - `backend/plugin/code_generator/model/column.py` — Model bảng (exact) — `backend/plugin/code_generator/model/column.py:11`: `__tablename__ = 'code_gen_column'`
+- Package `backend/plugin/code_generator/schema/`
+  - `backend/plugin/code_generator/schema/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/code_generator/schema/business.py` — Schema API (exact) — `backend/plugin/code_generator/schema/business.py:35`: `class CreateCodeGenBusinessParam(CodeGenBusinessSchemaBase):`
+  - `backend/plugin/code_generator/schema/code_gen.py` — Schema API (exact) — `backend/plugin/code_generator/schema/code_gen.py:6`: `class ImportParam(SchemaBase):`
+  - `backend/plugin/code_generator/schema/column.py` — Schema API (exact) — `backend/plugin/code_generator/schema/column.py:27`: `class CreateCodeGenColumnParam(CodeGenColumnSchemaBase):`
+- Package `backend/plugin/code_generator/service/`
+  - `backend/plugin/code_generator/service/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/code_generator/service/business_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/plugin/code_generator/api/v1/business.py:34`, `backend/plugin/code_generator/service/business_service.py:26`, `backend/plugin/code_generator/crud/crud_business.py:23`
+  - `backend/plugin/code_generator/service/code_gen_service.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/code_generator/service/column_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/plugin/code_generator/api/v1/column.py:30`, `backend/plugin/code_generator/service/column_service.py:29`, `backend/plugin/code_generator/crud/crud_column.py:25`
+- Package `backend/plugin/code_generator/utils/`
+  - `backend/plugin/code_generator/utils/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/code_generator/utils/format_code.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/code_generator/utils/gen_template.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/code_generator/utils/type_conversion.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/config/`
+  - `backend/plugin/config/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/config/enums.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/plugin/config/enums.py:4`: `class ConfigType(StrEnum):`
+- Package `backend/plugin/config/api/`
+  - `backend/plugin/config/api/__init__.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/config/api/v1/`
+  - `backend/plugin/config/api/v1/__init__.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/config/api/v1/sys/`
+  - `backend/plugin/config/api/v1/sys/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/config/api/v1/sys/config.py` — Route (exact) — `backend/plugin/config/api/v1/sys/config.py:22`: `@router.get('/all', summary='获取所有参数配置', dependencies=[DependsJwtAuth])`
+- Package `backend/plugin/config/crud/`
+  - `backend/plugin/config/crud/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/config/crud/crud_config.py` — Truy cập dữ liệu (exact) — `backend/plugin/config/crud/crud_config.py:23`: `return await self.select_model_by_column(db, id=pk, deleted=0)`
+- Package `backend/plugin/config/model/`
+  - `backend/plugin/config/model/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/config/model/config.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/config/schema/`
+  - `backend/plugin/config/schema/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/config/schema/config.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/config/service/`
+  - `backend/plugin/config/service/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/config/service/config_service.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/dict/`
+  - `backend/plugin/dict/__init__.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/dict/api/`
+  - `backend/plugin/dict/api/__init__.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/dict/api/v1/`
+  - `backend/plugin/dict/api/v1/__init__.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/dict/api/v1/sys/`
+  - `backend/plugin/dict/api/v1/sys/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/dict/api/v1/sys/dict_data.py` — Route (exact) — `backend/plugin/dict/api/v1/sys/dict_data.py:22`: `@router.get('/all', summary='获取所有字典数据', dependencies=[DependsJwtAuth])`
+  - `backend/plugin/dict/api/v1/sys/dict_type.py` — Route (exact) — `backend/plugin/dict/api/v1/sys/dict_type.py:22`: `@router.get('/all', summary='获取所有字典数据', dependencies=[DependsJwtAuth])`
+- Package `backend/plugin/dict/crud/`
+  - `backend/plugin/dict/crud/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/dict/crud/crud_dict_data.py` — Truy cập dữ liệu (exact) — `backend/plugin/dict/crud/crud_dict_data.py:24`: `return await self.select_model(db, pk, deleted=0)`
+  - `backend/plugin/dict/crud/crud_dict_type.py` — Truy cập dữ liệu (exact) — `backend/plugin/dict/crud/crud_dict_type.py:24`: `return await self.select_model(db, pk, deleted=0)`
+- Package `backend/plugin/dict/model/`
+  - `backend/plugin/dict/model/__init__.py` — Khác (exact: Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `backend/plugin/dict/model/__init__.py:1`: `from backend.plugin.dict.model.dict_data import DictData as DictData`
+  - `backend/plugin/dict/model/dict_data.py` — Model bảng (exact) — `backend/plugin/dict/model/dict_data.py:11`: `__tablename__ = 'sys_dict_data'`
+  - `backend/plugin/dict/model/dict_type.py` — Model bảng (exact) — `backend/plugin/dict/model/dict_type.py:11`: `__tablename__ = 'sys_dict_type'`
+- Package `backend/plugin/dict/schema/`
+  - `backend/plugin/dict/schema/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/dict/schema/dict_data.py` — Schema API (exact) — `backend/plugin/dict/schema/dict_data.py:21`: `class CreateDictDataParam(DictDataSchemaBase):`
+  - `backend/plugin/dict/schema/dict_type.py` — Schema API (exact) — `backend/plugin/dict/schema/dict_type.py:16`: `class CreateDictTypeParam(DictTypeSchemaBase):`
+- Package `backend/plugin/dict/service/`
+  - `backend/plugin/dict/service/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/dict/service/dict_data_service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `backend/plugin/dict/api/v1/sys/dict_data.py:33`, `backend/plugin/dict/service/dict_data_service.py:29`, `backend/plugin/dict/crud/crud_dict_data.py:24`
+  - `backend/plugin/dict/service/dict_type_service.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/email/`
+  - `backend/plugin/email/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/email/requirements.txt` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/email/api/`
+  - `backend/plugin/email/api/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/email/api/router.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/email/api/v1/`
+  - `backend/plugin/email/api/v1/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/email/api/v1/email.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/email/utils/`
+  - `backend/plugin/email/utils/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/email/utils/dynamic_config.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/email/utils/send.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/notice/`
+  - `backend/plugin/notice/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/notice/enums.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/notice/api/`
+  - `backend/plugin/notice/api/__init__.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/notice/api/v1/`
+  - `backend/plugin/notice/api/v1/__init__.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/notice/api/v1/sys/`
+  - `backend/plugin/notice/api/v1/sys/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/notice/api/v1/sys/notice.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/notice/crud/`
+  - `backend/plugin/notice/crud/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/notice/crud/crud_notice.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/notice/model/`
+  - `backend/plugin/notice/model/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/notice/model/notice.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/notice/schema/`
+  - `backend/plugin/notice/schema/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/notice/schema/notice.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/notice/service/`
+  - `backend/plugin/notice/service/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/notice/service/notice_service.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/oauth2/`
+  - `backend/plugin/oauth2/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/oauth2/enums.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/oauth2/requirements.txt` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/oauth2/api/`
+  - `backend/plugin/oauth2/api/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/oauth2/api/router.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/oauth2/api/v1/`
+  - `backend/plugin/oauth2/api/v1/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/oauth2/api/v1/github.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/oauth2/api/v1/google.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/oauth2/api/v1/user_social.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/oauth2/crud/`
+  - `backend/plugin/oauth2/crud/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/oauth2/crud/crud_user_social.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/oauth2/model/`
+  - `backend/plugin/oauth2/model/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/oauth2/model/user_social.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/oauth2/schema/`
+  - `backend/plugin/oauth2/schema/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/oauth2/schema/user_social.py` — vai trò unknown: agent chưa xác định
+- Package `backend/plugin/oauth2/service/`
+  - `backend/plugin/oauth2/service/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/oauth2/service/oauth2_service.py` — vai trò unknown: agent chưa xác định
+  - `backend/plugin/oauth2/service/user_social_service.py` — vai trò unknown: agent chưa xác định
+- Package `backend/tests/`
+  - `backend/tests/__init__.py` — vai trò unknown: agent chưa xác định
+- Package `backend/tests/utils/`
+  - `backend/tests/utils/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/tests/utils/db.py` — vai trò unknown: agent chưa xác định
+- Package `backend/utils/`
+  - `backend/utils/__init__.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/async_helper.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/build_tree.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/console.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/demo_mode.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/dynamic_config.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/dynamic_import.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/encrypt.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/file_ops.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/format.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/limiter.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/locks.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/openapi.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/pattern_validate.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/performance.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/request_parse.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/serializers.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/snowflake.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/sql_parser.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/timezone.py` — vai trò unknown: agent chưa xác định
+  - `backend/utils/trace_id.py` — vai trò unknown: agent chưa xác định
+
+## Lời gọi HTTP ra ngoài
+
+- (không có)
+
+## Contract chưa gán được component
+
+- (không có)
+
+## Đối chiếu với dữ liệu kiến trúc
+
+- Trạng thái: not_evaluated
+- reason: Chưa được cấp archdia.json cùng snapshot
+
+## Giới hạn
+
+- `DIAGRAM_NOT_PROVIDED`: Chưa được cấp sơ đồ component từ bước kiến trúc (FR-028); README chưa đủ mục sơ đồ của AC-029-06
+- `ARCHITECTURE_NOT_EVALUATED`: Chưa đối chiếu được với archdia.json (AC-029-04): Chưa được cấp archdia.json cùng snapshot
+- `ANALYSIS_PARTIAL`: BUDGET_COST: chạm trần chi phí
+- `SOURCE_NOT_FULLY_READ`: backend/cli.py thiếu [[1, 1025]]; backend/common/observability/otel.py thiếu [[1, 122]]; backend/common/observability/prometheus/fastapi.py thiếu [[1, 75]]; backend/common/observability/prometheus/queue.py thiếu [[1, 47]]; backend/common/observability/prometheus/sqlalchemy.py thiếu [[1, 37]]; backend/common/pagination.py thiếu [[1, 189]]; backend/common/queue.py thiếu [[1, 85]]; backend/common/response/response_code.py thiếu [[1, 144]]; backend/common/security/jwt.py thiếu [[1, 171]]; backend/common/security/permission.py thiếu [[1, 202]]; backend/common/security/rbac.py thiếu [[1, 86]]; backend/common/security/token.py thiếu [[1, 329]]; backend/common/socketio/__init__.py thiếu [[1, 1]]; backend/common/socketio/actions.py thiếu [[1, 11]]; backend/common/socketio/server.py thiếu [[1, 118]]; backend/database/db.py thiếu [[1, 207]]; backend/middleware/access_middleware.py thiếu [[1, 97]]; backend/middleware/i18n_middleware.py thiếu [[1, 55]]; backend/middleware/jwt_auth_middleware.py thiếu [[1, 106]]; backend/middleware/opera_log_middleware.py thiếu [[1, 265]]; backend/middleware/state_middleware.py thiếu [[1, 33]]; backend/plugin/code_generator/service/code_gen_service.py thiếu [[201, 300]]; backend/plugin/code_generator/utils/format_code.py thiếu [[1, 43]]; backend/plugin/code_generator/utils/gen_template.py thiếu [[1, 122]]; backend/plugin/code_generator/utils/type_conversion.py thiếu [[1, 64]]; backend/plugin/config/model/__init__.py thiếu [[1, 1]]; backend/plugin/config/model/config.py thiếu [[1, 23]]; backend/plugin/config/schema/config.py thiếu [[1, 40]]; backend/plugin/config/service/config_service.py thiếu [[1, 141]]; backend/plugin/core.py thiếu [[1, 223]]; backend/plugin/dict/service/dict_type_service.py thiếu [[1, 103]]; backend/plugin/email/api/router.py thiếu [[1, 8]]; backend/plugin/email/api/v1/email.py thiếu [[1, 32]]; backend/plugin/email/requirements.txt thiếu [[1, 1]]; backend/plugin/email/utils/dynamic_config.py thiếu [[1, 20]]; backend/plugin/email/utils/send.py thiếu [[1, 73]]; backend/plugin/errors.py thiếu [[1, 10]]; backend/plugin/hooks.py thiếu [[1, 148]]; backend/plugin/installer.py thiếu [[1, 235]]; backend/plugin/notice/api/v1/sys/notice.py thiếu [[1, 90]]; backend/plugin/notice/crud/crud_notice.py thiếu [[1, 96]]; backend/plugin/notice/enums.py thiếu [[1, 8]]; backend/plugin/notice/model/__init__.py thiếu [[1, 1]]; backend/plugin/notice/model/notice.py thiếu [[1, 17]]; backend/plugin/notice/schema/notice.py thiếu [[1, 40]]; backend/plugin/notice/service/notice_service.py thiếu [[1, 100]]; backend/plugin/oauth2/api/router.py thiếu [[1, 12]]; backend/plugin/oauth2/api/v1/github.py thiếu [[1, 72]]; backend/plugin/oauth2/api/v1/google.py thiếu [[1, 72]]; backend/plugin/oauth2/api/v1/user_social.py thiếu [[1, 27]]; backend/plugin/oauth2/crud/crud_user_social.py thiếu [[1, 98]]; backend/plugin/oauth2/enums.py thiếu [[1, 15]]; backend/plugin/oauth2/model/__init__.py thiếu [[1, 1]]; backend/plugin/oauth2/model/user_social.py thiếu [[1, 23]]; backend/plugin/oauth2/requirements.txt thiếu [[1, 1]]; backend/plugin/oauth2/schema/user_social.py thiếu [[1, 29]]; backend/plugin/oauth2/service/oauth2_service.py thiếu [[1, 221]]; backend/plugin/oauth2/service/user_social_service.py thiếu [[1, 101]]; backend/plugin/patching.py thiếu [[1, 25]]; backend/plugin/requirements.py thiếu [[1, 156]]; backend/plugin/settings_source.py thiếu [[1, 49]]; backend/plugin/sql.py thiếu [[1, 55]]; backend/plugin/status.py thiếu [[1, 83]]; backend/plugin/validator.py thiếu [[1, 267]]; backend/run.py thiếu [[1, 21]]; backend/utils/async_helper.py thiếu [[1, 82]]; backend/utils/build_tree.py thiếu [[1, 132]]; backend/utils/console.py thiếu [[1, 28]]; backend/utils/demo_mode.py thiếu [[1, 22]]; backend/utils/dynamic_config.py thiếu [[1, 84]]; backend/utils/dynamic_import.py thiếu [[1, 73]]; backend/utils/encrypt.py thiếu [[1, 119]]; backend/utils/file_ops.py thiếu [[1, 66]]; backend/utils/format.py thiếu [[1, 22]]; backend/utils/limiter.py thiếu [[1, 324]]; backend/utils/locks.py thiếu [[1, 32]]; backend/utils/openapi.py thiếu [[1, 29]]; backend/utils/pattern_validate.py thiếu [[1, 89]]; backend/utils/performance.py thiếu [[1, 39]]; backend/utils/request_parse.py thiếu [[1, 129]]; backend/utils/serializers.py thiếu [[1, 388]]; backend/utils/snowflake.py thiếu [[1, 242]]; backend/utils/sql_parser.py thiếu [[1, 42]]; backend/utils/timezone.py thiếu [[1, 77]]; backend/utils/trace_id.py thiếu [[1, 31]]; pyproject.toml thiếu [[201, 293]]; requirements.txt thiếu [[201, 447]]
+- `OUT_OF_SCOPE_FILES`: migration: 1 file, test: 7 file. Route trong các file này không vào tài liệu (FR-028 Phạm vi đọc)
+- `CLAIMS_REJECTED`: 7 lần nộp bị bộ kiểm từ chối (agent có thể đã nộp lại bản đúng); chi tiết ở result.json

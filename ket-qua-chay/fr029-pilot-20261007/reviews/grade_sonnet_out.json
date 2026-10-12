@@ -1,0 +1,27 @@
+{"reviewer": "claude-sonnet",
+ "checked": {
+  "prefix_chain": {"routes": 11, "models": 0, "http_calls": 0, "files": 9},
+  "params_models": {"routes": 11, "models": 5, "http_calls": 0, "files": 5},
+  "pydantic_v1": {"routes": 2, "models": 1, "http_calls": 0, "files": 1},
+  "exclusions": {"routes": 1, "models": 0, "http_calls": 0, "files": 4},
+  "http_calls": {"routes": 3, "models": 0, "http_calls": 11, "files": 6},
+  "file_roles": {"routes": 3, "models": 2, "http_calls": 0, "files": 10}
+ },
+ "errors": [
+  {"fixture": "file_roles", "kind": "other", "item": "app/service_utils.py (bằng chứng trong README)", "field": "evidence",
+   "doc_value": "`app/service_utils.py:1`: `def format_money(cents: int) -&gt; str:` (đã escape HTML)",
+   "correct_value": "nguyên văn dòng code là `def format_money(cents: int) -> str:` (result.json giữ đúng `->`; chỉ README bị escape)",
+   "evidence": "app/service_utils.py:1", "confidence": "chưa chắc"},
+  {"fixture": "params_models", "kind": "label", "item": "DELETE /items/{item_id} status 204", "field": "label",
+   "doc_value": "nhãn route `exact`, nhưng ô Status ghi `204 (suy theo fastapi.status_constant)`",
+   "correct_value": "status_code=status.HTTP_204_NO_CONTENT khai tường minh trong code; nhãn và ghi chú `suy theo` mâu thuẫn nhau (nên cùng là exact, hoặc cùng là inferred kèm quy tắc)",
+   "evidence": "app/routes.py:47", "confidence": "chưa chắc"},
+  {"fixture": "params_models", "kind": "model", "item": "Item (app/schemas/items.py) và Item (app/schemas/legacy.py)", "field": "extra",
+   "doc_value": "Cột Response của GET /items/{item_id}/full và GET /legacy/items/{code} đều ghi `Item`; mục Model có hai bảng cùng tên `Item (response)`",
+   "correct_value": "hai lớp khác nhau (items.Item: id/name/secret_cost; legacy.Item: code/active). Bảng Endpoint không phân biệt được route nào dùng lớp nào, chỉ phân biệt qua fact id/vị trí khai báo",
+   "evidence": "app/routes.py:7-8,28,62", "confidence": "chưa chắc"},
+  {"fixture": "http_calls", "kind": "role", "item": "app/inventory_client.py", "field": "role",
+   "doc_value": "Khác",
+   "correct_value": "có thể là Hạ tầng (lớp dựng client httpx.AsyncClient, được dùng cho lời gọi PUT ra INVENTORY_URL); tuy nhiên file không chứa URL/host/DSN nên Khác cũng có thể đúng theo chữ của FR-029",
+   "evidence": "app/inventory_client.py:4", "confidence": "chưa chắc"}
+ ]}

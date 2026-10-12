@@ -1,0 +1,118 @@
+﻿{
+    "run_id":  "run_fbc6e760c3211c5e",
+    "snapshot_id":  "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+    "state":  "partial",
+    "stage":  null,
+    "analysis_outcome":  "partial",
+    "created_at":  "2026-10-02T09:39:20Z",
+    "started_at":  "2026-10-02T09:39:20Z",
+    "finished_at":  "2026-10-02T09:39:21Z",
+    "expires_at":  "2026-10-03T09:39:21Z",
+    "result_available":  true,
+    "reasons":  [
+                    {
+                        "code":  "demo_partition",
+                        "message":  "Component chia táº¡m theo thÆ° má»¥c Äáº§u tiÃªn Äá» cháº¡y thá»­ giao diá»n; chÆ°a pháº£i thuáº­t toÃ¡n D-03 ÄÃ£ chá»n",
+                        "action":  "KhÃ´ng dÃ¹ng sÆ¡ Äá» nÃ y lÃ m káº¿t luáº­n kiáº¿n trÃºc"
+                    },
+                    {
+                        "code":  "model_not_run",
+                        "message":  "Giá»i háº¡n MODEL_NOT_RUN",
+                        "action":  "Xem giá»i háº¡n trong ResultBundle"
+                    },
+                    {
+                        "code":  "queue_library_unsupported",
+                        "message":  "Giá»i háº¡n QUEUE_LIBRARY_UNSUPPORTED",
+                        "action":  "Xem giá»i háº¡n trong ResultBundle"
+                    },
+                    {
+                        "code":  "reference_unresolved",
+                        "message":  "Giá»i háº¡n REFERENCE_UNRESOLVED",
+                        "action":  "Xem giá»i háº¡n trong ResultBundle"
+                    },
+                    {
+                        "code":  "slice_scope",
+                        "message":  "Giá»i háº¡n SLICE_SCOPE",
+                        "action":  "Xem giá»i háº¡n trong ResultBundle"
+                    },
+                    {
+                        "code":  "value_redacted",
+                        "message":  "Giá»i háº¡n VALUE_REDACTED",
+                        "action":  "Xem giá»i háº¡n trong ResultBundle"
+                    }
+                ],
+    "metrics":  {
+                    "intake_ms":  31,
+                    "static_analysis_ms":  296,
+                    "model_ms":  null,
+                    "export_ms":  125,
+                    "peak_memory_bytes":  49459200,
+                    "output_bytes":  2083841
+                },
+    "artifacts":  [
+                      {
+                          "artifact_id":  "art_de37a6f638d6cd736ad2692d",
+                          "bytes":  2016,
+                          "error":  null,
+                          "kind":  "readme",
+                          "media_type":  "text/markdown",
+                          "path":  "README.md",
+                          "sha256":  "539bca3276e6b8ad6bdebea3d4e9af336ee5684476bfd26f246e70eb189d7094",
+                          "status":  "ready"
+                      },
+                      {
+                          "artifact_id":  "art_d2ff927654e34af2d7a532a2",
+                          "bytes":  206,
+                          "error":  null,
+                          "kind":  "diagram_source",
+                          "media_type":  "text/plain",
+                          "path":  "architecture.mmd",
+                          "sha256":  "e7b1a345541ccfdc3f80308f8817ad659b2e43fc2dc086e4733f09deaaf2d543",
+                          "status":  "ready"
+                      },
+                      {
+                          "artifact_id":  "art_5d43774cc3bf79d96cbdd015",
+                          "bytes":  3419,
+                          "error":  null,
+                          "kind":  "diagram_image",
+                          "media_type":  "image/svg+xml",
+                          "path":  "architecture.svg",
+                          "sha256":  "2256e81a2cfa59ce6a707738f6830347cad41a53dd0b9c7e0cd6a93507876f57",
+                          "status":  "ready"
+                      },
+                      {
+                          "artifact_id":  "art_e3fb3f0827d9e362e6886fc1",
+                          "bytes":  2040480,
+                          "error":  null,
+                          "kind":  "json",
+                          "media_type":  "application/json",
+                          "path":  "result.json",
+                          "sha256":  "4fed49bb943101ee17c62f6c3d1baf320816e8fa92e492b7e797d3fdf6c71efc",
+                          "status":  "ready"
+                      },
+                      {
+                          "artifact_id":  "art_944105900c0403222c4f4388",
+                          "bytes":  31750,
+                          "error":  null,
+                          "kind":  "api",
+                          "media_type":  "text/markdown",
+                          "path":  "tech-specs/APP/api/API-TEAMHIDE-APP-v1.md",
+                          "sha256":  "e7ca3298289c596688571610f5034f799c65ce61e6818ef7e104a8f705784abb",
+                          "status":  "ready"
+                      },
+                      {
+                          "artifact_id":  "art_1a8bf242698c5693114b7ebb",
+                          "bytes":  5970,
+                          "error":  null,
+                          "kind":  "table",
+                          "media_type":  "text/markdown",
+                          "path":  "tech-specs/APP/schema/TBL-TEAMHIDE-APP.md",
+                          "sha256":  "4be0aa8c463bfa868125ebb2a3bbc4b823ea3c9e2388c0b2f4de0b225e4ac0da",
+                          "status":  "ready"
+                      }
+                  ],
+    "links":  {
+                  "self":  "/api/v1/runs/run_fbc6e760c3211c5e",
+                  "result":  "/api/v1/runs/run_fbc6e760c3211c5e/result"
+              }
+}

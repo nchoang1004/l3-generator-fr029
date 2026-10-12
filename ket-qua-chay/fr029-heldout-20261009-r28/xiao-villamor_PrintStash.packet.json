@@ -1,0 +1,339 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos3\\xiao-villamor_PrintStash",
+  "files": 619,
+  "route_decorators": 436,
+  "decorators_refused": [],
+  "dependencies": [
+    {
+      "name": "get_session",
+      "called": false,
+      "first_use": "backend/app/api/v1/admin.py:71",
+      "params": []
+    },
+    {
+      "name": "require_superuser",
+      "called": false,
+      "first_use": "backend/app/api/v1/admin.py:330",
+      "params": []
+    },
+    {
+      "name": "edit_precondition",
+      "called": false,
+      "first_use": "backend/app/api/v1/artifact_cache.py:37",
+      "params": [
+        {
+          "in": "header",
+          "name": "if-match",
+          "at": "backend/app/api/edit_preconditions.py:11"
+        },
+        {
+          "in": "header",
+          "name": "X-PrintStash-Edit-Contract",
+          "at": "backend/app/api/edit_preconditions.py:15"
+        }
+      ]
+    },
+    {
+      "name": "require_command_user",
+      "called": false,
+      "first_use": "backend/app/api/v1/artifact_uploads.py:206",
+      "params": []
+    },
+    {
+      "name": "_create_limit",
+      "called": false,
+      "first_use": "backend/app/api/v1/artifact_uploads.py:195",
+      "params": []
+    },
+    {
+      "name": "_plan_limit",
+      "called": false,
+      "first_use": "backend/app/api/v1/artifact_uploads.py:279",
+      "params": []
+    },
+    {
+      "name": "_native_part_limit",
+      "called": false,
+      "first_use": "backend/app/api/v1/artifact_uploads.py:309",
+      "params": []
+    },
+    {
+      "name": "_chunk_limit",
+      "called": false,
+      "first_use": "backend/app/api/v1/artifact_uploads.py:374",
+      "params": []
+    },
+    {
+      "name": "_finalize_limit",
+      "called": false,
+      "first_use": "backend/app/api/v1/artifact_uploads.py:447",
+      "params": []
+    },
+    {
+      "name": "_login_rate_limit",
+      "called": false,
+      "first_use": "backend/app/api/v1/auth.py:106",
+      "params": []
+    },
+    {
+      "name": "_refresh_rate_limit",
+      "called": false,
+      "first_use": "backend/app/api/v1/auth.py:254",
+      "params": []
+    },
+    {
+      "name": "require_user",
+      "called": false,
+      "first_use": "backend/app/api/v1/auth.py:295",
+      "params": []
+    },
+    {
+      "name": "oauth2_scheme",
+      "called": false,
+      "first_use": "backend/app/api/v1/auth.py:297",
+      "params": []
+    },
+    {
+      "name": "require_auth",
+      "called": false,
+      "first_use": "backend/app/api/v1/backup.py:112",
+      "params": []
+    },
+    {
+      "name": "require_search_user",
+      "called": false,
+      "first_use": "backend/app/api/v1/captions.py:21",
+      "params": []
+    },
+    {
+      "name": "require_command_writer",
+      "called": false,
+      "first_use": "backend/app/api/v1/documents.py:339",
+      "params": []
+    },
+    {
+      "name": "require_feature",
+      "called": false,
+      "first_use": "backend/app/api/v1/external_libraries.py:250",
+      "params": []
+    },
+    {
+      "name": "get_current_user",
+      "called": false,
+      "first_use": "backend/app/api/v1/files.py:129",
+      "params": []
+    },
+    {
+      "name": "require_capture_actor",
+      "called": false,
+      "first_use": "backend/app/api/v1/inbox.py:64",
+      "params": []
+    },
+    {
+      "name": "get_hub",
+      "called": false,
+      "first_use": "backend/app/api/v1/printers.py:603",
+      "params": []
+    },
+    {
+      "name": "_claim_limit",
+      "called": false,
+      "first_use": "backend/app/api/v1/provider_connections.py:176",
+      "params": []
+    },
+    {
+      "name": "rate_limit",
+      "called": true,
+      "first_use": "backend/app/api/v1/setup.py:124",
+      "params": []
+    }
+  ],
+  "suspects": [
+    {
+      "at": "backend/app/api/v1/health.py:380",
+      "looks_like": "http",
+      "text": "resp = httpx.get("
+    },
+    {
+      "at": "backend/app/api/v1/jobs.py:166",
+      "looks_like": "route",
+      "text": "@events_router.websocket(\"/ws\")"
+    },
+    {
+      "at": "backend/app/api/v1/printers.py:1377",
+      "looks_like": "route",
+      "text": "@router.websocket(\"/{printer_id}/ws\")"
+    },
+    {
+      "at": "backend/app/core/http_client.py:37",
+      "looks_like": "http",
+      "text": "client = _clients.get(loop)"
+    },
+    {
+      "at": "backend/app/modules/administration/release_check.py:70",
+      "looks_like": "http",
+      "text": "response = await client.get(GITHUB_LATEST_RELEASE_URL)"
+    },
+    {
+      "at": "backend/app/modules/identity/oidc.py:69",
+      "looks_like": "http",
+      "text": "response = await get_http_client().get(url, timeout=10.0)"
+    },
+    {
+      "at": "backend/app/modules/identity/oidc.py:83",
+      "looks_like": "http",
+      "text": "response = await get_http_client().post("
+    },
+    {
+      "at": "backend/app/modules/inference/http_runtime.py:104",
+      "looks_like": "http",
+      "text": "async with runtime.client.stream("
+    },
+    {
+      "at": "backend/app/modules/inference/model_acquisition.py:103",
+      "looks_like": "http",
+      "text": "with client.stream("
+    },
+    {
+      "at": "backend/app/modules/inference/transport.py:197",
+      "looks_like": "http",
+      "text": "status, headers, raw = http_runtime.request("
+    },
+    {
+      "at": "backend/app/modules/ingestion/capture_provider_transport.py:70",
+      "looks_like": "http",
+      "text": "return await client.send(request, follow_redirects=False, stream=True)"
+    },
+    {
+      "at": "backend/app/modules/ingestion/capture_provider_transport.py:109",
+      "looks_like": "http",
+      "text": "client = _pooled_clients.get(key)"
+    },
+    {
+      "at": "backend/app/modules/ingestion/importer.py:167",
+      "looks_like": "http",
+      "text": "async with client.stream(\"GET\", current, follow_redirects=False) as resp:"
+    },
+    {
+      "at": "backend/app/modules/notifications/notifications.py:128",
+      "looks_like": "http",
+      "text": "printer = session.get(Printer, printer_id)"
+    },
+    {
+      "at": "backend/app/modules/notifications/notifications.py:141",
+      "looks_like": "http",
+      "text": "model = session.get(Model, job.model_id)"
+    },
+    {
+      "at": "backend/app/modules/notifications/notifications.py:266",
+      "looks_like": "http",
+      "text": "delivery = session.get(NotificationDelivery, delivery_id)"
+    },
+    {
+      "at": "backend/app/modules/notifications/notifications.py:267",
+      "looks_like": "http",
+      "text": "channel = session.get(NotificationChannel, channel_id)"
+    },
+    {
+      "at": "backend/app/modules/notifications/notifications.py:384",
+      "looks_like": "http",
+      "text": "resp = await client.request("
+    },
+    {
+      "at": "backend/app/modules/notifications/notifications.py:524",
+      "looks_like": "http",
+      "text": "delivery = session.get(NotificationDelivery, int(subject.rsplit(\"/\", 1)[1]))"
+    },
+    {
+      "at": "backend/app/modules/notifications/notifications.py:584",
+      "looks_like": "http",
+      "text": "session.delete(row)"
+    },
+    {
+      "at": "backend/app/modules/notifications/notifications.py:704",
+      "looks_like": "http",
+      "text": "return session.get(NotificationChannel, channel_id)"
+    },
+    {
+      "at": "backend/app/modules/notifications/notifications.py:804",
+      "looks_like": "http",
+      "text": "session.delete(channel)"
+    },
+    {
+      "at": "backend/app/modules/notifications/notifications.py:867",
+      "looks_like": "http",
+      "text": "channel = session.get(NotificationChannel, channel_id)"
+    },
+    {
+      "at": "backend/app/modules/notifications/notifications.py:902",
+      "looks_like": "http",
+      "text": "resp = await client.request("
+    },
+    {
+      "at": "backend/app/modules/notifications/notifications.py:923",
+      "looks_like": "http",
+      "text": "channel = session.get(NotificationChannel, channel_id)"
+    },
+    {
+      "at": "backend/app/modules/printing/moonraker.py:30",
+      "looks_like": "http",
+      "text": "return await get_http_client().request(*args, **kwargs)"
+    },
+    {
+      "at": "backend/app/modules/printing/moonraker.py:33",
+      "looks_like": "http",
+      "text": "return await get_http_client().post(*args, **kwargs)"
+    },
+    {
+      "at": "backend/app/modules/printing/spoolman.py:80",
+      "looks_like": "http",
+      "text": "resp = await client.request("
+    },
+    {
+      "at": "backend/app/modules/printing/spoolman.py:181",
+      "looks_like": "http",
+      "text": "resp = httpx.put("
+    },
+    {
+      "at": "backend/app/modules/printing/spoolman.py:212",
+      "looks_like": "http",
+      "text": "resp = httpx.get(url, headers=headers, timeout=timeout)"
+    },
+    {
+      "at": "backend/app/modules/storage/remote_io_adapters.py:113",
+      "looks_like": "http",
+      "text": "return httpx.request(method, url, **kwargs)"
+    },
+    {
+      "at": "backend/app/modules/storage/webdav_listing.py:75",
+      "looks_like": "http",
+      "text": "with httpx.stream("
+    },
+    {
+      "at": "backend/packages/printstash-core/src/printstash_core/printers/moonraker.py:108",
+      "looks_like": "http",
+      "text": "response = await self._http_client.request("
+    },
+    {
+      "at": "backend/packages/printstash-core/src/printstash_core/printers/moonraker.py:215",
+      "looks_like": "http",
+      "text": "response = await self._http_client.post("
+    },
+    {
+      "at": "backend/packages/printstash-core/src/printstash_core/printers/octoprint.py:89",
+      "looks_like": "http",
+      "text": "response = await client.request(method, path, **kwargs)"
+    },
+    {
+      "at": "backend/packages/printstash-core/src/printstash_core/printers/prusalink.py:117",
+      "looks_like": "http",
+      "text": "response = await client.request(method, path, **kwargs)"
+    },
+    {
+      "at": "backend/packages/printstash-core/src/printstash_core_testkit/mock_printer.py:273",
+      "looks_like": "route",
+      "text": "@app.websocket(\"/websocket\")"
+    }
+  ],
+  "seconds": 31.16
+}

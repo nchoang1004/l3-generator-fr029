@@ -1,0 +1,80 @@
+{
+  "routes": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 11,
+    "precision": null,
+    "recall": 0.0,
+    "false_positive": [],
+    "false_negative": [
+      "('DELETE', '/items/{item_id}', 'app/routes.py:47')",
+      "('GET', '/go', 'app/routes.py:67')",
+      "('GET', '/items', 'app/routes.py:13')",
+      "('GET', '/items/{item_id}', 'app/routes.py:18')",
+      "('GET', '/items/{item_id}/full', 'app/routes.py:27')",
+      "('GET', '/legacy/items/{code}', 'app/routes.py:62')",
+      "('PATCH', '/items/{item_id}/tag', 'app/routes.py:42')",
+      "('POST', '/items', 'app/routes.py:32')",
+      "('POST', '/login', 'app/routes.py:57')",
+      "('POST', '/uploads', 'app/routes.py:52')",
+      "('PUT', '/items/{item_id}', 'app/routes.py:37')"
+    ],
+    "attributes": {
+      "params": {
+        "correct": 0,
+        "wrong": []
+      },
+      "request_body": {
+        "correct": 0,
+        "wrong": []
+      },
+      "response": {
+        "correct": 0,
+        "wrong": []
+      },
+      "status": {
+        "correct": 0,
+        "wrong": []
+      }
+    }
+  },
+  "models": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 5,
+    "precision": null,
+    "recall": 0.0,
+    "false_positive": [],
+    "false_negative": [
+      "('app/schemas/items.py', 'Item')",
+      "('app/schemas/items.py', 'ItemCreate')",
+      "('app/schemas/items.py', 'ItemPublic')",
+      "('app/schemas/items.py', 'Tag')",
+      "('app/schemas/legacy.py', 'Item')"
+    ],
+    "attributes": {
+      "fields": {
+        "correct": 0,
+        "wrong": []
+      }
+    }
+  },
+  "http_calls": {
+    "status": "not_evaluated",
+    "reason": "Gold không có mục này"
+  },
+  "file_roles": {
+    "status": "not_evaluated",
+    "reason": "Gold không có mục này"
+  },
+  "limitations": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {}
+  }
+}

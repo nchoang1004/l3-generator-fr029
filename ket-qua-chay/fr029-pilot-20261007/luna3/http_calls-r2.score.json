@@ -1,0 +1,104 @@
+{
+  "routes": {
+    "tp": 3,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "params": {
+        "correct": 3,
+        "wrong": []
+      },
+      "request_body": {
+        "correct": 3,
+        "wrong": []
+      },
+      "response": {
+        "correct": 3,
+        "wrong": []
+      },
+      "status": {
+        "correct": 3,
+        "wrong": []
+      }
+    }
+  },
+  "models": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "fields": {
+        "correct": 0,
+        "wrong": []
+      }
+    }
+  },
+  "http_calls": {
+    "tp": 11,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "library": {
+        "correct": 11,
+        "wrong": []
+      },
+      "method": {
+        "correct": 11,
+        "wrong": []
+      },
+      "target": {
+        "correct": 9,
+        "wrong": [
+          {
+            "key": "app/clients.py:23",
+            "got": [
+              "config",
+              "settings.INVENTORY_URL"
+            ],
+            "want": [
+              "config",
+              "INVENTORY_URL"
+            ]
+          },
+          {
+            "key": "app/clients.py:46",
+            "got": [
+              "config",
+              "settings.PAYMENT_URL"
+            ],
+            "want": [
+              "config",
+              "PAYMENT_URL"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "file_roles": {
+    "status": "not_evaluated",
+    "reason": "Gold không có mục này"
+  },
+  "limitations": {
+    "tp": 1,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {}
+  }
+}

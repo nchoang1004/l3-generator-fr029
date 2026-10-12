@@ -1,0 +1,33 @@
+Reading additional input from stdin...
+OpenAI Codex v0.160.0
+--------
+workdir: D:\VSF
+model: gpt-6-astra
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: high
+reasoning summaries: none
+session id: 01a12c2c-f891-7c40-9d28-9438ffc26b26
+--------
+user
+Đọc kỹ và làm đúng theo đề bài trong file D:\VSF\l3-generator-l3\ket-qua-chay\heldout-orderflow-20261012\judge-brief.md. Vì bạn chạy ở chế độ chỉ đọc, KHÔNG ghi file: thay vào đó in toàn bộ nội dung report.md ra stdout, sau đó một dòng đúng ===SUMMARY===, rồi in nội dung summary.json (JSON hợp lệ). Tuân thủ nghiêm phần 'Không được đọc'.
+2026-10-11T18:15:09.809795Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses
+2026-10-11T18:15:13.571229Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses
+2026-10-11T18:15:13.894104Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses
+ERROR: Reconnecting... 2/5
+2026-10-11T18:15:14.459743Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses
+ERROR: Reconnecting... 3/5
+2026-10-11T18:15:15.433636Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses
+ERROR: Reconnecting... 4/5
+2026-10-11T18:15:17.035245Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses
+ERROR: Reconnecting... 5/5
+2026-10-11T18:15:20.219467Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses
+warning: Falling back from WebSockets to HTTPS transport. unexpected status 401 Unauthorized: Missing bearer or basic authentication in header, url: wss://api.openai.com/v1/responses, cf-ray: a48fd979be1f85af-HKG
+ERROR: Reconnecting... 1/5
+ERROR: Reconnecting... 2/5
+ERROR: Reconnecting... 3/5
+ERROR: Reconnecting... 4/5
+ERROR: Reconnecting... 5/5
+ERROR: unexpected status 401 Unauthorized: Missing bearer or basic authentication in header, url: https://api.openai.com/v1/responses, cf-ray: a48fd9ad18dc02ce-HKG, request id: req_44632d0d00a04008a64cf4565a4741b4
+ERROR: unexpected status 401 Unauthorized: Missing bearer or basic authentication in header, url: https://api.openai.com/v1/responses, cf-ray: a48fd9ad18dc02ce-HKG, request id: req_44632d0d00a04008a64cf4565a4741b4

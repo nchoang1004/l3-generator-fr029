@@ -1,0 +1,14 @@
+routes: TP 23 FP 0 FN 0
+  handler: đúng 23/23
+  params: đúng 23/23
+  request_body: đúng 23/23
+  response: đúng 23/23
+  status: đúng 23/23
+models: TP 9 FP 0 FN 0
+  fields: đúng 9/9
+http_calls: TP 2 FP 0 FN 0
+  library: đúng 2/2
+  method: đúng 1/2, unknown chấp nhận 1
+  target: đúng 0/2, unknown chấp nhận 2
+file_roles: not_evaluated — Gold không có mục này
+limitations: TP 0 FP 0 FN 0

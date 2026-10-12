@@ -1,0 +1,18 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos\\rafsaf_minimal-fastapi-postgres-template",
+  "files": 19,
+  "route_decorators": 8,
+  "decorators_refused": [],
+  "dependencies": {
+    "dependencies.get_current_user": {
+      "first_use": "app/auth/views.py:33",
+      "params": []
+    },
+    "new_async_session": {
+      "first_use": "app/auth/views.py:45",
+      "params": []
+    }
+  },
+  "suspects": [],
+  "seconds": 0.16
+}

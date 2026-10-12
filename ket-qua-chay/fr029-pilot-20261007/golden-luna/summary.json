@@ -1,0 +1,208 @@
+{
+  "model": "gpt-6-luna",
+  "cases": 19,
+  "failed": 0,
+  "tp": 39,
+  "fp": 3,
+  "fn": 1,
+  "cost_usd": 0.0699,
+  "rows": [
+    {
+      "case": "orders-base",
+      "family": "orders-fixture",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0014,
+      "tp": 1,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "orders-prefix",
+      "family": "orders-fixture",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0013,
+      "tp": 1,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "orders-two-apps",
+      "family": "orders-fixture",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0015,
+      "tp": 1,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "orders-wrapper-real",
+      "family": "orders-fixture",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0034,
+      "tp": 0,
+      "fp": [
+        "('POST', '/orders', 'routes.py::create_order_endpoint')",
+        "('POST', None, 'routes.py::create_order_endpoint')"
+      ],
+      "fn": [
+        "('POST', '/api/v1/orders', 'routes.py::create_order_endpoint')"
+      ]
+    },
+    {
+      "case": "orders-wrapper-fake",
+      "family": "orders-fixture",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0024,
+      "tp": 0,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "orders-dynamic-prefix",
+      "family": "orders-fixture",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0015,
+      "tp": 1,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "dispatch-case-read",
+      "family": "netflix-dispatch",
+      "status": "partial",
+      "reason": "BUDGET_TOKENS: hết token",
+      "cost_usd": 0.047,
+      "tp": 18,
+      "fp": [
+        "('GET', '/api/v1/healthcheck', 'src/dispatch/api.py::healthcheck')"
+      ],
+      "fn": []
+    },
+    {
+      "case": "fastapi-docs-body_updates-tutorial001",
+      "family": "fastapi-docs",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0007,
+      "tp": 2,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "fastapi-docs-first_steps-tutorial001",
+      "family": "fastapi-docs",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0003,
+      "tp": 1,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "fastapi-docs-handling_errors-tutorial001",
+      "family": "fastapi-docs",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0005,
+      "tp": 1,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "fastapi-docs-path_params-tutorial001",
+      "family": "fastapi-docs",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0004,
+      "tp": 1,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "fastapi-docs-query_params_str_validations-tutorial001",
+      "family": "fastapi-docs",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0005,
+      "tp": 1,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "fastapi-docs-schema_extra_example-tutorial001",
+      "family": "fastapi-docs",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0006,
+      "tp": 1,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "orders-conditional-route",
+      "family": "orders-fixture",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0012,
+      "tp": 1,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "orders-derived-tablename",
+      "family": "orders-fixture",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0012,
+      "tp": 1,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "orders-mount",
+      "family": "orders-fixture",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0012,
+      "tp": 1,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "orders-plugin-import",
+      "family": "orders-fixture",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0018,
+      "tp": 2,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "orders-runtime-dispatch",
+      "family": "orders-fixture",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0018,
+      "tp": 4,
+      "fp": [],
+      "fn": []
+    },
+    {
+      "case": "orders-syntax-error",
+      "family": "orders-fixture",
+      "status": "completed",
+      "reason": "",
+      "cost_usd": 0.0013,
+      "tp": 1,
+      "fp": [],
+      "fn": []
+    }
+  ]
+}

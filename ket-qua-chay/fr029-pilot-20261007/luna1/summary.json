@@ -1,0 +1,243 @@
+[
+  {
+    "fixture": "prefix_chain",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "failed",
+    "error": "IncompleteRead: IncompleteRead(0 bytes read, 16703 more expected)",
+    "trace": "Traceback (most recent call last):\n  File \"D:\\VSF\\l3-generator-l3\\slice\\tools\\fr029_pilot.py\", line 39, in one\n    bundle = run_documents(FIXTURES / name, out, FIXTURES / f\"{name}.membership.json\", name, provider,\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docpipeline.py\", line 105, in run_documents\n    agent = run_agent(tools, claims, components, provider, budget)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docagent.py\", line 444, in run_agent\n    reply = provider.chat(wire, TOOL_SPECS)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docagent.py\", line 276, in chat\n    body = self._post(payload)\n           ^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docagent.py\", line 307, in _post\n    return json.loads(resp.read())\n                      ^^^^^^^^^^^\n  File \"C:\\Users\\dell\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\http\\client.py\", line 489, in read\n    s = self._safe_read(self.length)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\dell\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\http\\client.py\", line 640, in _safe_read\n    raise IncompleteRead(data, amt-len(data))\nhttp.client.IncompleteRead: IncompleteRead(0 bytes read, 16703 more expected)\n"
+  },
+  {
+    "fixture": "params_models",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "failed",
+    "error": "IncompleteRead: IncompleteRead(0 bytes read, 17597 more expected)",
+    "trace": "Traceback (most recent call last):\n  File \"D:\\VSF\\l3-generator-l3\\slice\\tools\\fr029_pilot.py\", line 39, in one\n    bundle = run_documents(FIXTURES / name, out, FIXTURES / f\"{name}.membership.json\", name, provider,\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docpipeline.py\", line 105, in run_documents\n    agent = run_agent(tools, claims, components, provider, budget)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docagent.py\", line 444, in run_agent\n    reply = provider.chat(wire, TOOL_SPECS)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docagent.py\", line 276, in chat\n    body = self._post(payload)\n           ^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docagent.py\", line 307, in _post\n    return json.loads(resp.read())\n                      ^^^^^^^^^^^\n  File \"C:\\Users\\dell\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\http\\client.py\", line 489, in read\n    s = self._safe_read(self.length)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\dell\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\http\\client.py\", line 640, in _safe_read\n    raise IncompleteRead(data, amt-len(data))\nhttp.client.IncompleteRead: IncompleteRead(0 bytes read, 17597 more expected)\n"
+  },
+  {
+    "fixture": "pydantic_v1",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "failed",
+    "error": "IncompleteRead: IncompleteRead(2738 bytes read, 16740 more expected)",
+    "trace": "Traceback (most recent call last):\n  File \"D:\\VSF\\l3-generator-l3\\slice\\tools\\fr029_pilot.py\", line 39, in one\n    bundle = run_documents(FIXTURES / name, out, FIXTURES / f\"{name}.membership.json\", name, provider,\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docpipeline.py\", line 105, in run_documents\n    agent = run_agent(tools, claims, components, provider, budget)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docagent.py\", line 444, in run_agent\n    reply = provider.chat(wire, TOOL_SPECS)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docagent.py\", line 276, in chat\n    body = self._post(payload)\n           ^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docagent.py\", line 307, in _post\n    return json.loads(resp.read())\n                      ^^^^^^^^^^^\n  File \"C:\\Users\\dell\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\http\\client.py\", line 489, in read\n    s = self._safe_read(self.length)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\dell\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\http\\client.py\", line 640, in _safe_read\n    raise IncompleteRead(data, amt-len(data))\nhttp.client.IncompleteRead: IncompleteRead(2738 bytes read, 16740 more expected)\n"
+  },
+  {
+    "fixture": "exclusions",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 10,
+    "tokens_in": 43666,
+    "tokens_out": 1730,
+    "waited_s": 0,
+    "seconds": 37,
+    "cost_usd": 0.0016,
+    "coverage_complete": true,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 1,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 1,
+            "wrong": []
+          },
+          "response": {
+            "correct": 0,
+            "wrong": [
+              {
+                "key": "('GET', '/orders', 'app/routers/orders.py:8')",
+                "got": "unknown",
+                "want": null
+              }
+            ]
+          },
+          "status": {
+            "correct": 1,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      },
+      "out_of_scope": {
+        "ok": true,
+        "got": {
+          "test": 3,
+          "conditional_out": 1
+        },
+        "want": {
+          "test": 3,
+          "conditional_out": 1
+        }
+      }
+    }
+  },
+  {
+    "fixture": "http_calls",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "failed",
+    "error": "IncompleteRead: IncompleteRead(0 bytes read, 16712 more expected)",
+    "trace": "Traceback (most recent call last):\n  File \"D:\\VSF\\l3-generator-l3\\slice\\tools\\fr029_pilot.py\", line 39, in one\n    bundle = run_documents(FIXTURES / name, out, FIXTURES / f\"{name}.membership.json\", name, provider,\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docpipeline.py\", line 105, in run_documents\n    agent = run_agent(tools, claims, components, provider, budget)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docagent.py\", line 444, in run_agent\n    reply = provider.chat(wire, TOOL_SPECS)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docagent.py\", line 276, in chat\n    body = self._post(payload)\n           ^^^^^^^^^^^^^^^^^^^\n  File \"D:\\VSF\\l3-generator-l3\\slice\\l3slice\\docagent.py\", line 307, in _post\n    return json.loads(resp.read())\n                      ^^^^^^^^^^^\n  File \"C:\\Users\\dell\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\http\\client.py\", line 489, in read\n    s = self._safe_read(self.length)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\dell\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\http\\client.py\", line 640, in _safe_read\n    raise IncompleteRead(data, amt-len(data))\nhttp.client.IncompleteRead: IncompleteRead(0 bytes read, 16712 more expected)\n"
+  },
+  {
+    "fixture": "file_roles",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 16,
+    "tokens_in": 99175,
+    "tokens_out": 4143,
+    "waited_s": 0,
+    "seconds": 73,
+    "cost_usd": 0.0037,
+    "coverage_complete": true,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 0,
+        "fp": 3,
+        "fn": 3,
+        "precision": 0.0,
+        "recall": 0.0,
+        "false_positive": [
+          "('GET', None, 'app/api/orders.py:15')",
+          "('GET', None, 'app/api/reports.py:10')",
+          "('POST', None, 'app/api/orders.py:10')"
+        ],
+        "false_negative": [
+          "('GET', '/orders/{order_id}', 'app/api/orders.py:15')",
+          "('GET', '/reports/daily', 'app/api/reports.py:10')",
+          "('POST', '/orders', 'app/api/orders.py:10')"
+        ],
+        "attributes": {
+          "params": {
+            "correct": 0,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 0,
+            "wrong": []
+          },
+          "response": {
+            "correct": 0,
+            "wrong": []
+          },
+          "status": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 2,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "tp": 10,
+        "fp": 2,
+        "fn": 0,
+        "precision": 0.8333333333333334,
+        "recall": 1.0,
+        "false_positive": [
+          "app/__init__.py",
+          "app/api/__init__.py"
+        ],
+        "false_negative": [],
+        "attributes": {
+          "role": {
+            "correct": 10,
+            "wrong": []
+          },
+          "label": {
+            "correct": 10,
+            "wrong": []
+          },
+          "line": {
+            "correct": 10,
+            "wrong": []
+          }
+        }
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  }
+]

@@ -1,0 +1,1692 @@
+{
+  "snapshot": {
+    "schema_version": "0.1.0",
+    "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+    "files": [
+      {
+        "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+        "path": "api/routes.py",
+        "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+        "byte_size": 162,
+        "encoding": "utf-8"
+      },
+      {
+        "file_id": "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d",
+        "path": "storage/models.py",
+        "sha256": "e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d",
+        "byte_size": 233,
+        "encoding": "utf-8"
+      }
+    ],
+    "excluded": []
+  },
+  "inventory": {
+    "schema_version": "0.1.0",
+    "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+    "support_matrix_version": "fixture-only-v1",
+    "grouping_policy_version": "fixture-membership-v1",
+    "outcome": "ready",
+    "units": [
+      {
+        "id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+        "root_path": ".",
+        "language": "Python",
+        "framework": "FastAPI/SQLAlchemy",
+        "support": "partial",
+        "file_ids": [
+          "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+          "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d"
+        ],
+        "flat": false
+      }
+    ],
+    "excluded": [],
+    "limitations": []
+  },
+  "facts": {
+    "schema_version": "0.1.0",
+    "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+    "extractor_version": "fixture-manual-v1",
+    "facts": [
+      {
+        "id": "fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599",
+        "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+        "kind": "reference",
+        "attributes": {
+          "reference_kind": {
+            "state": "known",
+            "value": "call",
+            "evidence_ids": [
+              "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957"
+            ]
+          },
+          "source_symbol": {
+            "state": "known",
+            "value": "api.routes.list_items",
+            "evidence_ids": [
+              "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957"
+            ]
+          },
+          "target_symbol": {
+            "state": "known",
+            "value": "storage.models.load_items",
+            "evidence_ids": [
+              "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957"
+            ]
+          }
+        },
+        "evidence": [
+          {
+            "id": "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+            "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+            "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+            "path": "api/routes.py",
+            "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+            "start_line": 8,
+            "end_line": 8,
+            "start_column": null,
+            "end_column": null
+          }
+        ],
+        "resolution": "resolved",
+        "target_fact_ids": [
+          "fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b"
+        ],
+        "confidence": "exact",
+        "completeness": "full"
+      },
+      {
+        "id": "fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b",
+        "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+        "kind": "symbol",
+        "attributes": {
+          "name": {
+            "state": "known",
+            "value": "storage.models.load_items",
+            "evidence_ids": [
+              "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+            ]
+          },
+          "symbol_kind": {
+            "state": "known",
+            "value": "function",
+            "evidence_ids": [
+              "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+            ]
+          },
+          "signature": {
+            "state": "known",
+            "value": "load_items()",
+            "evidence_ids": [
+              "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+            ]
+          }
+        },
+        "evidence": [
+          {
+            "id": "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a",
+            "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+            "file_id": "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d",
+            "path": "storage/models.py",
+            "sha256": "e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d",
+            "start_line": 10,
+            "end_line": 11,
+            "start_column": null,
+            "end_column": null
+          }
+        ],
+        "resolution": "not_applicable",
+        "target_fact_ids": [],
+        "confidence": "exact",
+        "completeness": "full"
+      },
+      {
+        "id": "fact:429323c961f66744ccabb27e97bb60d39efd99589744c737059ed8069c2cbb9a",
+        "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+        "kind": "symbol",
+        "attributes": {
+          "name": {
+            "state": "known",
+            "value": "api.routes.list_items",
+            "evidence_ids": [
+              "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+            ]
+          },
+          "symbol_kind": {
+            "state": "known",
+            "value": "function",
+            "evidence_ids": [
+              "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+            ]
+          },
+          "signature": {
+            "state": "known",
+            "value": "list_items()",
+            "evidence_ids": [
+              "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+            ]
+          }
+        },
+        "evidence": [
+          {
+            "id": "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f",
+            "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+            "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+            "path": "api/routes.py",
+            "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+            "start_line": 7,
+            "end_line": 8,
+            "start_column": null,
+            "end_column": null
+          }
+        ],
+        "resolution": "not_applicable",
+        "target_fact_ids": [],
+        "confidence": "exact",
+        "completeness": "full"
+      },
+      {
+        "id": "fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7",
+        "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+        "kind": "route",
+        "attributes": {
+          "method": {
+            "state": "known",
+            "value": "GET",
+            "evidence_ids": [
+              "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+            ]
+          },
+          "path": {
+            "state": "known",
+            "value": "/items",
+            "evidence_ids": [
+              "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+            ]
+          },
+          "handler": {
+            "state": "known",
+            "value": "api.routes.list_items",
+            "evidence_ids": [
+              "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+            ]
+          },
+          "registration_context": {
+            "state": "known",
+            "value": "api.routes.app:GET:/items",
+            "evidence_ids": [
+              "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+            ]
+          },
+          "request_model_ids": {
+            "state": "known",
+            "value": [],
+            "evidence_ids": [
+              "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+            ]
+          },
+          "status_codes": {
+            "state": "known",
+            "value": [
+              200
+            ],
+            "evidence_ids": [
+              "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+            ]
+          },
+          "parameters": {
+            "state": "known",
+            "value": [],
+            "evidence_ids": [
+              "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+            ]
+          },
+          "handler_fact_id": {
+            "state": "known",
+            "value": "fact:429323c961f66744ccabb27e97bb60d39efd99589744c737059ed8069c2cbb9a",
+            "evidence_ids": [
+              "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+            ]
+          },
+          "application_id": {
+            "state": "known",
+            "value": "app:api.routes.app",
+            "evidence_ids": [
+              "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+            ]
+          },
+          "declaration_evidence_id": {
+            "state": "known",
+            "value": "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e",
+            "evidence_ids": [
+              "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+            ]
+          },
+          "response_model_ids": {
+            "state": "unknown",
+            "reason": "Fixture does not infer an implicit response model"
+          },
+          "auth": {
+            "state": "unknown",
+            "reason": "Fixture does not inspect all authentication mechanisms"
+          }
+        },
+        "evidence": [
+          {
+            "id": "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e",
+            "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+            "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+            "path": "api/routes.py",
+            "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+            "start_line": 4,
+            "end_line": 8,
+            "start_column": null,
+            "end_column": null
+          }
+        ],
+        "resolution": "not_applicable",
+        "target_fact_ids": [],
+        "confidence": "exact",
+        "completeness": "partial",
+        "completeness_reason": "Response model and authentication not determined in fixture"
+      },
+      {
+        "id": "fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da",
+        "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+        "kind": "table",
+        "attributes": {
+          "name": {
+            "state": "known",
+            "value": "items",
+            "evidence_ids": [
+              "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+            ]
+          },
+          "dialect": {
+            "state": "unknown",
+            "reason": "No engine or dialect in these files"
+          },
+          "columns": {
+            "state": "known",
+            "value": [
+              {
+                "name": {
+                  "state": "known",
+                  "value": "id",
+                  "evidence_ids": [
+                    "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+                  ]
+                },
+                "type": {
+                  "state": "unknown",
+                  "reason": "No SQL dialect established"
+                },
+                "primary_key": {
+                  "state": "known",
+                  "value": true,
+                  "evidence_ids": [
+                    "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+                  ]
+                },
+                "foreign_key": {
+                  "state": "unknown",
+                  "reason": "Not established by this hand-authored fixture"
+                },
+                "nullable": {
+                  "state": "unknown",
+                  "reason": "Not established by this hand-authored fixture"
+                }
+              }
+            ],
+            "evidence_ids": [
+              "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+            ]
+          },
+          "declaration_evidence_id": {
+            "state": "known",
+            "value": "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f",
+            "evidence_ids": [
+              "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+            ]
+          }
+        },
+        "evidence": [
+          {
+            "id": "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f",
+            "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+            "file_id": "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d",
+            "path": "storage/models.py",
+            "sha256": "e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d",
+            "start_line": 6,
+            "end_line": 8,
+            "start_column": null,
+            "end_column": null
+          }
+        ],
+        "resolution": "not_applicable",
+        "target_fact_ids": [],
+        "confidence": "exact",
+        "completeness": "partial",
+        "completeness_reason": "SQL dialect and column details are unknown"
+      }
+    ],
+    "limitations": [
+      {
+        "code": "FIXTURE_PARTIAL",
+        "message": "Hand-authored subset; no extraction was run",
+        "stage": "extraction",
+        "affected_ids": [
+          "fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7",
+          "fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da"
+        ]
+      }
+    ]
+  },
+  "architecture": {
+    "schema_version": "0.1.0",
+    "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+    "partition_version": "fixture-membership-v1",
+    "components": [
+      {
+        "id": "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+        "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+        "name": "api",
+        "member_file_ids": [
+          "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621"
+        ],
+        "grouping_source": "code",
+        "confidence": "inferred",
+        "inference_reason": "Membership preassigned by fixture, not an evaluated partition algorithm",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+          "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e",
+          "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+        ],
+        "label_status": "path_fallback"
+      },
+      {
+        "id": "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e",
+        "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+        "name": "storage",
+        "member_file_ids": [
+          "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d"
+        ],
+        "grouping_source": "code",
+        "confidence": "inferred",
+        "inference_reason": "Membership preassigned by fixture, not an evaluated partition algorithm",
+        "completeness": "full",
+        "evidence_ids": [
+          "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f",
+          "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+        ],
+        "label_status": "path_fallback"
+      }
+    ],
+    "external_systems": [],
+    "edges": [
+      {
+        "id": "edge_8953d0f2eb22c29c16a5c0b411daa30071a4535354bbc04564eb20fe26ad0d8f",
+        "source_component_id": "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+        "target_component_id": "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e",
+        "relation_type": "calls",
+        "fact_ids": [
+          "fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b",
+          "fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599"
+        ],
+        "evidence_ids": [
+          "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+          "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+        ],
+        "origin": "static",
+        "confidence": "exact",
+        "completeness": "full",
+        "rule_id": "resolved-target",
+        "rule_version": "1-draft"
+      }
+    ],
+    "contract_owners": [
+      {
+        "fact_id": "fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7",
+        "contract_kind": "api",
+        "component_id": "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+        "rule_id": "declaration-file",
+        "rule_version": "1-draft",
+        "evidence_ids": [
+          "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+        ]
+      },
+      {
+        "fact_id": "fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da",
+        "contract_kind": "table",
+        "component_id": "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e",
+        "rule_id": "declaration-file",
+        "rule_version": "1-draft",
+        "evidence_ids": [
+          "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "code": "MODEL_NOT_RUN",
+        "message": "Contract fixture; no provider invoked",
+        "stage": "model",
+        "affected_ids": [
+          "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+          "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e"
+        ]
+      }
+    ],
+    "rejected_proposals": []
+  },
+  "verified": {
+    "schema_version": "0.1.0",
+    "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+    "inventory": {
+      "schema_version": "0.1.0",
+      "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+      "support_matrix_version": "fixture-only-v1",
+      "grouping_policy_version": "fixture-membership-v1",
+      "outcome": "ready",
+      "units": [
+        {
+          "id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+          "root_path": ".",
+          "language": "Python",
+          "framework": "FastAPI/SQLAlchemy",
+          "support": "partial",
+          "file_ids": [
+            "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+            "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d"
+          ],
+          "flat": false
+        }
+      ],
+      "excluded": [],
+      "limitations": []
+    },
+    "facts": {
+      "schema_version": "0.1.0",
+      "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+      "extractor_version": "fixture-manual-v1",
+      "facts": [
+        {
+          "id": "fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599",
+          "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+          "kind": "reference",
+          "attributes": {
+            "reference_kind": {
+              "state": "known",
+              "value": "call",
+              "evidence_ids": [
+                "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957"
+              ]
+            },
+            "source_symbol": {
+              "state": "known",
+              "value": "api.routes.list_items",
+              "evidence_ids": [
+                "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957"
+              ]
+            },
+            "target_symbol": {
+              "state": "known",
+              "value": "storage.models.load_items",
+              "evidence_ids": [
+                "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957"
+              ]
+            }
+          },
+          "evidence": [
+            {
+              "id": "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+              "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+              "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+              "path": "api/routes.py",
+              "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+              "start_line": 8,
+              "end_line": 8,
+              "start_column": null,
+              "end_column": null
+            }
+          ],
+          "resolution": "resolved",
+          "target_fact_ids": [
+            "fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b"
+          ],
+          "confidence": "exact",
+          "completeness": "full"
+        },
+        {
+          "id": "fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b",
+          "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+          "kind": "symbol",
+          "attributes": {
+            "name": {
+              "state": "known",
+              "value": "storage.models.load_items",
+              "evidence_ids": [
+                "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+              ]
+            },
+            "symbol_kind": {
+              "state": "known",
+              "value": "function",
+              "evidence_ids": [
+                "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+              ]
+            },
+            "signature": {
+              "state": "known",
+              "value": "load_items()",
+              "evidence_ids": [
+                "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+              ]
+            }
+          },
+          "evidence": [
+            {
+              "id": "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a",
+              "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+              "file_id": "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d",
+              "path": "storage/models.py",
+              "sha256": "e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d",
+              "start_line": 10,
+              "end_line": 11,
+              "start_column": null,
+              "end_column": null
+            }
+          ],
+          "resolution": "not_applicable",
+          "target_fact_ids": [],
+          "confidence": "exact",
+          "completeness": "full"
+        },
+        {
+          "id": "fact:429323c961f66744ccabb27e97bb60d39efd99589744c737059ed8069c2cbb9a",
+          "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+          "kind": "symbol",
+          "attributes": {
+            "name": {
+              "state": "known",
+              "value": "api.routes.list_items",
+              "evidence_ids": [
+                "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+              ]
+            },
+            "symbol_kind": {
+              "state": "known",
+              "value": "function",
+              "evidence_ids": [
+                "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+              ]
+            },
+            "signature": {
+              "state": "known",
+              "value": "list_items()",
+              "evidence_ids": [
+                "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+              ]
+            }
+          },
+          "evidence": [
+            {
+              "id": "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f",
+              "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+              "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+              "path": "api/routes.py",
+              "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+              "start_line": 7,
+              "end_line": 8,
+              "start_column": null,
+              "end_column": null
+            }
+          ],
+          "resolution": "not_applicable",
+          "target_fact_ids": [],
+          "confidence": "exact",
+          "completeness": "full"
+        },
+        {
+          "id": "fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7",
+          "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+          "kind": "route",
+          "attributes": {
+            "method": {
+              "state": "known",
+              "value": "GET",
+              "evidence_ids": [
+                "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+              ]
+            },
+            "path": {
+              "state": "known",
+              "value": "/items",
+              "evidence_ids": [
+                "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+              ]
+            },
+            "handler": {
+              "state": "known",
+              "value": "api.routes.list_items",
+              "evidence_ids": [
+                "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+              ]
+            },
+            "registration_context": {
+              "state": "known",
+              "value": "api.routes.app:GET:/items",
+              "evidence_ids": [
+                "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+              ]
+            },
+            "request_model_ids": {
+              "state": "known",
+              "value": [],
+              "evidence_ids": [
+                "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+              ]
+            },
+            "status_codes": {
+              "state": "known",
+              "value": [
+                200
+              ],
+              "evidence_ids": [
+                "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+              ]
+            },
+            "parameters": {
+              "state": "known",
+              "value": [],
+              "evidence_ids": [
+                "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+              ]
+            },
+            "handler_fact_id": {
+              "state": "known",
+              "value": "fact:429323c961f66744ccabb27e97bb60d39efd99589744c737059ed8069c2cbb9a",
+              "evidence_ids": [
+                "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+              ]
+            },
+            "application_id": {
+              "state": "known",
+              "value": "app:api.routes.app",
+              "evidence_ids": [
+                "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+              ]
+            },
+            "declaration_evidence_id": {
+              "state": "known",
+              "value": "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e",
+              "evidence_ids": [
+                "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+              ]
+            },
+            "response_model_ids": {
+              "state": "unknown",
+              "reason": "Fixture does not infer an implicit response model"
+            },
+            "auth": {
+              "state": "unknown",
+              "reason": "Fixture does not inspect all authentication mechanisms"
+            }
+          },
+          "evidence": [
+            {
+              "id": "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e",
+              "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+              "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+              "path": "api/routes.py",
+              "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+              "start_line": 4,
+              "end_line": 8,
+              "start_column": null,
+              "end_column": null
+            }
+          ],
+          "resolution": "not_applicable",
+          "target_fact_ids": [],
+          "confidence": "exact",
+          "completeness": "partial",
+          "completeness_reason": "Response model and authentication not determined in fixture"
+        },
+        {
+          "id": "fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da",
+          "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+          "kind": "table",
+          "attributes": {
+            "name": {
+              "state": "known",
+              "value": "items",
+              "evidence_ids": [
+                "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+              ]
+            },
+            "dialect": {
+              "state": "unknown",
+              "reason": "No engine or dialect in these files"
+            },
+            "columns": {
+              "state": "known",
+              "value": [
+                {
+                  "name": {
+                    "state": "known",
+                    "value": "id",
+                    "evidence_ids": [
+                      "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+                    ]
+                  },
+                  "type": {
+                    "state": "unknown",
+                    "reason": "No SQL dialect established"
+                  },
+                  "primary_key": {
+                    "state": "known",
+                    "value": true,
+                    "evidence_ids": [
+                      "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+                    ]
+                  },
+                  "foreign_key": {
+                    "state": "unknown",
+                    "reason": "Not established by this hand-authored fixture"
+                  },
+                  "nullable": {
+                    "state": "unknown",
+                    "reason": "Not established by this hand-authored fixture"
+                  }
+                }
+              ],
+              "evidence_ids": [
+                "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+              ]
+            },
+            "declaration_evidence_id": {
+              "state": "known",
+              "value": "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f",
+              "evidence_ids": [
+                "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+              ]
+            }
+          },
+          "evidence": [
+            {
+              "id": "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f",
+              "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+              "file_id": "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d",
+              "path": "storage/models.py",
+              "sha256": "e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d",
+              "start_line": 6,
+              "end_line": 8,
+              "start_column": null,
+              "end_column": null
+            }
+          ],
+          "resolution": "not_applicable",
+          "target_fact_ids": [],
+          "confidence": "exact",
+          "completeness": "partial",
+          "completeness_reason": "SQL dialect and column details are unknown"
+        }
+      ],
+      "limitations": [
+        {
+          "code": "FIXTURE_PARTIAL",
+          "message": "Hand-authored subset; no extraction was run",
+          "stage": "extraction",
+          "affected_ids": [
+            "fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7",
+            "fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da"
+          ]
+        }
+      ]
+    },
+    "model": {
+      "schema_version": "0.1.0",
+      "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+      "partition_version": "fixture-membership-v1",
+      "components": [
+        {
+          "id": "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+          "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+          "name": "api",
+          "member_file_ids": [
+            "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621"
+          ],
+          "grouping_source": "code",
+          "confidence": "inferred",
+          "inference_reason": "Membership preassigned by fixture, not an evaluated partition algorithm",
+          "completeness": "full",
+          "evidence_ids": [
+            "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+            "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e",
+            "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+          ],
+          "label_status": "path_fallback"
+        },
+        {
+          "id": "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e",
+          "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+          "name": "storage",
+          "member_file_ids": [
+            "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d"
+          ],
+          "grouping_source": "code",
+          "confidence": "inferred",
+          "inference_reason": "Membership preassigned by fixture, not an evaluated partition algorithm",
+          "completeness": "full",
+          "evidence_ids": [
+            "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f",
+            "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+          ],
+          "label_status": "path_fallback"
+        }
+      ],
+      "external_systems": [],
+      "edges": [
+        {
+          "id": "edge_8953d0f2eb22c29c16a5c0b411daa30071a4535354bbc04564eb20fe26ad0d8f",
+          "source_component_id": "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+          "target_component_id": "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e",
+          "relation_type": "calls",
+          "fact_ids": [
+            "fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b",
+            "fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599"
+          ],
+          "evidence_ids": [
+            "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+            "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+          ],
+          "origin": "static",
+          "confidence": "exact",
+          "completeness": "full",
+          "rule_id": "resolved-target",
+          "rule_version": "1-draft"
+        }
+      ],
+      "contract_owners": [
+        {
+          "fact_id": "fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7",
+          "contract_kind": "api",
+          "component_id": "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+          "rule_id": "declaration-file",
+          "rule_version": "1-draft",
+          "evidence_ids": [
+            "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+          ]
+        },
+        {
+          "fact_id": "fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da",
+          "contract_kind": "table",
+          "component_id": "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e",
+          "rule_id": "declaration-file",
+          "rule_version": "1-draft",
+          "evidence_ids": [
+            "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+          ]
+        }
+      ],
+      "limitations": [
+        {
+          "code": "MODEL_NOT_RUN",
+          "message": "Contract fixture; no provider invoked",
+          "stage": "model",
+          "affected_ids": [
+            "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+            "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e"
+          ]
+        }
+      ],
+      "rejected_proposals": []
+    },
+    "evidence_index": [
+      {
+        "id": "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+        "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+        "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+        "path": "api/routes.py",
+        "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+        "start_line": 8,
+        "end_line": 8,
+        "start_column": null,
+        "end_column": null
+      },
+      {
+        "id": "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a",
+        "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+        "file_id": "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d",
+        "path": "storage/models.py",
+        "sha256": "e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d",
+        "start_line": 10,
+        "end_line": 11,
+        "start_column": null,
+        "end_column": null
+      },
+      {
+        "id": "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f",
+        "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+        "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+        "path": "api/routes.py",
+        "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+        "start_line": 7,
+        "end_line": 8,
+        "start_column": null,
+        "end_column": null
+      },
+      {
+        "id": "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e",
+        "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+        "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+        "path": "api/routes.py",
+        "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+        "start_line": 4,
+        "end_line": 8,
+        "start_column": null,
+        "end_column": null
+      },
+      {
+        "id": "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f",
+        "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+        "file_id": "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d",
+        "path": "storage/models.py",
+        "sha256": "e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d",
+        "start_line": 6,
+        "end_line": 8,
+        "start_column": null,
+        "end_column": null
+      }
+    ],
+    "decisions": [
+      {
+        "subject_id": "edge_8953d0f2eb22c29c16a5c0b411daa30071a4535354bbc04564eb20fe26ad0d8f",
+        "verdict": "accepted",
+        "rule_id": "resolved-target",
+        "rule_version": "1-draft",
+        "fact_ids": [
+          "fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b",
+          "fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599"
+        ],
+        "evidence_ids": [
+          "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+          "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+        ],
+        "reason": "Expected fixture verdict; not engine output"
+      },
+      {
+        "subject_id": "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+        "verdict": "accepted",
+        "rule_id": "MEMBER-SOURCE",
+        "rule_version": "1",
+        "fact_ids": [
+          "fact:429323c961f66744ccabb27e97bb60d39efd99589744c737059ed8069c2cbb9a",
+          "fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7",
+          "fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599"
+        ],
+        "evidence_ids": [
+          "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+          "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e",
+          "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+        ],
+        "reason": "Expected fixture membership verdict; semantic quality not evaluated"
+      },
+      {
+        "subject_id": "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e",
+        "verdict": "accepted",
+        "rule_id": "MEMBER-SOURCE",
+        "rule_version": "1",
+        "fact_ids": [
+          "fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da",
+          "fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b"
+        ],
+        "evidence_ids": [
+          "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f",
+          "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+        ],
+        "reason": "Expected fixture membership verdict; semantic quality not evaluated"
+      }
+    ],
+    "limitations": [
+      {
+        "code": "FIXTURE_PARTIAL",
+        "message": "Hand-authored subset; no extraction was run",
+        "stage": "extraction",
+        "affected_ids": [
+          "fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7",
+          "fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da"
+        ]
+      },
+      {
+        "code": "MODEL_NOT_RUN",
+        "message": "Contract fixture; no provider invoked",
+        "stage": "model",
+        "affected_ids": [
+          "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+          "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e"
+        ]
+      }
+    ]
+  },
+  "bundle": {
+    "schema_version": "0.1.0",
+    "run_id": "run_contract_example",
+    "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+    "result": {
+      "schema_version": "0.1.0",
+      "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+      "inventory": {
+        "schema_version": "0.1.0",
+        "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+        "support_matrix_version": "fixture-only-v1",
+        "grouping_policy_version": "fixture-membership-v1",
+        "outcome": "ready",
+        "units": [
+          {
+            "id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+            "root_path": ".",
+            "language": "Python",
+            "framework": "FastAPI/SQLAlchemy",
+            "support": "partial",
+            "file_ids": [
+              "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+              "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d"
+            ],
+            "flat": false
+          }
+        ],
+        "excluded": [],
+        "limitations": []
+      },
+      "facts": {
+        "schema_version": "0.1.0",
+        "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+        "extractor_version": "fixture-manual-v1",
+        "facts": [
+          {
+            "id": "fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599",
+            "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+            "kind": "reference",
+            "attributes": {
+              "reference_kind": {
+                "state": "known",
+                "value": "call",
+                "evidence_ids": [
+                  "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957"
+                ]
+              },
+              "source_symbol": {
+                "state": "known",
+                "value": "api.routes.list_items",
+                "evidence_ids": [
+                  "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957"
+                ]
+              },
+              "target_symbol": {
+                "state": "known",
+                "value": "storage.models.load_items",
+                "evidence_ids": [
+                  "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957"
+                ]
+              }
+            },
+            "evidence": [
+              {
+                "id": "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+                "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+                "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+                "path": "api/routes.py",
+                "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+                "start_line": 8,
+                "end_line": 8,
+                "start_column": null,
+                "end_column": null
+              }
+            ],
+            "resolution": "resolved",
+            "target_fact_ids": [
+              "fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b"
+            ],
+            "confidence": "exact",
+            "completeness": "full"
+          },
+          {
+            "id": "fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b",
+            "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+            "kind": "symbol",
+            "attributes": {
+              "name": {
+                "state": "known",
+                "value": "storage.models.load_items",
+                "evidence_ids": [
+                  "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+                ]
+              },
+              "symbol_kind": {
+                "state": "known",
+                "value": "function",
+                "evidence_ids": [
+                  "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+                ]
+              },
+              "signature": {
+                "state": "known",
+                "value": "load_items()",
+                "evidence_ids": [
+                  "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+                ]
+              }
+            },
+            "evidence": [
+              {
+                "id": "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a",
+                "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+                "file_id": "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d",
+                "path": "storage/models.py",
+                "sha256": "e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d",
+                "start_line": 10,
+                "end_line": 11,
+                "start_column": null,
+                "end_column": null
+              }
+            ],
+            "resolution": "not_applicable",
+            "target_fact_ids": [],
+            "confidence": "exact",
+            "completeness": "full"
+          },
+          {
+            "id": "fact:429323c961f66744ccabb27e97bb60d39efd99589744c737059ed8069c2cbb9a",
+            "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+            "kind": "symbol",
+            "attributes": {
+              "name": {
+                "state": "known",
+                "value": "api.routes.list_items",
+                "evidence_ids": [
+                  "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+                ]
+              },
+              "symbol_kind": {
+                "state": "known",
+                "value": "function",
+                "evidence_ids": [
+                  "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+                ]
+              },
+              "signature": {
+                "state": "known",
+                "value": "list_items()",
+                "evidence_ids": [
+                  "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+                ]
+              }
+            },
+            "evidence": [
+              {
+                "id": "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f",
+                "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+                "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+                "path": "api/routes.py",
+                "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+                "start_line": 7,
+                "end_line": 8,
+                "start_column": null,
+                "end_column": null
+              }
+            ],
+            "resolution": "not_applicable",
+            "target_fact_ids": [],
+            "confidence": "exact",
+            "completeness": "full"
+          },
+          {
+            "id": "fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7",
+            "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+            "kind": "route",
+            "attributes": {
+              "method": {
+                "state": "known",
+                "value": "GET",
+                "evidence_ids": [
+                  "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+                ]
+              },
+              "path": {
+                "state": "known",
+                "value": "/items",
+                "evidence_ids": [
+                  "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+                ]
+              },
+              "handler": {
+                "state": "known",
+                "value": "api.routes.list_items",
+                "evidence_ids": [
+                  "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+                ]
+              },
+              "registration_context": {
+                "state": "known",
+                "value": "api.routes.app:GET:/items",
+                "evidence_ids": [
+                  "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+                ]
+              },
+              "request_model_ids": {
+                "state": "known",
+                "value": [],
+                "evidence_ids": [
+                  "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+                ]
+              },
+              "status_codes": {
+                "state": "known",
+                "value": [
+                  200
+                ],
+                "evidence_ids": [
+                  "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+                ]
+              },
+              "parameters": {
+                "state": "known",
+                "value": [],
+                "evidence_ids": [
+                  "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+                ]
+              },
+              "handler_fact_id": {
+                "state": "known",
+                "value": "fact:429323c961f66744ccabb27e97bb60d39efd99589744c737059ed8069c2cbb9a",
+                "evidence_ids": [
+                  "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+                ]
+              },
+              "application_id": {
+                "state": "known",
+                "value": "app:api.routes.app",
+                "evidence_ids": [
+                  "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+                ]
+              },
+              "declaration_evidence_id": {
+                "state": "known",
+                "value": "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e",
+                "evidence_ids": [
+                  "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+                ]
+              },
+              "response_model_ids": {
+                "state": "unknown",
+                "reason": "Fixture does not infer an implicit response model"
+              },
+              "auth": {
+                "state": "unknown",
+                "reason": "Fixture does not inspect all authentication mechanisms"
+              }
+            },
+            "evidence": [
+              {
+                "id": "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e",
+                "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+                "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+                "path": "api/routes.py",
+                "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+                "start_line": 4,
+                "end_line": 8,
+                "start_column": null,
+                "end_column": null
+              }
+            ],
+            "resolution": "not_applicable",
+            "target_fact_ids": [],
+            "confidence": "exact",
+            "completeness": "partial",
+            "completeness_reason": "Response model and authentication not determined in fixture"
+          },
+          {
+            "id": "fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da",
+            "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+            "kind": "table",
+            "attributes": {
+              "name": {
+                "state": "known",
+                "value": "items",
+                "evidence_ids": [
+                  "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+                ]
+              },
+              "dialect": {
+                "state": "unknown",
+                "reason": "No engine or dialect in these files"
+              },
+              "columns": {
+                "state": "known",
+                "value": [
+                  {
+                    "name": {
+                      "state": "known",
+                      "value": "id",
+                      "evidence_ids": [
+                        "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+                      ]
+                    },
+                    "type": {
+                      "state": "unknown",
+                      "reason": "No SQL dialect established"
+                    },
+                    "primary_key": {
+                      "state": "known",
+                      "value": true,
+                      "evidence_ids": [
+                        "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+                      ]
+                    },
+                    "foreign_key": {
+                      "state": "unknown",
+                      "reason": "Not established by this hand-authored fixture"
+                    },
+                    "nullable": {
+                      "state": "unknown",
+                      "reason": "Not established by this hand-authored fixture"
+                    }
+                  }
+                ],
+                "evidence_ids": [
+                  "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+                ]
+              },
+              "declaration_evidence_id": {
+                "state": "known",
+                "value": "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f",
+                "evidence_ids": [
+                  "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+                ]
+              }
+            },
+            "evidence": [
+              {
+                "id": "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f",
+                "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+                "file_id": "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d",
+                "path": "storage/models.py",
+                "sha256": "e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d",
+                "start_line": 6,
+                "end_line": 8,
+                "start_column": null,
+                "end_column": null
+              }
+            ],
+            "resolution": "not_applicable",
+            "target_fact_ids": [],
+            "confidence": "exact",
+            "completeness": "partial",
+            "completeness_reason": "SQL dialect and column details are unknown"
+          }
+        ],
+        "limitations": [
+          {
+            "code": "FIXTURE_PARTIAL",
+            "message": "Hand-authored subset; no extraction was run",
+            "stage": "extraction",
+            "affected_ids": [
+              "fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7",
+              "fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da"
+            ]
+          }
+        ]
+      },
+      "model": {
+        "schema_version": "0.1.0",
+        "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+        "partition_version": "fixture-membership-v1",
+        "components": [
+          {
+            "id": "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+            "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+            "name": "api",
+            "member_file_ids": [
+              "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621"
+            ],
+            "grouping_source": "code",
+            "confidence": "inferred",
+            "inference_reason": "Membership preassigned by fixture, not an evaluated partition algorithm",
+            "completeness": "full",
+            "evidence_ids": [
+              "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+              "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e",
+              "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+            ],
+            "label_status": "path_fallback"
+          },
+          {
+            "id": "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e",
+            "unit_id": "unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421",
+            "name": "storage",
+            "member_file_ids": [
+              "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d"
+            ],
+            "grouping_source": "code",
+            "confidence": "inferred",
+            "inference_reason": "Membership preassigned by fixture, not an evaluated partition algorithm",
+            "completeness": "full",
+            "evidence_ids": [
+              "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f",
+              "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+            ],
+            "label_status": "path_fallback"
+          }
+        ],
+        "external_systems": [],
+        "edges": [
+          {
+            "id": "edge_8953d0f2eb22c29c16a5c0b411daa30071a4535354bbc04564eb20fe26ad0d8f",
+            "source_component_id": "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+            "target_component_id": "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e",
+            "relation_type": "calls",
+            "fact_ids": [
+              "fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b",
+              "fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599"
+            ],
+            "evidence_ids": [
+              "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+              "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+            ],
+            "origin": "static",
+            "confidence": "exact",
+            "completeness": "full",
+            "rule_id": "resolved-target",
+            "rule_version": "1-draft"
+          }
+        ],
+        "contract_owners": [
+          {
+            "fact_id": "fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7",
+            "contract_kind": "api",
+            "component_id": "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+            "rule_id": "declaration-file",
+            "rule_version": "1-draft",
+            "evidence_ids": [
+              "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e"
+            ]
+          },
+          {
+            "fact_id": "fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da",
+            "contract_kind": "table",
+            "component_id": "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e",
+            "rule_id": "declaration-file",
+            "rule_version": "1-draft",
+            "evidence_ids": [
+              "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f"
+            ]
+          }
+        ],
+        "limitations": [
+          {
+            "code": "MODEL_NOT_RUN",
+            "message": "Contract fixture; no provider invoked",
+            "stage": "model",
+            "affected_ids": [
+              "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+              "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e"
+            ]
+          }
+        ],
+        "rejected_proposals": []
+      },
+      "evidence_index": [
+        {
+          "id": "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+          "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+          "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+          "path": "api/routes.py",
+          "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+          "start_line": 8,
+          "end_line": 8,
+          "start_column": null,
+          "end_column": null
+        },
+        {
+          "id": "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a",
+          "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+          "file_id": "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d",
+          "path": "storage/models.py",
+          "sha256": "e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d",
+          "start_line": 10,
+          "end_line": 11,
+          "start_column": null,
+          "end_column": null
+        },
+        {
+          "id": "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f",
+          "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+          "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+          "path": "api/routes.py",
+          "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+          "start_line": 7,
+          "end_line": 8,
+          "start_column": null,
+          "end_column": null
+        },
+        {
+          "id": "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e",
+          "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+          "file_id": "file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621",
+          "path": "api/routes.py",
+          "sha256": "b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97",
+          "start_line": 4,
+          "end_line": 8,
+          "start_column": null,
+          "end_column": null
+        },
+        {
+          "id": "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f",
+          "snapshot_id": "snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec",
+          "file_id": "file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d",
+          "path": "storage/models.py",
+          "sha256": "e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d",
+          "start_line": 6,
+          "end_line": 8,
+          "start_column": null,
+          "end_column": null
+        }
+      ],
+      "decisions": [
+        {
+          "subject_id": "edge_8953d0f2eb22c29c16a5c0b411daa30071a4535354bbc04564eb20fe26ad0d8f",
+          "verdict": "accepted",
+          "rule_id": "resolved-target",
+          "rule_version": "1-draft",
+          "fact_ids": [
+            "fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b",
+            "fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599"
+          ],
+          "evidence_ids": [
+            "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+            "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+          ],
+          "reason": "Expected fixture verdict; not engine output"
+        },
+        {
+          "subject_id": "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+          "verdict": "accepted",
+          "rule_id": "MEMBER-SOURCE",
+          "rule_version": "1",
+          "fact_ids": [
+            "fact:429323c961f66744ccabb27e97bb60d39efd99589744c737059ed8069c2cbb9a",
+            "fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7",
+            "fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599"
+          ],
+          "evidence_ids": [
+            "ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957",
+            "ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e",
+            "ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f"
+          ],
+          "reason": "Expected fixture membership verdict; semantic quality not evaluated"
+        },
+        {
+          "subject_id": "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e",
+          "verdict": "accepted",
+          "rule_id": "MEMBER-SOURCE",
+          "rule_version": "1",
+          "fact_ids": [
+            "fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da",
+            "fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b"
+          ],
+          "evidence_ids": [
+            "ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f",
+            "ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a"
+          ],
+          "reason": "Expected fixture membership verdict; semantic quality not evaluated"
+        }
+      ],
+      "limitations": [
+        {
+          "code": "FIXTURE_PARTIAL",
+          "message": "Hand-authored subset; no extraction was run",
+          "stage": "extraction",
+          "affected_ids": [
+            "fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7",
+            "fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da"
+          ]
+        },
+        {
+          "code": "MODEL_NOT_RUN",
+          "message": "Contract fixture; no provider invoked",
+          "stage": "model",
+          "affected_ids": [
+            "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce",
+            "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e"
+          ]
+        }
+      ]
+    },
+    "export_context": {
+      "repository_name": "Contract example",
+      "system_slug": "CONTRACT-EXAMPLE",
+      "renderer_version": "fixture-json-v1",
+      "template_version": "fixture-only-v1",
+      "component_slugs": {
+        "cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce": "API",
+        "cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e": "STORAGE"
+      }
+    },
+    "render_notices": [],
+    "artifacts": [
+      {
+        "artifact_id": "art_0123456789abcdef",
+        "kind": "json",
+        "path": "result.json",
+        "media_type": "application/json",
+        "status": "ready",
+        "sha256": "b4765eb2ce3b625006174a9acdce5cbd36775ca80735678b940d7918a294ccab",
+        "bytes": 24676,
+        "error": null
+      }
+    ]
+  },
+  "result_json": "{\n  \"export_context\": {\n    \"component_slugs\": {\n      \"cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce\": \"API\",\n      \"cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e\": \"STORAGE\"\n    },\n    \"renderer_version\": \"fixture-json-v1\",\n    \"repository_name\": \"Contract example\",\n    \"system_slug\": \"CONTRACT-EXAMPLE\",\n    \"template_version\": \"fixture-only-v1\"\n  },\n  \"render_notices\": [],\n  \"result\": {\n    \"decisions\": [\n      {\n        \"evidence_ids\": [\n          \"ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957\",\n          \"ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a\"\n        ],\n        \"fact_ids\": [\n          \"fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b\",\n          \"fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599\"\n        ],\n        \"reason\": \"Expected fixture verdict; not engine output\",\n        \"rule_id\": \"resolved-target\",\n        \"rule_version\": \"1-draft\",\n        \"subject_id\": \"edge_8953d0f2eb22c29c16a5c0b411daa30071a4535354bbc04564eb20fe26ad0d8f\",\n        \"verdict\": \"accepted\"\n      },\n      {\n        \"evidence_ids\": [\n          \"ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957\",\n          \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\",\n          \"ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f\"\n        ],\n        \"fact_ids\": [\n          \"fact:429323c961f66744ccabb27e97bb60d39efd99589744c737059ed8069c2cbb9a\",\n          \"fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7\",\n          \"fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599\"\n        ],\n        \"reason\": \"Expected fixture membership verdict; semantic quality not evaluated\",\n        \"rule_id\": \"MEMBER-SOURCE\",\n        \"rule_version\": \"1\",\n        \"subject_id\": \"cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce\",\n        \"verdict\": \"accepted\"\n      },\n      {\n        \"evidence_ids\": [\n          \"ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f\",\n          \"ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a\"\n        ],\n        \"fact_ids\": [\n          \"fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da\",\n          \"fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b\"\n        ],\n        \"reason\": \"Expected fixture membership verdict; semantic quality not evaluated\",\n        \"rule_id\": \"MEMBER-SOURCE\",\n        \"rule_version\": \"1\",\n        \"subject_id\": \"cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e\",\n        \"verdict\": \"accepted\"\n      }\n    ],\n    \"evidence_index\": [\n      {\n        \"end_column\": null,\n        \"end_line\": 8,\n        \"file_id\": \"file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621\",\n        \"id\": \"ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957\",\n        \"path\": \"api/routes.py\",\n        \"sha256\": \"b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97\",\n        \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\",\n        \"start_column\": null,\n        \"start_line\": 8\n      },\n      {\n        \"end_column\": null,\n        \"end_line\": 11,\n        \"file_id\": \"file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d\",\n        \"id\": \"ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a\",\n        \"path\": \"storage/models.py\",\n        \"sha256\": \"e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d\",\n        \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\",\n        \"start_column\": null,\n        \"start_line\": 10\n      },\n      {\n        \"end_column\": null,\n        \"end_line\": 8,\n        \"file_id\": \"file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621\",\n        \"id\": \"ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f\",\n        \"path\": \"api/routes.py\",\n        \"sha256\": \"b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97\",\n        \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\",\n        \"start_column\": null,\n        \"start_line\": 7\n      },\n      {\n        \"end_column\": null,\n        \"end_line\": 8,\n        \"file_id\": \"file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621\",\n        \"id\": \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\",\n        \"path\": \"api/routes.py\",\n        \"sha256\": \"b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97\",\n        \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\",\n        \"start_column\": null,\n        \"start_line\": 4\n      },\n      {\n        \"end_column\": null,\n        \"end_line\": 8,\n        \"file_id\": \"file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d\",\n        \"id\": \"ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f\",\n        \"path\": \"storage/models.py\",\n        \"sha256\": \"e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d\",\n        \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\",\n        \"start_column\": null,\n        \"start_line\": 6\n      }\n    ],\n    \"facts\": {\n      \"extractor_version\": \"fixture-manual-v1\",\n      \"facts\": [\n        {\n          \"attributes\": {\n            \"reference_kind\": {\n              \"evidence_ids\": [\n                \"ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"call\"\n            },\n            \"source_symbol\": {\n              \"evidence_ids\": [\n                \"ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"api.routes.list_items\"\n            },\n            \"target_symbol\": {\n              \"evidence_ids\": [\n                \"ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"storage.models.load_items\"\n            }\n          },\n          \"completeness\": \"full\",\n          \"confidence\": \"exact\",\n          \"evidence\": [\n            {\n              \"end_column\": null,\n              \"end_line\": 8,\n              \"file_id\": \"file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621\",\n              \"id\": \"ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957\",\n              \"path\": \"api/routes.py\",\n              \"sha256\": \"b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97\",\n              \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\",\n              \"start_column\": null,\n              \"start_line\": 8\n            }\n          ],\n          \"id\": \"fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599\",\n          \"kind\": \"reference\",\n          \"resolution\": \"resolved\",\n          \"target_fact_ids\": [\n            \"fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b\"\n          ],\n          \"unit_id\": \"unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421\"\n        },\n        {\n          \"attributes\": {\n            \"name\": {\n              \"evidence_ids\": [\n                \"ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"storage.models.load_items\"\n            },\n            \"signature\": {\n              \"evidence_ids\": [\n                \"ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"load_items()\"\n            },\n            \"symbol_kind\": {\n              \"evidence_ids\": [\n                \"ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"function\"\n            }\n          },\n          \"completeness\": \"full\",\n          \"confidence\": \"exact\",\n          \"evidence\": [\n            {\n              \"end_column\": null,\n              \"end_line\": 11,\n              \"file_id\": \"file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d\",\n              \"id\": \"ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a\",\n              \"path\": \"storage/models.py\",\n              \"sha256\": \"e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d\",\n              \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\",\n              \"start_column\": null,\n              \"start_line\": 10\n            }\n          ],\n          \"id\": \"fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b\",\n          \"kind\": \"symbol\",\n          \"resolution\": \"not_applicable\",\n          \"target_fact_ids\": [],\n          \"unit_id\": \"unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421\"\n        },\n        {\n          \"attributes\": {\n            \"name\": {\n              \"evidence_ids\": [\n                \"ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"api.routes.list_items\"\n            },\n            \"signature\": {\n              \"evidence_ids\": [\n                \"ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"list_items()\"\n            },\n            \"symbol_kind\": {\n              \"evidence_ids\": [\n                \"ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"function\"\n            }\n          },\n          \"completeness\": \"full\",\n          \"confidence\": \"exact\",\n          \"evidence\": [\n            {\n              \"end_column\": null,\n              \"end_line\": 8,\n              \"file_id\": \"file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621\",\n              \"id\": \"ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f\",\n              \"path\": \"api/routes.py\",\n              \"sha256\": \"b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97\",\n              \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\",\n              \"start_column\": null,\n              \"start_line\": 7\n            }\n          ],\n          \"id\": \"fact:429323c961f66744ccabb27e97bb60d39efd99589744c737059ed8069c2cbb9a\",\n          \"kind\": \"symbol\",\n          \"resolution\": \"not_applicable\",\n          \"target_fact_ids\": [],\n          \"unit_id\": \"unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421\"\n        },\n        {\n          \"attributes\": {\n            \"application_id\": {\n              \"evidence_ids\": [\n                \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"app:api.routes.app\"\n            },\n            \"auth\": {\n              \"reason\": \"Fixture does not inspect all authentication mechanisms\",\n              \"state\": \"unknown\"\n            },\n            \"declaration_evidence_id\": {\n              \"evidence_ids\": [\n                \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\"\n            },\n            \"handler\": {\n              \"evidence_ids\": [\n                \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"api.routes.list_items\"\n            },\n            \"handler_fact_id\": {\n              \"evidence_ids\": [\n                \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"fact:429323c961f66744ccabb27e97bb60d39efd99589744c737059ed8069c2cbb9a\"\n            },\n            \"method\": {\n              \"evidence_ids\": [\n                \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"GET\"\n            },\n            \"parameters\": {\n              \"evidence_ids\": [\n                \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\"\n              ],\n              \"state\": \"known\",\n              \"value\": []\n            },\n            \"path\": {\n              \"evidence_ids\": [\n                \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"/items\"\n            },\n            \"registration_context\": {\n              \"evidence_ids\": [\n                \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"api.routes.app:GET:/items\"\n            },\n            \"request_model_ids\": {\n              \"evidence_ids\": [\n                \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\"\n              ],\n              \"state\": \"known\",\n              \"value\": []\n            },\n            \"response_model_ids\": {\n              \"reason\": \"Fixture does not infer an implicit response model\",\n              \"state\": \"unknown\"\n            },\n            \"status_codes\": {\n              \"evidence_ids\": [\n                \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\"\n              ],\n              \"state\": \"known\",\n              \"value\": [\n                200\n              ]\n            }\n          },\n          \"completeness\": \"partial\",\n          \"completeness_reason\": \"Response model and authentication not determined in fixture\",\n          \"confidence\": \"exact\",\n          \"evidence\": [\n            {\n              \"end_column\": null,\n              \"end_line\": 8,\n              \"file_id\": \"file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621\",\n              \"id\": \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\",\n              \"path\": \"api/routes.py\",\n              \"sha256\": \"b88588e53e797621365bc94b74e9b1f7d9277a03a95eb47e7ddeb7e3b1d65e97\",\n              \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\",\n              \"start_column\": null,\n              \"start_line\": 4\n            }\n          ],\n          \"id\": \"fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7\",\n          \"kind\": \"route\",\n          \"resolution\": \"not_applicable\",\n          \"target_fact_ids\": [],\n          \"unit_id\": \"unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421\"\n        },\n        {\n          \"attributes\": {\n            \"columns\": {\n              \"evidence_ids\": [\n                \"ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f\"\n              ],\n              \"state\": \"known\",\n              \"value\": [\n                {\n                  \"foreign_key\": {\n                    \"reason\": \"Not established by this hand-authored fixture\",\n                    \"state\": \"unknown\"\n                  },\n                  \"name\": {\n                    \"evidence_ids\": [\n                      \"ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f\"\n                    ],\n                    \"state\": \"known\",\n                    \"value\": \"id\"\n                  },\n                  \"nullable\": {\n                    \"reason\": \"Not established by this hand-authored fixture\",\n                    \"state\": \"unknown\"\n                  },\n                  \"primary_key\": {\n                    \"evidence_ids\": [\n                      \"ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f\"\n                    ],\n                    \"state\": \"known\",\n                    \"value\": true\n                  },\n                  \"type\": {\n                    \"reason\": \"No SQL dialect established\",\n                    \"state\": \"unknown\"\n                  }\n                }\n              ]\n            },\n            \"declaration_evidence_id\": {\n              \"evidence_ids\": [\n                \"ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f\"\n            },\n            \"dialect\": {\n              \"reason\": \"No engine or dialect in these files\",\n              \"state\": \"unknown\"\n            },\n            \"name\": {\n              \"evidence_ids\": [\n                \"ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f\"\n              ],\n              \"state\": \"known\",\n              \"value\": \"items\"\n            }\n          },\n          \"completeness\": \"partial\",\n          \"completeness_reason\": \"SQL dialect and column details are unknown\",\n          \"confidence\": \"exact\",\n          \"evidence\": [\n            {\n              \"end_column\": null,\n              \"end_line\": 8,\n              \"file_id\": \"file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d\",\n              \"id\": \"ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f\",\n              \"path\": \"storage/models.py\",\n              \"sha256\": \"e98e58bf6540053fe435e36f01de4d638cd04207fbb0a3d78bb9f6f33152b02d\",\n              \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\",\n              \"start_column\": null,\n              \"start_line\": 6\n            }\n          ],\n          \"id\": \"fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da\",\n          \"kind\": \"table\",\n          \"resolution\": \"not_applicable\",\n          \"target_fact_ids\": [],\n          \"unit_id\": \"unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421\"\n        }\n      ],\n      \"limitations\": [\n        {\n          \"affected_ids\": [\n            \"fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7\",\n            \"fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da\"\n          ],\n          \"code\": \"FIXTURE_PARTIAL\",\n          \"message\": \"Hand-authored subset; no extraction was run\",\n          \"stage\": \"extraction\"\n        }\n      ],\n      \"schema_version\": \"0.1.0\",\n      \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\"\n    },\n    \"inventory\": {\n      \"excluded\": [],\n      \"grouping_policy_version\": \"fixture-membership-v1\",\n      \"limitations\": [],\n      \"outcome\": \"ready\",\n      \"schema_version\": \"0.1.0\",\n      \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\",\n      \"support_matrix_version\": \"fixture-only-v1\",\n      \"units\": [\n        {\n          \"file_ids\": [\n            \"file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621\",\n            \"file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d\"\n          ],\n          \"flat\": false,\n          \"framework\": \"FastAPI/SQLAlchemy\",\n          \"id\": \"unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421\",\n          \"language\": \"Python\",\n          \"root_path\": \".\",\n          \"support\": \"partial\"\n        }\n      ]\n    },\n    \"limitations\": [\n      {\n        \"affected_ids\": [\n          \"fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7\",\n          \"fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da\"\n        ],\n        \"code\": \"FIXTURE_PARTIAL\",\n        \"message\": \"Hand-authored subset; no extraction was run\",\n        \"stage\": \"extraction\"\n      },\n      {\n        \"affected_ids\": [\n          \"cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce\",\n          \"cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e\"\n        ],\n        \"code\": \"MODEL_NOT_RUN\",\n        \"message\": \"Contract fixture; no provider invoked\",\n        \"stage\": \"model\"\n      }\n    ],\n    \"model\": {\n      \"components\": [\n        {\n          \"completeness\": \"full\",\n          \"confidence\": \"inferred\",\n          \"evidence_ids\": [\n            \"ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957\",\n            \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\",\n            \"ev:dfe529a7fcc0ed49692da1db65b3af22386ca5c8af204017c4aec924586dd00f\"\n          ],\n          \"grouping_source\": \"code\",\n          \"id\": \"cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce\",\n          \"inference_reason\": \"Membership preassigned by fixture, not an evaluated partition algorithm\",\n          \"label_status\": \"path_fallback\",\n          \"member_file_ids\": [\n            \"file:e8bf8155ecc27651ffc56921d9f536dc9717374e8315f9f1cf384ac08513f621\"\n          ],\n          \"name\": \"api\",\n          \"unit_id\": \"unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421\"\n        },\n        {\n          \"completeness\": \"full\",\n          \"confidence\": \"inferred\",\n          \"evidence_ids\": [\n            \"ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f\",\n            \"ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a\"\n          ],\n          \"grouping_source\": \"code\",\n          \"id\": \"cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e\",\n          \"inference_reason\": \"Membership preassigned by fixture, not an evaluated partition algorithm\",\n          \"label_status\": \"path_fallback\",\n          \"member_file_ids\": [\n            \"file:444974e9a71c22403d54d7bd5da7a0b3ccdc6eab489cf0345e4b79f42cc6ef8d\"\n          ],\n          \"name\": \"storage\",\n          \"unit_id\": \"unit:8d3fc9fbdd5889ab5247c75fc27ba45472257be573511886fe4389a208164421\"\n        }\n      ],\n      \"contract_owners\": [\n        {\n          \"component_id\": \"cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce\",\n          \"contract_kind\": \"api\",\n          \"evidence_ids\": [\n            \"ev:d067775f8469f446bf400e29127c07beddaf9543c4cb8aead7af0f30cf167f0e\"\n          ],\n          \"fact_id\": \"fact:bb917a231320eaf766403b9e1a287bc742524859443c4a17a0d766ce2b9e85c7\",\n          \"rule_id\": \"declaration-file\",\n          \"rule_version\": \"1-draft\"\n        },\n        {\n          \"component_id\": \"cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e\",\n          \"contract_kind\": \"table\",\n          \"evidence_ids\": [\n            \"ev:2c501849b19237a397c52408aa312816a4d3e54c16d2684881fd43d88187aa6f\"\n          ],\n          \"fact_id\": \"fact:113730c5712aa353cd073bb8cfecb8315f463eb51956e4740fe506db5d0ff8da\",\n          \"rule_id\": \"declaration-file\",\n          \"rule_version\": \"1-draft\"\n        }\n      ],\n      \"edges\": [\n        {\n          \"completeness\": \"full\",\n          \"confidence\": \"exact\",\n          \"evidence_ids\": [\n            \"ev:4fe70befef82def51a6a0c0ed250c9a0ac75bc7ea4e2f9c021ef9cc60811d957\",\n            \"ev:feb98284755d93fe5566afdfdf192d08937f9b59aaebf5324425d00b45bc348a\"\n          ],\n          \"fact_ids\": [\n            \"fact:5d7c0537ec8b92cb5f5cc0880c00d5d9a2f0ea4e37f330566ab6dc41bc5ce19b\",\n            \"fact:ca7a5f4c158c23391d168cc06f6aa017f2291c95d94842c6193dd9dc1d4d0599\"\n          ],\n          \"id\": \"edge_8953d0f2eb22c29c16a5c0b411daa30071a4535354bbc04564eb20fe26ad0d8f\",\n          \"origin\": \"static\",\n          \"relation_type\": \"calls\",\n          \"rule_id\": \"resolved-target\",\n          \"rule_version\": \"1-draft\",\n          \"source_component_id\": \"cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce\",\n          \"target_component_id\": \"cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e\"\n        }\n      ],\n      \"external_systems\": [],\n      \"limitations\": [\n        {\n          \"affected_ids\": [\n            \"cmp_7dab80d3554f254941c20a50f35ffa3f21edb19dce40d946ab9dcdb5bacd4bce\",\n            \"cmp_cfd623077da92f7c6adffbae40017ffc7ca1cad6ee604c7c3c9f5549f358550e\"\n          ],\n          \"code\": \"MODEL_NOT_RUN\",\n          \"message\": \"Contract fixture; no provider invoked\",\n          \"stage\": \"model\"\n        }\n      ],\n      \"partition_version\": \"fixture-membership-v1\",\n      \"rejected_proposals\": [],\n      \"schema_version\": \"0.1.0\",\n      \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\"\n    },\n    \"schema_version\": \"0.1.0\",\n    \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\"\n  },\n  \"run_id\": \"run_contract_example\",\n  \"schema_version\": \"0.1.0\",\n  \"snapshot_id\": \"snap:ca19408e75dd82d167f426b066c8f315503dbfc4073697e1199d550309cb55ec\"\n}\n"
+}

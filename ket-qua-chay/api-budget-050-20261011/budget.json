@@ -1,0 +1,82 @@
+[
+  {
+    "request": 1,
+    "reserved_upper_usd": 0.018948,
+    "total_reserved_usd": 0.018948
+  },
+  {
+    "request": 2,
+    "reserved_upper_usd": 0.024620799999999998,
+    "total_reserved_usd": 0.0435688
+  },
+  {
+    "request": 3,
+    "reserved_upper_usd": 0.024764,
+    "total_reserved_usd": 0.0683328
+  },
+  {
+    "request": 4,
+    "reserved_upper_usd": 0.025353600000000004,
+    "total_reserved_usd": 0.0936864
+  },
+  {
+    "request": 5,
+    "reserved_upper_usd": 0.02553,
+    "total_reserved_usd": 0.1192164
+  },
+  {
+    "request": 6,
+    "reserved_upper_usd": 0.027142,
+    "total_reserved_usd": 0.1463584
+  },
+  {
+    "request": 7,
+    "reserved_upper_usd": 0.0278992,
+    "total_reserved_usd": 0.1742576
+  },
+  {
+    "request": 8,
+    "reserved_upper_usd": 0.0289844,
+    "total_reserved_usd": 0.203242
+  },
+  {
+    "request": 9,
+    "reserved_upper_usd": 0.029306800000000004,
+    "total_reserved_usd": 0.2325488
+  },
+  {
+    "request": 10,
+    "reserved_upper_usd": 0.0296292,
+    "total_reserved_usd": 0.262178
+  },
+  {
+    "request": 11,
+    "reserved_upper_usd": 0.0301732,
+    "total_reserved_usd": 0.29235120000000003
+  },
+  {
+    "request": 12,
+    "reserved_upper_usd": 0.0305296,
+    "total_reserved_usd": 0.3228808
+  },
+  {
+    "request": 13,
+    "reserved_upper_usd": 0.030834,
+    "total_reserved_usd": 0.3537148
+  },
+  {
+    "request": 14,
+    "reserved_upper_usd": 0.0313188,
+    "total_reserved_usd": 0.3850336
+  },
+  {
+    "request": 15,
+    "reserved_upper_usd": 0.031620800000000004,
+    "total_reserved_usd": 0.4166544
+  },
+  {
+    "request": 16,
+    "reserved_upper_usd": 0.0322384,
+    "total_reserved_usd": 0.4488928
+  }
+]

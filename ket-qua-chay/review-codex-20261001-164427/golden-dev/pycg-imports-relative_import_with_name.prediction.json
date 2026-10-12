@@ -1,0 +1,135 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "pycg-imports-relative_import_with_name",
+  "source_digest": "bfa9d8e13b7167fcedadbf09a36259ed45bf7209194fb7e00a1f509d67033ddc",
+  "status": "facts_only",
+  "entities": [
+    {
+      "id": "main.py::__module__",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 3,
+      "symbol": "__module__",
+      "kind": "module"
+    },
+    {
+      "id": "nested/relative.py::func2",
+      "path": "nested/relative.py",
+      "line_start": 1,
+      "line_end": 2,
+      "symbol": "func2",
+      "kind": "function"
+    },
+    {
+      "id": "nested/to_import.py::func1",
+      "path": "nested/to_import.py",
+      "line_start": 3,
+      "line_end": 4,
+      "symbol": "func1",
+      "kind": "function"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e01f07bba4dbc72b5",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 3,
+      "sha256": "68cc962230f1b4ed65acc3ff04edf44a89bcaa8cfdca019c1f76c82e9b37881d"
+    },
+    {
+      "id": "e04aa72846e030adb",
+      "path": "nested/to_import.py",
+      "line_start": 4,
+      "line_end": 4,
+      "sha256": "1f3f8f3d1a136840bb01e18119efce18a4470ef6429a23ca463e6e04c18acd4e"
+    },
+    {
+      "id": "e1af3a6eec6d40d20",
+      "path": "main.py",
+      "line_start": 3,
+      "line_end": 3,
+      "sha256": "68cc962230f1b4ed65acc3ff04edf44a89bcaa8cfdca019c1f76c82e9b37881d"
+    },
+    {
+      "id": "e5d8cd445d70cce5e",
+      "path": "nested/to_import.py",
+      "line_start": 3,
+      "line_end": 4,
+      "sha256": "1f3f8f3d1a136840bb01e18119efce18a4470ef6429a23ca463e6e04c18acd4e"
+    },
+    {
+      "id": "e86db5ae1a0f12f45",
+      "path": "nested/to_import.py",
+      "line_start": 1,
+      "line_end": 4,
+      "sha256": "1f3f8f3d1a136840bb01e18119efce18a4470ef6429a23ca463e6e04c18acd4e"
+    },
+    {
+      "id": "ea99fca6c2974ed75",
+      "path": "nested/relative.py",
+      "line_start": 1,
+      "line_end": 2,
+      "sha256": "6951e147a50b68231d9a19184eaa8b0c9aa21960f164fbce2e60282961b9acd8"
+    },
+    {
+      "id": "eaf0d3475b04555ea",
+      "path": "requirements.txt",
+      "line_start": 2,
+      "line_end": 2,
+      "sha256": "5a186804fd0c020f245e90ee71fe6ef81fc09e0a0e4ae39ad84e8335fa12dcc5"
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:7fc96c5f48ea6f7ecc4444b54e2058a4b817fb7ef04ba3fd9739dd4b52eea2f0",
+      "evidence_refs": [
+        "e04aa72846e030adb",
+        "e5d8cd445d70cce5e"
+      ],
+      "target_id": "nested/relative.py::func2",
+      "kind": "reference",
+      "source_id": "nested/to_import.py::func1",
+      "context": "nested/to_import.py:4:4",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:e7897fd61be8bb93ed773577bb4dcff70ad953aa3b285e91cf9c3007ab63aa0f",
+      "evidence_refs": [
+        "e01f07bba4dbc72b5",
+        "e1af3a6eec6d40d20"
+      ],
+      "target_id": "nested/to_import.py::func1",
+      "kind": "reference",
+      "source_id": "main.py::__module__",
+      "context": "main.py:3:0",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    }
+  ],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v3",
+    "unsupported": []
+  }
+}

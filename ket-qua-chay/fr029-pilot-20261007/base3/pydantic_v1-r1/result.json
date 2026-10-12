@@ -1,0 +1,114 @@
+{
+  "agent": {
+    "reason": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+    "status": "failed",
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "turns": 0,
+    "usage_missing_turns": 0
+  },
+  "architecture_parity": {
+    "reason": "Chưa được cấp archdia.json cùng snapshot",
+    "status": "not_evaluated"
+  },
+  "components": [
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/main.py"
+      ],
+      "id": "cmp_cc4eb221a43fdb7fea0b2b4d1b55f500939a1cd5f85b0d4c94262f4ab112cb5e",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd"
+      ],
+      "name": "Ghi chú"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/__init__.py",
+        "requirements.txt"
+      ],
+      "id": "cmp_22e21b3cbe389e419a844d2fb5d06b06e1a233309946eecfe8b41a4425e39910",
+      "kind": "other",
+      "member_file_ids": [
+        "file:4d7c51b1efe9043e44439a949dfd92e5827321b34082903477fd04876edb7552",
+        "file:9cec7b11237bc29d77a439e81c9b7acfac003d8e8855731eb6bc130b5a8ce602"
+      ],
+      "name": "Khác"
+    }
+  ],
+  "contract_owners": {},
+  "coverage": {
+    "complete": false,
+    "files": [
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 22,
+        "missing": [
+          [
+            1,
+            22
+          ]
+        ],
+        "path": "app/main.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 2,
+        "missing": [
+          [
+            1,
+            2
+          ]
+        ],
+        "path": "requirements.txt",
+        "processed_lines": 0,
+        "status": "unread"
+      }
+    ],
+    "not_readable": []
+  },
+  "dismissed_suspects": [],
+  "evidence_index": [],
+  "excluded_from_snapshot": [],
+  "facts": [],
+  "limitations": [
+    {
+      "code": "ANALYSIS_PARTIAL",
+      "message": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+      "stage": "agent"
+    },
+    {
+      "code": "SOURCE_NOT_FULLY_READ",
+      "message": "app/main.py thiếu [[1, 22]]; requirements.txt thiếu [[1, 2]]",
+      "stage": "agent"
+    }
+  ],
+  "pipeline_version": "fr029-doc-v1",
+  "provenance": {
+    "model": "openai/gpt-oss-120b",
+    "prompt_version": "fr029-agent-prompt-v3",
+    "provider": "https://api.groq.com/openai/v1"
+  },
+  "rejected_claims": [],
+  "render_notices": [],
+  "repository_name": "pydantic_v1",
+  "run_id": "pilot_pydantic_v1_r1",
+  "schema_version": "0.1.0",
+  "snapshot_id": "snap:5bb8f8dab23ad52fff3529bdd3b387e2fbe241a46b8532b20990b11f1bc0564e",
+  "unassigned": []
+}

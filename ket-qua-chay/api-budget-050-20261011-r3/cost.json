@@ -1,0 +1,10 @@
+{
+  "model": "gpt-4.1-mini-2025-04-14",
+  "usage_based_cost_usd": 0.21781679999999995,
+  "reserved_upper_usd": 0.45109199999999994,
+  "requests": 67,
+  "budget_usd": 0.5,
+  "prior_run_cost_usd": 0.2332752,
+  "combined_usage_cost_usd": 0.451092,
+  "accounting_note": "Usage-based estimate, not billing invoice. Prior cost includes runs 1 and 2."
+}

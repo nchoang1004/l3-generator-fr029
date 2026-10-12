@@ -1,0 +1,20 @@
+{"reviewer": "claude-opus", "repo": "full-stack-fastapi-template",
+ "checked": {"routes": 10, "files": 15, "http_calls": 0},
+ "errors": [
+  {"fixture": "full-stack-fastapi-template", "kind": "route", "item": "DELETE /api/v1/users/me (users.py::delete_user_me)", "field": "response",
+   "doc_value": "unknown — Kiểu trả về được khai báo là Any, không phải model của repository (completeness partial)",
+   "correct_value": "Message (response_model=Message khai ở decorator; Message có trường message: string, bắt buộc)",
+   "evidence": "backend/app/api/routes/users.py:132", "confidence": "chắc"},
+  {"fixture": "full-stack-fastapi-template", "kind": "role", "item": "backend/app/utils.py", "field": "role",
+   "doc_value": "Khác (exact) — utils.py:34 def send_email(",
+   "correct_value": "Hạ tầng (exact): gửi mail qua SMTP với host lấy từ cấu hình — smtp_options = {\"host\": settings.SMTP_HOST, ...} (utils.py:47) và message.send(to=email_to, smtp=smtp_options) (utils.py:56). FR-028 Phạm vi đọc liệt kê SMTP là hệ thống ngoài",
+   "evidence": "backend/app/utils.py:47; backend/app/utils.py:56", "confidence": "chắc"},
+  {"fixture": "full-stack-fastapi-template", "kind": "route", "item": "POST /api/v1/password-recovery-html-content/{email} (login.py::recover_password_html_content)", "field": "response",
+   "doc_value": "unknown — Kiểu trả về được khai báo là Any, không phải model của repository",
+   "correct_value": "Không có response model JSON; route khai response_class=HTMLResponse nên trả text/html (HTMLResponse)",
+   "evidence": "backend/app/api/routes/login.py:103", "confidence": "chưa chắc"},
+  {"fixture": "full-stack-fastapi-template", "kind": "role", "item": "backend/app/api/deps.py", "field": "evidence",
+   "doc_value": "Truy cập dữ liệu — deps.py:22 with Session(engine) as session: (mở session, không phải gọi method trên session)",
+   "correct_value": "Vai trò đúng; dòng bằng chứng nên là deps.py:41 user = session.get(User, token_data.sub)",
+   "evidence": "backend/app/api/deps.py:41", "confidence": "chưa chắc"}
+ ]}

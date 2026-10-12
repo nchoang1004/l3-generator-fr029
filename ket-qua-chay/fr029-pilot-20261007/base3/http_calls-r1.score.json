@@ -1,0 +1,99 @@
+{
+  "routes": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 3,
+    "precision": null,
+    "recall": 0.0,
+    "false_positive": [],
+    "false_negative": [
+      "('GET', '/orders/{order_id}', 'app/routes.py:10')",
+      "('POST', '/orders/{order_id}/reserve', 'app/routes.py:21')",
+      "('POST', '/rates/refresh', 'app/routes.py:16')"
+    ],
+    "attributes": {
+      "params": {
+        "correct": 0,
+        "wrong": []
+      },
+      "request_body": {
+        "correct": 0,
+        "wrong": []
+      },
+      "response": {
+        "correct": 0,
+        "wrong": []
+      },
+      "status": {
+        "correct": 0,
+        "wrong": []
+      }
+    }
+  },
+  "models": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "fields": {
+        "correct": 0,
+        "wrong": []
+      }
+    }
+  },
+  "http_calls": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 11,
+    "precision": null,
+    "recall": 0.0,
+    "false_positive": [],
+    "false_negative": [
+      "app/clients.py:13",
+      "app/clients.py:18",
+      "app/clients.py:23",
+      "app/clients.py:28",
+      "app/clients.py:33",
+      "app/clients.py:37",
+      "app/clients.py:42",
+      "app/clients.py:46",
+      "app/clients.py:51",
+      "app/clients.py:56",
+      "app/clients.py:60"
+    ],
+    "attributes": {
+      "library": {
+        "correct": 0,
+        "wrong": []
+      },
+      "method": {
+        "correct": 0,
+        "wrong": []
+      },
+      "target": {
+        "correct": 0,
+        "wrong": []
+      }
+    }
+  },
+  "file_roles": {
+    "status": "not_evaluated",
+    "reason": "Gold không có mục này"
+  },
+  "limitations": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 1,
+    "precision": null,
+    "recall": 0.0,
+    "false_positive": [],
+    "false_negative": [
+      "('unsupported_http_library', 'app/clients.py:64')"
+    ],
+    "attributes": {}
+  }
+}

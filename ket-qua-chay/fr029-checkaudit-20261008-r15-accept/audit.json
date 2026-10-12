@@ -1,0 +1,2069 @@
+{
+  "mutations": {
+    "route": "method không có trong decorator; handler là hàm route có thật khác của cùng file; tên handler không có",
+    "route_negative": "route gold ghi not_fastapi (receiver không phải FastAPI/APIRouter) phải bị từ chối",
+    "dependency": "dependency có thật khác (dùng ở route khác của repo) không có trên dòng; tên không tồn tại",
+    "http": "URL thêm '/x-audit'; URL cụt 1 ký tự; literal khác có trong cùng file; thư viện khác; method khác",
+    "http_negative": "dòng gold ghi non_http_calls (dict.get, Session.get, BeautifulSoup) nộp như lời gọi HTTP phải bị từ chối",
+    "sanity": "chạy lại với bộ kiểm giả 'luôn nhận' và 'luôn từ chối': phép đo phải báo lỗi lớn"
+  },
+  "rows": [
+    {
+      "case": "tdd-docker",
+      "group": "nghiệm thu",
+      "files": 15,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.02
+    },
+    {
+      "case": "agentgpt",
+      "group": "nghiệm thu",
+      "files": 85,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.1
+    },
+    {
+      "case": "kibo",
+      "group": "nghiệm thu",
+      "files": 138,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.3
+    },
+    {
+      "case": "fixture/exclusions",
+      "group": "fixture",
+      "files": 7,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/file_roles",
+      "group": "fixture",
+      "files": 13,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "fixture/http_calls",
+      "group": "fixture",
+      "files": 8,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "fixture/params_models",
+      "group": "fixture",
+      "files": 8,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/prefix_chain",
+      "group": "fixture",
+      "files": 12,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/pydantic_v1",
+      "group": "fixture",
+      "files": 3,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "fixture/fr029_e2e",
+      "group": "fixture",
+      "files": 5,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "teamhide-fastapi-boilerplate",
+      "group": "golden v1",
+      "files": 84,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.07
+    },
+    {
+      "case": "full-stack-fastapi-template",
+      "group": "golden v1",
+      "files": 22,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.09
+    },
+    {
+      "case": "igorbenav-FastAPI-boilerplate",
+      "group": "golden v1",
+      "files": 112,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.36
+    },
+    {
+      "case": "fastapi_best_architecture",
+      "group": "golden v1",
+      "files": 296,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.47
+    },
+    {
+      "case": "dev/orders-base",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 49,
+        "not_gold_item": 48,
+        "examples": [
+          {
+            "at": "db.py:1",
+            "looks_like": "http",
+            "text": "def get_db():"
+          },
+          {
+            "at": "db.py:2",
+            "looks_like": "http",
+            "text": "# Static-analysis fixture: deliberately never connects to a database."
+          },
+          {
+            "at": "db.py:3",
+            "looks_like": "http",
+            "text": "raise RuntimeError(\"No runtime database configured for this static fixture\")"
+          },
+          {
+            "at": "main.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "main.py:2",
+            "looks_like": "http",
+            "text": "from routes import router"
+          },
+          {
+            "at": "main.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "main.py:4",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "main.py:5",
+            "looks_like": "http",
+            "text": "app.include_router(router, prefix=\"/api/v1\")"
+          },
+          {
+            "at": "models.py:1",
+            "looks_like": "http",
+            "text": "from sqlalchemy import Column, Integer, String"
+          },
+          {
+            "at": "models.py:2",
+            "looks_like": "http",
+            "text": "from sqlalchemy.orm import DeclarativeBase"
+          },
+          {
+            "at": "models.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "models.py:4",
+            "looks_like": "http",
+            "text": "class Base(DeclarativeBase):"
+          },
+          {
+            "at": "models.py:5",
+            "looks_like": "http",
+            "text": "pass"
+          },
+          {
+            "at": "models.py:6",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "models.py:7",
+            "looks_like": "http",
+            "text": "class Order(Base):"
+          }
+        ],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-prefix",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 49,
+        "not_gold_item": 48,
+        "examples": [
+          {
+            "at": "db.py:1",
+            "looks_like": "http",
+            "text": "def get_db():"
+          },
+          {
+            "at": "db.py:2",
+            "looks_like": "http",
+            "text": "# Static-analysis fixture: deliberately never connects to a database."
+          },
+          {
+            "at": "db.py:3",
+            "looks_like": "http",
+            "text": "raise RuntimeError(\"No runtime database configured for this static fixture\")"
+          },
+          {
+            "at": "main.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "main.py:2",
+            "looks_like": "http",
+            "text": "from routes import router"
+          },
+          {
+            "at": "main.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "main.py:4",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "main.py:5",
+            "looks_like": "http",
+            "text": "app.include_router(router, prefix=\"/api/v2\")"
+          },
+          {
+            "at": "models.py:1",
+            "looks_like": "http",
+            "text": "from sqlalchemy import Column, Integer, String"
+          },
+          {
+            "at": "models.py:2",
+            "looks_like": "http",
+            "text": "from sqlalchemy.orm import DeclarativeBase"
+          },
+          {
+            "at": "models.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "models.py:4",
+            "looks_like": "http",
+            "text": "class Base(DeclarativeBase):"
+          },
+          {
+            "at": "models.py:5",
+            "looks_like": "http",
+            "text": "pass"
+          },
+          {
+            "at": "models.py:6",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "models.py:7",
+            "looks_like": "http",
+            "text": "class Order(Base):"
+          }
+        ],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-two-apps",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 51,
+        "not_gold_item": 50,
+        "examples": [
+          {
+            "at": "db.py:1",
+            "looks_like": "http",
+            "text": "def get_db():"
+          },
+          {
+            "at": "db.py:2",
+            "looks_like": "http",
+            "text": "# Static-analysis fixture: deliberately never connects to a database."
+          },
+          {
+            "at": "db.py:3",
+            "looks_like": "http",
+            "text": "raise RuntimeError(\"No runtime database configured for this static fixture\")"
+          },
+          {
+            "at": "main.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "main.py:2",
+            "looks_like": "http",
+            "text": "from routes import router"
+          },
+          {
+            "at": "main.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "main.py:4",
+            "looks_like": "http",
+            "text": "app_a = FastAPI()"
+          },
+          {
+            "at": "main.py:5",
+            "looks_like": "http",
+            "text": "app_b = FastAPI()"
+          },
+          {
+            "at": "main.py:6",
+            "looks_like": "http",
+            "text": "app_a.include_router(router, prefix=\"/api/v1\")"
+          },
+          {
+            "at": "main.py:7",
+            "looks_like": "http",
+            "text": "app_b.include_router(router, prefix=\"/api/v1\")"
+          },
+          {
+            "at": "models.py:1",
+            "looks_like": "http",
+            "text": "from sqlalchemy import Column, Integer, String"
+          },
+          {
+            "at": "models.py:2",
+            "looks_like": "http",
+            "text": "from sqlalchemy.orm import DeclarativeBase"
+          },
+          {
+            "at": "models.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "models.py:4",
+            "looks_like": "http",
+            "text": "class Base(DeclarativeBase):"
+          },
+          {
+            "at": "models.py:5",
+            "looks_like": "http",
+            "text": "pass"
+          }
+        ],
+        "gold_items": 2,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-wrapper-real",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 50,
+        "not_gold_item": 49,
+        "examples": [
+          {
+            "at": "db.py:1",
+            "looks_like": "http",
+            "text": "def get_db():"
+          },
+          {
+            "at": "db.py:2",
+            "looks_like": "http",
+            "text": "# Static-analysis fixture: deliberately never connects to a database."
+          },
+          {
+            "at": "db.py:3",
+            "looks_like": "http",
+            "text": "raise RuntimeError(\"No runtime database configured for this static fixture\")"
+          },
+          {
+            "at": "main.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "main.py:2",
+            "looks_like": "http",
+            "text": "from routes import router"
+          },
+          {
+            "at": "main.py:3",
+            "looks_like": "http",
+            "text": "from registration import attach"
+          },
+          {
+            "at": "main.py:4",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "main.py:5",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "main.py:6",
+            "looks_like": "http",
+            "text": "attach(app, router, prefix=\"/api/v1\")"
+          },
+          {
+            "at": "models.py:1",
+            "looks_like": "http",
+            "text": "from sqlalchemy import Column, Integer, String"
+          },
+          {
+            "at": "models.py:2",
+            "looks_like": "http",
+            "text": "from sqlalchemy.orm import DeclarativeBase"
+          },
+          {
+            "at": "models.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "models.py:4",
+            "looks_like": "http",
+            "text": "class Base(DeclarativeBase):"
+          },
+          {
+            "at": "models.py:5",
+            "looks_like": "http",
+            "text": "pass"
+          },
+          {
+            "at": "models.py:6",
+            "looks_like": "http",
+            "text": ""
+          }
+        ],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-wrapper-fake",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 50,
+        "not_gold_item": 50,
+        "examples": [
+          {
+            "at": "db.py:1",
+            "looks_like": "http",
+            "text": "def get_db():"
+          },
+          {
+            "at": "db.py:2",
+            "looks_like": "http",
+            "text": "# Static-analysis fixture: deliberately never connects to a database."
+          },
+          {
+            "at": "db.py:3",
+            "looks_like": "http",
+            "text": "raise RuntimeError(\"No runtime database configured for this static fixture\")"
+          },
+          {
+            "at": "main.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "main.py:2",
+            "looks_like": "http",
+            "text": "from routes import router"
+          },
+          {
+            "at": "main.py:3",
+            "looks_like": "http",
+            "text": "from registration import attach"
+          },
+          {
+            "at": "main.py:4",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "main.py:5",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "main.py:6",
+            "looks_like": "http",
+            "text": "attach(app, router, prefix=\"/api/v1\")"
+          },
+          {
+            "at": "models.py:1",
+            "looks_like": "http",
+            "text": "from sqlalchemy import Column, Integer, String"
+          },
+          {
+            "at": "models.py:2",
+            "looks_like": "http",
+            "text": "from sqlalchemy.orm import DeclarativeBase"
+          },
+          {
+            "at": "models.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "models.py:4",
+            "looks_like": "http",
+            "text": "class Base(DeclarativeBase):"
+          },
+          {
+            "at": "models.py:5",
+            "looks_like": "http",
+            "text": "pass"
+          },
+          {
+            "at": "models.py:6",
+            "looks_like": "http",
+            "text": ""
+          }
+        ],
+        "gold_items": 0,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-dynamic-prefix",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 51,
+        "not_gold_item": 50,
+        "examples": [
+          {
+            "at": "db.py:1",
+            "looks_like": "http",
+            "text": "def get_db():"
+          },
+          {
+            "at": "db.py:2",
+            "looks_like": "http",
+            "text": "# Static-analysis fixture: deliberately never connects to a database."
+          },
+          {
+            "at": "db.py:3",
+            "looks_like": "http",
+            "text": "raise RuntimeError(\"No runtime database configured for this static fixture\")"
+          },
+          {
+            "at": "main.py:1",
+            "looks_like": "http",
+            "text": "import os"
+          },
+          {
+            "at": "main.py:2",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "main.py:3",
+            "looks_like": "http",
+            "text": "from routes import router"
+          },
+          {
+            "at": "main.py:4",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "main.py:5",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "main.py:6",
+            "looks_like": "http",
+            "text": "prefix = os.environ[\"API_PREFIX\"]"
+          },
+          {
+            "at": "main.py:7",
+            "looks_like": "http",
+            "text": "app.include_router(router, prefix=prefix)"
+          },
+          {
+            "at": "models.py:1",
+            "looks_like": "http",
+            "text": "from sqlalchemy import Column, Integer, String"
+          },
+          {
+            "at": "models.py:2",
+            "looks_like": "http",
+            "text": "from sqlalchemy.orm import DeclarativeBase"
+          },
+          {
+            "at": "models.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "models.py:4",
+            "looks_like": "http",
+            "text": "class Base(DeclarativeBase):"
+          },
+          {
+            "at": "models.py:5",
+            "looks_like": "http",
+            "text": "pass"
+          }
+        ],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/dispatch-case-read",
+      "group": "ca dev",
+      "files": 10,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.07
+    },
+    {
+      "case": "dev/fastapi-docs-body_updates-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 2,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "GET body_updates/tutorial001_py310.py::read_item",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "GET body_updates/tutorial001_py310.py::read_item",
+            "mutation": "handler không tồn tại"
+          },
+          {
+            "route": "PUT body_updates/tutorial001_py310.py::update_item",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "PUT body_updates/tutorial001_py310.py::update_item",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 4,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 32,
+        "not_gold_item": 30,
+        "examples": [
+          {
+            "at": "body_updates/tutorial001_py310.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:2",
+            "looks_like": "http",
+            "text": "from fastapi.encoders import jsonable_encoder"
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:3",
+            "looks_like": "http",
+            "text": "from pydantic import BaseModel"
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:4",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:5",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:6",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:7",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:8",
+            "looks_like": "http",
+            "text": "class Item(BaseModel):"
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:9",
+            "looks_like": "http",
+            "text": "name: str | None = None"
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:10",
+            "looks_like": "http",
+            "text": "description: str | None = None"
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:11",
+            "looks_like": "http",
+            "text": "price: float | None = None"
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:12",
+            "looks_like": "http",
+            "text": "tax: float = 10.5"
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:13",
+            "looks_like": "http",
+            "text": "tags: list[str] = []"
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:14",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "body_updates/tutorial001_py310.py:15",
+            "looks_like": "http",
+            "text": ""
+          }
+        ],
+        "gold_items": 2,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-first_steps-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "GET first_steps/tutorial001_py310.py::root",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "GET first_steps/tutorial001_py310.py::root",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 8,
+        "not_gold_item": 7,
+        "examples": [
+          {
+            "at": "first_steps/tutorial001_py310.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "first_steps/tutorial001_py310.py:2",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "first_steps/tutorial001_py310.py:3",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "first_steps/tutorial001_py310.py:4",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "first_steps/tutorial001_py310.py:5",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "first_steps/tutorial001_py310.py:7",
+            "looks_like": "http",
+            "text": "async def root():"
+          },
+          {
+            "at": "first_steps/tutorial001_py310.py:8",
+            "looks_like": "http",
+            "text": "return {\"message\": \"Hello World\"}"
+          }
+        ],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-handling_errors-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "GET handling_errors/tutorial001_py310.py::read_item",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "GET handling_errors/tutorial001_py310.py::read_item",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 12,
+        "not_gold_item": 11,
+        "examples": [
+          {
+            "at": "handling_errors/tutorial001_py310.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI, HTTPException"
+          },
+          {
+            "at": "handling_errors/tutorial001_py310.py:2",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "handling_errors/tutorial001_py310.py:3",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "handling_errors/tutorial001_py310.py:4",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "handling_errors/tutorial001_py310.py:5",
+            "looks_like": "http",
+            "text": "items = {\"foo\": \"The Foo Wrestlers\"}"
+          },
+          {
+            "at": "handling_errors/tutorial001_py310.py:6",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "handling_errors/tutorial001_py310.py:7",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "handling_errors/tutorial001_py310.py:9",
+            "looks_like": "http",
+            "text": "async def read_item(item_id: str):"
+          },
+          {
+            "at": "handling_errors/tutorial001_py310.py:10",
+            "looks_like": "http",
+            "text": "if item_id not in items:"
+          },
+          {
+            "at": "handling_errors/tutorial001_py310.py:11",
+            "looks_like": "http",
+            "text": "raise HTTPException(status_code=404, detail=\"Item not found\")"
+          },
+          {
+            "at": "handling_errors/tutorial001_py310.py:12",
+            "looks_like": "http",
+            "text": "return {\"item\": items[item_id]}"
+          }
+        ],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-path_params-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "GET path_params/tutorial001_py310.py::read_item",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "GET path_params/tutorial001_py310.py::read_item",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 8,
+        "not_gold_item": 7,
+        "examples": [
+          {
+            "at": "path_params/tutorial001_py310.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "path_params/tutorial001_py310.py:2",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "path_params/tutorial001_py310.py:3",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "path_params/tutorial001_py310.py:4",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "path_params/tutorial001_py310.py:5",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "path_params/tutorial001_py310.py:7",
+            "looks_like": "http",
+            "text": "async def read_item(item_id):"
+          },
+          {
+            "at": "path_params/tutorial001_py310.py:8",
+            "looks_like": "http",
+            "text": "return {\"item_id\": item_id}"
+          }
+        ],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-query_params_str_validations-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "GET query_params_str_validations/tutorial001_py310.py::read_items",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "GET query_params_str_validations/tutorial001_py310.py::read_items",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 11,
+        "not_gold_item": 10,
+        "examples": [
+          {
+            "at": "query_params_str_validations/tutorial001_py310.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "query_params_str_validations/tutorial001_py310.py:2",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "query_params_str_validations/tutorial001_py310.py:3",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "query_params_str_validations/tutorial001_py310.py:4",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "query_params_str_validations/tutorial001_py310.py:5",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "query_params_str_validations/tutorial001_py310.py:7",
+            "looks_like": "http",
+            "text": "async def read_items(q: str | None = None):"
+          },
+          {
+            "at": "query_params_str_validations/tutorial001_py310.py:8",
+            "looks_like": "http",
+            "text": "results = {\"items\": [{\"item_id\": \"Foo\"}, {\"item_id\": \"Bar\"}]}"
+          },
+          {
+            "at": "query_params_str_validations/tutorial001_py310.py:9",
+            "looks_like": "http",
+            "text": "if q:"
+          },
+          {
+            "at": "query_params_str_validations/tutorial001_py310.py:10",
+            "looks_like": "http",
+            "text": "results.update({\"q\": q})"
+          },
+          {
+            "at": "query_params_str_validations/tutorial001_py310.py:11",
+            "looks_like": "http",
+            "text": "return results"
+          }
+        ],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-schema_extra_example-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "PUT schema_extra_example/tutorial001_py310.py::update_item",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "PUT schema_extra_example/tutorial001_py310.py::update_item",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 30,
+        "not_gold_item": 29,
+        "examples": [
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:2",
+            "looks_like": "http",
+            "text": "from pydantic import BaseModel"
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:4",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:5",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:6",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:7",
+            "looks_like": "http",
+            "text": "class Item(BaseModel):"
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:8",
+            "looks_like": "http",
+            "text": "name: str"
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:9",
+            "looks_like": "http",
+            "text": "description: str | None = None"
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:10",
+            "looks_like": "http",
+            "text": "price: float"
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:11",
+            "looks_like": "http",
+            "text": "tax: float | None = None"
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:12",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:13",
+            "looks_like": "http",
+            "text": "model_config = {"
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:14",
+            "looks_like": "http",
+            "text": "\"json_schema_extra\": {"
+          },
+          {
+            "at": "schema_extra_example/tutorial001_py310.py:15",
+            "looks_like": "http",
+            "text": "\"examples\": ["
+          }
+        ],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-conditional-route",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 50,
+        "not_gold_item": 49,
+        "examples": [
+          {
+            "at": "db.py:1",
+            "looks_like": "http",
+            "text": "def get_db():"
+          },
+          {
+            "at": "db.py:2",
+            "looks_like": "http",
+            "text": "# Static-analysis fixture: deliberately never connects to a database."
+          },
+          {
+            "at": "db.py:3",
+            "looks_like": "http",
+            "text": "raise RuntimeError(\"No runtime database configured for this static fixture\")"
+          },
+          {
+            "at": "main.py:1",
+            "looks_like": "http",
+            "text": "import os"
+          },
+          {
+            "at": "main.py:2",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "main.py:3",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "main.py:4",
+            "looks_like": "http",
+            "text": "from routes import router"
+          },
+          {
+            "at": "main.py:5",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "main.py:6",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "main.py:7",
+            "looks_like": "http",
+            "text": "if os.environ.get(\"ENABLE_ORDERS\") == \"1\":"
+          },
+          {
+            "at": "main.py:8",
+            "looks_like": "http",
+            "text": "app.include_router(router, prefix=\"/api/v1\")"
+          },
+          {
+            "at": "models.py:1",
+            "looks_like": "http",
+            "text": "from sqlalchemy import Column, Integer, String"
+          },
+          {
+            "at": "models.py:2",
+            "looks_like": "http",
+            "text": "from sqlalchemy.orm import DeclarativeBase"
+          },
+          {
+            "at": "models.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "models.py:4",
+            "looks_like": "http",
+            "text": "class Base(DeclarativeBase):"
+          }
+        ],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-derived-tablename",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 60,
+        "not_gold_item": 59,
+        "examples": [
+          {
+            "at": "db.py:1",
+            "looks_like": "http",
+            "text": "def get_db():"
+          },
+          {
+            "at": "db.py:2",
+            "looks_like": "http",
+            "text": "# Static-analysis fixture: deliberately never connects to a database."
+          },
+          {
+            "at": "db.py:3",
+            "looks_like": "http",
+            "text": "raise RuntimeError(\"No runtime database configured for this static fixture\")"
+          },
+          {
+            "at": "main.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "main.py:2",
+            "looks_like": "http",
+            "text": "from routes import router"
+          },
+          {
+            "at": "main.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "main.py:4",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "main.py:5",
+            "looks_like": "http",
+            "text": "app.include_router(router, prefix=\"/api/v1\")"
+          },
+          {
+            "at": "models.py:1",
+            "looks_like": "http",
+            "text": "from sqlalchemy import Column, ForeignKey, Integer, String"
+          },
+          {
+            "at": "models.py:2",
+            "looks_like": "http",
+            "text": "from sqlalchemy.orm import DeclarativeBase, declared_attr"
+          },
+          {
+            "at": "models.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "models.py:4",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "models.py:5",
+            "looks_like": "http",
+            "text": "def resolve_table_name(name):"
+          },
+          {
+            "at": "models.py:6",
+            "looks_like": "http",
+            "text": "\"\"\"OrderItem -> order_item.\"\"\""
+          },
+          {
+            "at": "models.py:7",
+            "looks_like": "http",
+            "text": "return \"\".join(\"_\" + c.lower() if c.isupper() else c for c in name).lstrip(\"_\")"
+          }
+        ],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-mount",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 49,
+        "not_gold_item": 48,
+        "examples": [
+          {
+            "at": "db.py:1",
+            "looks_like": "http",
+            "text": "def get_db():"
+          },
+          {
+            "at": "db.py:2",
+            "looks_like": "http",
+            "text": "# Static-analysis fixture: deliberately never connects to a database."
+          },
+          {
+            "at": "db.py:3",
+            "looks_like": "http",
+            "text": "raise RuntimeError(\"No runtime database configured for this static fixture\")"
+          },
+          {
+            "at": "main.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "main.py:2",
+            "looks_like": "http",
+            "text": "from routes import router"
+          },
+          {
+            "at": "main.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "main.py:4",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "main.py:5",
+            "looks_like": "http",
+            "text": "api = FastAPI()"
+          },
+          {
+            "at": "main.py:6",
+            "looks_like": "http",
+            "text": "api.include_router(router, prefix=\"/v1\")"
+          },
+          {
+            "at": "main.py:7",
+            "looks_like": "http",
+            "text": "app.mount(\"/api\", api)"
+          },
+          {
+            "at": "models.py:1",
+            "looks_like": "http",
+            "text": "from sqlalchemy import Column, Integer, String"
+          },
+          {
+            "at": "models.py:2",
+            "looks_like": "http",
+            "text": "from sqlalchemy.orm import DeclarativeBase"
+          },
+          {
+            "at": "models.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "models.py:4",
+            "looks_like": "http",
+            "text": "class Base(DeclarativeBase):"
+          },
+          {
+            "at": "models.py:5",
+            "looks_like": "http",
+            "text": "pass"
+          }
+        ],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-plugin-import",
+      "group": "ca dev",
+      "files": 11,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-runtime-dispatch",
+      "group": "ca dev",
+      "files": 9,
+      "error": "TypeError: 'set' object is not subscriptable",
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-syntax-error",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "method PATCH"
+          },
+          {
+            "route": "POST routes.py::create_order_endpoint",
+            "mutation": "handler không tồn tại"
+          }
+        ],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 49,
+        "not_gold_item": 48,
+        "examples": [
+          {
+            "at": "db.py:1",
+            "looks_like": "http",
+            "text": "def get_db():"
+          },
+          {
+            "at": "db.py:2",
+            "looks_like": "http",
+            "text": "# Static-analysis fixture: deliberately never connects to a database."
+          },
+          {
+            "at": "db.py:3",
+            "looks_like": "http",
+            "text": "raise RuntimeError(\"No runtime database configured for this static fixture\")"
+          },
+          {
+            "at": "legacy.py:1",
+            "looks_like": "http",
+            "text": "def broken(:"
+          },
+          {
+            "at": "legacy.py:2",
+            "looks_like": "http",
+            "text": "pass"
+          },
+          {
+            "at": "main.py:1",
+            "looks_like": "http",
+            "text": "from fastapi import FastAPI"
+          },
+          {
+            "at": "main.py:2",
+            "looks_like": "http",
+            "text": "from routes import router"
+          },
+          {
+            "at": "main.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "main.py:4",
+            "looks_like": "http",
+            "text": "app = FastAPI()"
+          },
+          {
+            "at": "main.py:5",
+            "looks_like": "http",
+            "text": "app.include_router(router, prefix=\"/api/v1\")"
+          },
+          {
+            "at": "models.py:1",
+            "looks_like": "http",
+            "text": "from sqlalchemy import Column, Integer, String"
+          },
+          {
+            "at": "models.py:2",
+            "looks_like": "http",
+            "text": "from sqlalchemy.orm import DeclarativeBase"
+          },
+          {
+            "at": "models.py:3",
+            "looks_like": "http",
+            "text": ""
+          },
+          {
+            "at": "models.py:4",
+            "looks_like": "http",
+            "text": "class Base(DeclarativeBase):"
+          },
+          {
+            "at": "models.py:5",
+            "looks_like": "http",
+            "text": "pass"
+          }
+        ],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    }
+  ]
+}

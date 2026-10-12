@@ -1,0 +1,128 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "pycg-parameters-assigned_call",
+  "source_digest": "b3b780ee1e73c55404d2a3628cee3a57b527c3743723c8853724c7f8eb633047",
+  "status": "facts_only",
+  "entities": [
+    {
+      "id": "main.py::__module__",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 8,
+      "symbol": "__module__",
+      "kind": "module"
+    },
+    {
+      "id": "main.py::func",
+      "path": "main.py",
+      "line_start": 4,
+      "line_end": 5,
+      "symbol": "func",
+      "kind": "function"
+    },
+    {
+      "id": "main.py::param_func",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 2,
+      "symbol": "param_func",
+      "kind": "function"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e0a346647bc9cc355",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 8,
+      "sha256": "2344a29c454256025f813280647166be7ef4adef7cae9df68911bb0610b3f328"
+    },
+    {
+      "id": "e16e35b671f0f9de4",
+      "path": "main.py",
+      "line_start": 5,
+      "line_end": 5,
+      "sha256": "2344a29c454256025f813280647166be7ef4adef7cae9df68911bb0610b3f328"
+    },
+    {
+      "id": "e25d26612ccb97045",
+      "path": "requirements.txt",
+      "line_start": 2,
+      "line_end": 2,
+      "sha256": "5a186804fd0c020f245e90ee71fe6ef81fc09e0a0e4ae39ad84e8335fa12dcc5"
+    },
+    {
+      "id": "e395241cb33f987af",
+      "path": "main.py",
+      "line_start": 4,
+      "line_end": 5,
+      "sha256": "2344a29c454256025f813280647166be7ef4adef7cae9df68911bb0610b3f328"
+    },
+    {
+      "id": "e8c60bb5b915ad77b",
+      "path": "main.py",
+      "line_start": 1,
+      "line_end": 2,
+      "sha256": "2344a29c454256025f813280647166be7ef4adef7cae9df68911bb0610b3f328"
+    },
+    {
+      "id": "eda2f631f662d804b",
+      "path": "main.py",
+      "line_start": 8,
+      "line_end": 8,
+      "sha256": "2344a29c454256025f813280647166be7ef4adef7cae9df68911bb0610b3f328"
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:42407cbbe62758bdcc55e586a8af3343a45e3d7ca9a61d15363f8b7947451e9a",
+      "evidence_refs": [
+        "e16e35b671f0f9de4",
+        "e395241cb33f987af"
+      ],
+      "target_id": "main.py::param_func",
+      "kind": "reference",
+      "source_id": "main.py::func",
+      "context": "main.py:5:4",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "inferred",
+      "completeness": "full",
+      "reason": "Đích theo luồng giá trị: biến/tham số giữ hàm này"
+    },
+    {
+      "id": "fact:7b878a823452fd98e51822287be889d88e7bc169a2c68489ab01f85d50fd2fc5",
+      "evidence_refs": [
+        "e0a346647bc9cc355",
+        "eda2f631f662d804b"
+      ],
+      "target_id": "main.py::func",
+      "kind": "reference",
+      "source_id": "main.py::__module__",
+      "context": "main.py:8:0",
+      "attributes": {
+        "relation": "calls",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    }
+  ],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v3",
+    "unsupported": []
+  }
+}

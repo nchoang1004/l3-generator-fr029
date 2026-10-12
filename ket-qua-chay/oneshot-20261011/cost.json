@@ -1,0 +1,6 @@
+{
+ "model": "gpt-4.1-mini-2025-04-14",
+ "usage_based_cost_usd": 0.0239496,
+ "requests": 3,
+ "cap_usd": 0.2
+}

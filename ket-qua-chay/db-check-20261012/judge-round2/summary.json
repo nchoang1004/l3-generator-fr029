@@ -1,0 +1,29 @@
+{
+  "tables": {"checked": 29, "correct": 29},
+  "columns": {
+    "checked": 287,
+    "correct": 285,
+    "wrong": [
+      "full-stack-fastapi-template: user.created_at ghi kiểu 'datetime', code khai sa_type=DateTime(timezone=True) (backend/app/models.py:55-58)",
+      "full-stack-fastapi-template: item.created_at ghi kiểu 'datetime', code khai sa_type=DateTime(timezone=True) (backend/app/models.py:93-96)"
+    ]
+  },
+  "missing": [
+    "full-stack-fastapi-template: mất max_length=255 ở email, full_name, title, description (backend/app/models.py:15,18,75,76); không tính là cột sai",
+    "cả 3 file TBL: không có unique/index/ondelete (chỉ có ở mục 4 của TAI-LIEU.md)",
+    "không thiếu bảng nào ở 4 repo (tdd-docker: textsummary và aerich nằm ở mục 11)"
+  ],
+  "extra": [],
+  "standard": {
+    "doc SQLAlchemy/SQLModel/Table(...)": "đạt: 23 + 4 + 2 bảng, đủ cả __tablename__, table=True, sa.Table",
+    "ORM khác và bảng chỉ có trong migration ghi ở giới hạn kèm nơi dùng": "đạt: tdd-docker mục 11 ghi Tortoise TextSummary (tortoise.py:5), textsummary (migration:6), aerich (migration:12), không nói 'không có bảng'",
+    "TBL: tên bảng, lớp model, vị trí khai": "đạt: không thấy dòng sai",
+    "TBL: cột tên/kiểu/PK/FK/nullable": "đạt về dữ kiện: 285/287; hai cột created_at của full-stack thiếu kiểu DateTime(timezone=True)",
+    "truy vết file:dòng từng bảng và cột": "đạt: 287/287 dòng bằng chứng trỏ đúng",
+    "nhãn exact/inferred(quy tắc)/unknown(lý do) mỗi dòng": "đạt: TBL có nhãn từng dòng; mục 4 dùng dấu * thay nhãn từng dòng",
+    "DDL theo biến thể SQL, chưa biết thì không có DDL và ghi lý do": "đạt về hình thức, không chắc về nội dung lý do: không DDL, ghi 'dialect chưa biết'; nhưng full-stack xác định được PostgreSQL (config.py:37-39, migration dùng dialect postgresql) mà ghi 'chưa rõ'; lý do cho orderflow (thiếu create_all) không nêu việc có cả postgres và sqlite",
+    "không mặc định PostgreSQL": "đạt",
+    "mặc định ORM ghi inferred, không suy tên bảng từ tên lớp trừ SQLModel": "đạt: nullable mặc định đánh dấu inferred/*, tên bảng SQLModel ghi suy luận kèm quy tắc sqlmodel-default-tablename-v1, dấu * không gắn sai cho cột khai nullable rõ"
+  },
+  "readability_score": 3
+}

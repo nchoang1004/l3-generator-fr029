@@ -1,0 +1,137 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos2\\Caoyongqi912_case_auto_hub",
+  "files": 310,
+  "route_decorators": 301,
+  "decorators_refused": [],
+  "dependencies": [
+    {
+      "name": "Authentication",
+      "called": true,
+      "first_use": "app/controller/file/__init__.py:41",
+      "params": [
+        {
+          "in": "header",
+          "name": "Authorization",
+          "at": "app/controller/__init__.py:24"
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "called": false,
+      "first_use": "app/controller/interface/interfaceResultController.py:26",
+      "params": [
+        {
+          "in": "query",
+          "name": "isAdmin",
+          "at": "app/controller/__init__.py:21"
+        }
+      ]
+    },
+    {
+      "name": "JenkinsWebhookAuth",
+      "called": false,
+      "first_use": "app/controller/interface/interfaceTaskController.py:237",
+      "params": []
+    },
+    {
+      "name": "GetPlayCaseByCaseId",
+      "called": false,
+      "first_use": "app/controller/play/play_case.py:40",
+      "params": [
+        {
+          "in": "query",
+          "name": "caseId",
+          "at": "app/schema/play/playCaseSchema.py:53"
+        }
+      ]
+    },
+    {
+      "name": "FilterByEnvSchema",
+      "called": false,
+      "first_use": "app/controller/project/project.py:146",
+      "params": [
+        {
+          "in": "query",
+          "name": "id",
+          "at": "app/schema/base/env.py:6"
+        },
+        {
+          "in": "query",
+          "name": "uid",
+          "at": "app/schema/base/env.py:7"
+        },
+        {
+          "in": "query",
+          "name": "description",
+          "at": "app/schema/base/env.py:9"
+        },
+        {
+          "in": "query",
+          "name": "host",
+          "at": "app/schema/base/env.py:10"
+        },
+        {
+          "in": "query",
+          "name": "port",
+          "at": "app/schema/base/env.py:11"
+        },
+        {
+          "in": "query",
+          "name": "project_id",
+          "at": "app/schema/base/env.py:12"
+        }
+      ]
+    },
+    {
+      "name": "EnvField",
+      "called": false,
+      "first_use": "app/controller/project/project.py:155",
+      "params": [
+        {
+          "in": "query",
+          "name": "id",
+          "at": "app/schema/base/env.py:6"
+        },
+        {
+          "in": "query",
+          "name": "uid",
+          "at": "app/schema/base/env.py:7"
+        },
+        {
+          "in": "query",
+          "name": "description",
+          "at": "app/schema/base/env.py:9"
+        },
+        {
+          "in": "query",
+          "name": "host",
+          "at": "app/schema/base/env.py:10"
+        },
+        {
+          "in": "query",
+          "name": "port",
+          "at": "app/schema/base/env.py:11"
+        },
+        {
+          "in": "query",
+          "name": "project_id",
+          "at": "app/schema/base/env.py:12"
+        }
+      ]
+    }
+  ],
+  "suspects": [
+    {
+      "at": "common/httpxClient.py:110",
+      "looks_like": "http",
+      "text": "response = await self.client.request(method, url, **kwargs)"
+    },
+    {
+      "at": "croe/a_manager/script_manager.py:350",
+      "looks_like": "http",
+      "text": "response = await client.request(method=method, url=url, **kwargs)"
+    }
+  ],
+  "seconds": 7.27
+}

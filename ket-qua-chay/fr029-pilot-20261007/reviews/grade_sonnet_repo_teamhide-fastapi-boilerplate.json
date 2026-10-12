@@ -1,0 +1,9 @@
+{"reviewer": "claude-sonnet", "repo": "teamhide-fastapi-boilerplate",
+ "checked": {"routes": 5, "files": 15, "http_calls": 0},
+ "errors": [
+  {"fixture": "teamhide-fastapi-boilerplate", "kind": "role", "item": "core/fastapi/dependencies/permission.py", "field": "vai_tro",
+   "doc_value": "Khác (exact: không có dấu hiệu)",
+   "correct_value": "Service (inferred, nằm trên đường gọi): route get_user_list khai dependencies=[Depends(PermissionDependency([IsAdmin]))]; IsAdmin.has_permission gọi usecase.is_admin -> UserService.is_admin -> repository.get_user_by_id (truy cập dữ liệu). Nếu bộ chấm chỉ tính đường gọi trong thân handler thì Khác là đúng.",
+   "evidence": "app/user/adapter/input/api/v1/user.py:18; core/fastapi/dependencies/permission.py:43,49; app/user/application/service/user.py:48-49",
+   "confidence": "chưa chắc"}
+ ]}

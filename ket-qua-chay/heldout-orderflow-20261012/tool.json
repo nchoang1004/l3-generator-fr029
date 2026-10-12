@@ -1,0 +1,47 @@
+[
+ {
+  "name": "submit_findings",
+  "description": "Submit checked items. Errors come back per item and field; fix and resubmit. A resubmitted item with the same key replaces the old one.",
+  "parameters": {
+   "type": "object",
+   "properties": {
+    "models": {
+     "type": "array",
+     "items": {
+      "type": "object"
+     }
+    },
+    "routes": {
+     "type": "array",
+     "items": {
+      "type": "object"
+     }
+    },
+    "http_calls": {
+     "type": "array",
+     "items": {
+      "type": "object"
+     }
+    },
+    "file_roles": {
+     "type": "array",
+     "items": {
+      "type": "object"
+     }
+    },
+    "limitations": {
+     "type": "array",
+     "items": {
+      "type": "object"
+     }
+    },
+    "dismissed": {
+     "type": "array",
+     "items": {
+      "type": "object"
+     }
+    }
+   }
+  }
+ }
+]

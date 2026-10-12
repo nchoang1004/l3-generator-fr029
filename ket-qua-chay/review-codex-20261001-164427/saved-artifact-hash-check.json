@@ -1,0 +1,18 @@
+[
+  {
+    "manifest": "ket-qua-chay/1-demo-shop_full/manifest.json",
+    "hash_mismatches": []
+  },
+  {
+    "manifest": "ket-qua-chay/4-cli-3-case-dev/dispatch-case-read/manifest.json",
+    "hash_mismatches": []
+  },
+  {
+    "manifest": "ket-qua-chay/4-cli-3-case-dev/orders-base/manifest.json",
+    "hash_mismatches": []
+  },
+  {
+    "manifest": "ket-qua-chay/4-cli-3-case-dev/sqlmodel-docs-teams-tutorial001/manifest.json",
+    "hash_mismatches": []
+  }
+]

@@ -1,0 +1,115 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos3\\ncoevoet_facet",
+  "files": 203,
+  "route_decorators": 197,
+  "decorators_refused": [],
+  "dependencies": [
+    {
+      "name": "get_optional_user",
+      "called": false,
+      "first_use": "api/routers/albums.py:402",
+      "params": []
+    },
+    {
+      "name": "require_edition",
+      "called": false,
+      "first_use": "api/routers/albums.py:479",
+      "params": []
+    },
+    {
+      "name": "require_authenticated",
+      "called": false,
+      "first_use": "api/routers/auth.py:163",
+      "params": []
+    },
+    {
+      "name": "require_auth",
+      "called": false,
+      "first_use": "api/routers/faces.py:451",
+      "params": []
+    },
+    {
+      "name": "hide_toggle_params",
+      "called": false,
+      "first_use": "api/routers/folders.py:31",
+      "params": [
+        {
+          "in": "query",
+          "name": "hide_blinks",
+          "at": "api/db_helpers.py:361"
+        },
+        {
+          "in": "query",
+          "name": "hide_bursts",
+          "at": "api/db_helpers.py:362"
+        },
+        {
+          "in": "query",
+          "name": "hide_duplicates",
+          "at": "api/db_helpers.py:363"
+        },
+        {
+          "in": "query",
+          "name": "hide_brackets",
+          "at": "api/db_helpers.py:364"
+        },
+        {
+          "in": "query",
+          "name": "hide_panoramas",
+          "at": "api/db_helpers.py:365"
+        }
+      ]
+    },
+    {
+      "name": "require_share_client",
+      "called": false,
+      "first_use": "api/routers/proofing.py:146",
+      "params": [
+        {
+          "in": "query",
+          "name": "album_id",
+          "at": "api/auth.py:339"
+        }
+      ]
+    },
+    {
+      "name": "require_scan_access",
+      "called": false,
+      "first_use": "api/routers/scan.py:141",
+      "params": []
+    }
+  ],
+  "suspects": [
+    {
+      "at": "api/routers/webdav.py:329",
+      "looks_like": "registration",
+      "text": "router.add_api_route(_path, _handler, methods=_methods, include_in_schema=False)"
+    },
+    {
+      "at": "api/updates.py:60",
+      "looks_like": "other_http",
+      "text": "with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:"
+    },
+    {
+      "at": "models/vlm_backend.py:108",
+      "looks_like": "other_http",
+      "text": "with urllib_request.urlopen(request, timeout=timeout) as response:"
+    },
+    {
+      "at": "plugins/__init__.py:333",
+      "looks_like": "other_http",
+      "text": "with urllib_request.urlopen(req, timeout=10) as resp:"
+    },
+    {
+      "at": "plugins/__init__.py:480",
+      "looks_like": "other_http",
+      "text": "with urllib_request.urlopen(req, timeout=10) as resp:  # lgtm[py/full-ssrf]"
+    },
+    {
+      "at": "sync/immich.py:125",
+      "looks_like": "other_http",
+      "text": "with urllib_request.urlopen(req, timeout=self.timeout) as resp:"
+    }
+  ],
+  "seconds": 16.25
+}

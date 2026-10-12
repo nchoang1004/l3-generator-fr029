@@ -1,0 +1,14 @@
+flowchart LR
+  C1["App"]
+  C2["Api"]
+  C3["Service"]
+  C4["Data"]
+  C5["Database"]
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+  end
+  C2 -->|"gọi execute, CreateNotebook"| C3
+  C1 -->|"gọi api_router"| C2
+  C4 -->|"gọi"| C5
+  C3 -->|"gọi begin, async_session"| C5
+  C5 -.->|"truy vấn"| X1

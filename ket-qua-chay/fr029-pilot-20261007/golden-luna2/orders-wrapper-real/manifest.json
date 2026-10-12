@@ -1,0 +1,1118 @@
+{
+  "agent": {
+    "reason": "",
+    "status": "completed",
+    "tokens_in": 51347,
+    "tokens_out": 1830,
+    "turns": 12,
+    "usage_missing_turns": 0
+  },
+  "architecture_parity": {
+    "reason": "Chưa được cấp archdia.json cùng snapshot",
+    "status": "not_evaluated"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "art_9b28ae40b331b75a065b5502",
+      "bytes": 2347,
+      "error": null,
+      "kind": "readme",
+      "media_type": "text/markdown",
+      "path": "README.md",
+      "sha256": "e7b1e0bcbfa817a6ea4fda4b834112f43a2b6027a13e9dab116051b82d98b126",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_0427b2b2ab5fa9bfca52abd4",
+      "bytes": 40368,
+      "error": null,
+      "kind": "json",
+      "media_type": "application/json",
+      "path": "result.json",
+      "sha256": "88ce16d79d380fdd3fe56c2621713dcc0ebb48140386b50edacffd68b9a426bd",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_fbd470a7db0800217e91d8c7",
+      "bytes": 5648,
+      "error": null,
+      "kind": "api",
+      "media_type": "text/markdown",
+      "path": "tech-specs/TOAN-BO/api/API-ORDERS-WRAPPER-REAL-TOAN-BO-v1.md",
+      "sha256": "e248bbe35803457901ed7b3a0a3de92dbf8b8de63b60219fdf262eaf5aad5f4b",
+      "status": "ready"
+    }
+  ],
+  "components": [
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "db.py",
+        "main.py",
+        "models.py",
+        "registration.py",
+        "repository.py",
+        "requirements.txt",
+        "routes.py",
+        "schemas.py",
+        "service.py"
+      ],
+      "id": "cmp_9c9b40acef388f58698d886f33995e94312e9b897089507a591b21c6ed1844cb",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:0a11c27c0d4841163f8e1697d1250b6b16e9c5aa3acb8dbe7ee2cb182cf0f917",
+        "file:3a47b4c168e35e57a3d797e6f7df5b1d0d9bde03171df209c0210c1c34e3dd5d",
+        "file:4b0667727df51025d016d2e2ac846e0492f0a0a872227e1f1aebc14850edac30",
+        "file:4d7c51b1efe9043e44439a949dfd92e5827321b34082903477fd04876edb7552",
+        "file:b10564ab7d2c520cdd0243874879fb0a782862c3c902ab535faabe57d5a505e1",
+        "file:c15c7a53d52ea93e06833d4e1d7538668210965721a3e6437ba4164407c41c1f",
+        "file:dcfeaa5ac3dffd54264034760914588d92fc7395c81eaa9274715840dc28100b",
+        "file:e38886c9c347274d45df17345018e0c7415786cb04a398d881a41bc5ec8d651b",
+        "file:fe9a9dec4a5655d062904816753a9ca33cf297261a339d0197d2593ccc6ea9b4"
+      ],
+      "name": "Toàn bộ"
+    }
+  ],
+  "contract_owners": {
+    "fact:be4823b534db010428f922c6fd3e9bbba0a3edb6472147fbf668f5d94ddc02cc": "cmp_9c9b40acef388f58698d886f33995e94312e9b897089507a591b21c6ed1844cb"
+  },
+  "coverage": {
+    "complete": true,
+    "files": [
+      {
+        "cut_lines": [],
+        "lines": 3,
+        "missing": [],
+        "path": "db.py",
+        "processed_lines": 3,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 6,
+        "missing": [],
+        "path": "main.py",
+        "processed_lines": 6,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 10,
+        "missing": [],
+        "path": "models.py",
+        "processed_lines": 10,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 2,
+        "missing": [],
+        "path": "registration.py",
+        "processed_lines": 2,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 7,
+        "missing": [],
+        "path": "repository.py",
+        "processed_lines": 7,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 3,
+        "missing": [],
+        "path": "requirements.txt",
+        "processed_lines": 3,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 11,
+        "missing": [],
+        "path": "routes.py",
+        "processed_lines": 11,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 4,
+        "missing": [],
+        "path": "schemas.py",
+        "processed_lines": 4,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 4,
+        "missing": [],
+        "path": "service.py",
+        "processed_lines": 4,
+        "status": "processed"
+      }
+    ],
+    "not_readable": []
+  },
+  "dismissed_suspects": [],
+  "evidence_index": [
+    {
+      "end_column": null,
+      "end_line": 1,
+      "file_id": "file:e38886c9c347274d45df17345018e0c7415786cb04a398d881a41bc5ec8d651b",
+      "id": "ev:291c7f7214e00cb19e81a0314f04102085a6901c058d5f5da4e1b814afbdd360",
+      "path": "db.py",
+      "sha256": "599e98771058c5291503c3e6d223e7383d53703b52bfc49ed84189822bf31b8e",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 1
+    },
+    {
+      "end_column": null,
+      "end_line": 4,
+      "file_id": "file:3a47b4c168e35e57a3d797e6f7df5b1d0d9bde03171df209c0210c1c34e3dd5d",
+      "id": "ev:3198cfafcbff92ec532642cb8af711837cda7067fdd487e384a37fbc2e47b050",
+      "path": "service.py",
+      "sha256": "562c92c57d255b5aa08f08267b85d8d1cd36405844c56a4f464f17cec64c7e02",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 4
+    },
+    {
+      "end_column": null,
+      "end_line": 2,
+      "file_id": "file:0a11c27c0d4841163f8e1697d1250b6b16e9c5aa3acb8dbe7ee2cb182cf0f917",
+      "id": "ev:3261f066951c9afd9b91351d517f30ebac6d43546c713f812f5ffb647ed92bfe",
+      "path": "registration.py",
+      "sha256": "7d2de43c7e09f81981c62e2d8bd97f7ccd457f12731ee43435319577c3b1745b",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 2
+    },
+    {
+      "end_column": null,
+      "end_line": 4,
+      "file_id": "file:fe9a9dec4a5655d062904816753a9ca33cf297261a339d0197d2593ccc6ea9b4",
+      "id": "ev:4d674c105cf52e8acc3738126b41351ebb6e3e22fc48f303835d0b5fb5d71e97",
+      "path": "schemas.py",
+      "sha256": "c698cecb54ac41f5d73692f3e6e7a7be76877a6eba608e3819da615f1acccd1a",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 4
+    },
+    {
+      "end_column": null,
+      "end_line": 1,
+      "file_id": "file:4d7c51b1efe9043e44439a949dfd92e5827321b34082903477fd04876edb7552",
+      "id": "ev:59ce96ebb8cb9f61ce501ee8fcb24cce9c2f6c717ec3057c58749ad7f8337f5f",
+      "path": "requirements.txt",
+      "sha256": "1ba42ff822f5ff8a4641eab1b1918526c06059e5cd78a424b5b9e81f37609203",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 1
+    },
+    {
+      "end_column": null,
+      "end_line": 10,
+      "file_id": "file:4b0667727df51025d016d2e2ac846e0492f0a0a872227e1f1aebc14850edac30",
+      "id": "ev:5d6f7bbf4593dfa825c4949ce67188dc511471c421ebdf3dfff3de6c798078d0",
+      "path": "routes.py",
+      "sha256": "d190034f9ce497666f9112e9ef73cb274cdda6307dd81c88f482b8a2ebeeb44c",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 9
+    },
+    {
+      "end_column": null,
+      "end_line": 8,
+      "file_id": "file:dcfeaa5ac3dffd54264034760914588d92fc7395c81eaa9274715840dc28100b",
+      "id": "ev:6398fc8178a66d547e48eed0f69cd14938991e97c60b700adaa6a88d75c8497d",
+      "path": "models.py",
+      "sha256": "88f56db81c51c87a77533f88ec36036bd30cd91f420c8aa7d4c236467b03e662",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 8
+    },
+    {
+      "end_column": null,
+      "end_line": 6,
+      "file_id": "file:b10564ab7d2c520cdd0243874879fb0a782862c3c902ab535faabe57d5a505e1",
+      "id": "ev:812229c493b4d99402ff13138f2a84392d8223630ff087a13d1cfd044b957d66",
+      "path": "main.py",
+      "sha256": "0f2f09f3384152884f8c4c34690914495b7fb8f597234bc29ef615450ad6fb1e",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 11,
+      "file_id": "file:4b0667727df51025d016d2e2ac846e0492f0a0a872227e1f1aebc14850edac30",
+      "id": "ev:99c377f6ae9b52871215dc235a30da14f3ba0cdc84f63e876cbff194997dc2b2",
+      "path": "routes.py",
+      "sha256": "d190034f9ce497666f9112e9ef73cb274cdda6307dd81c88f482b8a2ebeeb44c",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 11
+    },
+    {
+      "end_column": null,
+      "end_line": 3,
+      "file_id": "file:fe9a9dec4a5655d062904816753a9ca33cf297261a339d0197d2593ccc6ea9b4",
+      "id": "ev:a8a9b7766e87e24f66b488e8819c08fab5c26a2d8ef8e8651bb63b63c3b61818",
+      "path": "schemas.py",
+      "sha256": "c698cecb54ac41f5d73692f3e6e7a7be76877a6eba608e3819da615f1acccd1a",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 3
+    },
+    {
+      "end_column": null,
+      "end_line": 5,
+      "file_id": "file:b10564ab7d2c520cdd0243874879fb0a782862c3c902ab535faabe57d5a505e1",
+      "id": "ev:a92242ebe1e3a03c90f89acdeeae0d2019403d039b5d1b59f81813f5d23e09d6",
+      "path": "main.py",
+      "sha256": "0f2f09f3384152884f8c4c34690914495b7fb8f597234bc29ef615450ad6fb1e",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 5
+    },
+    {
+      "end_column": null,
+      "end_line": 1,
+      "file_id": "file:0a11c27c0d4841163f8e1697d1250b6b16e9c5aa3acb8dbe7ee2cb182cf0f917",
+      "id": "ev:ac271c97f8fa765e97a1ecb0a27cb59f6c2cb9d6c1a48bac61d91bbb3ba55ff2",
+      "path": "registration.py",
+      "sha256": "7d2de43c7e09f81981c62e2d8bd97f7ccd457f12731ee43435319577c3b1745b",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 1
+    },
+    {
+      "end_column": null,
+      "end_line": 5,
+      "file_id": "file:c15c7a53d52ea93e06833d4e1d7538668210965721a3e6437ba4164407c41c1f",
+      "id": "ev:d2c689372f1f159113cc05fafad621b577dd2d21cf3020b7f64687a6c5aac1c4",
+      "path": "repository.py",
+      "sha256": "240baf78ab1397c07409b478c2f258a92412302c839476213b9148f666196815",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 5
+    },
+    {
+      "end_column": null,
+      "end_line": 10,
+      "file_id": "file:4b0667727df51025d016d2e2ac846e0492f0a0a872227e1f1aebc14850edac30",
+      "id": "ev:e3e9f8eca0288eaf6cb206afc116f0d509de6ad1989781b78dcf755edc3faf5f",
+      "path": "routes.py",
+      "sha256": "d190034f9ce497666f9112e9ef73cb274cdda6307dd81c88f482b8a2ebeeb44c",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 10
+    },
+    {
+      "end_column": null,
+      "end_line": 9,
+      "file_id": "file:4b0667727df51025d016d2e2ac846e0492f0a0a872227e1f1aebc14850edac30",
+      "id": "ev:e50ceaed8de08af9ec8c674d623347bdc48bb52fd0d24410c3a9f783ca3a62f4",
+      "path": "routes.py",
+      "sha256": "d190034f9ce497666f9112e9ef73cb274cdda6307dd81c88f482b8a2ebeeb44c",
+      "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+      "start_column": null,
+      "start_line": 9
+    }
+  ],
+  "excluded_from_snapshot": [],
+  "facts": [
+    {
+      "attributes": {
+        "declared_in": {
+          "evidence_ids": [
+            "ev:a8a9b7766e87e24f66b488e8819c08fab5c26a2d8ef8e8651bb63b63c3b61818"
+          ],
+          "state": "known",
+          "value": "schemas.py"
+        },
+        "fields": {
+          "evidence_ids": [
+            "ev:a8a9b7766e87e24f66b488e8819c08fab5c26a2d8ef8e8651bb63b63c3b61818"
+          ],
+          "state": "known",
+          "value": [
+            {
+              "name": {
+                "evidence_ids": [
+                  "ev:4d674c105cf52e8acc3738126b41351ebb6e3e22fc48f303835d0b5fb5d71e97"
+                ],
+                "state": "known",
+                "value": "product"
+              },
+              "nullable": {
+                "evidence_ids": [
+                  "ev:4d674c105cf52e8acc3738126b41351ebb6e3e22fc48f303835d0b5fb5d71e97"
+                ],
+                "state": "known",
+                "value": false
+              },
+              "required": {
+                "evidence_ids": [
+                  "ev:4d674c105cf52e8acc3738126b41351ebb6e3e22fc48f303835d0b5fb5d71e97"
+                ],
+                "state": "known",
+                "value": true
+              },
+              "type": {
+                "evidence_ids": [
+                  "ev:4d674c105cf52e8acc3738126b41351ebb6e3e22fc48f303835d0b5fb5d71e97"
+                ],
+                "state": "known",
+                "value": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "name": {
+          "evidence_ids": [
+            "ev:a8a9b7766e87e24f66b488e8819c08fab5c26a2d8ef8e8651bb63b63c3b61818"
+          ],
+          "state": "known",
+          "value": "OrderInput"
+        }
+      },
+      "completeness": "full",
+      "confidence": "inferred",
+      "confidence_reason": "pydantic.v2_required_no_default: Pydantic v2: trường không có default là bắt buộc, kể cả khi kiểu cho phép None",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 3,
+          "file_id": "file:fe9a9dec4a5655d062904816753a9ca33cf297261a339d0197d2593ccc6ea9b4",
+          "id": "ev:a8a9b7766e87e24f66b488e8819c08fab5c26a2d8ef8e8651bb63b63c3b61818",
+          "path": "schemas.py",
+          "sha256": "c698cecb54ac41f5d73692f3e6e7a7be76877a6eba608e3819da615f1acccd1a",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 3
+        },
+        {
+          "end_column": null,
+          "end_line": 4,
+          "file_id": "file:fe9a9dec4a5655d062904816753a9ca33cf297261a339d0197d2593ccc6ea9b4",
+          "id": "ev:4d674c105cf52e8acc3738126b41351ebb6e3e22fc48f303835d0b5fb5d71e97",
+          "path": "schemas.py",
+          "sha256": "c698cecb54ac41f5d73692f3e6e7a7be76877a6eba608e3819da615f1acccd1a",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 4
+        }
+      ],
+      "id": "fact:7a2c001468b28516f8261b537991115b2631b233a01574f82923911c64a6577a",
+      "kind": "model",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:d5c8aff447b2ddd9ee2c8613d10b58ae4960d958b8b08542cb91f22688604279"
+    },
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:a92242ebe1e3a03c90f89acdeeae0d2019403d039b5d1b59f81813f5d23e09d6"
+          ],
+          "state": "known",
+          "value": "app:main.py:5"
+        },
+        "auth": {
+          "reason": "Không thấy cơ chế xác thực được khai báo trong mã nguồn.",
+          "state": "unknown"
+        },
+        "bodies": {
+          "evidence_ids": [
+            "ev:5d6f7bbf4593dfa825c4949ce67188dc511471c421ebdf3dfff3de6c798078d0"
+          ],
+          "state": "known",
+          "value": [
+            {
+              "direction": "request",
+              "media_type": "application/json",
+              "model_id": "fact:7a2c001468b28516f8261b537991115b2631b233a01574f82923911c64a6577a",
+              "required": true,
+              "status": null
+            }
+          ]
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:5d6f7bbf4593dfa825c4949ce67188dc511471c421ebdf3dfff3de6c798078d0"
+          ],
+          "state": "known",
+          "value": "ev:5d6f7bbf4593dfa825c4949ce67188dc511471c421ebdf3dfff3de6c798078d0"
+        },
+        "dependencies": {
+          "evidence_ids": [
+            "ev:e3e9f8eca0288eaf6cb206afc116f0d509de6ad1989781b78dcf755edc3faf5f"
+          ],
+          "state": "known",
+          "value": [
+            "get_db"
+          ]
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:5d6f7bbf4593dfa825c4949ce67188dc511471c421ebdf3dfff3de6c798078d0"
+          ],
+          "state": "known",
+          "value": "routes.py::create_order_endpoint"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:5d6f7bbf4593dfa825c4949ce67188dc511471c421ebdf3dfff3de6c798078d0"
+          ],
+          "state": "known",
+          "value": "POST"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:5d6f7bbf4593dfa825c4949ce67188dc511471c421ebdf3dfff3de6c798078d0"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:812229c493b4d99402ff13138f2a84392d8223630ff087a13d1cfd044b957d66",
+            "ev:e50ceaed8de08af9ec8c674d623347bdc48bb52fd0d24410c3a9f783ca3a62f4"
+          ],
+          "state": "known",
+          "value": "/api/v1/orders"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:812229c493b4d99402ff13138f2a84392d8223630ff087a13d1cfd044b957d66",
+            "ev:e50ceaed8de08af9ec8c674d623347bdc48bb52fd0d24410c3a9f783ca3a62f4"
+          ],
+          "state": "known",
+          "value": "include_prefix@main.py:6 -> decorator@routes.py:9"
+        },
+        "request_body_param": {
+          "evidence_ids": [
+            "ev:e3e9f8eca0288eaf6cb206afc116f0d509de6ad1989781b78dcf755edc3faf5f"
+          ],
+          "state": "known",
+          "value": "order"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:5d6f7bbf4593dfa825c4949ce67188dc511471c421ebdf3dfff3de6c798078d0"
+          ],
+          "state": "known",
+          "value": [
+            "fact:7a2c001468b28516f8261b537991115b2631b233a01574f82923911c64a6577a"
+          ]
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:5d6f7bbf4593dfa825c4949ce67188dc511471c421ebdf3dfff3de6c798078d0"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:5d6f7bbf4593dfa825c4949ce67188dc511471c421ebdf3dfff3de6c798078d0"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:5d6f7bbf4593dfa825c4949ce67188dc511471c421ebdf3dfff3de6c798078d0"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse; fastapi.json_body_media: Body là Pydantic model; FastAPI nhận application/json",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 10,
+          "file_id": "file:4b0667727df51025d016d2e2ac846e0492f0a0a872227e1f1aebc14850edac30",
+          "id": "ev:5d6f7bbf4593dfa825c4949ce67188dc511471c421ebdf3dfff3de6c798078d0",
+          "path": "routes.py",
+          "sha256": "d190034f9ce497666f9112e9ef73cb274cdda6307dd81c88f482b8a2ebeeb44c",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 9
+        },
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:b10564ab7d2c520cdd0243874879fb0a782862c3c902ab535faabe57d5a505e1",
+          "id": "ev:812229c493b4d99402ff13138f2a84392d8223630ff087a13d1cfd044b957d66",
+          "path": "main.py",
+          "sha256": "0f2f09f3384152884f8c4c34690914495b7fb8f597234bc29ef615450ad6fb1e",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 9,
+          "file_id": "file:4b0667727df51025d016d2e2ac846e0492f0a0a872227e1f1aebc14850edac30",
+          "id": "ev:e50ceaed8de08af9ec8c674d623347bdc48bb52fd0d24410c3a9f783ca3a62f4",
+          "path": "routes.py",
+          "sha256": "d190034f9ce497666f9112e9ef73cb274cdda6307dd81c88f482b8a2ebeeb44c",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 9
+        },
+        {
+          "end_column": null,
+          "end_line": 2,
+          "file_id": "file:0a11c27c0d4841163f8e1697d1250b6b16e9c5aa3acb8dbe7ee2cb182cf0f917",
+          "id": "ev:3261f066951c9afd9b91351d517f30ebac6d43546c713f812f5ffb647ed92bfe",
+          "path": "registration.py",
+          "sha256": "7d2de43c7e09f81981c62e2d8bd97f7ccd457f12731ee43435319577c3b1745b",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 2
+        },
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:b10564ab7d2c520cdd0243874879fb0a782862c3c902ab535faabe57d5a505e1",
+          "id": "ev:a92242ebe1e3a03c90f89acdeeae0d2019403d039b5d1b59f81813f5d23e09d6",
+          "path": "main.py",
+          "sha256": "0f2f09f3384152884f8c4c34690914495b7fb8f597234bc29ef615450ad6fb1e",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 5
+        },
+        {
+          "end_column": null,
+          "end_line": 10,
+          "file_id": "file:4b0667727df51025d016d2e2ac846e0492f0a0a872227e1f1aebc14850edac30",
+          "id": "ev:e3e9f8eca0288eaf6cb206afc116f0d509de6ad1989781b78dcf755edc3faf5f",
+          "path": "routes.py",
+          "sha256": "d190034f9ce497666f9112e9ef73cb274cdda6307dd81c88f482b8a2ebeeb44c",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 10
+        }
+      ],
+      "id": "fact:be4823b534db010428f922c6fd3e9bbba0a3edb6472147fbf668f5d94ddc02cc",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:d5c8aff447b2ddd9ee2c8613d10b58ae4960d958b8b08542cb91f22688604279"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:291c7f7214e00cb19e81a0314f04102085a6901c058d5f5da4e1b814afbdd360"
+          ],
+          "state": "known",
+          "value": "def get_db():"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:291c7f7214e00cb19e81a0314f04102085a6901c058d5f5da4e1b814afbdd360"
+          ],
+          "state": "known",
+          "value": "db.py"
+        },
+        "reason": {
+          "evidence_ids": [
+            "ev:291c7f7214e00cb19e81a0314f04102085a6901c058d5f5da4e1b814afbdd360"
+          ],
+          "state": "known",
+          "value": "Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:291c7f7214e00cb19e81a0314f04102085a6901c058d5f5da4e1b814afbdd360"
+          ],
+          "state": "known",
+          "value": "Khác"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 1,
+          "file_id": "file:e38886c9c347274d45df17345018e0c7415786cb04a398d881a41bc5ec8d651b",
+          "id": "ev:291c7f7214e00cb19e81a0314f04102085a6901c058d5f5da4e1b814afbdd360",
+          "path": "db.py",
+          "sha256": "599e98771058c5291503c3e6d223e7383d53703b52bfc49ed84189822bf31b8e",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 1
+        }
+      ],
+      "id": "fact:8de9a7a5c9cd4a32e50f7898b8ba4220e3a286402e1ccfa2d0a2b2c5df563f88",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:d5c8aff447b2ddd9ee2c8613d10b58ae4960d958b8b08542cb91f22688604279"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:a92242ebe1e3a03c90f89acdeeae0d2019403d039b5d1b59f81813f5d23e09d6"
+          ],
+          "state": "known",
+          "value": "app = FastAPI()"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:a92242ebe1e3a03c90f89acdeeae0d2019403d039b5d1b59f81813f5d23e09d6"
+          ],
+          "state": "known",
+          "value": "main.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:a92242ebe1e3a03c90f89acdeeae0d2019403d039b5d1b59f81813f5d23e09d6"
+          ],
+          "state": "known",
+          "value": "Điểm vào"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:b10564ab7d2c520cdd0243874879fb0a782862c3c902ab535faabe57d5a505e1",
+          "id": "ev:a92242ebe1e3a03c90f89acdeeae0d2019403d039b5d1b59f81813f5d23e09d6",
+          "path": "main.py",
+          "sha256": "0f2f09f3384152884f8c4c34690914495b7fb8f597234bc29ef615450ad6fb1e",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 5
+        }
+      ],
+      "id": "fact:8773ebb80e0acfc6090704745473cf8800d9ec8ba28209a26f11625beff867a5",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:d5c8aff447b2ddd9ee2c8613d10b58ae4960d958b8b08542cb91f22688604279"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:6398fc8178a66d547e48eed0f69cd14938991e97c60b700adaa6a88d75c8497d"
+          ],
+          "state": "known",
+          "value": "__tablename__ = \"orders\""
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:6398fc8178a66d547e48eed0f69cd14938991e97c60b700adaa6a88d75c8497d"
+          ],
+          "state": "known",
+          "value": "models.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:6398fc8178a66d547e48eed0f69cd14938991e97c60b700adaa6a88d75c8497d"
+          ],
+          "state": "known",
+          "value": "Model bảng"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 8,
+          "file_id": "file:dcfeaa5ac3dffd54264034760914588d92fc7395c81eaa9274715840dc28100b",
+          "id": "ev:6398fc8178a66d547e48eed0f69cd14938991e97c60b700adaa6a88d75c8497d",
+          "path": "models.py",
+          "sha256": "88f56db81c51c87a77533f88ec36036bd30cd91f420c8aa7d4c236467b03e662",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 8
+        }
+      ],
+      "id": "fact:c3b45cb3fe55a7c1df7b1d4c8d4d3de46cad14c3cca5d9916e2ec0b74a4e5d5c",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:d5c8aff447b2ddd9ee2c8613d10b58ae4960d958b8b08542cb91f22688604279"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:ac271c97f8fa765e97a1ecb0a27cb59f6c2cb9d6c1a48bac61d91bbb3ba55ff2"
+          ],
+          "state": "known",
+          "value": "def attach(app, router, prefix):"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:ac271c97f8fa765e97a1ecb0a27cb59f6c2cb9d6c1a48bac61d91bbb3ba55ff2"
+          ],
+          "state": "known",
+          "value": "registration.py"
+        },
+        "reason": {
+          "evidence_ids": [
+            "ev:ac271c97f8fa765e97a1ecb0a27cb59f6c2cb9d6c1a48bac61d91bbb3ba55ff2"
+          ],
+          "state": "known",
+          "value": "Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:ac271c97f8fa765e97a1ecb0a27cb59f6c2cb9d6c1a48bac61d91bbb3ba55ff2"
+          ],
+          "state": "known",
+          "value": "Khác"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 1,
+          "file_id": "file:0a11c27c0d4841163f8e1697d1250b6b16e9c5aa3acb8dbe7ee2cb182cf0f917",
+          "id": "ev:ac271c97f8fa765e97a1ecb0a27cb59f6c2cb9d6c1a48bac61d91bbb3ba55ff2",
+          "path": "registration.py",
+          "sha256": "7d2de43c7e09f81981c62e2d8bd97f7ccd457f12731ee43435319577c3b1745b",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 1
+        }
+      ],
+      "id": "fact:734dc56bae6c16fe1a789e87c814e16a7bd5390afb0da5e306d5c81267e26727",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:d5c8aff447b2ddd9ee2c8613d10b58ae4960d958b8b08542cb91f22688604279"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:d2c689372f1f159113cc05fafad621b577dd2d21cf3020b7f64687a6c5aac1c4"
+          ],
+          "state": "known",
+          "value": "db.add(order)"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:d2c689372f1f159113cc05fafad621b577dd2d21cf3020b7f64687a6c5aac1c4"
+          ],
+          "state": "known",
+          "value": "repository.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:d2c689372f1f159113cc05fafad621b577dd2d21cf3020b7f64687a6c5aac1c4"
+          ],
+          "state": "known",
+          "value": "Truy cập dữ liệu"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:c15c7a53d52ea93e06833d4e1d7538668210965721a3e6437ba4164407c41c1f",
+          "id": "ev:d2c689372f1f159113cc05fafad621b577dd2d21cf3020b7f64687a6c5aac1c4",
+          "path": "repository.py",
+          "sha256": "240baf78ab1397c07409b478c2f258a92412302c839476213b9148f666196815",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 5
+        }
+      ],
+      "id": "fact:a869f12ffe5a12bce222f8c21ec62813dac37e1af4a88c558c1f29fcf6479d62",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:d5c8aff447b2ddd9ee2c8613d10b58ae4960d958b8b08542cb91f22688604279"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:59ce96ebb8cb9f61ce501ee8fcb24cce9c2f6c717ec3057c58749ad7f8337f5f"
+          ],
+          "state": "known",
+          "value": "fastapi==0.115.0"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:59ce96ebb8cb9f61ce501ee8fcb24cce9c2f6c717ec3057c58749ad7f8337f5f"
+          ],
+          "state": "known",
+          "value": "requirements.txt"
+        },
+        "reason": {
+          "evidence_ids": [
+            "ev:59ce96ebb8cb9f61ce501ee8fcb24cce9c2f6c717ec3057c58749ad7f8337f5f"
+          ],
+          "state": "known",
+          "value": "Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:59ce96ebb8cb9f61ce501ee8fcb24cce9c2f6c717ec3057c58749ad7f8337f5f"
+          ],
+          "state": "known",
+          "value": "Khác"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 1,
+          "file_id": "file:4d7c51b1efe9043e44439a949dfd92e5827321b34082903477fd04876edb7552",
+          "id": "ev:59ce96ebb8cb9f61ce501ee8fcb24cce9c2f6c717ec3057c58749ad7f8337f5f",
+          "path": "requirements.txt",
+          "sha256": "1ba42ff822f5ff8a4641eab1b1918526c06059e5cd78a424b5b9e81f37609203",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 1
+        }
+      ],
+      "id": "fact:b2b84541269d33229c86573ad9cc464254f6fa68d343ff8086e0a5d38517eb93",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:d5c8aff447b2ddd9ee2c8613d10b58ae4960d958b8b08542cb91f22688604279"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:e50ceaed8de08af9ec8c674d623347bdc48bb52fd0d24410c3a9f783ca3a62f4"
+          ],
+          "state": "known",
+          "value": "@router.post(\"/orders\")"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:e50ceaed8de08af9ec8c674d623347bdc48bb52fd0d24410c3a9f783ca3a62f4"
+          ],
+          "state": "known",
+          "value": "routes.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:e50ceaed8de08af9ec8c674d623347bdc48bb52fd0d24410c3a9f783ca3a62f4"
+          ],
+          "state": "known",
+          "value": "Route"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 9,
+          "file_id": "file:4b0667727df51025d016d2e2ac846e0492f0a0a872227e1f1aebc14850edac30",
+          "id": "ev:e50ceaed8de08af9ec8c674d623347bdc48bb52fd0d24410c3a9f783ca3a62f4",
+          "path": "routes.py",
+          "sha256": "d190034f9ce497666f9112e9ef73cb274cdda6307dd81c88f482b8a2ebeeb44c",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 9
+        }
+      ],
+      "id": "fact:2d13f6a788ff2745815dd69fa800f54895054b39b274c00c0fc56a6fb03a860f",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:d5c8aff447b2ddd9ee2c8613d10b58ae4960d958b8b08542cb91f22688604279"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:a8a9b7766e87e24f66b488e8819c08fab5c26a2d8ef8e8651bb63b63c3b61818"
+          ],
+          "state": "known",
+          "value": "class OrderInput(BaseModel):"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:a8a9b7766e87e24f66b488e8819c08fab5c26a2d8ef8e8651bb63b63c3b61818"
+          ],
+          "state": "known",
+          "value": "schemas.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:a8a9b7766e87e24f66b488e8819c08fab5c26a2d8ef8e8651bb63b63c3b61818"
+          ],
+          "state": "known",
+          "value": "Schema API"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 3,
+          "file_id": "file:fe9a9dec4a5655d062904816753a9ca33cf297261a339d0197d2593ccc6ea9b4",
+          "id": "ev:a8a9b7766e87e24f66b488e8819c08fab5c26a2d8ef8e8651bb63b63c3b61818",
+          "path": "schemas.py",
+          "sha256": "c698cecb54ac41f5d73692f3e6e7a7be76877a6eba608e3819da615f1acccd1a",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 3
+        }
+      ],
+      "id": "fact:9110ef26c0a024c413812667fe836dea99702632bcdb3da891cc408e7eee859b",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:d5c8aff447b2ddd9ee2c8613d10b58ae4960d958b8b08542cb91f22688604279"
+    },
+    {
+      "attributes": {
+        "call_path": {
+          "evidence_ids": [
+            "ev:3198cfafcbff92ec532642cb8af711837cda7067fdd487e384a37fbc2e47b050",
+            "ev:99c377f6ae9b52871215dc235a30da14f3ba0cdc84f63e876cbff194997dc2b2",
+            "ev:d2c689372f1f159113cc05fafad621b577dd2d21cf3020b7f64687a6c5aac1c4"
+          ],
+          "state": "known",
+          "value": [
+            "routes.py:11",
+            "service.py:4",
+            "repository.py:5"
+          ]
+        },
+        "code": {
+          "evidence_ids": [
+            "ev:3198cfafcbff92ec532642cb8af711837cda7067fdd487e384a37fbc2e47b050"
+          ],
+          "state": "known",
+          "value": "return save_order(db, payload)"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:3198cfafcbff92ec532642cb8af711837cda7067fdd487e384a37fbc2e47b050",
+            "ev:99c377f6ae9b52871215dc235a30da14f3ba0cdc84f63e876cbff194997dc2b2",
+            "ev:d2c689372f1f159113cc05fafad621b577dd2d21cf3020b7f64687a6c5aac1c4"
+          ],
+          "state": "known",
+          "value": "service.py"
+        },
+        "reason": {
+          "evidence_ids": [
+            "ev:3198cfafcbff92ec532642cb8af711837cda7067fdd487e384a37fbc2e47b050",
+            "ev:99c377f6ae9b52871215dc235a30da14f3ba0cdc84f63e876cbff194997dc2b2",
+            "ev:d2c689372f1f159113cc05fafad621b577dd2d21cf3020b7f64687a6c5aac1c4"
+          ],
+          "state": "known",
+          "value": "Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:3198cfafcbff92ec532642cb8af711837cda7067fdd487e384a37fbc2e47b050",
+            "ev:99c377f6ae9b52871215dc235a30da14f3ba0cdc84f63e876cbff194997dc2b2",
+            "ev:d2c689372f1f159113cc05fafad621b577dd2d21cf3020b7f64687a6c5aac1c4"
+          ],
+          "state": "known",
+          "value": "Service"
+        }
+      },
+      "completeness": "full",
+      "confidence": "inferred",
+      "confidence_reason": "Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 4,
+          "file_id": "file:3a47b4c168e35e57a3d797e6f7df5b1d0d9bde03171df209c0210c1c34e3dd5d",
+          "id": "ev:3198cfafcbff92ec532642cb8af711837cda7067fdd487e384a37fbc2e47b050",
+          "path": "service.py",
+          "sha256": "562c92c57d255b5aa08f08267b85d8d1cd36405844c56a4f464f17cec64c7e02",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 4
+        },
+        {
+          "end_column": null,
+          "end_line": 11,
+          "file_id": "file:4b0667727df51025d016d2e2ac846e0492f0a0a872227e1f1aebc14850edac30",
+          "id": "ev:99c377f6ae9b52871215dc235a30da14f3ba0cdc84f63e876cbff194997dc2b2",
+          "path": "routes.py",
+          "sha256": "d190034f9ce497666f9112e9ef73cb274cdda6307dd81c88f482b8a2ebeeb44c",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 11
+        },
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:c15c7a53d52ea93e06833d4e1d7538668210965721a3e6437ba4164407c41c1f",
+          "id": "ev:d2c689372f1f159113cc05fafad621b577dd2d21cf3020b7f64687a6c5aac1c4",
+          "path": "repository.py",
+          "sha256": "240baf78ab1397c07409b478c2f258a92412302c839476213b9148f666196815",
+          "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+          "start_column": null,
+          "start_line": 5
+        }
+      ],
+      "id": "fact:dd7ed2541b6594f03b22ce57b4e19c26cae13be61578a93c76449dbe0da49d98",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:d5c8aff447b2ddd9ee2c8613d10b58ae4960d958b8b08542cb91f22688604279"
+    }
+  ],
+  "limitations": [
+    {
+      "code": "DIAGRAM_NOT_PROVIDED",
+      "message": "Chưa được cấp sơ đồ component từ bước kiến trúc (FR-028); README chưa đủ mục sơ đồ của AC-029-06",
+      "stage": "input"
+    },
+    {
+      "code": "ARCHITECTURE_NOT_EVALUATED",
+      "message": "Chưa đối chiếu được với archdia.json (AC-029-04): Chưa được cấp archdia.json cùng snapshot",
+      "stage": "input"
+    }
+  ],
+  "pipeline_version": "fr029-doc-v1",
+  "provenance": {
+    "model": "gpt-6-luna",
+    "prompt_version": "fr029-agent-prompt-v7",
+    "provider": "https://api.openai.com/v1"
+  },
+  "rejected_claims": [],
+  "render_notices": [],
+  "repository_name": "orders-wrapper-real",
+  "run_id": "golden_orders-wrapper-real",
+  "schema_version": "0.1.0",
+  "snapshot_id": "snap:1b33d7f5ef0b0f5a9434a34b0e55cc952ef2f4d2f3f7069fa13515f916707e9f",
+  "unassigned": []
+}

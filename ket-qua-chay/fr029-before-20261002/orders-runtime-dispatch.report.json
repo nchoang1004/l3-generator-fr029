@@ -1,0 +1,182 @@
+{
+  "case_id": "orders-runtime-dispatch",
+  "split": "development",
+  "source_family": "orders-fixture",
+  "purpose": "pilot_scorer_check",
+  "created_at": "2026-10-02T09:08:22.646447+00:00",
+  "acceptance": "not_evaluated",
+  "product_benchmark": false,
+  "gold_review": {
+    "status": "candidate",
+    "independent_humans": [],
+    "adjudication": "pending"
+  },
+  "input_hashes": {
+    "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-runtime-dispatch\\source-manifest.json": "a57a76ca9775002bd074ab252953f26ca099ef1e2afa564c904f3d2a78fcabe5",
+    "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-runtime-dispatch\\gold.json": "872819575a5ef6cd1474e3fd4a2b44e83fd949f8dfd81a5a5e388052d5f73536",
+    "ket-qua-chay\\fr029-before-20261002\\orders-runtime-dispatch.prediction.json": "e79a0a191efb1114f127f7458d670abf6b728b86594f5e427203c06f2c006625",
+    "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\matching-policy.json": "1069095060657539afc295c4f03144808b8292a74fa5512b8f949b7fa04a201b"
+  },
+  "review_verification": "metadata_only_not_independent_human_review",
+  "schema_hashes": {
+    "manifest-schema.json": "9ff20110573b2d6e1ccd730dfe92646172954978b6918ca0e76c8a490ed1a118",
+    "prediction-schema.json": "0020619060ecdabba19352cc3679fbe50f1d8326acdc4486d5bd557a44d96933",
+    "schema.json": "69722d48fc4448c91455b4b5d5e9ee27c626cd3f404a688bbf03fe3cc39bfa25"
+  },
+  "dependency_lock_hash": "41737ffdc30e3cab85cfe23b3bd7b2d82e43957d9f5c4d553848b3280359323d",
+  "environment": {
+    "python": "3.11.9",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "scorer_hashes": {
+    "check_pilot.py": "26d81f5cb5d249fa7116b072862817bae764a51f378feb2c49aab18370aaa9ed",
+    "compare.py": "5f84320f1f69f9cc672841499136e9e0639442b118a23e0a83f03db49b101736",
+    "core.py": "c4bb922b47dbec46209d3eb64e6e497402f754ffff0c463671a7b9ac64861b25",
+    "matching.py": "e1737eb8f5f0544671eae329fa18367474d4e6bc82d66f4f07391f0516dec01c",
+    "prepare_review.py": "2579aae1c4d64a2597c3d277e7e8dc98b8f27959b56b7fa8af1f48484b6ea106",
+    "score.py": "49c3d9222a8bb4d3ef53ac61a3365a59f6f5e7fae8dda54f4a723a3713ee8e31",
+    "summarize.py": "c69fa4e0545dec82a135c33fcf4effa7d816bbebabd2181c27d8fd44d204a6b3",
+    "verify.py": "71fa0b1d5ea5941dfeed6ee0da7ebc480e99f0a6d97dd11438a8cca9096ace3e",
+    "_build_ground_truth.py": "72cf001d81ac72ddcbf341c35c6bf857117f87f0fcd65eab48eb1cb70cc7b6b0",
+    "_build_ground_truth_template.py": "58a3ecca091a5a625ec85532d5352aad8558eeee5259cc6c608f056960280373",
+    "__init__.py": "d3f45d4c84911e848e04103695fa1c37f5645145dd067748a7f5db84601fb079"
+  },
+  "errors": [],
+  "status": "scored",
+  "fact_groups": {
+    "entity": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "status": "not_evaluated",
+      "reason": "pilot_candidate_or_insufficient_sample",
+      "identity_tp": 1,
+      "partial_expected": 0,
+      "partial_match": 0
+    },
+    "limitation": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "status": "not_evaluated",
+      "reason": "pilot_candidate_or_insufficient_sample",
+      "identity_tp": 0,
+      "partial_expected": 0,
+      "partial_match": 0
+    },
+    "reference": {
+      "tp": 9,
+      "fp": 0,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "status": "not_evaluated",
+      "reason": "pilot_candidate_or_insufficient_sample",
+      "identity_tp": 14,
+      "partial_expected": 5,
+      "partial_match": 5
+    },
+    "route": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "status": "not_evaluated",
+      "reason": "pilot_candidate_or_insufficient_sample",
+      "identity_tp": 4,
+      "partial_expected": 0,
+      "partial_match": 0
+    },
+    "entity_columns": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "precision": null,
+      "recall": null,
+      "status": "not_evaluated",
+      "reason": "pilot_candidate_or_insufficient_sample"
+    }
+  },
+  "findings": [],
+  "labels": {
+    "compared": 19,
+    "correct": 19,
+    "false_exact": 0,
+    "scope": "facts_only",
+    "status": "not_evaluated",
+    "reason": "label_policy_pending"
+  },
+  "architectures": [
+    {
+      "variant": "none",
+      "mapping": [],
+      "membership": {
+        "tp": null,
+        "fp": null,
+        "fn": null,
+        "precision": null,
+        "recall": null,
+        "status": "not_labeled",
+        "reason": "gold_has_no_architecture_labels"
+      },
+      "edges": {
+        "tp": null,
+        "fp": null,
+        "fn": null,
+        "precision": null,
+        "recall": null,
+        "status": "not_labeled",
+        "reason": "gold_has_no_architecture_labels"
+      },
+      "missing_components": [],
+      "unmatched_components": [],
+      "out_of_scope_edge_ids": [],
+      "out_of_scope_edges": 0
+    }
+  ],
+  "primary_architecture": {
+    "variant": "none",
+    "mapping": [],
+    "membership": {
+      "tp": null,
+      "fp": null,
+      "fn": null,
+      "precision": null,
+      "recall": null,
+      "status": "not_labeled",
+      "reason": "gold_has_no_architecture_labels"
+    },
+    "edges": {
+      "tp": null,
+      "fp": null,
+      "fn": null,
+      "precision": null,
+      "recall": null,
+      "status": "not_labeled",
+      "reason": "gold_has_no_architecture_labels"
+    },
+    "missing_components": [],
+    "unmatched_components": [],
+    "out_of_scope_edge_ids": [],
+    "out_of_scope_edges": 0
+  },
+  "prediction_origin": "product",
+  "not_run_attributes": [],
+  "collapsed_fact_ids": [],
+  "out_of_scope_facts": 3,
+  "out_of_scope_fact_ids": [
+    "fact:b574accd713159576f183e482c80a55432bff7268c2e5127447d6cd777292cd3",
+    "fact:c91ffcf4bdbc1f002df84ca165400ea0cd0aed43e7bfe4132fcb94c58deddf8c",
+    "fact:f0fcda18328893b4dbcc2193f222a60c06e3993337552a9ea7aa2fded5cb2313"
+  ],
+  "evidence": {
+    "structurally_valid_claims": 22,
+    "published_claims": 22,
+    "semantic_support": "not_evaluated"
+  }
+}

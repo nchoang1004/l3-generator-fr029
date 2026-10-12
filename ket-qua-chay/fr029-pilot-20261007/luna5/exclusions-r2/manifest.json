@@ -1,0 +1,746 @@
+{
+  "agent": {
+    "reason": "",
+    "status": "completed",
+    "tokens_in": 41075,
+    "tokens_out": 1619,
+    "turns": 9,
+    "usage_missing_turns": 0
+  },
+  "architecture_parity": {
+    "reason": "Chưa được cấp archdia.json cùng snapshot",
+    "status": "not_evaluated"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "art_4c203fa3373c8cc1983a195c",
+      "bytes": 2532,
+      "error": null,
+      "kind": "readme",
+      "media_type": "text/markdown",
+      "path": "README.md",
+      "sha256": "9ffc9f567aea69ed0cbfb4e83ce8984b8805ca07dee55958e7f543159ea42393",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_8b26e8da6d202150a8bbf912",
+      "bytes": 25424,
+      "error": null,
+      "kind": "json",
+      "media_type": "application/json",
+      "path": "result.json",
+      "sha256": "437198b24602690a589fcfe6cd355680b31ae4bda4869fc947ab01c9f6b3b4b1",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_237f171a274469e562beaec4",
+      "bytes": 4061,
+      "error": null,
+      "kind": "api",
+      "media_type": "text/markdown",
+      "path": "tech-specs/DON-HANG/api/API-EXCLUSIONS-DON-HANG-v1.md",
+      "sha256": "9f74e130983ae4bd44d00b655ab8d720b3e0db3ec9e29c6de82a92459e0a33f2",
+      "status": "ready"
+    }
+  ],
+  "components": [
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/main.py"
+      ],
+      "id": "cmp_97f74bb60e06e72ee370dec78dff2bf11b4d91f0162a907fe17206249dc0c43f",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd"
+      ],
+      "name": "Khởi động"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/hooks.py",
+        "app/routers/internal.py",
+        "app/routers/orders.py"
+      ],
+      "id": "cmp_31b297b7d7bd30deed27cc1affcbe66aefd15d7ac2e7e9e5e83081d9395c2b87",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:04b961267882cac5be518d58dd44804d03326a88e0fd015604d8de176a5221af",
+        "file:409e34a8a8636475c9475e34736d9c1d127c0fa79d326bc6fe2362503006a953",
+        "file:d75ed2ab80fe9d0b73145e32dc76b2a039eebaecc99a98208738bbd49bffe64e"
+      ],
+      "name": "Đơn hàng"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/routers/test_selfcheck.py",
+        "conftest.py",
+        "tests/test_api.py"
+      ],
+      "id": "cmp_7b2ad034fca722967d349d9c17da25df618566852b16cf85bbc372548fe52942",
+      "kind": "test",
+      "member_file_ids": [
+        "file:3451cc474d5698222168f66a293339a6bd296ee2c56f56409866bbae99917a79",
+        "file:367864bd2724ad6d39b5763aa13e5d70f4fbbd3d59c74eea79e41e680aee27de",
+        "file:a31c7ed5d35f5ed8233994868c54d625b18e6bacb6794344c4531e62bd9dde59"
+      ],
+      "name": "Kiểm thử"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "examples/standalone.py"
+      ],
+      "id": "cmp_4436c48ee84cc652a49b1bcf4911cbac208678fb3aa86c26ba3f21c9bfb21c1b",
+      "kind": "other",
+      "member_file_ids": [
+        "file:f92bb41c55f4acb4ea34eb9d01e00d41fdef89d7fc2b8c79c94f453afd14355d"
+      ],
+      "name": "Ngoài phạm vi"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/__init__.py",
+        "app/routers/__init__.py",
+        "requirements.txt"
+      ],
+      "id": "cmp_034dec8e95204fe764a85492da9f535aa3ef1b595f10d19ac1b83f9d42b09420",
+      "kind": "other",
+      "member_file_ids": [
+        "file:4d7c51b1efe9043e44439a949dfd92e5827321b34082903477fd04876edb7552",
+        "file:88e1c4ef1acfd7451fb7f57e2e418ee36a84a4dbf81b5c353301cd187450a7d8",
+        "file:9cec7b11237bc29d77a439e81c9b7acfac003d8e8855731eb6bc130b5a8ce602"
+      ],
+      "name": "Khác"
+    }
+  ],
+  "contract_owners": {
+    "fact:462a63b2055cc302edfd619d6530cc898092e7d98db3f7ce7e0e6c6052ab1c30": "cmp_31b297b7d7bd30deed27cc1affcbe66aefd15d7ac2e7e9e5e83081d9395c2b87"
+  },
+  "coverage": {
+    "complete": true,
+    "files": [
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 13,
+        "missing": [],
+        "path": "app/hooks.py",
+        "processed_lines": 13,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 25,
+        "missing": [],
+        "path": "app/main.py",
+        "processed_lines": 25,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/routers/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 8,
+        "missing": [],
+        "path": "app/routers/internal.py",
+        "processed_lines": 8,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 15,
+        "missing": [],
+        "path": "app/routers/orders.py",
+        "processed_lines": 15,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 2,
+        "missing": [],
+        "path": "requirements.txt",
+        "processed_lines": 2,
+        "status": "processed"
+      }
+    ],
+    "not_readable": [
+      {
+        "path": "app/routers/test_selfcheck.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "conftest.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "examples/standalone.py",
+        "reason": "Trong `examples/` và không import code của repository (FR-028 Phạm vi đọc)",
+        "scope": "conditional_out"
+      },
+      {
+        "path": "tests/test_api.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      }
+    ]
+  },
+  "dismissed_suspects": [
+    {
+      "at": "app/routers/internal.py:6-6",
+      "reason": "Router nội bộ không được include vào ứng dụng FastAPI trong mã nguồn đã đọc nên tuyến này không được ứng dụng phục vụ."
+    },
+    {
+      "at": "app/routers/orders.py:13-13",
+      "reason": "Decorator registry.get đăng ký handler vào registry tùy biến, không phải decorator của FastAPI/APIRouter."
+    }
+  ],
+  "evidence_index": [
+    {
+      "end_column": null,
+      "end_line": 6,
+      "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+      "id": "ev:7280cf5de032de19ba96ddac663efe7fd3cd5dfd45ddd23e23673ba3dce6786f",
+      "path": "app/main.py",
+      "sha256": "8d4cf82d08e090a6285f1ff37a9ccdfc338d5989ff2b4aa04c61186a5edccbdd",
+      "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 6,
+      "file_id": "file:d75ed2ab80fe9d0b73145e32dc76b2a039eebaecc99a98208738bbd49bffe64e",
+      "id": "ev:816cfd1484f7e139849b2e55f2fe10b263e8d163fec3dae6766fd01b2ad9ef50",
+      "path": "app/routers/internal.py",
+      "sha256": "c1cd546b071fc341a238b015b8c14c23c2979662e0c5408d8069fed78f069f4b",
+      "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 9,
+      "file_id": "file:409e34a8a8636475c9475e34736d9c1d127c0fa79d326bc6fe2362503006a953",
+      "id": "ev:9c589074f1730754c1adc59f150a61b4cdca8c42fc58a84d9c4c3243e0f5edd3",
+      "path": "app/routers/orders.py",
+      "sha256": "ab3bf6fdbb7d12d382bbadfc1ca2da0e48efd0cd53f8158b90cd51d71972e405",
+      "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+      "start_column": null,
+      "start_line": 8
+    },
+    {
+      "end_column": null,
+      "end_line": 5,
+      "file_id": "file:409e34a8a8636475c9475e34736d9c1d127c0fa79d326bc6fe2362503006a953",
+      "id": "ev:a8c9af97ee3c937fcb6d9e422f74821ef267ff2cd1649a4356d1f337fb35072f",
+      "path": "app/routers/orders.py",
+      "sha256": "ab3bf6fdbb7d12d382bbadfc1ca2da0e48efd0cd53f8158b90cd51d71972e405",
+      "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+      "start_column": null,
+      "start_line": 5
+    },
+    {
+      "end_column": null,
+      "end_line": 7,
+      "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+      "id": "ev:b6cf47c7c8552e62f18c2c3ebf46c611ca6cab29fd027c3dcdd0677ef2de7843",
+      "path": "app/main.py",
+      "sha256": "8d4cf82d08e090a6285f1ff37a9ccdfc338d5989ff2b4aa04c61186a5edccbdd",
+      "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+      "start_column": null,
+      "start_line": 7
+    },
+    {
+      "end_column": null,
+      "end_line": 8,
+      "file_id": "file:409e34a8a8636475c9475e34736d9c1d127c0fa79d326bc6fe2362503006a953",
+      "id": "ev:eb64404d6cd2fe56328deebd9af136b2227cbe429332fd905577f16d9901dd87",
+      "path": "app/routers/orders.py",
+      "sha256": "ab3bf6fdbb7d12d382bbadfc1ca2da0e48efd0cd53f8158b90cd51d71972e405",
+      "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+      "start_column": null,
+      "start_line": 8
+    },
+    {
+      "end_column": null,
+      "end_line": 1,
+      "file_id": "file:04b961267882cac5be518d58dd44804d03326a88e0fd015604d8de176a5221af",
+      "id": "ev:f5c37b34ae71bb4a55d0ebc746407348e2a7a9e464f22397b311322a571d5fba",
+      "path": "app/hooks.py",
+      "sha256": "35bedaace34c0f649c3e4de9f78878c29aa972773e95a0bf4ba80d2e161db418",
+      "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+      "start_column": null,
+      "start_line": 1
+    }
+  ],
+  "excluded_from_snapshot": [],
+  "facts": [
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:7280cf5de032de19ba96ddac663efe7fd3cd5dfd45ddd23e23673ba3dce6786f"
+          ],
+          "state": "known",
+          "value": "app:app/main.py:6"
+        },
+        "auth": {
+          "reason": "Không thấy cơ chế xác thực trong mã nguồn đã đọc.",
+          "state": "unknown"
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:9c589074f1730754c1adc59f150a61b4cdca8c42fc58a84d9c4c3243e0f5edd3"
+          ],
+          "state": "known",
+          "value": "ev:9c589074f1730754c1adc59f150a61b4cdca8c42fc58a84d9c4c3243e0f5edd3"
+        },
+        "dependencies": {
+          "evidence_ids": [
+            "ev:9c589074f1730754c1adc59f150a61b4cdca8c42fc58a84d9c4c3243e0f5edd3"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:9c589074f1730754c1adc59f150a61b4cdca8c42fc58a84d9c4c3243e0f5edd3"
+          ],
+          "state": "known",
+          "value": "app/routers/orders.py::list_orders"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:9c589074f1730754c1adc59f150a61b4cdca8c42fc58a84d9c4c3243e0f5edd3"
+          ],
+          "state": "known",
+          "value": "GET"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:9c589074f1730754c1adc59f150a61b4cdca8c42fc58a84d9c4c3243e0f5edd3"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:a8c9af97ee3c937fcb6d9e422f74821ef267ff2cd1649a4356d1f337fb35072f",
+            "ev:b6cf47c7c8552e62f18c2c3ebf46c611ca6cab29fd027c3dcdd0677ef2de7843",
+            "ev:eb64404d6cd2fe56328deebd9af136b2227cbe429332fd905577f16d9901dd87"
+          ],
+          "state": "known",
+          "value": "/orders"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:a8c9af97ee3c937fcb6d9e422f74821ef267ff2cd1649a4356d1f337fb35072f",
+            "ev:b6cf47c7c8552e62f18c2c3ebf46c611ca6cab29fd027c3dcdd0677ef2de7843",
+            "ev:eb64404d6cd2fe56328deebd9af136b2227cbe429332fd905577f16d9901dd87"
+          ],
+          "state": "known",
+          "value": "include_prefix@app/main.py:7 -> router_prefix@app/routers/orders.py:5 -> decorator@app/routers/orders.py:8"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:9c589074f1730754c1adc59f150a61b4cdca8c42fc58a84d9c4c3243e0f5edd3"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:9c589074f1730754c1adc59f150a61b4cdca8c42fc58a84d9c4c3243e0f5edd3"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:eb64404d6cd2fe56328deebd9af136b2227cbe429332fd905577f16d9901dd87"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:eb64404d6cd2fe56328deebd9af136b2227cbe429332fd905577f16d9901dd87"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 9,
+          "file_id": "file:409e34a8a8636475c9475e34736d9c1d127c0fa79d326bc6fe2362503006a953",
+          "id": "ev:9c589074f1730754c1adc59f150a61b4cdca8c42fc58a84d9c4c3243e0f5edd3",
+          "path": "app/routers/orders.py",
+          "sha256": "ab3bf6fdbb7d12d382bbadfc1ca2da0e48efd0cd53f8158b90cd51d71972e405",
+          "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+          "start_column": null,
+          "start_line": 8
+        },
+        {
+          "end_column": null,
+          "end_line": 7,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:b6cf47c7c8552e62f18c2c3ebf46c611ca6cab29fd027c3dcdd0677ef2de7843",
+          "path": "app/main.py",
+          "sha256": "8d4cf82d08e090a6285f1ff37a9ccdfc338d5989ff2b4aa04c61186a5edccbdd",
+          "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+          "start_column": null,
+          "start_line": 7
+        },
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:409e34a8a8636475c9475e34736d9c1d127c0fa79d326bc6fe2362503006a953",
+          "id": "ev:a8c9af97ee3c937fcb6d9e422f74821ef267ff2cd1649a4356d1f337fb35072f",
+          "path": "app/routers/orders.py",
+          "sha256": "ab3bf6fdbb7d12d382bbadfc1ca2da0e48efd0cd53f8158b90cd51d71972e405",
+          "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+          "start_column": null,
+          "start_line": 5
+        },
+        {
+          "end_column": null,
+          "end_line": 8,
+          "file_id": "file:409e34a8a8636475c9475e34736d9c1d127c0fa79d326bc6fe2362503006a953",
+          "id": "ev:eb64404d6cd2fe56328deebd9af136b2227cbe429332fd905577f16d9901dd87",
+          "path": "app/routers/orders.py",
+          "sha256": "ab3bf6fdbb7d12d382bbadfc1ca2da0e48efd0cd53f8158b90cd51d71972e405",
+          "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+          "start_column": null,
+          "start_line": 8
+        },
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:7280cf5de032de19ba96ddac663efe7fd3cd5dfd45ddd23e23673ba3dce6786f",
+          "path": "app/main.py",
+          "sha256": "8d4cf82d08e090a6285f1ff37a9ccdfc338d5989ff2b4aa04c61186a5edccbdd",
+          "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+          "start_column": null,
+          "start_line": 6
+        }
+      ],
+      "id": "fact:462a63b2055cc302edfd619d6530cc898092e7d98db3f7ce7e0e6c6052ab1c30",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:5d66af60a03dff160bc8ed1a87870164a6c8f6e0c60e25f753c0a403640e9eef"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:f5c37b34ae71bb4a55d0ebc746407348e2a7a9e464f22397b311322a571d5fba"
+          ],
+          "state": "known",
+          "value": "class Registry:"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:f5c37b34ae71bb4a55d0ebc746407348e2a7a9e464f22397b311322a571d5fba"
+          ],
+          "state": "known",
+          "value": "app/hooks.py"
+        },
+        "reason": {
+          "evidence_ids": [
+            "ev:f5c37b34ae71bb4a55d0ebc746407348e2a7a9e464f22397b311322a571d5fba"
+          ],
+          "state": "known",
+          "value": "Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:f5c37b34ae71bb4a55d0ebc746407348e2a7a9e464f22397b311322a571d5fba"
+          ],
+          "state": "known",
+          "value": "Khác"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 1,
+          "file_id": "file:04b961267882cac5be518d58dd44804d03326a88e0fd015604d8de176a5221af",
+          "id": "ev:f5c37b34ae71bb4a55d0ebc746407348e2a7a9e464f22397b311322a571d5fba",
+          "path": "app/hooks.py",
+          "sha256": "35bedaace34c0f649c3e4de9f78878c29aa972773e95a0bf4ba80d2e161db418",
+          "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+          "start_column": null,
+          "start_line": 1
+        }
+      ],
+      "id": "fact:68df47e89788f645c36958884fb973eb7ad2a326b8fc73807351683c5b4a1246",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:5d66af60a03dff160bc8ed1a87870164a6c8f6e0c60e25f753c0a403640e9eef"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:7280cf5de032de19ba96ddac663efe7fd3cd5dfd45ddd23e23673ba3dce6786f"
+          ],
+          "state": "known",
+          "value": "app = FastAPI(title=\"Exclusions\")"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:7280cf5de032de19ba96ddac663efe7fd3cd5dfd45ddd23e23673ba3dce6786f"
+          ],
+          "state": "known",
+          "value": "app/main.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:7280cf5de032de19ba96ddac663efe7fd3cd5dfd45ddd23e23673ba3dce6786f"
+          ],
+          "state": "known",
+          "value": "Điểm vào"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:7280cf5de032de19ba96ddac663efe7fd3cd5dfd45ddd23e23673ba3dce6786f",
+          "path": "app/main.py",
+          "sha256": "8d4cf82d08e090a6285f1ff37a9ccdfc338d5989ff2b4aa04c61186a5edccbdd",
+          "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+          "start_column": null,
+          "start_line": 6
+        }
+      ],
+      "id": "fact:f6aa32dc09b00fe2e10d9d31c7f53fd54b72e5ec0a37169d36ba65e33ee8fb88",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:5d66af60a03dff160bc8ed1a87870164a6c8f6e0c60e25f753c0a403640e9eef"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:816cfd1484f7e139849b2e55f2fe10b263e8d163fec3dae6766fd01b2ad9ef50"
+          ],
+          "state": "known",
+          "value": "@router.get(\"/debug/state\")"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:816cfd1484f7e139849b2e55f2fe10b263e8d163fec3dae6766fd01b2ad9ef50"
+          ],
+          "state": "known",
+          "value": "app/routers/internal.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:816cfd1484f7e139849b2e55f2fe10b263e8d163fec3dae6766fd01b2ad9ef50"
+          ],
+          "state": "known",
+          "value": "Route"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:d75ed2ab80fe9d0b73145e32dc76b2a039eebaecc99a98208738bbd49bffe64e",
+          "id": "ev:816cfd1484f7e139849b2e55f2fe10b263e8d163fec3dae6766fd01b2ad9ef50",
+          "path": "app/routers/internal.py",
+          "sha256": "c1cd546b071fc341a238b015b8c14c23c2979662e0c5408d8069fed78f069f4b",
+          "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+          "start_column": null,
+          "start_line": 6
+        }
+      ],
+      "id": "fact:be462227d03cf153ea5931225b09ac7292115706f186a95ed00ef669815fefa3",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:5d66af60a03dff160bc8ed1a87870164a6c8f6e0c60e25f753c0a403640e9eef"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:eb64404d6cd2fe56328deebd9af136b2227cbe429332fd905577f16d9901dd87"
+          ],
+          "state": "known",
+          "value": "@router.get(\"\")"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:eb64404d6cd2fe56328deebd9af136b2227cbe429332fd905577f16d9901dd87"
+          ],
+          "state": "known",
+          "value": "app/routers/orders.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:eb64404d6cd2fe56328deebd9af136b2227cbe429332fd905577f16d9901dd87"
+          ],
+          "state": "known",
+          "value": "Route"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 8,
+          "file_id": "file:409e34a8a8636475c9475e34736d9c1d127c0fa79d326bc6fe2362503006a953",
+          "id": "ev:eb64404d6cd2fe56328deebd9af136b2227cbe429332fd905577f16d9901dd87",
+          "path": "app/routers/orders.py",
+          "sha256": "ab3bf6fdbb7d12d382bbadfc1ca2da0e48efd0cd53f8158b90cd51d71972e405",
+          "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+          "start_column": null,
+          "start_line": 8
+        }
+      ],
+      "id": "fact:e716999b109d88ed21e9dc4abb2404439f4684f8a9496322d7b9d8d11fa45302",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:5d66af60a03dff160bc8ed1a87870164a6c8f6e0c60e25f753c0a403640e9eef"
+    }
+  ],
+  "limitations": [
+    {
+      "code": "DIAGRAM_NOT_PROVIDED",
+      "message": "Chưa được cấp sơ đồ component từ bước kiến trúc (FR-028); README chưa đủ mục sơ đồ của AC-029-06",
+      "stage": "input"
+    },
+    {
+      "code": "ARCHITECTURE_NOT_EVALUATED",
+      "message": "Chưa đối chiếu được với archdia.json (AC-029-04): Chưa được cấp archdia.json cùng snapshot",
+      "stage": "input"
+    },
+    {
+      "code": "ROUTE_NOT_DECORATOR",
+      "message": "add_api_route tại app/main.py:23 — Đăng ký tuyến bằng app.add_api_route, không phải decorator; không tạo mục route theo định dạng.",
+      "stage": "analysis",
+      "where": "app/main.py:23"
+    },
+    {
+      "code": "ROUTE_NOT_DECORATOR",
+      "message": "add_route tại app/main.py:24 — Đăng ký tuyến bằng app.add_route, không phải decorator; không tạo mục route theo định dạng.",
+      "stage": "analysis",
+      "where": "app/main.py:24"
+    },
+    {
+      "code": "ROUTE_NOT_DECORATOR",
+      "message": "add_websocket_route tại app/main.py:25 — Đăng ký WebSocket, không phải decorator HTTP; không tạo mục route HTTP.",
+      "stage": "analysis",
+      "where": "app/main.py:25"
+    },
+    {
+      "code": "OUT_OF_SCOPE_FILES",
+      "message": "conditional_out: 1 file, test: 3 file. Route trong các file này không vào tài liệu (FR-028 Phạm vi đọc)",
+      "stage": "scope"
+    },
+    {
+      "code": "CLAIMS_REJECTED",
+      "message": "1 lần nộp bị bộ kiểm từ chối (agent có thể đã nộp lại bản đúng); chi tiết ở result.json",
+      "stage": "verification"
+    }
+  ],
+  "pipeline_version": "fr029-doc-v1",
+  "provenance": {
+    "model": "gpt-6-luna",
+    "prompt_version": "fr029-agent-prompt-v8",
+    "provider": "https://api.openai.com/v1"
+  },
+  "rejected_claims": [
+    {
+      "errors": [
+        "decorator: dòng đầu của khoảng phải là dòng '@...'"
+      ],
+      "item": {
+        "application": "app/main.py:6",
+        "auth": {
+          "unknown": "Không thấy cơ chế xác thực trong mã nguồn đã đọc."
+        },
+        "decorator": "app/main.py:23-23",
+        "dependencies": [],
+        "handler": "app/main.py::health",
+        "method": "GET",
+        "params": [],
+        "path_parts": [
+          {
+            "at": "app/main.py:7",
+            "kind": "include_prefix",
+            "value": ""
+          },
+          {
+            "at": "app/main.py:23",
+            "kind": "decorator",
+            "value": "/health"
+          }
+        ],
+        "request_body": null,
+        "response": null,
+        "status": {
+          "at": "app/main.py:23",
+          "codes": [
+            200
+          ],
+          "rule": "fastapi.default_status_200"
+        }
+      },
+      "kind": "routes"
+    }
+  ],
+  "render_notices": [],
+  "repository_name": "exclusions",
+  "run_id": "pilot_exclusions_r2",
+  "schema_version": "0.1.0",
+  "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+  "unassigned": []
+}

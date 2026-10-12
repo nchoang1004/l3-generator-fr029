@@ -1,0 +1,111 @@
+{
+ "routes": [
+  {
+   "method": "POST",
+   "handler": "services/order-service/order_app/api/routes/orders.py::create_order",
+   "decorator": "services/order-service/order_app/api/routes/orders.py:31-32",
+   "application": "services/order-service/order_app/main.py:42",
+   "path_parts": [
+    {
+     "kind": "include_prefix",
+     "value": "",
+     "at": "services/order-service/order_app/main.py:68"
+    },
+    {
+     "kind": "router_prefix",
+     "value": "/api/v1",
+     "at": "services/order-service/order_app/api/router.py:5"
+    },
+    {
+     "kind": "include_prefix",
+     "value": "",
+     "at": "services/order-service/order_app/api/router.py:6"
+    },
+    {
+     "kind": "router_prefix",
+     "value": "/orders",
+     "at": "services/order-service/order_app/api/routes/orders.py:18"
+    },
+    {
+     "kind": "decorator",
+     "value": "",
+     "at": "services/order-service/order_app/api/routes/orders.py:31"
+    }
+   ],
+   "params": [],
+   "request_body": {
+    "models": [
+     "shared/contracts.py::OrderCreate"
+    ],
+    "param": "payload",
+    "media_type": "application/json",
+    "required": true,
+    "embedded": false,
+    "at": "services/order-service/order_app/api/routes/orders.py:33",
+    "rule": "fastapi.json_body_media"
+   },
+   "response": {
+    "model": "shared/contracts.py::OrderRead",
+    "array": false,
+    "at": "services/order-service/order_app/api/routes/orders.py:31"
+   },
+   "status": {
+    "codes": [
+     201
+    ],
+    "at": "services/order-service/order_app/api/routes/orders.py:31",
+    "rule": "fastapi.status_constant"
+   },
+   "dependencies": [
+    {
+     "name": "get_session",
+     "at": "services/order-service/order_app/api/routes/orders.py:34"
+    },
+    {
+     "name": "get_catalog_client",
+     "at": "services/order-service/order_app/api/routes/orders.py:35"
+    },
+    {
+     "name": "get_event_bus",
+     "at": "services/order-service/order_app/api/routes/orders.py:36"
+    }
+   ],
+   "auth": {
+    "unknown": "Mã nguồn không khai cơ chế xác thực nào cho route này"
+   },
+   "tags": {
+    "value": [
+     "orders"
+    ],
+    "at": "services/order-service/order_app/api/routes/orders.py:18"
+   },
+   "summary": {
+    "text": "Tạo đơn hàng, kiểm tra sản phẩm qua catalog-service rồi phát sự kiện order.created.",
+    "at": "services/order-service/order_app/api/routes/orders.py:31"
+   }
+  }
+ ],
+ "http_calls": [
+  {
+   "at": "services/gateway/gateway_app/core/proxy.py:25",
+   "library": "httpx",
+   "method": {
+    "unknown": "Phương thức lấy từ request.method của yêu cầu đến, chỉ biết lúc chạy"
+   },
+   "target": {
+    "kind": "unknown",
+    "reason": "Đường dẫn lấy từ request.url.path; client được truyền vào qua tham số, là một trong ba client có base_url catalog_service_url, order_service_url hoặc notification_service_url"
+   }
+  },
+  {
+   "at": "services/order-service/order_app/core/catalog_client.py:98",
+   "library": "httpx",
+   "method": "GET",
+   "target": {
+    "kind": "unknown",
+    "reason": "Đường dẫn tương đối /api/v1/products/{product_id}; base_url của client lấy từ tham số base_url của hàm khởi tạo, nơi gọi truyền resolved_settings.catalog_service_url (main.py:57)"
+   },
+   "client_at": "services/order-service/order_app/core/catalog_client.py:46"
+  }
+ ]
+}

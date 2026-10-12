@@ -1,0 +1,47 @@
+# orders-runtime-dispatch — tài liệu L3 API (bản sinh tự động)
+
+Bản sinh tự động, chưa được chủ repository duyệt.
+
+- Snapshot: `snap:8d44108b45c8269ab91b5bf02d96cb3b5a27c46c6e627b50dd398fa7133b9cea`
+- Trạng thái phân tích: completed
+- Độ phủ đọc source: đủ
+
+## Mục lục contract
+
+- API: [tech-specs/TOAN-BO/api/API-ORDERS-RUNTIME-DISPATCH-TOAN-BO-v1.md](tech-specs/TOAN-BO/api/API-ORDERS-RUNTIME-DISPATCH-TOAN-BO-v1.md) — component Toàn bộ
+
+## Sơ đồ component
+
+Chưa được cấp sơ đồ từ bước kiến trúc (FR-028); công cụ này không tự dựng sơ đồ.
+
+## Cấu trúc component
+
+### Toàn bộ
+
+- Package `./`
+  - `db.py` — Khác (Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `db.py:1`
+  - `main.py` — Điểm vào (exact) — `main.py:4`
+  - `models.py` — Model bảng (exact) — `models.py:8`
+  - `operations.py` — Cấu hình (exact) — `operations.py:23`
+  - `repository.py` — Truy cập dữ liệu (exact) — `repository.py:5`
+  - `requirements.txt` — Khác (Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file) — `requirements.txt:1`
+  - `routes.py` — Route (exact) — `routes.py:10`
+  - `schemas.py` — Schema API (exact) — `schemas.py:3`
+  - `service.py` — Service (inferred: Nằm trên đường gọi từ route tới truy cập dữ liệu/hạ tầng) — đường gọi `routes.py:12`, `service.py:4`, `repository.py:5`
+
+## Lời gọi HTTP ra ngoài
+
+- (không có)
+
+## Contract chưa gán được component
+
+- (không có)
+
+## Đối chiếu với dữ liệu kiến trúc
+
+- Trạng thái: not_evaluated
+- reason: Chưa được cấp archdia.json cùng snapshot
+
+## Giới hạn
+
+- (không có)

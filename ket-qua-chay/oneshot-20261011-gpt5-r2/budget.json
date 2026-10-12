@@ -1,0 +1,20 @@
+[
+ {
+  "request": 1,
+  "bytes": 80223,
+  "upper_usd": 0.153426,
+  "spent_before_usd": 0.0
+ },
+ {
+  "request": 2,
+  "bytes": 111629,
+  "upper_usd": 0.166512,
+  "spent_before_usd": 0.120038
+ },
+ {
+  "request": 3,
+  "bytes": 122780,
+  "upper_usd": 0.171158,
+  "spent_before_usd": 0.168031
+ }
+]

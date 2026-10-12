@@ -1,0 +1,158 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos3\\caura-ai_caura",
+  "files": 424,
+  "route_decorators": 343,
+  "decorators_refused": [],
+  "dependencies": [
+    {
+      "name": "get_auth_context",
+      "called": false,
+      "first_use": "core-api/src/core_api/routes/agents.py:18",
+      "params": []
+    },
+    {
+      "name": "get_session",
+      "called": false,
+      "first_use": "core-storage-api/src/core_storage_api/routers/debug.py:119",
+      "params": []
+    }
+  ],
+  "suspects": [
+    {
+      "at": "benchmark/a37_n_way_chain.py:26",
+      "looks_like": "other_http",
+      "text": "with urllib.request.urlopen(req, timeout=180) as r:"
+    },
+    {
+      "at": "benchmark/a66_subject_stability.py:27",
+      "looks_like": "other_http",
+      "text": "with urllib.request.urlopen(r, timeout=180) as x:"
+    },
+    {
+      "at": "clients/python/src/caura_client/client.py:248",
+      "looks_like": "http",
+      "text": "return self._http.request(method, path, **kwargs)"
+    },
+    {
+      "at": "common/ranking/providers/remote.py:175",
+      "looks_like": "http",
+      "text": "resp = await self._client.post(\"/rerank\", json=body)"
+    },
+    {
+      "at": "core-api/src/core_api/clients/identity_token.py:101",
+      "looks_like": "http",
+      "text": "return super().request(*args, **kwargs)"
+    },
+    {
+      "at": "core-api/src/core_api/clients/storage_client.py:594",
+      "looks_like": "http",
+      "text": "return http.get(f\"{prefix}{path}\", params=params, headers=headers)"
+    },
+    {
+      "at": "core-api/src/core_api/clients/storage_client.py:621",
+      "looks_like": "http",
+      "text": "return http.get(f\"{prefix}{path}\", params=params, headers=headers)"
+    },
+    {
+      "at": "core-api/src/core_api/clients/storage_client.py:636",
+      "looks_like": "http",
+      "text": "return http.post("
+    },
+    {
+      "at": "core-api/src/core_api/clients/storage_client.py:683",
+      "looks_like": "http",
+      "text": "return self._http.patch(f\"{self._prefix}{path}\", json=data, headers=headers)"
+    },
+    {
+      "at": "core-api/src/core_api/clients/storage_client.py:698",
+      "looks_like": "http",
+      "text": "return self._http.delete(f\"{self._prefix}{path}\", params=params, headers=headers)"
+    },
+    {
+      "at": "core-api/src/core_api/clients/storage_client.py:723",
+      "looks_like": "http",
+      "text": "return http.post("
+    },
+    {
+      "at": "core-api/src/core_api/clients/storage_client.py:2911",
+      "looks_like": "http",
+      "text": "return self._read_http.get("
+    },
+    {
+      "at": "core-api/src/core_api/clients/storage_client.py:3197",
+      "looks_like": "http",
+      "text": "return self._http.post("
+    },
+    {
+      "at": "core-api/src/core_api/heartbeat/sender.py:383",
+      "looks_like": "http",
+      "text": "resp = await http.post(url, json=payload, headers=headers)"
+    },
+    {
+      "at": "core-api/src/core_api/routes/plugin.py:1041",
+      "looks_like": "registration",
+      "text": "plugin_bootstrap_router.add_api_route("
+    },
+    {
+      "at": "core-api/src/core_api/routes/plugin.py:1049",
+      "looks_like": "registration",
+      "text": "plugin_bootstrap_router.add_api_route(\"/plugin-manifest\", plugin_manifest, methods=[\"GET\"])"
+    },
+    {
+      "at": "core-api/src/core_api/routes/plugin.py:1050",
+      "looks_like": "registration",
+      "text": "plugin_bootstrap_router.add_api_route("
+    },
+    {
+      "at": "core-api/src/core_api/routes/plugin.py:1056",
+      "looks_like": "registration",
+      "text": "plugin_bootstrap_router.add_api_route("
+    },
+    {
+      "at": "core-api/src/core_api/services/ingest_service.py:615",
+      "looks_like": "http",
+      "text": "resp = await client.send(request, stream=True)"
+    },
+    {
+      "at": "core-operations/src/core_operations/lease.py:61",
+      "looks_like": "http",
+      "text": "resp = await client.post(url, headers=headers, json={\"task\": task, \"ttl_s\": ttl_s})"
+    },
+    {
+      "at": "core-operations/src/core_operations/tasks.py:51",
+      "looks_like": "http",
+      "text": "resp = await client.post(url, headers=headers, params=params)"
+    },
+    {
+      "at": "core-operations/src/core_operations/tasks.py:130",
+      "looks_like": "http",
+      "text": "resp = await client.post(url, headers=headers)"
+    },
+    {
+      "at": "core-operations/src/core_operations/tasks.py:205",
+      "looks_like": "http",
+      "text": "resp = await client.post(url, headers=headers)"
+    },
+    {
+      "at": "core-operations/src/core_operations/tasks.py:394",
+      "looks_like": "http",
+      "text": "resp = await client.get(url, headers=headers)"
+    },
+    {
+      "at": "core-operations/src/core_operations/tasks.py:512",
+      "looks_like": "http",
+      "text": "resp = await client.post(url, headers=headers)"
+    },
+    {
+      "at": "core-operations/src/core_operations/tasks.py:567",
+      "looks_like": "http",
+      "text": "resp = await client.post(url, headers=headers)"
+    },
+    {
+      "at": "core-worker/src/core_worker/clients/identity_token.py:102",
+      "looks_like": "http",
+      "text": "return super().request(*args, **kwargs)"
+    }
+  ],
+  "seconds": 40.21
+}

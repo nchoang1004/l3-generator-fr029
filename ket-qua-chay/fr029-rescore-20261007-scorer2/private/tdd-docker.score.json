@@ -1,0 +1,195 @@
+{
+  "routes": {
+    "tp": 6,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "handler": {
+        "correct": 6,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "params": {
+        "correct": 6,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "request_body": {
+        "correct": 6,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "response": {
+        "correct": 3,
+        "acceptable_unknown": 0,
+        "wrong": [
+          {
+            "key": "('GET', '/summaries/', 'app/api/summaries.py:27')",
+            "got": "unknown",
+            "want": [
+              "SummarySchema",
+              "app/models/tortoise.py",
+              true
+            ]
+          },
+          {
+            "key": "('GET', '/summaries/{id}/', 'app/api/summaries.py:18')",
+            "got": "unknown",
+            "want": [
+              "SummarySchema",
+              "app/models/tortoise.py",
+              false
+            ]
+          },
+          {
+            "key": "('PUT', '/summaries/{id}/', 'app/api/summaries.py:44')",
+            "got": "unknown",
+            "want": [
+              "SummarySchema",
+              "app/models/tortoise.py",
+              false
+            ]
+          }
+        ]
+      },
+      "status": {
+        "correct": 6,
+        "acceptable_unknown": 0,
+        "wrong": []
+      }
+    },
+    "facts": {
+      "fact:27d4c03f2cc6ab992589bdc2140f284fbde74d3d4ee4df039651c83f0828a5f3": "wrong",
+      "fact:9cc26dbf00e1ced95dfba1696c572e0df1e1e81b1c7cb3fbc726e3edde3dd901": "wrong",
+      "fact:b58a62b51ef611299d947f8f1a89a6c1cac6bd38b226c016214fff8e2ca80ecd": "wrong",
+      "fact:b2245d2cb5ae50340b50f6118481296eef0a4873567f2ccf3bc988b522ef4f88": "ok",
+      "fact:53c3234272b245dc2c1358c277179191f04c161975458eb3896061feaee615cf": "ok",
+      "fact:a81cc73da6dc338036d4c3c4cc2290ab9945f940b1a27ade22cbb612e9040d3f": "ok"
+    }
+  },
+  "models": {
+    "tp": 3,
+    "fp": 0,
+    "fn": 1,
+    "precision": 1.0,
+    "recall": 0.75,
+    "false_positive": [],
+    "false_negative": [
+      "('app/models/tortoise.py', 'SummarySchema')"
+    ],
+    "attributes": {
+      "fields": {
+        "correct": 3,
+        "acceptable_unknown": 0,
+        "wrong": []
+      }
+    },
+    "facts": {
+      "fact:43f1c2376faaeee7f585a94ae06c8bbd43b6fecaeef9e060532bd2beac767353": "ok",
+      "fact:167feb5e47f5be075e423e3f8a2eef41e54a144d671b330afd0b9742b51f1cda": "ok",
+      "fact:4bb453f7317e4ea3e7627b37eb8f400a6ae09871da25f4b37e3ba0ee493efbad": "ok"
+    }
+  },
+  "http_calls": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "library": {
+        "correct": 0,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "method": {
+        "correct": 0,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "target": {
+        "correct": 0,
+        "acceptable_unknown": 0,
+        "wrong": []
+      }
+    },
+    "facts": {}
+  },
+  "file_roles": {
+    "tp": 9,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "role": {
+        "correct": 9,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "label": {
+        "correct": 9,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "line": {
+        "correct": 8,
+        "acceptable_unknown": 0,
+        "wrong": [
+          {
+            "key": "app/models/tortoise.py",
+            "got": 1,
+            "want": [
+              14
+            ]
+          }
+        ]
+      }
+    },
+    "facts": {
+      "fact:2189ea82e17cb0044b4ad81d91cf4f1d20d1e102b0c312930ec9b529905b826f": "wrong",
+      "fact:566e19e8959cb9b8a781edddb23836b0ea1d5cab64ae45ea900889a62b24452d": "ok",
+      "fact:c43803625e96ddf7e6624c84e49920321bc057218cc2f77484c5269eb7165303": "ok",
+      "fact:b05a2b799380f79b45bdb2e63e7a8cae627783fd59dc5f51722b02ad8655dbee": "ok",
+      "fact:b2a9d923911636fb7223c86c1d5e500b615bbc26a9bcf733fb3a657a764e42a5": "ok",
+      "fact:58f4e50ddcd94d17e3ced85e7d2efccfe9ce1bacdc7c19b3d4fb7d5f6b8ff4e3": "ok",
+      "fact:c9f12533fbf759100b56c959f51d1c9b4c7c04a535d81b029180873304399c59": "ok",
+      "fact:f68976df54da96fd4be7170e6b7b77f6547cc7e6c3da2bf313da9ca25aab6edc": "ok",
+      "fact:8b77f23264a698ed4bb0497cc1e2a102bd03536447fb108aeb3d61f0888e3d60": "ok"
+    }
+  },
+  "limitations": {
+    "tp": 1,
+    "fp": 0,
+    "fn": 1,
+    "precision": 1.0,
+    "recall": 0.5,
+    "false_positive": [],
+    "false_negative": [
+      "('unsupported_http_library', 'app/summarizer.py:15')"
+    ],
+    "attributes": {},
+    "facts": {}
+  },
+  "out_of_scope": {
+    "ok": false,
+    "got": {
+      "migration": 1,
+      "test": 5
+    },
+    "want": {
+      "test": 5,
+      "migration": 1,
+      "environment": 0,
+      "conditional_out": 0
+    }
+  }
+}

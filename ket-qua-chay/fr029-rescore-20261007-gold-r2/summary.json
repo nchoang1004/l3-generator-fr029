@@ -1,0 +1,293 @@
+{
+  "run": "ket-qua-chay\\fr029-accept-v13",
+  "scorer_sha256": {
+    "fr029_score.py": "53726d7a8f0e2ddeb42dff44b128a2f6638a6da36a46f048d174e6d5530a8dd6",
+    "fr029_accept.py": "ec331954aecaa5cf544ee39efcf1738404cb0887309d54fad2a84c52e0d211d5",
+    "fr029_golden4.py": "16315765768494c30d0d7b3cf444f73a9d3af257043927c2c10c1ba6bc7b0087"
+  },
+  "rows": [
+    {
+      "repo": "tdd-docker",
+      "size": "nhỏ",
+      "status": "completed",
+      "gold": "D:\\VSF\\l3-acceptance-gold\\tdd-docker\\gold.json",
+      "gold_sha256": "12d7a0bcb18d1e7aa0e7dbb56c7443eadd977e4b6da0e5551bd4516aaf7d5d37",
+      "result_sha256": "7300b166ea624e8a9e0791576259307bf5a7fc27cbeeefb7ee6cb64921756ab9",
+      "kinds": {
+        "routes": {
+          "tp": 6,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "models": {
+          "tp": 3,
+          "fp": 0,
+          "fn": 1,
+          "precision": 1.0,
+          "recall": 0.75
+        },
+        "http_calls": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": null,
+          "recall": null
+        },
+        "file_roles": {
+          "tp": 9,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "limitations": {
+          "tp": 1,
+          "fp": 0,
+          "fn": 1,
+          "precision": 1.0,
+          "recall": 0.5
+        }
+      },
+      "not_evaluated": [],
+      "attribute_accuracy": {
+        "routes": {
+          "handler": "6/6",
+          "params": "6/6",
+          "request_body": "6/6",
+          "response": "3/6",
+          "status": "6/6"
+        },
+        "models": {
+          "fields": "3/3"
+        },
+        "http_calls": {
+          "library": "0/0",
+          "method": "0/0",
+          "target": "0/0"
+        },
+        "file_roles": {
+          "role": "9/9",
+          "label": "9/9",
+          "line": "8/9"
+        },
+        "limitations": {}
+      },
+      "exact": {
+        "exact_facts": 0,
+        "exact_wrong": 0,
+        "rate": null,
+        "not_evaluated": 0
+      },
+      "verdict": {
+        "routes": "đạt",
+        "models": "không đạt",
+        "http_calls": "not_evaluated",
+        "exact": "not_evaluated",
+        "overall": "không đạt"
+      }
+    },
+    {
+      "repo": "agentgpt",
+      "size": "nhỏ",
+      "status": "partial",
+      "gold": "D:\\VSF\\l3-acceptance-gold\\agentgpt\\gold.r2.json",
+      "gold_sha256": "3a1e50aaabc16147ecea90d2bec07ada3cdf913197818c627d3c07bb6d124258",
+      "result_sha256": "f8a187737eaafa97ac3c830ea15a74dab22428c8a9855761e73b4c65bdf312c3",
+      "kinds": {
+        "routes": {
+          "tp": 16,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "models": {
+          "tp": 17,
+          "fp": 2,
+          "fn": 0,
+          "precision": 0.895,
+          "recall": 1.0
+        },
+        "http_calls": {
+          "tp": 5,
+          "fp": 0,
+          "fn": 1,
+          "precision": 1.0,
+          "recall": 0.833
+        },
+        "file_roles": {
+          "tp": 75,
+          "fp": 0,
+          "fn": 3,
+          "precision": 1.0,
+          "recall": 0.962
+        },
+        "limitations": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": null,
+          "recall": null
+        }
+      },
+      "not_evaluated": [],
+      "attribute_accuracy": {
+        "routes": {
+          "handler": "16/16",
+          "params": "5/16",
+          "request_body": "16/16",
+          "response": "12/16",
+          "status": "16/16"
+        },
+        "models": {
+          "fields": "17/17"
+        },
+        "http_calls": {
+          "library": "5/5",
+          "method": "5/5",
+          "target": "4/5 (+1 unknown)"
+        },
+        "file_roles": {
+          "role": "73/75",
+          "label": "75/75",
+          "line": "70/75"
+        },
+        "limitations": {}
+      },
+      "exact": {
+        "exact_facts": 22,
+        "exact_wrong": 2,
+        "rate": 0.091,
+        "not_evaluated": 0
+      },
+      "verdict": {
+        "routes": "đạt",
+        "models": "đạt",
+        "http_calls": "đạt",
+        "exact": "không đạt",
+        "overall": "không đạt"
+      }
+    },
+    {
+      "repo": "igorbenav",
+      "size": "vừa",
+      "status": "completed",
+      "gold": "D:\\VSF\\l3-generator-golden-v2\\.aide\\evidence\\tests\\golden-v1\\igorbenav-FastAPI-boilerplate\\final-r3.json",
+      "gold_sha256": "4c888caa65415261f09f3ac34941638e4e828ab856968a38dbf75b5f2677465e",
+      "result_sha256": "426b4eb3a9dacd206c1eb6853a2d40b8003d118ccd80e3a2ebcca7baedf571b9",
+      "kinds": {
+        "routes": {
+          "tp": 30,
+          "fp": 0,
+          "fn": 4,
+          "precision": 1.0,
+          "recall": 0.882
+        },
+        "http_calls": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": null,
+          "recall": null
+        }
+      },
+      "http_out_of_scope": 0,
+      "attribute_accuracy": {
+        "routes": {
+          "model_names": "24/30"
+        }
+      },
+      "verdict": {
+        "routes": "đạt",
+        "models": "chưa đo",
+        "http_calls": "not_evaluated",
+        "exact": "chưa đo",
+        "overall": "chưa đủ đo"
+      }
+    },
+    {
+      "repo": "kibo",
+      "size": "vừa",
+      "status": "partial",
+      "gold": "D:\\VSF\\l3-acceptance-gold\\kibo\\gold.r2.json",
+      "gold_sha256": "3d684edf13cc85719b578eff601064c822e292a0ff28212a6dfd67bde0d205a2",
+      "result_sha256": "af6fd1ebf1f2a267ecc8082e456472600e7fa8c9b7d7785ddb9c2812d2071695",
+      "kinds": {
+        "routes": {
+          "tp": 64,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.985,
+          "recall": 1.0
+        },
+        "models": {
+          "tp": 42,
+          "fp": 9,
+          "fn": 8,
+          "precision": 0.824,
+          "recall": 0.84
+        },
+        "http_calls": {
+          "tp": 8,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "file_roles": {
+          "tp": 101,
+          "fp": 0,
+          "fn": 25,
+          "precision": 1.0,
+          "recall": 0.802
+        },
+        "limitations": {
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "precision": null,
+          "recall": null
+        }
+      },
+      "not_evaluated": [],
+      "attribute_accuracy": {
+        "routes": {
+          "handler": "64/64",
+          "params": "13/64",
+          "request_body": "57/64",
+          "response": "60/64",
+          "status": "64/64"
+        },
+        "models": {
+          "fields": "42/42"
+        },
+        "http_calls": {
+          "library": "8/8",
+          "method": "5/8 (+3 unknown)",
+          "target": "0/8"
+        },
+        "file_roles": {
+          "role": "99/101",
+          "label": "101/101",
+          "line": "99/101"
+        },
+        "limitations": {}
+      },
+      "exact": {
+        "exact_facts": 16,
+        "exact_wrong": 8,
+        "rate": 0.5,
+        "not_evaluated": 0
+      },
+      "verdict": {
+        "routes": "đạt",
+        "models": "đạt",
+        "http_calls": "đạt",
+        "exact": "không đạt",
+        "overall": "không đạt"
+      }
+    }
+  ]
+}

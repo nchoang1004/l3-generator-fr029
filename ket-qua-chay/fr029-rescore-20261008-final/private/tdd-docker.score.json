@@ -1,0 +1,171 @@
+{
+  "routes": {
+    "tp": 6,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "handler": {
+        "correct": 6,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "params": {
+        "correct": 6,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "request_body": {
+        "correct": 6,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "response": {
+        "correct": 6,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "status": {
+        "correct": 6,
+        "acceptable_unknown": 0,
+        "wrong": []
+      }
+    },
+    "facts": {
+      "fact:f82b6e080f46c7964272b13ab6bd34bf55591fa99642d06295aa5bd6393937b7": "ok",
+      "fact:56156441479e6b6f4c6ac34a371a4698ea68234696ffd4acb31e4e496002e492": "ok",
+      "fact:8a62ea1591aa027884fbe053a42f56614f227156a2469309e4d0905062628963": "ok",
+      "fact:4c722def1d70ef2d76727ebc3015ab535d7d4ccc87dc860b8139f11136e1be76": "ok",
+      "fact:c82ceff176a17d34c4c1be95e28dc1dd74592c8e3ea07f24f1c686265621074d": "ok",
+      "fact:764d309a6dd5f519e98cb2e955c05781ce75821b3907833736f025a452165aca": "ok"
+    },
+    "accepted_extra": 0
+  },
+  "models": {
+    "tp": 4,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "fields": {
+        "correct": 3,
+        "acceptable_unknown": 1,
+        "wrong": []
+      }
+    },
+    "facts": {
+      "fact:43f1c2376faaeee7f585a94ae06c8bbd43b6fecaeef9e060532bd2beac767353": "ok",
+      "fact:167feb5e47f5be075e423e3f8a2eef41e54a144d671b330afd0b9742b51f1cda": "ok",
+      "fact:4bb453f7317e4ea3e7627b37eb8f400a6ae09871da25f4b37e3ba0ee493efbad": "ok",
+      "fact:05d7c81519deaef5aa62c9ab491941fe87e71c45eb46016e4d2abe1f2957cc70": "ok"
+    },
+    "accepted_extra": 0
+  },
+  "http_calls": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "library": {
+        "correct": 0,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "method": {
+        "correct": 0,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "target": {
+        "correct": 0,
+        "acceptable_unknown": 0,
+        "wrong": []
+      }
+    },
+    "facts": {},
+    "accepted_extra": 0
+  },
+  "file_roles": {
+    "tp": 9,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive": [],
+    "false_negative": [],
+    "attributes": {
+      "role": {
+        "correct": 9,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "label": {
+        "correct": 9,
+        "acceptable_unknown": 0,
+        "wrong": []
+      },
+      "line": {
+        "correct": 8,
+        "acceptable_unknown": 0,
+        "wrong": [
+          {
+            "key": "app/models/tortoise.py",
+            "got": 5,
+            "want": [
+              14
+            ]
+          }
+        ]
+      }
+    },
+    "facts": {
+      "fact:2189ea82e17cb0044b4ad81d91cf4f1d20d1e102b0c312930ec9b529905b826f": "wrong",
+      "fact:566e19e8959cb9b8a781edddb23836b0ea1d5cab64ae45ea900889a62b24452d": "ok",
+      "fact:c43803625e96ddf7e6624c84e49920321bc057218cc2f77484c5269eb7165303": "ok",
+      "fact:b05a2b799380f79b45bdb2e63e7a8cae627783fd59dc5f51722b02ad8655dbee": "ok",
+      "fact:b2a9d923911636fb7223c86c1d5e500b615bbc26a9bcf733fb3a657a764e42a5": "ok",
+      "fact:58f4e50ddcd94d17e3ced85e7d2efccfe9ce1bacdc7c19b3d4fb7d5f6b8ff4e3": "ok",
+      "fact:c9f12533fbf759100b56c959f51d1c9b4c7c04a535d81b029180873304399c59": "ok",
+      "fact:f68976df54da96fd4be7170e6b7b77f6547cc7e6c3da2bf313da9ca25aab6edc": "ok",
+      "fact:8b77f23264a698ed4bb0497cc1e2a102bd03536447fb108aeb3d61f0888e3d60": "ok"
+    },
+    "accepted_extra": 0
+  },
+  "limitations": {
+    "tp": 1,
+    "fp": 0,
+    "fn": 1,
+    "precision": 1.0,
+    "recall": 0.5,
+    "false_positive": [],
+    "false_negative": [
+      "('unsupported_http_library', 'app/summarizer.py:15')"
+    ],
+    "attributes": {},
+    "facts": {},
+    "accepted_extra": 0
+  },
+  "out_of_scope": {
+    "ok": true,
+    "got": {
+      "migration": 1,
+      "test": 5
+    },
+    "want": {
+      "test": 5,
+      "migration": 1,
+      "environment": 0,
+      "conditional_out": 0
+    }
+  }
+}

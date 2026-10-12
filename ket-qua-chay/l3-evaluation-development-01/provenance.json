@@ -1,0 +1,51 @@
+{
+  "started_at": "2026-10-01T10:23:04.755876+00:00",
+  "python": "3.11.9",
+  "platform": "Windows-10-10.0.26200-SP0",
+  "packages": {
+    "jsonschema": "4.23.0",
+    "referencing": "0.36.2",
+    "PyYAML": "6.0.2",
+    "sqlglot": "30.21.0",
+    "openapi-spec-validator": "0.7.2"
+  },
+  "command": [
+    "python",
+    "slice/tools/evaluate_l3.py",
+    "--output",
+    "ket-qua-chay/l3-evaluation-development-01"
+  ],
+  "files": {
+    ".aide/tech-specs/CMP-L3GEN-001/api/API-L3GEN-001-v1.md": "0c65a355c0e1d778ce26e6e1a7ec5636e7bec039a49afea3598125fb14eda766",
+    ".aide/tech-specs/CMP-L3GEN-002/api/API-L3GEN-002-v1.md": "b437bf26ae20de92f54832e7f001efcffed808abace4953a1cdc0acb8693d764",
+    ".aide/tech-specs/CMP-L3GEN-003/api/API-L3GEN-003-v1.md": "506e957bef26fd5065539cc73ccf5658b4e47f10602954d57dca3771fd901689",
+    ".aide/tech-specs/CMP-L3GEN-004/api/API-L3GEN-004-v1.md": "e34918fe6a821343d56823a0ed23cb4f8d90993a1909db6f3084223a5ab9ae58",
+    ".aide/tech-specs/CMP-L3GEN-005/api/API-L3GEN-005-v1.md": "18669782928a62c0598af5d2591efea873d4b0244445527645d96c9ebb62eb44",
+    ".aide/tech-specs/CMP-L3GEN-006/api/API-L3GEN-006-v1.md": "2e9b1d02a2220227eea9c76edbe12750d676d444906b5f68acd655046e03179d",
+    ".aide/tech-specs/CMP-L3GEN-007/api/API-L3GEN-007-v1.md": "ce65bd88bd69ac5bca11753b707481e77fd542e517ce65150b2cafd332178a71",
+    ".aide/tech-specs/CMP-L3GEN-008/api/API-L3GEN-008-v1.md": "6a7f243b8b8fd0dab8429e4725f904ab9e04bb150f6a37589a794fab3d635a4f",
+    "scripts/requirements-l3-check.txt": "d93e63e0dcbc9a0d865dfb6f95cea7bb54a3f2aa91aca89c1fb076580066b808",
+    "slice/evaluation_l3/__init__.py": "04974d0426ff3bc456cb10cc17037cf02b41ed8773bd82227914d170a32b565d",
+    "slice/evaluation_l3/cases.py": "1715ab8d6c3a1a3a14cff6d6408bc5e3af1524d9a570b6939f7dd3e55d863046",
+    "slice/evaluation_l3/contracts.py": "9d8ad0e5a022a2fa84d6b9204089e796d7cae60ebbc8ea8b0ba82e961edefca6",
+    "slice/evaluation_l3/fixtures.py": "798a33da42db4f7cb3e677d70d72e4d92e8a7c5e7e411aaa4386ab641543596f",
+    "slice/evaluation_l3/oracle.py": "42cbcbf3b20d2d7ed12a16fcec28531ac09bd28520ade266d6f1b7abc7058ee8",
+    "slice/evaluation_l3/runner.py": "515f7999cb02c1ff0258767a75b81c1b5b88dcf86d5fed1ecb29e7728a1e01ae",
+    "slice/l3slice/__init__.py": "8d05929b1b48f5993fdde808ac06efeac186be9a5c31f632d52279ebb3cc5b79",
+    "slice/l3slice/__main__.py": "84b61f8cf171e3a2994ee801c6e8c46685449c15ce1b9b195d0a8c874f181d58",
+    "slice/l3slice/annotate.py": "6061d4cc3e64d9c8178681c7389fcafcab927ff9bf981f933d1104948de3a42c",
+    "slice/l3slice/common.py": "ab44d9c2259c754ee57c601111bad9364a022536ff28614685692119811d59ad",
+    "slice/l3slice/engine.py": "0bfc038bee809e674d096210b1f0a202fccf7c5c33cc5953f511d4d160225f6e",
+    "slice/l3slice/extract.py": "f5bed789534af0693d2824f8483fb333b8ab9d3e740571335c28943ece69deda",
+    "slice/l3slice/gateway.py": "0df6f0d29bce8689093fe6accf6222a26fa2af2c74de24da099e1d735b2dbb2c",
+    "slice/l3slice/model.py": "2d9fa65e9f475145e07faf626a4aa520783a9a2a3b99753bbbaeaa3159401988",
+    "slice/l3slice/pyindex.py": "0827efb14a9a5b5756057a54b3d9af4f055332efd63b4e91570a7ca77d5fc22b",
+    "slice/l3slice/render.py": "81e0c849cd8ad3b27f607e88f19121a67c5907ff51351ede1b659e952ff5dafd",
+    "slice/l3slice/snapshot.py": "8b46e201ac2d7a2b63c9f1b5273b05a897c6df0df945aa5bddfcb337c9c6cf35",
+    "slice/l3slice/verify.py": "a1a0049a0cb0d673f7821ba74db9989014ddb5b16ec83ee344341d4533d4d09d",
+    "slice/l3slice/web.py": "6eea6762971e2171501dc83535b657169b6e0d0291ea119aeee649823c3ecfef",
+    "slice/tools/evaluate_l3.py": "03690cc4659bdd5cf2785d1ff838e640ef41553f47d233003d78be20c93bdd9f"
+  },
+  "git_head": "5d06f14d8b09594582b5d94ae7bb686924cfe53a",
+  "git_status": " M .gitattributes\n?? .aide/generated/contract-checks/\n?? .aide/tech-specs/\n?? docs/L3-Generator-bao-cao-tong-the.md\n?? docs/L3-Generator-doi-chieu-nguon-L3.md\n?? docs/L3-Generator-ke-hoach-code-L3.md\n?? docs/L3-Generator-ke-hoach-hoan-thien-bo-sinh-tai-lieu.md\n?? docs/L3-Generator-ke-hoach-trien-khai-L3.md\n?? ket-qua-chay/\n?? scripts/check_l3_contracts.py\n?? scripts/requirements-l3-check.txt\n?? slice/\n"
+}

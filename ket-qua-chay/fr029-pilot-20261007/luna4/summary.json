@@ -1,0 +1,548 @@
+[
+  {
+    "fixture": "pydantic_v1",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 6,
+    "tokens_in": 19918,
+    "tokens_out": 1107,
+    "waited_s": 0,
+    "seconds": 30,
+    "cost_usd": 0.0011,
+    "coverage_complete": true,
+    "rejected": 1,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 2,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 2,
+            "wrong": []
+          },
+          "response": {
+            "correct": 2,
+            "wrong": []
+          },
+          "status": {
+            "correct": 2,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 1,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  },
+  {
+    "fixture": "exclusions",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 9,
+    "tokens_in": 40588,
+    "tokens_out": 1736,
+    "waited_s": 0,
+    "seconds": 33,
+    "cost_usd": 0.0016,
+    "coverage_complete": true,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 1,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 1,
+            "wrong": []
+          },
+          "response": {
+            "correct": 1,
+            "wrong": []
+          },
+          "status": {
+            "correct": 1,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      },
+      "out_of_scope": {
+        "ok": true,
+        "got": {
+          "test": 3,
+          "conditional_out": 1
+        },
+        "want": {
+          "test": 3,
+          "conditional_out": 1
+        }
+      }
+    }
+  },
+  {
+    "fixture": "params_models",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 9,
+    "tokens_in": 53997,
+    "tokens_out": 5167,
+    "waited_s": 0,
+    "seconds": 65,
+    "cost_usd": 0.0038,
+    "coverage_complete": true,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 11,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 11,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 11,
+            "wrong": []
+          },
+          "response": {
+            "correct": 11,
+            "wrong": []
+          },
+          "status": {
+            "correct": 11,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 5,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 5,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  },
+  {
+    "fixture": "prefix_chain",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 13,
+    "tokens_in": 77643,
+    "tokens_out": 5106,
+    "waited_s": 0,
+    "seconds": 76,
+    "cost_usd": 0.004,
+    "coverage_complete": true,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 11,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 11,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 11,
+            "wrong": []
+          },
+          "response": {
+            "correct": 11,
+            "wrong": []
+          },
+          "status": {
+            "correct": 11,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  },
+  {
+    "fixture": "http_calls",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 9,
+    "tokens_in": 48772,
+    "tokens_out": 3211,
+    "waited_s": 0,
+    "seconds": 45,
+    "cost_usd": 0.0026,
+    "coverage_complete": true,
+    "rejected": 2,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 3,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 3,
+            "wrong": []
+          },
+          "response": {
+            "correct": 3,
+            "wrong": []
+          },
+          "status": {
+            "correct": 3,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "tp": 11,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "library": {
+            "correct": 11,
+            "wrong": []
+          },
+          "method": {
+            "correct": 11,
+            "wrong": []
+          },
+          "target": {
+            "correct": 9,
+            "wrong": [
+              {
+                "key": "app/clients.py:23",
+                "got": [
+                  "config",
+                  "settings.INVENTORY_URL"
+                ],
+                "want": [
+                  "config",
+                  "INVENTORY_URL"
+                ]
+              },
+              {
+                "key": "app/clients.py:46",
+                "got": [
+                  "config",
+                  "settings.PAYMENT_URL"
+                ],
+                "want": [
+                  "config",
+                  "PAYMENT_URL"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  },
+  {
+    "fixture": "file_roles",
+    "run": 1,
+    "key_env": "OPENAI_API_KEY",
+    "model": "gpt-6-luna",
+    "status": "completed",
+    "reason": "",
+    "turns": 16,
+    "tokens_in": 84227,
+    "tokens_out": 2584,
+    "waited_s": 0,
+    "seconds": 55,
+    "cost_usd": 0.0027,
+    "coverage_complete": true,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 3,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 3,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 3,
+            "wrong": []
+          },
+          "response": {
+            "correct": 3,
+            "wrong": []
+          },
+          "status": {
+            "correct": 3,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 2,
+            "wrong": []
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "tp": 10,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "role": {
+            "correct": 10,
+            "wrong": []
+          },
+          "label": {
+            "correct": 10,
+            "wrong": []
+          },
+          "line": {
+            "correct": 10,
+            "wrong": []
+          }
+        }
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  }
+]

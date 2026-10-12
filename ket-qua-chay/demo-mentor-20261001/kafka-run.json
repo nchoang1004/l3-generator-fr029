@@ -1,0 +1,14 @@
+{
+  "command": [
+    "D:\\VSF\\l3-generator-l3\\scripts\\.venv\\Scripts\\python.exe",
+    "-m",
+    "l3slice",
+    "--source",
+    "demo/kafka",
+    "--membership",
+    "demo/kafka.membership.json",
+    "--output",
+    "D:\\VSF\\l3-generator-l3\\ket-qua-chay\\demo-mentor-20261001\\kafka"
+  ],
+  "exit_code": 3
+}

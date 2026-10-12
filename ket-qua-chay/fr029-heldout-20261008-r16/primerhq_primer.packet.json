@@ -1,0 +1,395 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos3\\primerhq_primer",
+  "files": 607,
+  "route_decorators": 224,
+  "decorators_refused": [],
+  "dependencies": [
+    {
+      "name": "storage_dep",
+      "called": false,
+      "first_use": "primer/api/routers/_crud.py:370",
+      "params": []
+    },
+    {
+      "name": "parse_page",
+      "called": false,
+      "first_use": "primer/api/routers/_crud.py:495",
+      "params": [
+        {
+          "in": "query",
+          "name": "limit",
+          "at": "primer/api/pagination.py:19"
+        },
+        {
+          "in": "query",
+          "name": "offset",
+          "at": "primer/api/pagination.py:20"
+        },
+        {
+          "in": "query",
+          "name": "cursor",
+          "at": "primer/api/pagination.py:25"
+        }
+      ]
+    },
+    {
+      "name": "parse_order_by",
+      "called": false,
+      "first_use": "primer/api/routers/_crud.py:496",
+      "params": [
+        {
+          "in": "query",
+          "name": "order_by",
+          "at": "primer/api/pagination.py:39"
+        }
+      ]
+    },
+    {
+      "name": "get_storage_provider",
+      "called": false,
+      "first_use": "primer/api/routers/admin_tokens.py:51",
+      "params": []
+    },
+    {
+      "name": "get_user_storage",
+      "called": false,
+      "first_use": "primer/api/routers/admin_users.py:304",
+      "params": []
+    },
+    {
+      "name": "require_auth",
+      "called": false,
+      "first_use": "primer/api/routers/auth.py:320",
+      "params": []
+    },
+    {
+      "name": "get_agent_storage",
+      "called": false,
+      "first_use": "primer/api/routers/compute.py:68",
+      "params": []
+    },
+    {
+      "name": "get_llm_provider_storage",
+      "called": false,
+      "first_use": "primer/api/routers/compute.py:69",
+      "params": []
+    },
+    {
+      "name": "get_toolset_storage",
+      "called": false,
+      "first_use": "primer/api/routers/compute.py:70",
+      "params": []
+    },
+    {
+      "name": "get_model_profile_storage",
+      "called": false,
+      "first_use": "primer/api/routers/compute.py:71",
+      "params": []
+    },
+    {
+      "name": "get_graph_storage",
+      "called": false,
+      "first_use": "primer/api/routers/compute.py:188",
+      "params": []
+    },
+    {
+      "name": "get_session_storage",
+      "called": false,
+      "first_use": "primer/api/routers/compute.py:232",
+      "params": []
+    },
+    {
+      "name": "get_workspace_registry",
+      "called": false,
+      "first_use": "primer/api/routers/compute.py:233",
+      "params": []
+    },
+    {
+      "name": "require_user",
+      "called": false,
+      "first_use": "primer/api/routers/events.py:76",
+      "params": []
+    },
+    {
+      "name": "get_event_subscription_storage",
+      "called": false,
+      "first_use": "primer/api/routers/events.py:124",
+      "params": []
+    },
+    {
+      "name": "get_external_tool_call_storage",
+      "called": false,
+      "first_use": "primer/api/routers/external_tools.py:99",
+      "params": []
+    },
+    {
+      "name": "get_event_bus",
+      "called": false,
+      "first_use": "primer/api/routers/harness.py:347",
+      "params": []
+    },
+    {
+      "name": "get_claim_engine",
+      "called": false,
+      "first_use": "primer/api/routers/harness.py:348",
+      "params": []
+    },
+    {
+      "name": "get_internal_collections_config_storage",
+      "called": false,
+      "first_use": "primer/api/routers/internal_collections.py:181",
+      "params": []
+    },
+    {
+      "name": "get_internal_collections_bootstrap_status_storage",
+      "called": false,
+      "first_use": "primer/api/routers/internal_collections.py:512",
+      "params": []
+    },
+    {
+      "name": "get_collection_storage",
+      "called": false,
+      "first_use": "primer/api/routers/knowledge.py:198",
+      "params": []
+    },
+    {
+      "name": "get_document_tree_service",
+      "called": false,
+      "first_use": "primer/api/routers/knowledge.py:199",
+      "params": []
+    },
+    {
+      "name": "get_document_service",
+      "called": false,
+      "first_use": "primer/api/routers/knowledge.py:346",
+      "params": []
+    },
+    {
+      "name": "get_provider_registry",
+      "called": false,
+      "first_use": "primer/api/routers/knowledge.py:462",
+      "params": []
+    },
+    {
+      "name": "get_semantic_search_registry",
+      "called": false,
+      "first_use": "primer/api/routers/knowledge.py:463",
+      "params": []
+    },
+    {
+      "name": "require_admin",
+      "called": false,
+      "first_use": "primer/api/routers/mcp_exposure.py:98",
+      "params": []
+    },
+    {
+      "name": "get_principal",
+      "called": false,
+      "first_use": "primer/api/routers/providers.py:1459",
+      "params": []
+    },
+    {
+      "name": "get_semantic_search_storage",
+      "called": false,
+      "first_use": "primer/api/routers/semantic_search.py:323",
+      "params": []
+    },
+    {
+      "name": "get_service_storage",
+      "called": false,
+      "first_use": "primer/api/routers/services.py:133",
+      "params": []
+    },
+    {
+      "name": "get_scheduler",
+      "called": false,
+      "first_use": "primer/api/routers/sessions.py:140",
+      "params": []
+    },
+    {
+      "name": "get_workspace_storage",
+      "called": false,
+      "first_use": "primer/api/routers/sessions.py:789",
+      "params": []
+    },
+    {
+      "name": "get_oidc_provider_storage",
+      "called": false,
+      "first_use": "primer/api/routers/sso.py:366",
+      "params": []
+    },
+    {
+      "name": "get_user_identity_storage",
+      "called": false,
+      "first_use": "primer/api/routers/sso.py:504",
+      "params": []
+    },
+    {
+      "name": "get_approval_resolver",
+      "called": false,
+      "first_use": "primer/api/routers/tool_approval.py:397",
+      "params": []
+    },
+    {
+      "name": "get_workspace_template_storage",
+      "called": false,
+      "first_use": "primer/api/routers/workspaces.py:758",
+      "params": []
+    },
+    {
+      "name": "get_workspace_provider_storage",
+      "called": false,
+      "first_use": "primer/api/routers/workspaces.py:759",
+      "params": []
+    },
+    {
+      "name": "get_optional_artifact_storage_registry",
+      "called": false,
+      "first_use": "primer/api/routers/workspaces.py:1709",
+      "params": []
+    }
+  ],
+  "suspects": [
+    {
+      "at": "primer/api/routers/providers.py:955",
+      "looks_like": "http",
+      "text": "r = await client.get(f\"{url}/models\", headers=headers)"
+    },
+    {
+      "at": "primer/api/routers/terminal.py:152",
+      "looks_like": "route",
+      "text": "@terminal_router.websocket(\"/workspaces/{workspace_id}/terminal\")"
+    },
+    {
+      "at": "primer/auth/oidc.py:156",
+      "looks_like": "http",
+      "text": "resp = await client.get(discovery_url)"
+    },
+    {
+      "at": "primer/auth/oidc.py:252",
+      "looks_like": "http",
+      "text": "resp = await client.get(jwks_uri)"
+    },
+    {
+      "at": "primer/auth/oidc.py:432",
+      "looks_like": "http",
+      "text": "resp = await client.post("
+    },
+    {
+      "at": "primer/channel/slack/adapter.py:228",
+      "looks_like": "http",
+      "text": "ts = self._session_threads.get(session_id)"
+    },
+    {
+      "at": "primer/channel/slack/adapter.py:274",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "primer/llm/anthropic.py:894",
+      "looks_like": "http",
+      "text": "response = await client.get(\"/models\", params=params)"
+    },
+    {
+      "at": "primer/llm/gemini.py:129",
+      "looks_like": "http",
+      "text": "response = await client.get(\"/models\", params=params)"
+    },
+    {
+      "at": "primer/llm/openrouter.py:363",
+      "looks_like": "http",
+      "text": "response = await client.get(\"/models\")"
+    },
+    {
+      "at": "primer/speech/discovery.py:30",
+      "looks_like": "http",
+      "text": "response = await client.get(url, headers=headers)"
+    },
+    {
+      "at": "primer/toolset/oauth/discovery.py:91",
+      "looks_like": "http",
+      "text": "resp = await http.get(url)"
+    },
+    {
+      "at": "primer/toolset/oauth/discovery.py:111",
+      "looks_like": "http",
+      "text": "resp = await http.get(url)"
+    },
+    {
+      "at": "primer/toolset/oauth/discovery.py:226",
+      "looks_like": "http",
+      "text": "resp = await http.post("
+    },
+    {
+      "at": "primer/toolset/oauth/registration.py:103",
+      "looks_like": "http",
+      "text": "resp = await http.post(str(metadata.registration_endpoint), json=payload)"
+    },
+    {
+      "at": "primer/toolset/web/tools.py:344",
+      "looks_like": "http",
+      "text": "response = await http_client.request("
+    },
+    {
+      "at": "primer/toolset/web/tools.py:505",
+      "looks_like": "http",
+      "text": "async with http_client.stream(\"GET\", url_str) as resp:"
+    },
+    {
+      "at": "primer/web_fetch/exa.py:33",
+      "looks_like": "http",
+      "text": "r = await self._client.post(f\"{self._base_url}/contents\", json=body, headers=headers)"
+    },
+    {
+      "at": "primer/web_fetch/firecrawl.py:33",
+      "looks_like": "http",
+      "text": "r = await self._client.post(f\"{self._base_url}/v1/scrape\", json=body, headers=headers)"
+    },
+    {
+      "at": "primer/web_fetch/jina.py:34",
+      "looks_like": "http",
+      "text": "r = await self._client.get(f\"{self._base_url}/{url}\", headers=headers)"
+    },
+    {
+      "at": "primer/web_fetch/local.py:70",
+      "looks_like": "http",
+      "text": "r = await self._client.get("
+    },
+    {
+      "at": "primer/web_search/exa.py:107",
+      "looks_like": "http",
+      "text": "r = await self._client.post("
+    },
+    {
+      "at": "primer/web_search/firecrawl.py:95",
+      "looks_like": "http",
+      "text": "r = await self._client.post("
+    },
+    {
+      "at": "primer/web_search/tavily.py:89",
+      "looks_like": "http",
+      "text": "r = await self._client.post("
+    },
+    {
+      "at": "primer/workspace/files.py:94",
+      "looks_like": "http",
+      "text": "async with session.get(url) as resp:"
+    },
+    {
+      "at": "scripts/e2e/seed_staged_fixtures.py:210",
+      "looks_like": "http",
+      "text": "return await self.c.post(path, **kw)"
+    },
+    {
+      "at": "scripts/e2e/seed_staged_fixtures.py:213",
+      "looks_like": "http",
+      "text": "return await self.c.get(path, **kw)"
+    },
+    {
+      "at": "scripts/e2e/seed_staged_fixtures.py:216",
+      "looks_like": "http",
+      "text": "return await self.c.patch(path, **kw)"
+    }
+  ],
+  "seconds": 24.83
+}

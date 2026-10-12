@@ -1,0 +1,9 @@
+[
+  {
+    "repo": "tdd-docker",
+    "size": "nhỏ",
+    "model": "gpt-6-luna",
+    "status": "failed",
+    "reason": "KeyError: 'value'"
+  }
+]

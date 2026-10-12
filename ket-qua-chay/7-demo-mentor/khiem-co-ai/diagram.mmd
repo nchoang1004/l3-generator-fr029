@@ -1,0 +1,18 @@
+flowchart LR
+  C1["Khởi tạo ứng dụng"]
+  C2["Router HTTP API"]
+  C3["Service quản lý ghi chú"]
+  C4["Mô hình dữ liệu"]
+  C5["Hạ tầng database"]
+  subgraph shared["Dùng chung (không vẽ cạnh)"]
+    C6["Dùng chung"]
+  end
+  subgraph external["Hệ thống ngoài"]
+    X1[("Database")]
+  end
+  C1 -->|"Gắn API router"| C2
+  C2 -->|"Thực thi use case"| C3
+  C4 -->|"Truy vấn database"| C5
+  C3 -->|"Làm mới dữ liệu"| C5
+  C3 -->|"Đọc models"| C4
+  C5 -.->|"truy vấn"| X1

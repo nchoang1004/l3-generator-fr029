@@ -1,0 +1,54 @@
+{
+  "tables": {
+    "checked": 29,
+    "correct": 29
+  },
+  "columns": {
+    "checked": 287,
+    "correct": 269,
+    "core_correct_excluding_constraints": 287,
+    "wrong": [
+      "fastapi_best_architecture: cột id của 17 bảng dùng id_key (backend/common/model.py:17-40 khai unique=True, index=True) bị ghi 'Ràng buộc: —': code_gen_business:17, code_gen_column:17, sys_config:17, sys_data_rule:17, sys_data_scope:17, sys_dept:17, sys_dict_data:17, sys_dict_type:17, sys_login_log:16, sys_menu:13, sys_notice:13, sys_opera_log:16, sys_role:17, sys_user:22, sys_user_password_history:16, sys_user_social:18, task_scheduler:28 (số là dòng khai id trong file model của từng bảng)",
+      "full-stack-fastapi-template: item.owner_id (backend/app/models.py:97-99) có ondelete=\"CASCADE\" nhưng cột Ràng buộc ghi '—'"
+    ]
+  },
+  "per_repo": {
+    "fastapi_best_architecture": {
+      "tables": "23/23",
+      "columns": "231/248 (đủ thuộc tính chính 248/248)"
+    },
+    "full-stack-fastapi-template": {
+      "tables": "2/2",
+      "columns": "11/12 (đủ thuộc tính chính 12/12)"
+    },
+    "orderflow": {
+      "tables": "4/4",
+      "columns": "27/27"
+    },
+    "tdd-docker": {
+      "tables": "0 bảng được ghi; 1 bảng thật (textsummary, Tortoise) nêu ở mục 11 không có cột",
+      "columns": "0"
+    }
+  },
+  "missing": [
+    "fastapi_best_architecture: 12 ràng buộc unique ghép trong __table_args__ không có trong mục 4 và TBL (uk_sys_data_rule_name_deleted ở data_rule.py:12, uk_sys_data_scope_name_deleted data_scope.py:12, uk_sys_dept_name_deleted dept.py:12, uk_sys_role_name_deleted role.py:12, uk_sys_user_username_deleted và uk_sys_user_email_deleted user.py:16, uk_task_scheduler_name_deleted scheduler.py:23, uk_code_gen_business_table_name_deleted business.py:12, uk_code_gen_column_business_id_name column.py:12, uk_sys_config_key_deleted config.py:12, uk_sys_dict_data_type_code_label_deleted dict_data.py:12, uk_sys_dict_type_code_deleted dict_type.py:12, uk_sys_user_social_user_id_source_deleted và uk_sys_user_social_sid_source_deleted user_social.py:12)",
+    "fastapi_best_architecture: ghi chú ngoài bảng gồm comment bảng/cột, khóa ngoại logic (parent_id, dept_id, user_id... chỉ có trong comment '逻辑外键') không nêu; không phải lỗi theo chuẩn nhưng người đọc không biết quan hệ",
+    "tdd-docker: bảng textsummary và aerich chỉ có trong migrations/models/0_20250421234125_init.py:6-19 (CREATE TABLE) không được nêu tên; mục 11 chỉ ghi 'migration: 1 file' chung chung. Lớp TextSummary (app/models/tortoise.py:5) được nêu đúng",
+    "full-stack-fastapi-template: bảng item/user có trong migration (backend/app/alembic/versions/e2412789c190_initialize_models.py:21,34) với kiểu PostgreSQL; tài liệu ghi dialect 'chưa rõ' (chấp nhận theo chuẩn, nhưng bỏ sót manh mối)",
+    "orderflow: mỗi service có CSDL riêng (docker-compose.yml:22,40,61 dùng 3 CSDL catalog/orders/notifications) nhưng mục 4 gộp 4 bảng như một CSDL"
+  ],
+  "extra": [],
+  "notes_extra": "Không có bảng thừa: 29 bảng trong tài liệu khớp 29 bảng trong source (fba 20 lớp + 4 Table(), trong đó Task và TaskExtended cùng bảng task_result). Không có cột thừa.",
+  "standard": {
+    "Đọc được SQLAlchemy __tablename__ / SQLModel table=True / Table(...)": "đạt: fba 19 lớp + 4 sa.Table(...) m2m.py:6,15,24,33; FS 2 lớp SQLModel; orderflow 4 lớp. Không sót bảng nào theo grep độc lập",
+    "ORM khác / SQL tay / migration ghi ở giới hạn kèm nơi dùng, không nói repo không có bảng": "đạt một phần: tdd-docker ghi 'Tortoise: app/models/tortoise.py:5 (TextSummary)' ở mục 11 và mục 4 nói 'có bảng khai theo cách chưa đọc được'. Không đạt phần: bảng textsummary/aerich trong migration không được nêu tên, mục 11 chỉ ghi 'migration: 1 file'",
+    "TBL: tên bảng, lớp model, vị trí khai báo": "đạt: 29/29 khớp. Ghi chú: task_result ghi lớp TaskExtended:54, không nhắc Task (result.py:14) cũng khai __tablename__ cùng bảng",
+    "TBL: cột gồm tên, kiểu, PK, FK (bảng+cột đích), nullable": "đạt: 287/287 cột đúng tên, kiểu như khai, PK, nullable; FK duy nhất (user.id, orders.id) đúng bảng và cột đích. Không có FK nào khác trong source",
+    "Truy vết file:dòng từng bảng và cột": "đạt: kiểm 248 dòng TBL của fba và toàn bộ FS, orderflow; dòng khớp source. Cột thừa kế từ Base trỏ common/model.py:89,96,108,116, đúng",
+    "Nhãn exact / inferred+quy tắc / unknown+lý do": "không đạt về độ chính xác: mọi dòng cột (365 dòng ở 3 repo đọc được) đều ghi 'inferred: sqlalchemy-defaults-v1; unknown: type', không có dòng exact nào, kể cả giá trị khai tường minh (FS models.py:97-98 nullable=False; fba result.py:23 nullable=True; mọi primary_key=True; tên bảng __tablename__ trong fba/orderflow). Về hình thức thì mỗi dòng có nhãn. Kiểu unknown vì dialect chưa biết, có lý do",
+    "DDL theo biến thể SQL; chưa biết thì không DDL, ghi lý do; không mặc định PostgreSQL": "đạt: cả 3 TBL chỉ có '-- omitted: ... dialect chưa biết'. Dialect của fba thật sự cấu hình được (conf.py:49 mysql|postgresql), orderflow có cả sqlite lẫn postgres, nên 'chưa rõ' hợp lý",
+    "Mặc định ORM ghi inferred; không suy tên bảng từ tên lớp trừ SQLModel có ghi quy tắc": "đạt một phần: nullable mặc định ghi inferred đúng. FS: quy tắc sqlmodel-default-tablename-v1 có ở chú thích [1] của TAI-LIEU.md nhưng không có trong file TBL (TBL-FULL-STACK...: 0 lần). Không có repo nào suy tên bảng từ tên lớp sai"
+  },
+  "readability_score": 3,
+  "readability_note": "Đúng và đủ cho fba nhưng dài, lặp, chưa nêu quan hệ giữa bảng"
+}

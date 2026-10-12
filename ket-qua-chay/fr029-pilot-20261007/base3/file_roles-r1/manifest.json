@@ -1,0 +1,325 @@
+{
+  "agent": {
+    "reason": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+    "status": "partial",
+    "tokens_in": 2684,
+    "tokens_out": 34,
+    "turns": 1,
+    "usage_missing_turns": 0
+  },
+  "architecture_parity": {
+    "reason": "Chưa được cấp archdia.json cùng snapshot",
+    "status": "not_evaluated"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "art_7e0bf472ab71773e8d352fe5",
+      "bytes": 2200,
+      "error": null,
+      "kind": "readme",
+      "media_type": "text/markdown",
+      "path": "README.md",
+      "sha256": "9dccc2d10e24feca7987aa6e5cb05d177e96ca03c08c79832ab311d37d8e93d3",
+      "status": "ready"
+    },
+    {
+      "artifact_id": "art_4565e154b410b41038bbd0df",
+      "bytes": 7658,
+      "error": null,
+      "kind": "json",
+      "media_type": "application/json",
+      "path": "result.json",
+      "sha256": "50336b432429ebf90fbaa548e2dcc686d1fa0004a0c92c445b24681312fa068f",
+      "status": "ready"
+    }
+  ],
+  "components": [
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/main.py"
+      ],
+      "id": "cmp_139a1cc48ea583611109c29dec607648f69d263d900bc74b27f1144e019794e8",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd"
+      ],
+      "name": "Khởi động"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/api/orders.py",
+        "app/config.py",
+        "app/repository.py",
+        "app/schemas.py",
+        "app/service_utils.py",
+        "app/services.py"
+      ],
+      "id": "cmp_3f8f65e632aee3971ebfc74990b673a272fabc9ec213073a8510024c7de29df3",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:20e03269016666382b8c349961c2252c9467a53422ca8c3ab00b26625e86d105",
+        "file:743c8db0af830ae358f828cadf2faa7caaa075029cdce9bd4650ed51ca80038f",
+        "file:84f1a9419471e289c6b6e2b0209b329e20df6cef81d1f7f0a193ddc2fc6ad69d",
+        "file:8e5c06680b6e751d9856e8c8d225dec8940e24d6c96c0216348982df9e6aac56",
+        "file:b3c2b671598a92b5710699c4d5247632eb8198611f2d34ffc55686e526f0b86b",
+        "file:e231107370f1b82f5478a433b97a6999f553afbb6936262e2374d85c21e825b6"
+      ],
+      "name": "Đơn hàng"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/api/reports.py"
+      ],
+      "id": "cmp_7f12cbdf8b1d8e45d52d77dcd69c7deaca26672d072b26b172e859e7922144c8",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:0231e245cdf839d62cc78afa903c39b9e8df9229ad1945c94de3fe3415a55782"
+      ],
+      "name": "Báo cáo"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/db.py"
+      ],
+      "id": "cmp_d8546b0a3e56b6356878f03c74ff23e01eb3be3c8b34c040fd286e82bd5556ed",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:2b5515043a2bd4e12be4d1847276b542fcfeaa6232c7d7a655dedab138b32e48"
+      ],
+      "name": "Hạ tầng CSDL"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/models.py"
+      ],
+      "id": "cmp_80f8d969b2f779b17e4b46897e0939aab8981a1f674360504466c0f86827f5cd",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:90c680eba43456b516da8b4c2573d467ae17d1b0ed4373549f2a593ced3616d5"
+      ],
+      "name": "Dữ liệu dùng chung"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/__init__.py",
+        "app/api/__init__.py",
+        "requirements.txt"
+      ],
+      "id": "cmp_f8f5cdfd9478ff5aa32d0d9a406f93b6ca509507bd9d6634b9b074c065c73cf7",
+      "kind": "other",
+      "member_file_ids": [
+        "file:1074c68ab0d4623b1aa65cc0b8687db1428bd5f8bd31dea51a982fa699c74470",
+        "file:4d7c51b1efe9043e44439a949dfd92e5827321b34082903477fd04876edb7552",
+        "file:9cec7b11237bc29d77a439e81c9b7acfac003d8e8855731eb6bc130b5a8ce602"
+      ],
+      "name": "Khác"
+    }
+  ],
+  "contract_owners": {},
+  "coverage": {
+    "complete": false,
+    "files": [
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/api/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 20,
+        "missing": [
+          [
+            1,
+            20
+          ]
+        ],
+        "path": "app/api/orders.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 13,
+        "missing": [
+          [
+            1,
+            13
+          ]
+        ],
+        "path": "app/api/reports.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 8,
+        "missing": [
+          [
+            1,
+            8
+          ]
+        ],
+        "path": "app/config.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 17,
+        "missing": [
+          [
+            1,
+            17
+          ]
+        ],
+        "path": "app/db.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 7,
+        "missing": [
+          [
+            1,
+            7
+          ]
+        ],
+        "path": "app/main.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 14,
+        "missing": [
+          [
+            1,
+            14
+          ]
+        ],
+        "path": "app/models.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 15,
+        "missing": [
+          [
+            1,
+            15
+          ]
+        ],
+        "path": "app/repository.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 12,
+        "missing": [
+          [
+            1,
+            12
+          ]
+        ],
+        "path": "app/schemas.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 7,
+        "missing": [
+          [
+            1,
+            7
+          ]
+        ],
+        "path": "app/service_utils.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 11,
+        "missing": [
+          [
+            1,
+            11
+          ]
+        ],
+        "path": "app/services.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 4,
+        "missing": [
+          [
+            1,
+            4
+          ]
+        ],
+        "path": "requirements.txt",
+        "processed_lines": 0,
+        "status": "unread"
+      }
+    ],
+    "not_readable": []
+  },
+  "dismissed_suspects": [],
+  "evidence_index": [],
+  "excluded_from_snapshot": [],
+  "facts": [],
+  "limitations": [
+    {
+      "code": "ANALYSIS_PARTIAL",
+      "message": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+      "stage": "agent"
+    },
+    {
+      "code": "SOURCE_NOT_FULLY_READ",
+      "message": "app/api/orders.py thiếu [[1, 20]]; app/api/reports.py thiếu [[1, 13]]; app/config.py thiếu [[1, 8]]; app/db.py thiếu [[1, 17]]; app/main.py thiếu [[1, 7]]; app/models.py thiếu [[1, 14]]; app/repository.py thiếu [[1, 15]]; app/schemas.py thiếu [[1, 12]]; app/service_utils.py thiếu [[1, 7]]; app/services.py thiếu [[1, 11]]; requirements.txt thiếu [[1, 4]]",
+      "stage": "agent"
+    }
+  ],
+  "pipeline_version": "fr029-doc-v1",
+  "provenance": {
+    "model": "openai/gpt-oss-120b",
+    "prompt_version": "fr029-agent-prompt-v3",
+    "provider": "https://api.groq.com/openai/v1"
+  },
+  "rejected_claims": [],
+  "render_notices": [],
+  "repository_name": "file_roles",
+  "run_id": "pilot_file_roles_r1",
+  "schema_version": "0.1.0",
+  "snapshot_id": "snap:3df7e7d2177f25da0603482e3cce1c1d8b380eb610c1188f4d497c9948271449",
+  "unassigned": []
+}

@@ -1,0 +1,271 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "fastapi-docs-body_updates-tutorial001",
+  "source_digest": "18d645194bda1583663b7a2452a6d00a4d18eb583191ced4adb97a33cd4e9fa6",
+  "status": "facts_only",
+  "entities": [
+    {
+      "id": "body_updates/tutorial001_py310.py::read_item",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 24,
+      "line_end": 25,
+      "symbol": "read_item",
+      "kind": "function"
+    },
+    {
+      "id": "body_updates/tutorial001_py310.py::update_item",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 29,
+      "line_end": 32,
+      "symbol": "update_item",
+      "kind": "function"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e00f316f4b1f407c4",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 23,
+      "line_end": 23,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e0b88b8b7381ec9c9",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 28,
+      "line_end": 29,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e0bc8ea391bb8894d",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 1,
+      "line_end": 32,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e230b9b57a34e0a90",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 12,
+      "line_end": 12,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e338160788e423cb8",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 29,
+      "line_end": 29,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e34bdc6342828f037",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 10,
+      "line_end": 10,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e380c039a30c76e2b",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 28,
+      "line_end": 28,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e3d74e3573800f428",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 5,
+      "line_end": 5,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e4b142a5aac80a616",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 10,
+      "line_end": 10,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e4b5552ef339c36c9",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 8,
+      "line_end": 13,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e549ed6262bdccbba",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 13,
+      "line_end": 13,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e57bc9ded78cd7bf3",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 11,
+      "line_end": 11,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e593f406bb330751e",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 9,
+      "line_end": 9,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e62713cbb424ed623",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 23,
+      "line_end": 24,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e985223d3c4e85441",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 13,
+      "line_end": 13,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "e9b7577378ec32562",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 24,
+      "line_end": 25,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "ea74b97e0628b6921",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 11,
+      "line_end": 11,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "eb26bb24a49afd217",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 29,
+      "line_end": 32,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "eb5182ab827d81fe8",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 23,
+      "line_end": 23,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "ed941730f55d95724",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 29,
+      "line_end": 29,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "ee570bb357741b87a",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 28,
+      "line_end": 28,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "ef4b95c9ca15c5684",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 24,
+      "line_end": 24,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "efa4d79acec67a557",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 12,
+      "line_end": 12,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "efb477085944a7c3d",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 23,
+      "line_end": 23,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "eff2268d333f43c68",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 9,
+      "line_end": 9,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    },
+    {
+      "id": "effbea5af9ea70c68",
+      "path": "body_updates/tutorial001_py310.py",
+      "line_start": 28,
+      "line_end": 28,
+      "sha256": "af11e561fad763575bb70b3ae507ef732f3899a16b7a98dcf26b1bb81b4adc95"
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:b058de90887eeba7540513335be14fcce127ec87da84c22a0dbd92d06a2e31b8",
+      "evidence_refs": [
+        "e00f316f4b1f407c4",
+        "e3d74e3573800f428",
+        "e62713cbb424ed623",
+        "eb5182ab827d81fe8",
+        "ef4b95c9ca15c5684",
+        "efb477085944a7c3d"
+      ],
+      "target_id": null,
+      "kind": "route",
+      "source_id": "body_updates/tutorial001_py310.py::read_item",
+      "context": "body_updates/tutorial001_py310.py::app",
+      "attributes": {
+        "method": "GET",
+        "path": "/items/{item_id}",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    },
+    {
+      "id": "fact:f6ff1f88d5c874ac94a83d94f95c23070df18284d5a82a0b109bd4eab8393e54",
+      "evidence_refs": [
+        "e0b88b8b7381ec9c9",
+        "e338160788e423cb8",
+        "e380c039a30c76e2b",
+        "e3d74e3573800f428",
+        "ed941730f55d95724",
+        "ee570bb357741b87a",
+        "effbea5af9ea70c68"
+      ],
+      "target_id": null,
+      "kind": "route",
+      "source_id": "body_updates/tutorial001_py310.py::update_item",
+      "context": "body_updates/tutorial001_py310.py::app",
+      "attributes": {
+        "method": "PUT",
+        "path": "/items/{item_id}",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    }
+  ],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v4",
+    "unsupported": []
+  }
+}

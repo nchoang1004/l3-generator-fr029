@@ -1,0 +1,1562 @@
+{
+  "mutations": {
+    "route": "method không có trong decorator; handler là hàm route có thật khác của cùng file; tên handler không có",
+    "route_negative": "route gold ghi not_fastapi (receiver không phải FastAPI/APIRouter) phải bị từ chối",
+    "dependency": "dependency có thật khác (dùng ở route khác của repo) không có trên dòng; tên không tồn tại",
+    "http": "URL thêm '/x-audit'; URL cụt 1 ký tự; literal khác có trong cùng file; thư viện khác; method khác",
+    "http_negative": "dòng gold ghi non_http_calls (dict.get, Session.get, BeautifulSoup) nộp như lời gọi HTTP phải bị từ chối",
+    "sanity": "chạy lại với bộ kiểm giả 'luôn nhận' và 'luôn từ chối': phép đo phải báo lỗi lớn"
+  },
+  "rows": [
+    {
+      "case": "tdd-docker",
+      "group": "nghiệm thu",
+      "files": 15,
+      "routes": {
+        "checked": 6,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 22,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 6,
+        "dependency_lines": 1,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 1,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 6,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 6,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.07
+    },
+    {
+      "case": "agentgpt",
+      "group": "nghiệm thu",
+      "files": 85,
+      "routes": {
+        "checked": 16,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 61,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 16,
+        "dependency_lines": 21,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 42,
+        "measured": true,
+        "reminders": 14,
+        "reminders_wrong": [],
+        "gold_dep_params": 14,
+        "missed": []
+      },
+      "http": {
+        "calls": 6,
+        "literal": 4,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 30,
+        "negatives": 12,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 23,
+        "not_gold_item": 1,
+        "examples": [
+          {
+            "at": "reworkd_platform/services/oauth_installers.py:110",
+            "looks_like": "http",
+            "text": "await self.crud.session.delete(creds)"
+          }
+        ],
+        "gold_items": 22,
+        "gold_not_flagged": []
+      },
+      "seconds": 4.0
+    },
+    {
+      "case": "kibo",
+      "group": "nghiệm thu",
+      "files": 138,
+      "routes": {
+        "checked": 64,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 244,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 64,
+        "dependency_lines": 120,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 240,
+        "measured": true,
+        "reminders": 51,
+        "reminders_wrong": [],
+        "gold_dep_params": 51,
+        "missed": []
+      },
+      "http": {
+        "calls": 8,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [
+          {
+            "call": "app/services/whatsapp/evolution_client.py:88",
+            "mutation": "thư viện aiohttp"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:88",
+            "mutation": "thư viện requests"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:104",
+            "mutation": "thư viện aiohttp"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:104",
+            "mutation": "thư viện requests"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:124",
+            "mutation": "thư viện aiohttp"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:124",
+            "mutation": "thư viện requests"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:162",
+            "mutation": "thư viện aiohttp"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:162",
+            "mutation": "thư viện requests"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:182",
+            "mutation": "thư viện aiohttp"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:182",
+            "mutation": "thư viện requests"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:204",
+            "mutation": "thư viện aiohttp"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:204",
+            "mutation": "thư viện requests"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:239",
+            "mutation": "thư viện aiohttp"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:239",
+            "mutation": "thư viện requests"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:275",
+            "mutation": "thư viện aiohttp"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:275",
+            "mutation": "thư viện requests"
+          }
+        ],
+        "gold_vs_rule": [
+          {
+            "call": "app/services/whatsapp/evolution_client.py:162",
+            "gold_method": "GET"
+          },
+          {
+            "call": "app/services/whatsapp/evolution_client.py:182",
+            "gold_method": "GET"
+          }
+        ],
+        "mutations": 21,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 72,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 72,
+        "gold_not_flagged": []
+      },
+      "seconds": 7.08
+    },
+    {
+      "case": "fixture/exclusions",
+      "group": "fixture",
+      "files": 7,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 4,
+        "negatives": 1,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 1,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 6,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.02
+    },
+    {
+      "case": "fixture/file_roles",
+      "group": "fixture",
+      "files": 13,
+      "routes": {
+        "checked": 3,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 9,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 3,
+        "dependency_lines": 3,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 3,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 3,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 3,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.02
+    },
+    {
+      "case": "fixture/http_calls",
+      "group": "fixture",
+      "files": 8,
+      "routes": {
+        "checked": 3,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 12,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 3,
+        "dependency_lines": 1,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 1,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 11,
+        "literal": 7,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 51,
+        "negatives": 1,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 15,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 14,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.34
+    },
+    {
+      "case": "fixture/params_models",
+      "group": "fixture",
+      "files": 8,
+      "routes": {
+        "checked": 11,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 44,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 11,
+        "dependency_lines": 2,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 4,
+        "measured": true,
+        "reminders": 4,
+        "reminders_wrong": [],
+        "gold_dep_params": 4,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 11,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 11,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.07
+    },
+    {
+      "case": "fixture/prefix_chain",
+      "group": "fixture",
+      "files": 12,
+      "routes": {
+        "checked": 10,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 28,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 10,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 9,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 11,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.02
+    },
+    {
+      "case": "fixture/pydantic_v1",
+      "group": "fixture",
+      "files": 3,
+      "routes": {
+        "checked": 2,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 8,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 2,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 2,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 2,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "fixture/fr029_e2e",
+      "group": "fixture",
+      "files": 5,
+      "routes": {
+        "checked": 2,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 8,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 2,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": true,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 1,
+        "literal": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 5,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 4,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 3,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.02
+    },
+    {
+      "case": "teamhide-fastapi-boilerplate",
+      "group": "golden v1",
+      "files": 84,
+      "routes": {
+        "checked": 5,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 19,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 5,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 5,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.27
+    },
+    {
+      "case": "full-stack-fastapi-template",
+      "group": "golden v1",
+      "files": 22,
+      "routes": {
+        "checked": 23,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 90,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 23,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 23,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.44
+    },
+    {
+      "case": "igorbenav-FastAPI-boilerplate",
+      "group": "golden v1",
+      "files": 112,
+      "routes": {
+        "checked": 34,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 132,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 34,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 34,
+        "gold_not_flagged": []
+      },
+      "seconds": 2.4
+    },
+    {
+      "case": "fastapi_best_architecture",
+      "group": "golden v1",
+      "files": 296,
+      "routes": {
+        "checked": 138,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 531,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 1,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 3,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 140,
+        "not_gold_item": 1,
+        "examples": [
+          {
+            "at": "backend/utils/request_parse.py:92",
+            "looks_like": "http",
+            "text": "location = await redis_client.get(f'{settings.IP_LOCATION_REDIS_PREFIX}:{ip}')"
+          }
+        ],
+        "gold_items": 139,
+        "gold_not_flagged": []
+      },
+      "seconds": 6.18
+    },
+    {
+      "case": "dev/orders-base",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.03
+    },
+    {
+      "case": "dev/orders-prefix",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-two-apps",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 2,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-wrapper-real",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-wrapper-fake",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 1,
+        "examples": [
+          {
+            "at": "routes.py:9",
+            "looks_like": "route",
+            "text": "@router.post(\"/orders\")"
+          }
+        ],
+        "gold_items": 0,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-dynamic-prefix",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/dispatch-case-read",
+      "group": "ca dev",
+      "files": 10,
+      "routes": {
+        "checked": 18,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 72,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 19,
+        "not_gold_item": 1,
+        "examples": [
+          {
+            "at": "src/dispatch/api.py:256",
+            "looks_like": "route",
+            "text": "@api_router.get(\"/healthcheck\", include_in_schema=False)"
+          }
+        ],
+        "gold_items": 18,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.97
+    },
+    {
+      "case": "dev/fastapi-docs-body_updates-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 2,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 6,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 2,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 2,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/fastapi-docs-first_steps-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-handling_errors-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-path_params-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-query_params_str_validations-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/fastapi-docs-schema_extra_example-tutorial001",
+      "group": "ca dev",
+      "files": 1,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.0
+    },
+    {
+      "case": "dev/orders-conditional-route",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-derived-tablename",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-mount",
+      "group": "ca dev",
+      "files": 8,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    },
+    {
+      "case": "dev/orders-plugin-import",
+      "group": "ca dev",
+      "files": 11,
+      "routes": {
+        "checked": 2,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 8,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 2,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 2,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.02
+    },
+    {
+      "case": "dev/orders-runtime-dispatch",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 4,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 16,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 4,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 4,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.02
+    },
+    {
+      "case": "dev/orders-syntax-error",
+      "group": "ca dev",
+      "files": 9,
+      "routes": {
+        "checked": 1,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "not_found": [],
+        "mutations": 2,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "dependencies": {
+        "routes": 0,
+        "dependency_lines": 0,
+        "dependency_false_rejection": [],
+        "dependency_false_acceptance": [],
+        "mutations": 0,
+        "measured": false,
+        "reminders": 0,
+        "reminders_wrong": [],
+        "gold_dep_params": 0,
+        "missed": []
+      },
+      "http": {
+        "calls": 0,
+        "literal": 0,
+        "false_rejection": [],
+        "false_acceptance": [],
+        "gold_vs_rule": [],
+        "mutations": 0,
+        "negatives": 0,
+        "negative_accepted": []
+      },
+      "suspects": {
+        "suspects": 1,
+        "not_gold_item": 0,
+        "examples": [],
+        "gold_items": 1,
+        "gold_not_flagged": []
+      },
+      "seconds": 0.01
+    }
+  ]
+}

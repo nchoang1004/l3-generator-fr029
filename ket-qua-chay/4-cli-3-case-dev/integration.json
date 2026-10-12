@@ -1,0 +1,140 @@
+[
+  {
+    "case": "dispatch-case-read",
+    "exit_code": 3,
+    "seconds": 0.64,
+    "stderr": "",
+    "snapshot_id": "snap:cfd2c61676ad1172404183ea995d9d3fa42d51454c0181ff585e4262764c6a48",
+    "components": 2,
+    "edges": 0,
+    "limitations": [
+      "MODEL_NOT_RUN",
+      "SLICE_SCOPE"
+    ],
+    "artifacts": [
+      {
+        "path": "README.md",
+        "status": "ready",
+        "sha256": "1d8c31648893aa4107edb139f661db5f35b320d7ceb3a12f4635498c6ece4a25"
+      },
+      {
+        "path": "architecture.mmd",
+        "status": "ready",
+        "sha256": "215eed2bc264ace3bc4c17b5d51401802bfd2435d3b590b03e846cd65ec2f1c3"
+      },
+      {
+        "path": "architecture.svg",
+        "status": "ready",
+        "sha256": "0f8713ecd4520aa0a0b06b5076eb6bca38db913b8cd72c17c438e0a192e83c9a"
+      },
+      {
+        "path": "result.json",
+        "status": "ready",
+        "sha256": "85263a4657de3929b13b54d23e74a33cca5398671cd6e91fc04073653f769e4f"
+      },
+      {
+        "path": "tech-specs/SRC/api/API-DISPATCH-CASE-READ-SRC-v1.md",
+        "status": "ready",
+        "sha256": "88e8eae2dda431c2cd3e268bfe4faab8b75e19ffe2fd89f6bfcb863e32c1d40c"
+      },
+      {
+        "path": "tech-specs/SRC/schema/TBL-DISPATCH-CASE-READ-SRC.md",
+        "status": "ready",
+        "sha256": "6b97cc669cf61f246c569f3e5de2c35a8d369bcce0b4338dd10b3ca2f1d85585"
+      }
+    ],
+    "manifest_sha256": "39d5d62115b7d5466c535a6589333accef8110ceb51c3c9cbcd19389cc81c5c2"
+  },
+  {
+    "case": "sqlmodel-docs-teams-tutorial001",
+    "exit_code": 3,
+    "seconds": 0.36,
+    "stderr": "",
+    "snapshot_id": "snap:df174ee1689eafaf6f03fd6fe14bcb256819dbb64160130d3310c7d4d9ff5f84",
+    "components": 1,
+    "edges": 0,
+    "limitations": [
+      "MODEL_NOT_RUN",
+      "SLICE_SCOPE"
+    ],
+    "artifacts": [
+      {
+        "path": "README.md",
+        "status": "ready",
+        "sha256": "ebe73e194e4533b8ad9601bafa710ab3815fefbe258fc110905dcd4dd7d24ef2"
+      },
+      {
+        "path": "architecture.mmd",
+        "status": "ready",
+        "sha256": "b3037682db311c033de087eed07711d8c1bd454ab0c397f250a60647082a6374"
+      },
+      {
+        "path": "architecture.svg",
+        "status": "ready",
+        "sha256": "744e7037629ffd7431e4df071a44af9b8fee3de4d74a1a2a624a6f699800ecd6"
+      },
+      {
+        "path": "result.json",
+        "status": "ready",
+        "sha256": "52fbb5bbf4f871549216d2f0a7e81691e045fd3bbfb2d08302bb2e105c534442"
+      },
+      {
+        "path": "tech-specs/TEAMS/api/API-SQLMODEL-DOCS-TEAMS-TUTORIAL001-TEAMS-v1.md",
+        "status": "ready",
+        "sha256": "caa1b34f1d9c826d698afd8a587f03ad136fd4582913afcff68f323269e50be0"
+      },
+      {
+        "path": "tech-specs/TEAMS/schema/TBL-SQLMODEL-DOCS-TEAMS-TUTORIAL001-TEAMS.md",
+        "status": "ready",
+        "sha256": "051612921a843a29bbe28b64145033f026bcfc0dcaa3af1c8fac6fa9efc401f3"
+      }
+    ],
+    "manifest_sha256": "2e7db33d8ba5e57e43f77cf62002637a8262b86f62b8092c0f71451474e0b346"
+  },
+  {
+    "case": "orders-base",
+    "exit_code": 3,
+    "seconds": 0.33,
+    "stderr": "",
+    "snapshot_id": "snap:b4f357c449cb8f2890027f8e3037b30852aa06c14d4f6372ca58ed154c606616",
+    "components": 1,
+    "edges": 0,
+    "limitations": [
+      "MODEL_NOT_RUN",
+      "SLICE_SCOPE"
+    ],
+    "artifacts": [
+      {
+        "path": "README.md",
+        "status": "ready",
+        "sha256": "70efcf303642bc89b43c0be0398bb2ebb33af980f1ce49202f140578fcc5d3d8"
+      },
+      {
+        "path": "architecture.mmd",
+        "status": "ready",
+        "sha256": "a63909d0815d5ec924d100eacb2da6c215a665cf0c9053a82b5451a91017aa0c"
+      },
+      {
+        "path": "architecture.svg",
+        "status": "ready",
+        "sha256": "6d5a1ac1ebc9977f1f8dc32e37356b88385605976dd0c49bd080144943b1ee28"
+      },
+      {
+        "path": "result.json",
+        "status": "ready",
+        "sha256": "4884a8031e71c46284a3890f5db3872eec6ada90443c3a9e09c86b7585a344ed"
+      },
+      {
+        "path": "tech-specs/ROOT/api/API-ORDERS-BASE-ROOT-v1.md",
+        "status": "ready",
+        "sha256": "48b6f5951652bcb5ca3f0620cca65d11a22bd9cdfa8f1acdde8cbc345ee70a82"
+      },
+      {
+        "path": "tech-specs/ROOT/schema/TBL-ORDERS-BASE-ROOT.md",
+        "status": "ready",
+        "sha256": "9699967f8d3674062619a0616f1d82498d812f50b21a677d66d906ef252c6f0a"
+      }
+    ],
+    "manifest_sha256": "5ba83c9e4325a5f04ad84460b76ade485cf9bf349a5ef3b865f13a7941e8a946"
+  }
+]

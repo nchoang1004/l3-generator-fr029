@@ -1,0 +1,236 @@
+{
+  "agent": {
+    "reason": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+    "status": "partial",
+    "tokens_in": 2659,
+    "tokens_out": 35,
+    "turns": 1,
+    "usage_missing_turns": 0
+  },
+  "architecture_parity": {
+    "reason": "Chưa được cấp archdia.json cùng snapshot",
+    "status": "not_evaluated"
+  },
+  "components": [
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/main.py"
+      ],
+      "id": "cmp_97f74bb60e06e72ee370dec78dff2bf11b4d91f0162a907fe17206249dc0c43f",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd"
+      ],
+      "name": "Khởi động"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/hooks.py",
+        "app/routers/internal.py",
+        "app/routers/orders.py"
+      ],
+      "id": "cmp_31b297b7d7bd30deed27cc1affcbe66aefd15d7ac2e7e9e5e83081d9395c2b87",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:04b961267882cac5be518d58dd44804d03326a88e0fd015604d8de176a5221af",
+        "file:409e34a8a8636475c9475e34736d9c1d127c0fa79d326bc6fe2362503006a953",
+        "file:d75ed2ab80fe9d0b73145e32dc76b2a039eebaecc99a98208738bbd49bffe64e"
+      ],
+      "name": "Đơn hàng"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/routers/test_selfcheck.py",
+        "conftest.py",
+        "tests/test_api.py"
+      ],
+      "id": "cmp_7b2ad034fca722967d349d9c17da25df618566852b16cf85bbc372548fe52942",
+      "kind": "test",
+      "member_file_ids": [
+        "file:3451cc474d5698222168f66a293339a6bd296ee2c56f56409866bbae99917a79",
+        "file:367864bd2724ad6d39b5763aa13e5d70f4fbbd3d59c74eea79e41e680aee27de",
+        "file:a31c7ed5d35f5ed8233994868c54d625b18e6bacb6794344c4531e62bd9dde59"
+      ],
+      "name": "Kiểm thử"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "examples/standalone.py"
+      ],
+      "id": "cmp_4436c48ee84cc652a49b1bcf4911cbac208678fb3aa86c26ba3f21c9bfb21c1b",
+      "kind": "other",
+      "member_file_ids": [
+        "file:f92bb41c55f4acb4ea34eb9d01e00d41fdef89d7fc2b8c79c94f453afd14355d"
+      ],
+      "name": "Ngoài phạm vi"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/__init__.py",
+        "app/routers/__init__.py",
+        "requirements.txt"
+      ],
+      "id": "cmp_034dec8e95204fe764a85492da9f535aa3ef1b595f10d19ac1b83f9d42b09420",
+      "kind": "other",
+      "member_file_ids": [
+        "file:4d7c51b1efe9043e44439a949dfd92e5827321b34082903477fd04876edb7552",
+        "file:88e1c4ef1acfd7451fb7f57e2e418ee36a84a4dbf81b5c353301cd187450a7d8",
+        "file:9cec7b11237bc29d77a439e81c9b7acfac003d8e8855731eb6bc130b5a8ce602"
+      ],
+      "name": "Khác"
+    }
+  ],
+  "contract_owners": {},
+  "coverage": {
+    "complete": false,
+    "files": [
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 13,
+        "missing": [
+          [
+            1,
+            13
+          ]
+        ],
+        "path": "app/hooks.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 25,
+        "missing": [
+          [
+            1,
+            25
+          ]
+        ],
+        "path": "app/main.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/routers/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 8,
+        "missing": [
+          [
+            1,
+            8
+          ]
+        ],
+        "path": "app/routers/internal.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 15,
+        "missing": [
+          [
+            1,
+            15
+          ]
+        ],
+        "path": "app/routers/orders.py",
+        "processed_lines": 0,
+        "status": "unread"
+      },
+      {
+        "cut_lines": [],
+        "lines": 2,
+        "missing": [
+          [
+            1,
+            2
+          ]
+        ],
+        "path": "requirements.txt",
+        "processed_lines": 0,
+        "status": "unread"
+      }
+    ],
+    "not_readable": [
+      {
+        "path": "app/routers/test_selfcheck.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "conftest.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      },
+      {
+        "path": "examples/standalone.py",
+        "reason": "Trong `examples/` và không import code của repository (FR-028 Phạm vi đọc)",
+        "scope": "conditional_out"
+      },
+      {
+        "path": "tests/test_api.py",
+        "reason": "File kiểm thử (FR-028 Phạm vi đọc)",
+        "scope": "test"
+      }
+    ]
+  },
+  "dismissed_suspects": [],
+  "evidence_index": [],
+  "excluded_from_snapshot": [],
+  "facts": [],
+  "limitations": [
+    {
+      "code": "ANALYSIS_PARTIAL",
+      "message": "MODEL_ERROR: HTTP 429 rate_limit_exceeded",
+      "stage": "agent"
+    },
+    {
+      "code": "SOURCE_NOT_FULLY_READ",
+      "message": "app/hooks.py thiếu [[1, 13]]; app/main.py thiếu [[1, 25]]; app/routers/internal.py thiếu [[1, 8]]; app/routers/orders.py thiếu [[1, 15]]; requirements.txt thiếu [[1, 2]]",
+      "stage": "agent"
+    },
+    {
+      "code": "OUT_OF_SCOPE_FILES",
+      "message": "conditional_out: 1 file, test: 3 file. Route trong các file này không vào tài liệu (FR-028 Phạm vi đọc)",
+      "stage": "scope"
+    }
+  ],
+  "pipeline_version": "fr029-doc-v1",
+  "provenance": {
+    "model": "openai/gpt-oss-120b",
+    "prompt_version": "fr029-agent-prompt-v3",
+    "provider": "https://api.groq.com/openai/v1"
+  },
+  "rejected_claims": [],
+  "render_notices": [],
+  "repository_name": "exclusions",
+  "run_id": "pilot_exclusions_r1",
+  "schema_version": "0.1.0",
+  "snapshot_id": "snap:580534b662619976e5bee16365f43113b4a3ee22c99b2801ee45f291e2b399b6",
+  "unassigned": []
+}

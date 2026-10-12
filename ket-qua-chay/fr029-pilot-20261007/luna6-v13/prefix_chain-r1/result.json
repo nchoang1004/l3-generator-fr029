@@ -1,0 +1,3254 @@
+{
+  "agent": {
+    "open_problems": [],
+    "reason": "",
+    "status": "completed",
+    "tokens_in": 96429,
+    "tokens_out": 3736,
+    "turns": 15,
+    "usage_missing_turns": 0
+  },
+  "architecture_parity": {
+    "reason": "Chưa được cấp archdia.json cùng snapshot",
+    "status": "not_evaluated"
+  },
+  "components": [
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/api/api.py",
+        "app/config.py",
+        "app/main.py"
+      ],
+      "id": "cmp_1f1639ef081a6145fe0a8571d0b65183700c16a938a5b059818eef8ce2811374",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:84f1a9419471e289c6b6e2b0209b329e20df6cef81d1f7f0a193ddc2fc6ad69d",
+        "file:92ab17c4ad17ee1bed7daf723274e70f5bb5c3129d4e58fd0ff2d422002cad13",
+        "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd"
+      ],
+      "name": "Khởi động"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/api/items.py",
+        "app/api/legacy.py"
+      ],
+      "id": "cmp_d98876360788a56b755a5e6aff01808e8ae50c526988530d22bc81f1e7679c88",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:0db3277987c650c99a9a2c9f1e847faf496a1c36a1899102a4feb1e5c2237a23",
+        "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70"
+      ],
+      "name": "Mặt hàng"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/api/users.py"
+      ],
+      "id": "cmp_efbc1f052f5847f7ae3a1471bfffbdad993eb7b8c1e66eff1cd63470dcd469c2",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:81a7f03957dcb34437c933c7f3492ce776407f4b7ae152c213f502d0483572d5"
+      ],
+      "name": "Tài khoản"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/api/admin.py",
+        "app/api/health.py"
+      ],
+      "id": "cmp_ada04a52bd6d2d972e19a012b6d08a295db5c7c1f556554b45478d88da58d50d",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:8b4a30e81c59a57ed911510a1cd946371b2245834fc0fe5c490c1f507a7e885d",
+        "file:c186cd0a0d74c23c699f5a856693b1579ea40e91f105aacd19d7cd2b0f78f958"
+      ],
+      "name": "Hệ thống"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/sub.py"
+      ],
+      "id": "cmp_09a5fa6ed4ea29f637e680183f8995ade80d110b56593354b4ef14836d68988b",
+      "kind": "normal",
+      "member_file_ids": [
+        "file:483295d1464e99d0e344423f5790392a36b23b5c0221694bf6d962444bb77309"
+      ],
+      "name": "Ứng dụng phụ"
+    },
+    {
+      "completeness": "full",
+      "confidence": "exact",
+      "files": [
+        "app/__init__.py",
+        "app/api/__init__.py",
+        "requirements.txt"
+      ],
+      "id": "cmp_fc285aa285136d1e91f70fd85266d82f7576767683dad011c10283fca2556c71",
+      "kind": "other",
+      "member_file_ids": [
+        "file:1074c68ab0d4623b1aa65cc0b8687db1428bd5f8bd31dea51a982fa699c74470",
+        "file:4d7c51b1efe9043e44439a949dfd92e5827321b34082903477fd04876edb7552",
+        "file:9cec7b11237bc29d77a439e81c9b7acfac003d8e8855731eb6bc130b5a8ce602"
+      ],
+      "name": "Khác"
+    }
+  ],
+  "contract_owners": {
+    "fact:17a03a98af07952b6ecb1772989e4e5eaa25ae9a902343ca872c91cc253ea3b0": "cmp_ada04a52bd6d2d972e19a012b6d08a295db5c7c1f556554b45478d88da58d50d",
+    "fact:3f4b188ef3319eb777eb38d2ad611ff56e7da8dce5c2a21e2e5643b8656a7bb1": "cmp_ada04a52bd6d2d972e19a012b6d08a295db5c7c1f556554b45478d88da58d50d",
+    "fact:4af986b523d190dd12492a7e6dc8f67081079ef07972d97a3f7217e74706b162": "cmp_d98876360788a56b755a5e6aff01808e8ae50c526988530d22bc81f1e7679c88",
+    "fact:53dbfa1304a5b9bb6fb31b16df401bf93b822f8770e3ea7c4dd320dc14551398": "cmp_d98876360788a56b755a5e6aff01808e8ae50c526988530d22bc81f1e7679c88",
+    "fact:59424527ee1aeb762f1fb7ee77a332c12806914bdb70de7d86dafdf22f87f6ba": "cmp_1f1639ef081a6145fe0a8571d0b65183700c16a938a5b059818eef8ce2811374",
+    "fact:631f57cf7960b52f10bd9008eb0949ae80c5ab639367b89f117dfbf4264f4e68": "cmp_d98876360788a56b755a5e6aff01808e8ae50c526988530d22bc81f1e7679c88",
+    "fact:a038f5652f09b6153ec9fb83d21fda823940ec488376415f82695ed13e9ef7c1": "cmp_efbc1f052f5847f7ae3a1471bfffbdad993eb7b8c1e66eff1cd63470dcd469c2",
+    "fact:a68868b8adf561f4863f7b66b0ee910b8025e0a8553552ff268ebbbbbe2a79f2": "cmp_09a5fa6ed4ea29f637e680183f8995ade80d110b56593354b4ef14836d68988b",
+    "fact:c30ae2aa8ca0cbe9ddfd6cff087f8715416f1052336c411799b4ac705b4e5087": "cmp_ada04a52bd6d2d972e19a012b6d08a295db5c7c1f556554b45478d88da58d50d",
+    "fact:da35f30233c7c0a537de443860f8d4b8ac10343898c637d8bed3b33dca8ff0d4": "cmp_d98876360788a56b755a5e6aff01808e8ae50c526988530d22bc81f1e7679c88",
+    "fact:fe073f6a2071a2e7f38eb01d78a1acc1f580375c3aa5a3fc36ab9d6245d1b94d": "cmp_d98876360788a56b755a5e6aff01808e8ae50c526988530d22bc81f1e7679c88"
+  },
+  "coverage": {
+    "complete": true,
+    "files": [
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 0,
+        "missing": [],
+        "path": "app/api/__init__.py",
+        "processed_lines": 0,
+        "status": "empty"
+      },
+      {
+        "cut_lines": [],
+        "lines": 8,
+        "missing": [],
+        "path": "app/api/admin.py",
+        "processed_lines": 8,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 7,
+        "missing": [],
+        "path": "app/api/api.py",
+        "processed_lines": 7,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 8,
+        "missing": [],
+        "path": "app/api/health.py",
+        "processed_lines": 8,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 18,
+        "missing": [],
+        "path": "app/api/items.py",
+        "processed_lines": 18,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 8,
+        "missing": [],
+        "path": "app/api/legacy.py",
+        "processed_lines": 8,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 8,
+        "missing": [],
+        "path": "app/api/users.py",
+        "processed_lines": 8,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 9,
+        "missing": [],
+        "path": "app/config.py",
+        "processed_lines": 9,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 24,
+        "missing": [],
+        "path": "app/main.py",
+        "processed_lines": 24,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 8,
+        "missing": [],
+        "path": "app/sub.py",
+        "processed_lines": 8,
+        "status": "processed"
+      },
+      {
+        "cut_lines": [],
+        "lines": 3,
+        "missing": [],
+        "path": "requirements.txt",
+        "processed_lines": 3,
+        "status": "processed"
+      }
+    ],
+    "not_readable": []
+  },
+  "dismissed_suspects": [],
+  "evidence_index": [
+    {
+      "end_column": null,
+      "end_line": 7,
+      "file_id": "file:92ab17c4ad17ee1bed7daf723274e70f5bb5c3129d4e58fd0ff2d422002cad13",
+      "id": "ev:172c23fd4845b2df942600d309f0bbeb96e069e9cf1e9fd33c5e7139b2f8b885",
+      "path": "app/api/api.py",
+      "sha256": "05bb459fd9c4364f0d1c76503439ff6f8a6ce59e433bffe7f5362e6277fdd11e",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 7
+    },
+    {
+      "end_column": null,
+      "end_line": 6,
+      "file_id": "file:8b4a30e81c59a57ed911510a1cd946371b2245834fc0fe5c490c1f507a7e885d",
+      "id": "ev:2066b89061d0fba8bbe891ade78fb9f9577711c1da0e6760254ee081ff9d8c32",
+      "path": "app/api/admin.py",
+      "sha256": "fb63ea6e833213ab074af0faae18efb2765dc75b8617f294c919551ee149a68c",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 5,
+      "file_id": "file:84f1a9419471e289c6b6e2b0209b329e20df6cef81d1f7f0a193ddc2fc6ad69d",
+      "id": "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+      "path": "app/config.py",
+      "sha256": "90941ef5045d2072f521d47d14fa9f45caef3645edbe1e4b9cdc81a90be787c9",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 5
+    },
+    {
+      "end_column": null,
+      "end_line": 6,
+      "file_id": "file:483295d1464e99d0e344423f5790392a36b23b5c0221694bf6d962444bb77309",
+      "id": "ev:2464987157fe9367a3011e85630f4b2dcfc37f45ec179265513813e9d4993739",
+      "path": "app/sub.py",
+      "sha256": "a0ddcbed5f48e5142d86f82684a23c5efa81c8c3effe27bb661adc3bed18d42b",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 12,
+      "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+      "id": "ev:24d151db74b631eda4dd7001edd5d150edbf6dca26c749f54baa104f6da3330b",
+      "path": "app/api/items.py",
+      "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 12
+    },
+    {
+      "end_column": null,
+      "end_line": 12,
+      "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+      "id": "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8",
+      "path": "app/main.py",
+      "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 12
+    },
+    {
+      "end_column": null,
+      "end_line": 3,
+      "file_id": "file:0db3277987c650c99a9a2c9f1e847faf496a1c36a1899102a4feb1e5c2237a23",
+      "id": "ev:3b22b758593bf064eaee418912af609b4781e0f7d5a3f047eccb38ef23f5217b",
+      "path": "app/api/legacy.py",
+      "sha256": "ce4b230c67ad73212680747f15da5861fdfe23ff268fc787f105a6bcd829a330",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 3
+    },
+    {
+      "end_column": null,
+      "end_line": 7,
+      "file_id": "file:483295d1464e99d0e344423f5790392a36b23b5c0221694bf6d962444bb77309",
+      "id": "ev:3de86a11cda63cb05a2e59c7b9688e8a2f8c0d3bbffa32486e244758a407bab4",
+      "path": "app/sub.py",
+      "sha256": "a0ddcbed5f48e5142d86f82684a23c5efa81c8c3effe27bb661adc3bed18d42b",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 4,
+      "file_id": "file:84f1a9419471e289c6b6e2b0209b329e20df6cef81d1f7f0a193ddc2fc6ad69d",
+      "id": "ev:429fea174d43de845039cb71a5815dc0197e3787cd3c485ea6b72e21eb3fce36",
+      "path": "app/config.py",
+      "sha256": "90941ef5045d2072f521d47d14fa9f45caef3645edbe1e4b9cdc81a90be787c9",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 4
+    },
+    {
+      "end_column": null,
+      "end_line": 6,
+      "file_id": "file:92ab17c4ad17ee1bed7daf723274e70f5bb5c3129d4e58fd0ff2d422002cad13",
+      "id": "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+      "path": "app/api/api.py",
+      "sha256": "05bb459fd9c4364f0d1c76503439ff6f8a6ce59e433bffe7f5362e6277fdd11e",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 18,
+      "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+      "id": "ev:47511c47971a4955079c4940aab1acea0aa8b11300b9f1a4cc73c03e97369659",
+      "path": "app/main.py",
+      "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 18
+    },
+    {
+      "end_column": null,
+      "end_line": 17,
+      "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+      "id": "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f",
+      "path": "app/api/items.py",
+      "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 16
+    },
+    {
+      "end_column": null,
+      "end_line": 16,
+      "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+      "id": "ev:4dd2bac78fe43c63f4bca027c70f8301a6c37c1f6d595f3a0eadbf16616cadd4",
+      "path": "app/api/items.py",
+      "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 16
+    },
+    {
+      "end_column": null,
+      "end_line": 3,
+      "file_id": "file:81a7f03957dcb34437c933c7f3492ce776407f4b7ae152c213f502d0483572d5",
+      "id": "ev:4f697d94ae4cd95cb5345038e67bf4f479b7991fd42166b91e78ec5c5a4a9e9d",
+      "path": "app/api/users.py",
+      "sha256": "8e7e2a2e085c43cc64550019f17e49cbfce59072c6ba723f7bb4db1ac3612879",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 3
+    },
+    {
+      "end_column": null,
+      "end_line": 7,
+      "file_id": "file:c186cd0a0d74c23c699f5a856693b1579ea40e91f105aacd19d7cd2b0f78f958",
+      "id": "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf",
+      "path": "app/api/health.py",
+      "sha256": "b8d465e702a9c1bd85780ff5c329660c6dcc75929eccc8c87c08204f1292b6e5",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 7,
+      "file_id": "file:8b4a30e81c59a57ed911510a1cd946371b2245834fc0fe5c490c1f507a7e885d",
+      "id": "ev:5a3d893d0c5f01a4cbff278e597934b7272b8f2db69e89150e3b9fe3b815bdc5",
+      "path": "app/api/admin.py",
+      "sha256": "fb63ea6e833213ab074af0faae18efb2765dc75b8617f294c919551ee149a68c",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 15,
+      "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+      "id": "ev:5fcd1690c58c5fab289c3b8f02b276d9580e876207fb8667db8629815f5795b7",
+      "path": "app/main.py",
+      "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 14
+    },
+    {
+      "end_column": null,
+      "end_line": 6,
+      "file_id": "file:0db3277987c650c99a9a2c9f1e847faf496a1c36a1899102a4feb1e5c2237a23",
+      "id": "ev:703b930c1028fbed1c8afe330f9eaa663a67af836e4d1be5062339455b771777",
+      "path": "app/api/legacy.py",
+      "sha256": "ce4b230c67ad73212680747f15da5861fdfe23ff268fc787f105a6bcd829a330",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 6,
+      "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+      "id": "ev:7276eb7ef247279e4449322090b044c449b5196da6659d9d5f2d4ecd9a5d4d5f",
+      "path": "app/api/items.py",
+      "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 12,
+      "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+      "id": "ev:7ba4ab3015c67faf8bc96b71b02d63d3e05ec2c825f02e69c5b4ef93a199cc05",
+      "path": "app/api/items.py",
+      "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 11
+    },
+    {
+      "end_column": null,
+      "end_line": 17,
+      "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+      "id": "ev:7cb8593ccc0bc2a9f6fd2dbbdbae894fb22cdfbdf7ddf2480043df7be77fba49",
+      "path": "app/api/items.py",
+      "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 17
+    },
+    {
+      "end_column": null,
+      "end_line": 11,
+      "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+      "id": "ev:81382dd3d8f5d5798b9ce5a19076a38bf32f8d364eb1b8e13f1a422d1b37c8ed",
+      "path": "app/api/items.py",
+      "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 11
+    },
+    {
+      "end_column": null,
+      "end_line": 3,
+      "file_id": "file:483295d1464e99d0e344423f5790392a36b23b5c0221694bf6d962444bb77309",
+      "id": "ev:843b0d29dd1859c3e59b96fa85dda3307b1f9283827ad1ea4e753ccc7600fbf3",
+      "path": "app/sub.py",
+      "sha256": "a0ddcbed5f48e5142d86f82684a23c5efa81c8c3effe27bb661adc3bed18d42b",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 3
+    },
+    {
+      "end_column": null,
+      "end_line": 6,
+      "file_id": "file:c186cd0a0d74c23c699f5a856693b1579ea40e91f105aacd19d7cd2b0f78f958",
+      "id": "ev:877b82fa9f0768547d2f0e233fc84ddfc51601ada7669d0ec14047b689f8413a",
+      "path": "app/api/health.py",
+      "sha256": "b8d465e702a9c1bd85780ff5c329660c6dcc75929eccc8c87c08204f1292b6e5",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 22,
+      "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+      "id": "ev:925c7807419f3127759872e0cb964a3cd2e3a94b8ed4c47165d7a5dd423526b9",
+      "path": "app/main.py",
+      "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 22
+    },
+    {
+      "end_column": null,
+      "end_line": 7,
+      "file_id": "file:0db3277987c650c99a9a2c9f1e847faf496a1c36a1899102a4feb1e5c2237a23",
+      "id": "ev:9f9afff67aa5c984d8bf9fd449e0dbc38222603692e14e67084eafbf40351c78",
+      "path": "app/api/legacy.py",
+      "sha256": "ce4b230c67ad73212680747f15da5861fdfe23ff268fc787f105a6bcd829a330",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 7
+    },
+    {
+      "end_column": null,
+      "end_line": 23,
+      "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+      "id": "ev:a73ea18e2591070cf1d4cb9f66ef21734d476baf4741516fdc769bd937d3d9d5",
+      "path": "app/main.py",
+      "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 23
+    },
+    {
+      "end_column": null,
+      "end_line": 20,
+      "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+      "id": "ev:ac8fc39bd0e71687a0207fd260c46980e0b3218e86bf43351e2848fe505a9ab6",
+      "path": "app/main.py",
+      "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 20
+    },
+    {
+      "end_column": null,
+      "end_line": 7,
+      "file_id": "file:81a7f03957dcb34437c933c7f3492ce776407f4b7ae152c213f502d0483572d5",
+      "id": "ev:b30768a26b96481eb84d1a4c1bf2b7e4b98b238c3680aad8cc4d58ee824ef4c6",
+      "path": "app/api/users.py",
+      "sha256": "8e7e2a2e085c43cc64550019f17e49cbfce59072c6ba723f7bb4db1ac3612879",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 19,
+      "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+      "id": "ev:bea6d946f68ce345700aa69747286536357b61d7576f1790cc9a8f3b0745dfe1",
+      "path": "app/main.py",
+      "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 19
+    },
+    {
+      "end_column": null,
+      "end_line": 3,
+      "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+      "id": "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d",
+      "path": "app/api/items.py",
+      "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 3
+    },
+    {
+      "end_column": null,
+      "end_line": 14,
+      "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+      "id": "ev:c8523e8868fd875c225d0875a04fa3af9a61a4f6a3e39fc5db193c6eb48bcda1",
+      "path": "app/main.py",
+      "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 14
+    },
+    {
+      "end_column": null,
+      "end_line": 3,
+      "file_id": "file:c186cd0a0d74c23c699f5a856693b1579ea40e91f105aacd19d7cd2b0f78f958",
+      "id": "ev:e009bd865149d34df2af59bc4de81941c0f0cdef4d8fecc6c705ad0d275d3359",
+      "path": "app/api/health.py",
+      "sha256": "b8d465e702a9c1bd85780ff5c329660c6dcc75929eccc8c87c08204f1292b6e5",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 3
+    },
+    {
+      "end_column": null,
+      "end_line": 7,
+      "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+      "id": "ev:f70dcc170f659b24ea45c999b771d01e88def0db531bf10c91ea90b09ab117e0",
+      "path": "app/api/items.py",
+      "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 7,
+      "file_id": "file:0db3277987c650c99a9a2c9f1e847faf496a1c36a1899102a4feb1e5c2237a23",
+      "id": "ev:f741f556ff3bcb22bf65b6a7c7b5b809ca8d9ce984e28a83d0967674c4f326dd",
+      "path": "app/api/legacy.py",
+      "sha256": "ce4b230c67ad73212680747f15da5861fdfe23ff268fc787f105a6bcd829a330",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 5,
+      "file_id": "file:92ab17c4ad17ee1bed7daf723274e70f5bb5c3129d4e58fd0ff2d422002cad13",
+      "id": "ev:f9030a9d11d4206b3e17e1112b699e2904e7cb5cad00c55ab6aa3d293ba8da16",
+      "path": "app/api/api.py",
+      "sha256": "05bb459fd9c4364f0d1c76503439ff6f8a6ce59e433bffe7f5362e6277fdd11e",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 5
+    },
+    {
+      "end_column": null,
+      "end_line": 6,
+      "file_id": "file:81a7f03957dcb34437c933c7f3492ce776407f4b7ae152c213f502d0483572d5",
+      "id": "ev:f927a7f7b46eac98f79a2964ff26449949fe89000d0956b7122508a53deab0cc",
+      "path": "app/api/users.py",
+      "sha256": "8e7e2a2e085c43cc64550019f17e49cbfce59072c6ba723f7bb4db1ac3612879",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 6
+    },
+    {
+      "end_column": null,
+      "end_line": 21,
+      "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+      "id": "ev:fc46390ad8f5e9fceb97dff255e4b4e9564e48be2aada1fd59db41e2323c8b6c",
+      "path": "app/main.py",
+      "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+      "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+      "start_column": null,
+      "start_line": 21
+    }
+  ],
+  "excluded_from_snapshot": [],
+  "facts": [
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "app:app/main.py:12"
+        },
+        "auth": {
+          "reason": "Không thấy cơ chế xác thực được khai báo trong mã nguồn đã đọc.",
+          "state": "unknown"
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:5a3d893d0c5f01a4cbff278e597934b7272b8f2db69e89150e3b9fe3b815bdc5"
+          ],
+          "state": "known",
+          "value": "ev:5a3d893d0c5f01a4cbff278e597934b7272b8f2db69e89150e3b9fe3b815bdc5"
+        },
+        "dependencies": {
+          "evidence_ids": [
+            "ev:5a3d893d0c5f01a4cbff278e597934b7272b8f2db69e89150e3b9fe3b815bdc5"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:5a3d893d0c5f01a4cbff278e597934b7272b8f2db69e89150e3b9fe3b815bdc5"
+          ],
+          "state": "known",
+          "value": "app/api/admin.py::admin_stats"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:5a3d893d0c5f01a4cbff278e597934b7272b8f2db69e89150e3b9fe3b815bdc5"
+          ],
+          "state": "known",
+          "value": "GET"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:5a3d893d0c5f01a4cbff278e597934b7272b8f2db69e89150e3b9fe3b815bdc5"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "path": {
+          "reason": "Giá trị ADMIN_PREFIX lấy trực tiếp từ biến môi trường và không có giá trị mặc định trong mã nguồn.",
+          "state": "unknown"
+        },
+        "path_suffix": {
+          "evidence_ids": [
+            "ev:2066b89061d0fba8bbe891ade78fb9f9577711c1da0e6760254ee081ff9d8c32"
+          ],
+          "state": "known",
+          "value": "/stats"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:2066b89061d0fba8bbe891ade78fb9f9577711c1da0e6760254ee081ff9d8c32",
+            "ev:925c7807419f3127759872e0cb964a3cd2e3a94b8ed4c47165d7a5dd423526b9"
+          ],
+          "state": "known",
+          "value": "include_prefix@app/main.py:22 -> decorator@app/api/admin.py:6"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:5a3d893d0c5f01a4cbff278e597934b7272b8f2db69e89150e3b9fe3b815bdc5"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:5a3d893d0c5f01a4cbff278e597934b7272b8f2db69e89150e3b9fe3b815bdc5"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:5a3d893d0c5f01a4cbff278e597934b7272b8f2db69e89150e3b9fe3b815bdc5"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:5a3d893d0c5f01a4cbff278e597934b7272b8f2db69e89150e3b9fe3b815bdc5"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth, path",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 7,
+          "file_id": "file:8b4a30e81c59a57ed911510a1cd946371b2245834fc0fe5c490c1f507a7e885d",
+          "id": "ev:5a3d893d0c5f01a4cbff278e597934b7272b8f2db69e89150e3b9fe3b815bdc5",
+          "path": "app/api/admin.py",
+          "sha256": "fb63ea6e833213ab074af0faae18efb2765dc75b8617f294c919551ee149a68c",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 22,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:925c7807419f3127759872e0cb964a3cd2e3a94b8ed4c47165d7a5dd423526b9",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 22
+        },
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:8b4a30e81c59a57ed911510a1cd946371b2245834fc0fe5c490c1f507a7e885d",
+          "id": "ev:2066b89061d0fba8bbe891ade78fb9f9577711c1da0e6760254ee081ff9d8c32",
+          "path": "app/api/admin.py",
+          "sha256": "fb63ea6e833213ab074af0faae18efb2765dc75b8617f294c919551ee149a68c",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 12
+        }
+      ],
+      "id": "fact:c30ae2aa8ca0cbe9ddfd6cff087f8715416f1052336c411799b4ac705b4e5087",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "app:app/main.py:12"
+        },
+        "auth": {
+          "reason": "Không thấy cơ chế xác thực được khai báo trong mã nguồn đã đọc.",
+          "state": "unknown"
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+        },
+        "dependencies": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": "app/api/health.py::ping"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": "GET"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:877b82fa9f0768547d2f0e233fc84ddfc51601ada7669d0ec14047b689f8413a",
+            "ev:bea6d946f68ce345700aa69747286536357b61d7576f1790cc9a8f3b0745dfe1",
+            "ev:e009bd865149d34df2af59bc4de81941c0f0cdef4d8fecc6c705ad0d275d3359"
+          ],
+          "state": "known",
+          "value": "/public/status/ping"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:877b82fa9f0768547d2f0e233fc84ddfc51601ada7669d0ec14047b689f8413a",
+            "ev:bea6d946f68ce345700aa69747286536357b61d7576f1790cc9a8f3b0745dfe1",
+            "ev:e009bd865149d34df2af59bc4de81941c0f0cdef4d8fecc6c705ad0d275d3359"
+          ],
+          "state": "known",
+          "value": "include_prefix@app/main.py:19 -> router_prefix@app/api/health.py:3 -> decorator@app/api/health.py:6"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 7,
+          "file_id": "file:c186cd0a0d74c23c699f5a856693b1579ea40e91f105aacd19d7cd2b0f78f958",
+          "id": "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf",
+          "path": "app/api/health.py",
+          "sha256": "b8d465e702a9c1bd85780ff5c329660c6dcc75929eccc8c87c08204f1292b6e5",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 19,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:bea6d946f68ce345700aa69747286536357b61d7576f1790cc9a8f3b0745dfe1",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 19
+        },
+        {
+          "end_column": null,
+          "end_line": 3,
+          "file_id": "file:c186cd0a0d74c23c699f5a856693b1579ea40e91f105aacd19d7cd2b0f78f958",
+          "id": "ev:e009bd865149d34df2af59bc4de81941c0f0cdef4d8fecc6c705ad0d275d3359",
+          "path": "app/api/health.py",
+          "sha256": "b8d465e702a9c1bd85780ff5c329660c6dcc75929eccc8c87c08204f1292b6e5",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 3
+        },
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:c186cd0a0d74c23c699f5a856693b1579ea40e91f105aacd19d7cd2b0f78f958",
+          "id": "ev:877b82fa9f0768547d2f0e233fc84ddfc51601ada7669d0ec14047b689f8413a",
+          "path": "app/api/health.py",
+          "sha256": "b8d465e702a9c1bd85780ff5c329660c6dcc75929eccc8c87c08204f1292b6e5",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 12
+        }
+      ],
+      "id": "fact:17a03a98af07952b6ecb1772989e4e5eaa25ae9a902343ca872c91cc253ea3b0",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "app:app/main.py:12"
+        },
+        "auth": {
+          "reason": "Không thấy cơ chế xác thực được khai báo trong mã nguồn đã đọc.",
+          "state": "unknown"
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+        },
+        "dependencies": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": "app/api/health.py::ping"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": "GET"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:877b82fa9f0768547d2f0e233fc84ddfc51601ada7669d0ec14047b689f8413a",
+            "ev:ac8fc39bd0e71687a0207fd260c46980e0b3218e86bf43351e2848fe505a9ab6",
+            "ev:e009bd865149d34df2af59bc4de81941c0f0cdef4d8fecc6c705ad0d275d3359"
+          ],
+          "state": "known",
+          "value": "/internal/status/ping"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:877b82fa9f0768547d2f0e233fc84ddfc51601ada7669d0ec14047b689f8413a",
+            "ev:ac8fc39bd0e71687a0207fd260c46980e0b3218e86bf43351e2848fe505a9ab6",
+            "ev:e009bd865149d34df2af59bc4de81941c0f0cdef4d8fecc6c705ad0d275d3359"
+          ],
+          "state": "known",
+          "value": "include_prefix@app/main.py:20 -> router_prefix@app/api/health.py:3 -> decorator@app/api/health.py:6"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 7,
+          "file_id": "file:c186cd0a0d74c23c699f5a856693b1579ea40e91f105aacd19d7cd2b0f78f958",
+          "id": "ev:589b0b62a62d800481c87f8fe7e2aca182eeb71335e4cd496eeb95528c0941cf",
+          "path": "app/api/health.py",
+          "sha256": "b8d465e702a9c1bd85780ff5c329660c6dcc75929eccc8c87c08204f1292b6e5",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 20,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:ac8fc39bd0e71687a0207fd260c46980e0b3218e86bf43351e2848fe505a9ab6",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 20
+        },
+        {
+          "end_column": null,
+          "end_line": 3,
+          "file_id": "file:c186cd0a0d74c23c699f5a856693b1579ea40e91f105aacd19d7cd2b0f78f958",
+          "id": "ev:e009bd865149d34df2af59bc4de81941c0f0cdef4d8fecc6c705ad0d275d3359",
+          "path": "app/api/health.py",
+          "sha256": "b8d465e702a9c1bd85780ff5c329660c6dcc75929eccc8c87c08204f1292b6e5",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 3
+        },
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:c186cd0a0d74c23c699f5a856693b1579ea40e91f105aacd19d7cd2b0f78f958",
+          "id": "ev:877b82fa9f0768547d2f0e233fc84ddfc51601ada7669d0ec14047b689f8413a",
+          "path": "app/api/health.py",
+          "sha256": "b8d465e702a9c1bd85780ff5c329660c6dcc75929eccc8c87c08204f1292b6e5",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 12
+        }
+      ],
+      "id": "fact:3f4b188ef3319eb777eb38d2ad611ff56e7da8dce5c2a21e2e5643b8656a7bb1",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "app:app/main.py:12"
+        },
+        "auth": {
+          "reason": "Không thấy cơ chế xác thực được khai báo trong mã nguồn đã đọc.",
+          "state": "unknown"
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:7ba4ab3015c67faf8bc96b71b02d63d3e05ec2c825f02e69c5b4ef93a199cc05"
+          ],
+          "state": "known",
+          "value": "ev:7ba4ab3015c67faf8bc96b71b02d63d3e05ec2c825f02e69c5b4ef93a199cc05"
+        },
+        "dependencies": {
+          "evidence_ids": [
+            "ev:7ba4ab3015c67faf8bc96b71b02d63d3e05ec2c825f02e69c5b4ef93a199cc05"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:7ba4ab3015c67faf8bc96b71b02d63d3e05ec2c825f02e69c5b4ef93a199cc05"
+          ],
+          "state": "known",
+          "value": "app/api/items.py::get_item"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:7ba4ab3015c67faf8bc96b71b02d63d3e05ec2c825f02e69c5b4ef93a199cc05"
+          ],
+          "state": "known",
+          "value": "GET"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:7ba4ab3015c67faf8bc96b71b02d63d3e05ec2c825f02e69c5b4ef93a199cc05"
+          ],
+          "state": "known",
+          "value": [
+            {
+              "in": {
+                "evidence_ids": [
+                  "ev:24d151db74b631eda4dd7001edd5d150edbf6dca26c749f54baa104f6da3330b"
+                ],
+                "state": "known",
+                "value": "path"
+              },
+              "name": {
+                "evidence_ids": [
+                  "ev:24d151db74b631eda4dd7001edd5d150edbf6dca26c749f54baa104f6da3330b"
+                ],
+                "state": "known",
+                "value": "item_id"
+              },
+              "nullable": {
+                "evidence_ids": [
+                  "ev:24d151db74b631eda4dd7001edd5d150edbf6dca26c749f54baa104f6da3330b"
+                ],
+                "state": "known",
+                "value": false
+              },
+              "required": {
+                "evidence_ids": [
+                  "ev:24d151db74b631eda4dd7001edd5d150edbf6dca26c749f54baa104f6da3330b"
+                ],
+                "state": "known",
+                "value": true
+              },
+              "schema": {
+                "evidence_ids": [
+                  "ev:24d151db74b631eda4dd7001edd5d150edbf6dca26c749f54baa104f6da3330b"
+                ],
+                "state": "known",
+                "value": {
+                  "type": "integer"
+                }
+              }
+            }
+          ]
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+            "ev:81382dd3d8f5d5798b9ce5a19076a38bf32f8d364eb1b8e13f1a422d1b37c8ed",
+            "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d"
+          ],
+          "state": "known",
+          "value": "/api/v1/items/{item_id}"
+        },
+        "prefix_rule": {
+          "evidence_ids": [
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+            "ev:81382dd3d8f5d5798b9ce5a19076a38bf32f8d364eb1b8e13f1a422d1b37c8ed",
+            "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d"
+          ],
+          "state": "known",
+          "value": "settings.default_prefix"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+            "ev:81382dd3d8f5d5798b9ce5a19076a38bf32f8d364eb1b8e13f1a422d1b37c8ed",
+            "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d"
+          ],
+          "state": "known",
+          "value": "settings_default@app/config.py:5 -> include_prefix@app/api/api.py:6 -> router_prefix@app/api/items.py:3 -> decorator@app/api/items.py:11"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:7ba4ab3015c67faf8bc96b71b02d63d3e05ec2c825f02e69c5b4ef93a199cc05"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:7ba4ab3015c67faf8bc96b71b02d63d3e05ec2c825f02e69c5b4ef93a199cc05"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:7ba4ab3015c67faf8bc96b71b02d63d3e05ec2c825f02e69c5b4ef93a199cc05"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:7ba4ab3015c67faf8bc96b71b02d63d3e05ec2c825f02e69c5b4ef93a199cc05"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse; settings.default_prefix: Prefix là giá trị mặc định khai trong lớp Settings; biến môi trường có thể ghi đè lúc chạy",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:7ba4ab3015c67faf8bc96b71b02d63d3e05ec2c825f02e69c5b4ef93a199cc05",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 11
+        },
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:84f1a9419471e289c6b6e2b0209b329e20df6cef81d1f7f0a193ddc2fc6ad69d",
+          "id": "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+          "path": "app/config.py",
+          "sha256": "90941ef5045d2072f521d47d14fa9f45caef3645edbe1e4b9cdc81a90be787c9",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 5
+        },
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:92ab17c4ad17ee1bed7daf723274e70f5bb5c3129d4e58fd0ff2d422002cad13",
+          "id": "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+          "path": "app/api/api.py",
+          "sha256": "05bb459fd9c4364f0d1c76503439ff6f8a6ce59e433bffe7f5362e6277fdd11e",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 3,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 3
+        },
+        {
+          "end_column": null,
+          "end_line": 11,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:81382dd3d8f5d5798b9ce5a19076a38bf32f8d364eb1b8e13f1a422d1b37c8ed",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 11
+        },
+        {
+          "end_column": null,
+          "end_line": 18,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:47511c47971a4955079c4940aab1acea0aa8b11300b9f1a4cc73c03e97369659",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 18
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 12
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:24d151db74b631eda4dd7001edd5d150edbf6dca26c749f54baa104f6da3330b",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 12
+        }
+      ],
+      "id": "fact:4af986b523d190dd12492a7e6dc8f67081079ef07972d97a3f7217e74706b162",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "app:app/main.py:12"
+        },
+        "auth": {
+          "reason": "Không thấy cơ chế xác thực được khai báo trong mã nguồn đã đọc.",
+          "state": "unknown"
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:f70dcc170f659b24ea45c999b771d01e88def0db531bf10c91ea90b09ab117e0"
+          ],
+          "state": "known",
+          "value": "ev:f70dcc170f659b24ea45c999b771d01e88def0db531bf10c91ea90b09ab117e0"
+        },
+        "dependencies": {
+          "evidence_ids": [
+            "ev:f70dcc170f659b24ea45c999b771d01e88def0db531bf10c91ea90b09ab117e0"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:f70dcc170f659b24ea45c999b771d01e88def0db531bf10c91ea90b09ab117e0"
+          ],
+          "state": "known",
+          "value": "app/api/items.py::list_items"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:f70dcc170f659b24ea45c999b771d01e88def0db531bf10c91ea90b09ab117e0"
+          ],
+          "state": "known",
+          "value": "GET"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:f70dcc170f659b24ea45c999b771d01e88def0db531bf10c91ea90b09ab117e0"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+            "ev:7276eb7ef247279e4449322090b044c449b5196da6659d9d5f2d4ecd9a5d4d5f",
+            "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d"
+          ],
+          "state": "known",
+          "value": "/api/v1/items/"
+        },
+        "prefix_rule": {
+          "evidence_ids": [
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+            "ev:7276eb7ef247279e4449322090b044c449b5196da6659d9d5f2d4ecd9a5d4d5f",
+            "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d"
+          ],
+          "state": "known",
+          "value": "settings.default_prefix"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+            "ev:7276eb7ef247279e4449322090b044c449b5196da6659d9d5f2d4ecd9a5d4d5f",
+            "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d"
+          ],
+          "state": "known",
+          "value": "settings_default@app/config.py:5 -> include_prefix@app/api/api.py:6 -> router_prefix@app/api/items.py:3 -> decorator@app/api/items.py:6"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:f70dcc170f659b24ea45c999b771d01e88def0db531bf10c91ea90b09ab117e0"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:f70dcc170f659b24ea45c999b771d01e88def0db531bf10c91ea90b09ab117e0"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:f70dcc170f659b24ea45c999b771d01e88def0db531bf10c91ea90b09ab117e0"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:f70dcc170f659b24ea45c999b771d01e88def0db531bf10c91ea90b09ab117e0"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse; settings.default_prefix: Prefix là giá trị mặc định khai trong lớp Settings; biến môi trường có thể ghi đè lúc chạy",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 7,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:f70dcc170f659b24ea45c999b771d01e88def0db531bf10c91ea90b09ab117e0",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:84f1a9419471e289c6b6e2b0209b329e20df6cef81d1f7f0a193ddc2fc6ad69d",
+          "id": "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+          "path": "app/config.py",
+          "sha256": "90941ef5045d2072f521d47d14fa9f45caef3645edbe1e4b9cdc81a90be787c9",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 5
+        },
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:92ab17c4ad17ee1bed7daf723274e70f5bb5c3129d4e58fd0ff2d422002cad13",
+          "id": "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+          "path": "app/api/api.py",
+          "sha256": "05bb459fd9c4364f0d1c76503439ff6f8a6ce59e433bffe7f5362e6277fdd11e",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 3,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 3
+        },
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:7276eb7ef247279e4449322090b044c449b5196da6659d9d5f2d4ecd9a5d4d5f",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 18,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:47511c47971a4955079c4940aab1acea0aa8b11300b9f1a4cc73c03e97369659",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 18
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 12
+        }
+      ],
+      "id": "fact:53dbfa1304a5b9bb6fb31b16df401bf93b822f8770e3ea7c4dd320dc14551398",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "app:app/main.py:12"
+        },
+        "auth": {
+          "reason": "Không thấy cơ chế xác thực được khai báo trong mã nguồn đã đọc.",
+          "state": "unknown"
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+        },
+        "dependencies": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": "app/api/items.py::sync_item"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": "GET"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": [
+            {
+              "in": {
+                "evidence_ids": [
+                  "ev:7cb8593ccc0bc2a9f6fd2dbbdbae894fb22cdfbdf7ddf2480043df7be77fba49"
+                ],
+                "state": "known",
+                "value": "path"
+              },
+              "name": {
+                "evidence_ids": [
+                  "ev:7cb8593ccc0bc2a9f6fd2dbbdbae894fb22cdfbdf7ddf2480043df7be77fba49"
+                ],
+                "state": "known",
+                "value": "item_id"
+              },
+              "nullable": {
+                "evidence_ids": [
+                  "ev:7cb8593ccc0bc2a9f6fd2dbbdbae894fb22cdfbdf7ddf2480043df7be77fba49"
+                ],
+                "state": "known",
+                "value": false
+              },
+              "required": {
+                "evidence_ids": [
+                  "ev:7cb8593ccc0bc2a9f6fd2dbbdbae894fb22cdfbdf7ddf2480043df7be77fba49"
+                ],
+                "state": "known",
+                "value": true
+              },
+              "schema": {
+                "evidence_ids": [
+                  "ev:7cb8593ccc0bc2a9f6fd2dbbdbae894fb22cdfbdf7ddf2480043df7be77fba49"
+                ],
+                "state": "known",
+                "value": {
+                  "type": "integer"
+                }
+              }
+            }
+          ]
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+            "ev:4dd2bac78fe43c63f4bca027c70f8301a6c37c1f6d595f3a0eadbf16616cadd4",
+            "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d"
+          ],
+          "state": "known",
+          "value": "/api/v1/items/{item_id}/sync"
+        },
+        "prefix_rule": {
+          "evidence_ids": [
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+            "ev:4dd2bac78fe43c63f4bca027c70f8301a6c37c1f6d595f3a0eadbf16616cadd4",
+            "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d"
+          ],
+          "state": "known",
+          "value": "settings.default_prefix"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+            "ev:4dd2bac78fe43c63f4bca027c70f8301a6c37c1f6d595f3a0eadbf16616cadd4",
+            "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d"
+          ],
+          "state": "known",
+          "value": "settings_default@app/config.py:5 -> include_prefix@app/api/api.py:6 -> router_prefix@app/api/items.py:3 -> decorator@app/api/items.py:16"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse; settings.default_prefix: Prefix là giá trị mặc định khai trong lớp Settings; biến môi trường có thể ghi đè lúc chạy",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 17,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 16
+        },
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:84f1a9419471e289c6b6e2b0209b329e20df6cef81d1f7f0a193ddc2fc6ad69d",
+          "id": "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+          "path": "app/config.py",
+          "sha256": "90941ef5045d2072f521d47d14fa9f45caef3645edbe1e4b9cdc81a90be787c9",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 5
+        },
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:92ab17c4ad17ee1bed7daf723274e70f5bb5c3129d4e58fd0ff2d422002cad13",
+          "id": "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+          "path": "app/api/api.py",
+          "sha256": "05bb459fd9c4364f0d1c76503439ff6f8a6ce59e433bffe7f5362e6277fdd11e",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 3,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 3
+        },
+        {
+          "end_column": null,
+          "end_line": 16,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:4dd2bac78fe43c63f4bca027c70f8301a6c37c1f6d595f3a0eadbf16616cadd4",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 16
+        },
+        {
+          "end_column": null,
+          "end_line": 18,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:47511c47971a4955079c4940aab1acea0aa8b11300b9f1a4cc73c03e97369659",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 18
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 12
+        },
+        {
+          "end_column": null,
+          "end_line": 17,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:7cb8593ccc0bc2a9f6fd2dbbdbae894fb22cdfbdf7ddf2480043df7be77fba49",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 17
+        }
+      ],
+      "id": "fact:da35f30233c7c0a537de443860f8d4b8ac10343898c637d8bed3b33dca8ff0d4",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "app:app/main.py:12"
+        },
+        "auth": {
+          "reason": "Không thấy cơ chế xác thực được khai báo trong mã nguồn đã đọc.",
+          "state": "unknown"
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+        },
+        "dependencies": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": "app/api/items.py::sync_item"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": "POST"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": [
+            {
+              "in": {
+                "evidence_ids": [
+                  "ev:7cb8593ccc0bc2a9f6fd2dbbdbae894fb22cdfbdf7ddf2480043df7be77fba49"
+                ],
+                "state": "known",
+                "value": "path"
+              },
+              "name": {
+                "evidence_ids": [
+                  "ev:7cb8593ccc0bc2a9f6fd2dbbdbae894fb22cdfbdf7ddf2480043df7be77fba49"
+                ],
+                "state": "known",
+                "value": "item_id"
+              },
+              "nullable": {
+                "evidence_ids": [
+                  "ev:7cb8593ccc0bc2a9f6fd2dbbdbae894fb22cdfbdf7ddf2480043df7be77fba49"
+                ],
+                "state": "known",
+                "value": false
+              },
+              "required": {
+                "evidence_ids": [
+                  "ev:7cb8593ccc0bc2a9f6fd2dbbdbae894fb22cdfbdf7ddf2480043df7be77fba49"
+                ],
+                "state": "known",
+                "value": true
+              },
+              "schema": {
+                "evidence_ids": [
+                  "ev:7cb8593ccc0bc2a9f6fd2dbbdbae894fb22cdfbdf7ddf2480043df7be77fba49"
+                ],
+                "state": "known",
+                "value": {
+                  "type": "integer"
+                }
+              }
+            }
+          ]
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+            "ev:4dd2bac78fe43c63f4bca027c70f8301a6c37c1f6d595f3a0eadbf16616cadd4",
+            "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d"
+          ],
+          "state": "known",
+          "value": "/api/v1/items/{item_id}/sync"
+        },
+        "prefix_rule": {
+          "evidence_ids": [
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+            "ev:4dd2bac78fe43c63f4bca027c70f8301a6c37c1f6d595f3a0eadbf16616cadd4",
+            "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d"
+          ],
+          "state": "known",
+          "value": "settings.default_prefix"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+            "ev:4dd2bac78fe43c63f4bca027c70f8301a6c37c1f6d595f3a0eadbf16616cadd4",
+            "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d"
+          ],
+          "state": "known",
+          "value": "settings_default@app/config.py:5 -> include_prefix@app/api/api.py:6 -> router_prefix@app/api/items.py:3 -> decorator@app/api/items.py:16"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse; settings.default_prefix: Prefix là giá trị mặc định khai trong lớp Settings; biến môi trường có thể ghi đè lúc chạy",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 17,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:4cf53e990e7cf13f02a8b0c2fcc4af86cc7d67461fbe1f94a6ab7694e5f1944f",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 16
+        },
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:84f1a9419471e289c6b6e2b0209b329e20df6cef81d1f7f0a193ddc2fc6ad69d",
+          "id": "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+          "path": "app/config.py",
+          "sha256": "90941ef5045d2072f521d47d14fa9f45caef3645edbe1e4b9cdc81a90be787c9",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 5
+        },
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:92ab17c4ad17ee1bed7daf723274e70f5bb5c3129d4e58fd0ff2d422002cad13",
+          "id": "ev:46ad7464f5a634bbf89a004ef1bc88aea06c53a6b55e290c8ee4852d45f3b47b",
+          "path": "app/api/api.py",
+          "sha256": "05bb459fd9c4364f0d1c76503439ff6f8a6ce59e433bffe7f5362e6277fdd11e",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 3,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:c5ec2fb893697e20adc1d85ad9fb4bd766ff034665def70565f47070fc433d1d",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 3
+        },
+        {
+          "end_column": null,
+          "end_line": 16,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:4dd2bac78fe43c63f4bca027c70f8301a6c37c1f6d595f3a0eadbf16616cadd4",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 16
+        },
+        {
+          "end_column": null,
+          "end_line": 18,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:47511c47971a4955079c4940aab1acea0aa8b11300b9f1a4cc73c03e97369659",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 18
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 12
+        },
+        {
+          "end_column": null,
+          "end_line": 17,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:7cb8593ccc0bc2a9f6fd2dbbdbae894fb22cdfbdf7ddf2480043df7be77fba49",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 17
+        }
+      ],
+      "id": "fact:631f57cf7960b52f10bd9008eb0949ae80c5ab639367b89f117dfbf4264f4e68",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "app:app/main.py:12"
+        },
+        "auth": {
+          "reason": "Không thấy cơ chế xác thực được khai báo trong mã nguồn đã đọc.",
+          "state": "unknown"
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:f741f556ff3bcb22bf65b6a7c7b5b809ca8d9ce984e28a83d0967674c4f326dd"
+          ],
+          "state": "known",
+          "value": "ev:f741f556ff3bcb22bf65b6a7c7b5b809ca8d9ce984e28a83d0967674c4f326dd"
+        },
+        "dependencies": {
+          "evidence_ids": [
+            "ev:f741f556ff3bcb22bf65b6a7c7b5b809ca8d9ce984e28a83d0967674c4f326dd"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:f741f556ff3bcb22bf65b6a7c7b5b809ca8d9ce984e28a83d0967674c4f326dd"
+          ],
+          "state": "known",
+          "value": "app/api/legacy.py::legacy_get_item"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:f741f556ff3bcb22bf65b6a7c7b5b809ca8d9ce984e28a83d0967674c4f326dd"
+          ],
+          "state": "known",
+          "value": "GET"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:f741f556ff3bcb22bf65b6a7c7b5b809ca8d9ce984e28a83d0967674c4f326dd"
+          ],
+          "state": "known",
+          "value": [
+            {
+              "in": {
+                "evidence_ids": [
+                  "ev:9f9afff67aa5c984d8bf9fd449e0dbc38222603692e14e67084eafbf40351c78"
+                ],
+                "state": "known",
+                "value": "path"
+              },
+              "name": {
+                "evidence_ids": [
+                  "ev:9f9afff67aa5c984d8bf9fd449e0dbc38222603692e14e67084eafbf40351c78"
+                ],
+                "state": "known",
+                "value": "item_id"
+              },
+              "nullable": {
+                "evidence_ids": [
+                  "ev:9f9afff67aa5c984d8bf9fd449e0dbc38222603692e14e67084eafbf40351c78"
+                ],
+                "state": "known",
+                "value": false
+              },
+              "required": {
+                "evidence_ids": [
+                  "ev:9f9afff67aa5c984d8bf9fd449e0dbc38222603692e14e67084eafbf40351c78"
+                ],
+                "state": "known",
+                "value": true
+              },
+              "schema": {
+                "evidence_ids": [
+                  "ev:9f9afff67aa5c984d8bf9fd449e0dbc38222603692e14e67084eafbf40351c78"
+                ],
+                "state": "known",
+                "value": {
+                  "type": "integer"
+                }
+              }
+            }
+          ]
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:3b22b758593bf064eaee418912af609b4781e0f7d5a3f047eccb38ef23f5217b",
+            "ev:703b930c1028fbed1c8afe330f9eaa663a67af836e4d1be5062339455b771777",
+            "ev:fc46390ad8f5e9fceb97dff255e4b4e9564e48be2aada1fd59db41e2323c8b6c"
+          ],
+          "state": "known",
+          "value": "/v1/api/items/{item_id}"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:3b22b758593bf064eaee418912af609b4781e0f7d5a3f047eccb38ef23f5217b",
+            "ev:703b930c1028fbed1c8afe330f9eaa663a67af836e4d1be5062339455b771777",
+            "ev:fc46390ad8f5e9fceb97dff255e4b4e9564e48be2aada1fd59db41e2323c8b6c"
+          ],
+          "state": "known",
+          "value": "include_prefix@app/main.py:21 -> router_prefix@app/api/legacy.py:3 -> decorator@app/api/legacy.py:6"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:f741f556ff3bcb22bf65b6a7c7b5b809ca8d9ce984e28a83d0967674c4f326dd"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:f741f556ff3bcb22bf65b6a7c7b5b809ca8d9ce984e28a83d0967674c4f326dd"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:f741f556ff3bcb22bf65b6a7c7b5b809ca8d9ce984e28a83d0967674c4f326dd"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:f741f556ff3bcb22bf65b6a7c7b5b809ca8d9ce984e28a83d0967674c4f326dd"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 7,
+          "file_id": "file:0db3277987c650c99a9a2c9f1e847faf496a1c36a1899102a4feb1e5c2237a23",
+          "id": "ev:f741f556ff3bcb22bf65b6a7c7b5b809ca8d9ce984e28a83d0967674c4f326dd",
+          "path": "app/api/legacy.py",
+          "sha256": "ce4b230c67ad73212680747f15da5861fdfe23ff268fc787f105a6bcd829a330",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 21,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:fc46390ad8f5e9fceb97dff255e4b4e9564e48be2aada1fd59db41e2323c8b6c",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 21
+        },
+        {
+          "end_column": null,
+          "end_line": 3,
+          "file_id": "file:0db3277987c650c99a9a2c9f1e847faf496a1c36a1899102a4feb1e5c2237a23",
+          "id": "ev:3b22b758593bf064eaee418912af609b4781e0f7d5a3f047eccb38ef23f5217b",
+          "path": "app/api/legacy.py",
+          "sha256": "ce4b230c67ad73212680747f15da5861fdfe23ff268fc787f105a6bcd829a330",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 3
+        },
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:0db3277987c650c99a9a2c9f1e847faf496a1c36a1899102a4feb1e5c2237a23",
+          "id": "ev:703b930c1028fbed1c8afe330f9eaa663a67af836e4d1be5062339455b771777",
+          "path": "app/api/legacy.py",
+          "sha256": "ce4b230c67ad73212680747f15da5861fdfe23ff268fc787f105a6bcd829a330",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 12
+        },
+        {
+          "end_column": null,
+          "end_line": 7,
+          "file_id": "file:0db3277987c650c99a9a2c9f1e847faf496a1c36a1899102a4feb1e5c2237a23",
+          "id": "ev:9f9afff67aa5c984d8bf9fd449e0dbc38222603692e14e67084eafbf40351c78",
+          "path": "app/api/legacy.py",
+          "sha256": "ce4b230c67ad73212680747f15da5861fdfe23ff268fc787f105a6bcd829a330",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 7
+        }
+      ],
+      "id": "fact:fe073f6a2071a2e7f38eb01d78a1acc1f580375c3aa5a3fc36ab9d6245d1b94d",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "app:app/main.py:12"
+        },
+        "auth": {
+          "reason": "Không thấy cơ chế xác thực được khai báo trong mã nguồn đã đọc.",
+          "state": "unknown"
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:b30768a26b96481eb84d1a4c1bf2b7e4b98b238c3680aad8cc4d58ee824ef4c6"
+          ],
+          "state": "known",
+          "value": "ev:b30768a26b96481eb84d1a4c1bf2b7e4b98b238c3680aad8cc4d58ee824ef4c6"
+        },
+        "dependencies": {
+          "evidence_ids": [
+            "ev:b30768a26b96481eb84d1a4c1bf2b7e4b98b238c3680aad8cc4d58ee824ef4c6"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:b30768a26b96481eb84d1a4c1bf2b7e4b98b238c3680aad8cc4d58ee824ef4c6"
+          ],
+          "state": "known",
+          "value": "app/api/users.py::read_me"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:b30768a26b96481eb84d1a4c1bf2b7e4b98b238c3680aad8cc4d58ee824ef4c6"
+          ],
+          "state": "known",
+          "value": "GET"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:b30768a26b96481eb84d1a4c1bf2b7e4b98b238c3680aad8cc4d58ee824ef4c6"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:172c23fd4845b2df942600d309f0bbeb96e069e9cf1e9fd33c5e7139b2f8b885",
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:4f697d94ae4cd95cb5345038e67bf4f479b7991fd42166b91e78ec5c5a4a9e9d",
+            "ev:f927a7f7b46eac98f79a2964ff26449949fe89000d0956b7122508a53deab0cc"
+          ],
+          "state": "known",
+          "value": "/api/v1/accounts/users/me"
+        },
+        "prefix_rule": {
+          "evidence_ids": [
+            "ev:172c23fd4845b2df942600d309f0bbeb96e069e9cf1e9fd33c5e7139b2f8b885",
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:4f697d94ae4cd95cb5345038e67bf4f479b7991fd42166b91e78ec5c5a4a9e9d",
+            "ev:f927a7f7b46eac98f79a2964ff26449949fe89000d0956b7122508a53deab0cc"
+          ],
+          "state": "known",
+          "value": "settings.default_prefix"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:172c23fd4845b2df942600d309f0bbeb96e069e9cf1e9fd33c5e7139b2f8b885",
+            "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+            "ev:4f697d94ae4cd95cb5345038e67bf4f479b7991fd42166b91e78ec5c5a4a9e9d",
+            "ev:f927a7f7b46eac98f79a2964ff26449949fe89000d0956b7122508a53deab0cc"
+          ],
+          "state": "known",
+          "value": "settings_default@app/config.py:5 -> include_prefix@app/api/api.py:7 -> router_prefix@app/api/users.py:3 -> decorator@app/api/users.py:6"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:b30768a26b96481eb84d1a4c1bf2b7e4b98b238c3680aad8cc4d58ee824ef4c6"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:b30768a26b96481eb84d1a4c1bf2b7e4b98b238c3680aad8cc4d58ee824ef4c6"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:b30768a26b96481eb84d1a4c1bf2b7e4b98b238c3680aad8cc4d58ee824ef4c6"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:b30768a26b96481eb84d1a4c1bf2b7e4b98b238c3680aad8cc4d58ee824ef4c6"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse; settings.default_prefix: Prefix là giá trị mặc định khai trong lớp Settings; biến môi trường có thể ghi đè lúc chạy",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 7,
+          "file_id": "file:81a7f03957dcb34437c933c7f3492ce776407f4b7ae152c213f502d0483572d5",
+          "id": "ev:b30768a26b96481eb84d1a4c1bf2b7e4b98b238c3680aad8cc4d58ee824ef4c6",
+          "path": "app/api/users.py",
+          "sha256": "8e7e2a2e085c43cc64550019f17e49cbfce59072c6ba723f7bb4db1ac3612879",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:84f1a9419471e289c6b6e2b0209b329e20df6cef81d1f7f0a193ddc2fc6ad69d",
+          "id": "ev:21875fb3f52374921efe38e2b8f4d85e77c23c1ae7ec2ca9582fa88577162b08",
+          "path": "app/config.py",
+          "sha256": "90941ef5045d2072f521d47d14fa9f45caef3645edbe1e4b9cdc81a90be787c9",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 5
+        },
+        {
+          "end_column": null,
+          "end_line": 7,
+          "file_id": "file:92ab17c4ad17ee1bed7daf723274e70f5bb5c3129d4e58fd0ff2d422002cad13",
+          "id": "ev:172c23fd4845b2df942600d309f0bbeb96e069e9cf1e9fd33c5e7139b2f8b885",
+          "path": "app/api/api.py",
+          "sha256": "05bb459fd9c4364f0d1c76503439ff6f8a6ce59e433bffe7f5362e6277fdd11e",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 7
+        },
+        {
+          "end_column": null,
+          "end_line": 3,
+          "file_id": "file:81a7f03957dcb34437c933c7f3492ce776407f4b7ae152c213f502d0483572d5",
+          "id": "ev:4f697d94ae4cd95cb5345038e67bf4f479b7991fd42166b91e78ec5c5a4a9e9d",
+          "path": "app/api/users.py",
+          "sha256": "8e7e2a2e085c43cc64550019f17e49cbfce59072c6ba723f7bb4db1ac3612879",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 3
+        },
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:81a7f03957dcb34437c933c7f3492ce776407f4b7ae152c213f502d0483572d5",
+          "id": "ev:f927a7f7b46eac98f79a2964ff26449949fe89000d0956b7122508a53deab0cc",
+          "path": "app/api/users.py",
+          "sha256": "8e7e2a2e085c43cc64550019f17e49cbfce59072c6ba723f7bb4db1ac3612879",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 18,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:47511c47971a4955079c4940aab1acea0aa8b11300b9f1a4cc73c03e97369659",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 18
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 12
+        }
+      ],
+      "id": "fact:a038f5652f09b6153ec9fb83d21fda823940ec488376415f82695ed13e9ef7c1",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "app:app/main.py:12"
+        },
+        "auth": {
+          "reason": "Không thấy cơ chế xác thực được khai báo trong mã nguồn đã đọc.",
+          "state": "unknown"
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:5fcd1690c58c5fab289c3b8f02b276d9580e876207fb8667db8629815f5795b7"
+          ],
+          "state": "known",
+          "value": "ev:5fcd1690c58c5fab289c3b8f02b276d9580e876207fb8667db8629815f5795b7"
+        },
+        "dependencies": {
+          "evidence_ids": [
+            "ev:5fcd1690c58c5fab289c3b8f02b276d9580e876207fb8667db8629815f5795b7"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:5fcd1690c58c5fab289c3b8f02b276d9580e876207fb8667db8629815f5795b7"
+          ],
+          "state": "known",
+          "value": "app/main.py::root"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:5fcd1690c58c5fab289c3b8f02b276d9580e876207fb8667db8629815f5795b7"
+          ],
+          "state": "known",
+          "value": "GET"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:5fcd1690c58c5fab289c3b8f02b276d9580e876207fb8667db8629815f5795b7"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:c8523e8868fd875c225d0875a04fa3af9a61a4f6a3e39fc5db193c6eb48bcda1"
+          ],
+          "state": "known",
+          "value": "/"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:c8523e8868fd875c225d0875a04fa3af9a61a4f6a3e39fc5db193c6eb48bcda1"
+          ],
+          "state": "known",
+          "value": "decorator@app/main.py:14"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:5fcd1690c58c5fab289c3b8f02b276d9580e876207fb8667db8629815f5795b7"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:5fcd1690c58c5fab289c3b8f02b276d9580e876207fb8667db8629815f5795b7"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:5fcd1690c58c5fab289c3b8f02b276d9580e876207fb8667db8629815f5795b7"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:5fcd1690c58c5fab289c3b8f02b276d9580e876207fb8667db8629815f5795b7"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 15,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:5fcd1690c58c5fab289c3b8f02b276d9580e876207fb8667db8629815f5795b7",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 14
+        },
+        {
+          "end_column": null,
+          "end_line": 14,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:c8523e8868fd875c225d0875a04fa3af9a61a4f6a3e39fc5db193c6eb48bcda1",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 14
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 12
+        }
+      ],
+      "id": "fact:59424527ee1aeb762f1fb7ee77a332c12806914bdb70de7d86dafdf22f87f6ba",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "application_id": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "app:app/main.py:12"
+        },
+        "auth": {
+          "reason": "Không thấy cơ chế xác thực được khai báo trong mã nguồn đã đọc.",
+          "state": "unknown"
+        },
+        "declaration_evidence_id": {
+          "evidence_ids": [
+            "ev:3de86a11cda63cb05a2e59c7b9688e8a2f8c0d3bbffa32486e244758a407bab4"
+          ],
+          "state": "known",
+          "value": "ev:3de86a11cda63cb05a2e59c7b9688e8a2f8c0d3bbffa32486e244758a407bab4"
+        },
+        "dependencies": {
+          "evidence_ids": [
+            "ev:3de86a11cda63cb05a2e59c7b9688e8a2f8c0d3bbffa32486e244758a407bab4"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "handler": {
+          "evidence_ids": [
+            "ev:3de86a11cda63cb05a2e59c7b9688e8a2f8c0d3bbffa32486e244758a407bab4"
+          ],
+          "state": "known",
+          "value": "app/sub.py::sub_hello"
+        },
+        "method": {
+          "evidence_ids": [
+            "ev:3de86a11cda63cb05a2e59c7b9688e8a2f8c0d3bbffa32486e244758a407bab4"
+          ],
+          "state": "known",
+          "value": "GET"
+        },
+        "parameters": {
+          "evidence_ids": [
+            "ev:3de86a11cda63cb05a2e59c7b9688e8a2f8c0d3bbffa32486e244758a407bab4"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "path": {
+          "evidence_ids": [
+            "ev:2464987157fe9367a3011e85630f4b2dcfc37f45ec179265513813e9d4993739",
+            "ev:a73ea18e2591070cf1d4cb9f66ef21734d476baf4741516fdc769bd937d3d9d5"
+          ],
+          "state": "known",
+          "value": "/sub/hello"
+        },
+        "registration_context": {
+          "evidence_ids": [
+            "ev:2464987157fe9367a3011e85630f4b2dcfc37f45ec179265513813e9d4993739",
+            "ev:a73ea18e2591070cf1d4cb9f66ef21734d476baf4741516fdc769bd937d3d9d5"
+          ],
+          "state": "known",
+          "value": "mount_prefix@app/main.py:23 -> decorator@app/sub.py:6"
+        },
+        "request_model_ids": {
+          "evidence_ids": [
+            "ev:3de86a11cda63cb05a2e59c7b9688e8a2f8c0d3bbffa32486e244758a407bab4"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "response_model_ids": {
+          "evidence_ids": [
+            "ev:3de86a11cda63cb05a2e59c7b9688e8a2f8c0d3bbffa32486e244758a407bab4"
+          ],
+          "state": "known",
+          "value": []
+        },
+        "status_codes": {
+          "evidence_ids": [
+            "ev:3de86a11cda63cb05a2e59c7b9688e8a2f8c0d3bbffa32486e244758a407bab4"
+          ],
+          "state": "known",
+          "value": [
+            200
+          ]
+        },
+        "status_rule": {
+          "evidence_ids": [
+            "ev:3de86a11cda63cb05a2e59c7b9688e8a2f8c0d3bbffa32486e244758a407bab4"
+          ],
+          "state": "known",
+          "value": "fastapi.default_status_200"
+        }
+      },
+      "completeness": "partial",
+      "completeness_reason": "Trường chưa xác định: auth",
+      "confidence": "inferred",
+      "confidence_reason": "fastapi.default_status_200: Decorator không khai status_code; FastAPI dùng status mặc định 200 của JSONResponse",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 7,
+          "file_id": "file:483295d1464e99d0e344423f5790392a36b23b5c0221694bf6d962444bb77309",
+          "id": "ev:3de86a11cda63cb05a2e59c7b9688e8a2f8c0d3bbffa32486e244758a407bab4",
+          "path": "app/sub.py",
+          "sha256": "a0ddcbed5f48e5142d86f82684a23c5efa81c8c3effe27bb661adc3bed18d42b",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 23,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:a73ea18e2591070cf1d4cb9f66ef21734d476baf4741516fdc769bd937d3d9d5",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 23
+        },
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:483295d1464e99d0e344423f5790392a36b23b5c0221694bf6d962444bb77309",
+          "id": "ev:2464987157fe9367a3011e85630f4b2dcfc37f45ec179265513813e9d4993739",
+          "path": "app/sub.py",
+          "sha256": "a0ddcbed5f48e5142d86f82684a23c5efa81c8c3effe27bb661adc3bed18d42b",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        },
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 12
+        }
+      ],
+      "id": "fact:a68868b8adf561f4863f7b66b0ee910b8025e0a8553552ff268ebbbbbe2a79f2",
+      "kind": "route",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:2066b89061d0fba8bbe891ade78fb9f9577711c1da0e6760254ee081ff9d8c32"
+          ],
+          "state": "known",
+          "value": "@router.get(\"/stats\")"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:2066b89061d0fba8bbe891ade78fb9f9577711c1da0e6760254ee081ff9d8c32"
+          ],
+          "state": "known",
+          "value": "app/api/admin.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:2066b89061d0fba8bbe891ade78fb9f9577711c1da0e6760254ee081ff9d8c32"
+          ],
+          "state": "known",
+          "value": "Route"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:8b4a30e81c59a57ed911510a1cd946371b2245834fc0fe5c490c1f507a7e885d",
+          "id": "ev:2066b89061d0fba8bbe891ade78fb9f9577711c1da0e6760254ee081ff9d8c32",
+          "path": "app/api/admin.py",
+          "sha256": "fb63ea6e833213ab074af0faae18efb2765dc75b8617f294c919551ee149a68c",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        }
+      ],
+      "id": "fact:b82996b933b942c83a16890b87f4b0e145bccce9d188c6a24a0fc155d40d03ec",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:f9030a9d11d4206b3e17e1112b699e2904e7cb5cad00c55ab6aa3d293ba8da16"
+          ],
+          "state": "known",
+          "value": "api_router = APIRouter()"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:f9030a9d11d4206b3e17e1112b699e2904e7cb5cad00c55ab6aa3d293ba8da16"
+          ],
+          "state": "known",
+          "value": "app/api/api.py"
+        },
+        "reason": {
+          "evidence_ids": [
+            "ev:f9030a9d11d4206b3e17e1112b699e2904e7cb5cad00c55ab6aa3d293ba8da16"
+          ],
+          "state": "known",
+          "value": "Không có dấu hiệu nào của FR-029; không đoán vai trò theo tên file"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:f9030a9d11d4206b3e17e1112b699e2904e7cb5cad00c55ab6aa3d293ba8da16"
+          ],
+          "state": "known",
+          "value": "Khác"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 5,
+          "file_id": "file:92ab17c4ad17ee1bed7daf723274e70f5bb5c3129d4e58fd0ff2d422002cad13",
+          "id": "ev:f9030a9d11d4206b3e17e1112b699e2904e7cb5cad00c55ab6aa3d293ba8da16",
+          "path": "app/api/api.py",
+          "sha256": "05bb459fd9c4364f0d1c76503439ff6f8a6ce59e433bffe7f5362e6277fdd11e",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 5
+        }
+      ],
+      "id": "fact:6935202fb5502272459ba34cca3df12985dbbf547f4cc6def4b3b28095d9ab6d",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:877b82fa9f0768547d2f0e233fc84ddfc51601ada7669d0ec14047b689f8413a"
+          ],
+          "state": "known",
+          "value": "@router.get(\"/ping\")"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:877b82fa9f0768547d2f0e233fc84ddfc51601ada7669d0ec14047b689f8413a"
+          ],
+          "state": "known",
+          "value": "app/api/health.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:877b82fa9f0768547d2f0e233fc84ddfc51601ada7669d0ec14047b689f8413a"
+          ],
+          "state": "known",
+          "value": "Route"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:c186cd0a0d74c23c699f5a856693b1579ea40e91f105aacd19d7cd2b0f78f958",
+          "id": "ev:877b82fa9f0768547d2f0e233fc84ddfc51601ada7669d0ec14047b689f8413a",
+          "path": "app/api/health.py",
+          "sha256": "b8d465e702a9c1bd85780ff5c329660c6dcc75929eccc8c87c08204f1292b6e5",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        }
+      ],
+      "id": "fact:2ea15cdf132591ac8affdde0ac58cef2c80c93bdb030abdf393ef5bc1ef1cb93",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:7276eb7ef247279e4449322090b044c449b5196da6659d9d5f2d4ecd9a5d4d5f"
+          ],
+          "state": "known",
+          "value": "@router.get(\"/\")"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:7276eb7ef247279e4449322090b044c449b5196da6659d9d5f2d4ecd9a5d4d5f"
+          ],
+          "state": "known",
+          "value": "app/api/items.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:7276eb7ef247279e4449322090b044c449b5196da6659d9d5f2d4ecd9a5d4d5f"
+          ],
+          "state": "known",
+          "value": "Route"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:192edc77b12967c9589965a9c33261f841c77edd300fe0474020ee75c4f78b70",
+          "id": "ev:7276eb7ef247279e4449322090b044c449b5196da6659d9d5f2d4ecd9a5d4d5f",
+          "path": "app/api/items.py",
+          "sha256": "fc261396419cf1cb85bd19308e76cede8ba99cbc71a5e93a5eb7121f6e7182ab",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        }
+      ],
+      "id": "fact:b1e9168a5738f0ed29a902037bdcbb9451ad46db72aa172ad536adaac79e4478",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:703b930c1028fbed1c8afe330f9eaa663a67af836e4d1be5062339455b771777"
+          ],
+          "state": "known",
+          "value": "@router.get(\"/items/{item_id}\")"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:703b930c1028fbed1c8afe330f9eaa663a67af836e4d1be5062339455b771777"
+          ],
+          "state": "known",
+          "value": "app/api/legacy.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:703b930c1028fbed1c8afe330f9eaa663a67af836e4d1be5062339455b771777"
+          ],
+          "state": "known",
+          "value": "Route"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:0db3277987c650c99a9a2c9f1e847faf496a1c36a1899102a4feb1e5c2237a23",
+          "id": "ev:703b930c1028fbed1c8afe330f9eaa663a67af836e4d1be5062339455b771777",
+          "path": "app/api/legacy.py",
+          "sha256": "ce4b230c67ad73212680747f15da5861fdfe23ff268fc787f105a6bcd829a330",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        }
+      ],
+      "id": "fact:fee933efb223041b0ceeee2140aacfa1e1eda55434b8b713d0a3fa56327af954",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:f927a7f7b46eac98f79a2964ff26449949fe89000d0956b7122508a53deab0cc"
+          ],
+          "state": "known",
+          "value": "@router.get(\"/me\")"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:f927a7f7b46eac98f79a2964ff26449949fe89000d0956b7122508a53deab0cc"
+          ],
+          "state": "known",
+          "value": "app/api/users.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:f927a7f7b46eac98f79a2964ff26449949fe89000d0956b7122508a53deab0cc"
+          ],
+          "state": "known",
+          "value": "Route"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 6,
+          "file_id": "file:81a7f03957dcb34437c933c7f3492ce776407f4b7ae152c213f502d0483572d5",
+          "id": "ev:f927a7f7b46eac98f79a2964ff26449949fe89000d0956b7122508a53deab0cc",
+          "path": "app/api/users.py",
+          "sha256": "8e7e2a2e085c43cc64550019f17e49cbfce59072c6ba723f7bb4db1ac3612879",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 6
+        }
+      ],
+      "id": "fact:dc3802c6256efa151aa3601ad1aeeecdb26a8acbac0069312d78946d57dd8a69",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:429fea174d43de845039cb71a5815dc0197e3787cd3c485ea6b72e21eb3fce36"
+          ],
+          "state": "known",
+          "value": "class Settings(BaseSettings):"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:429fea174d43de845039cb71a5815dc0197e3787cd3c485ea6b72e21eb3fce36"
+          ],
+          "state": "known",
+          "value": "app/config.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:429fea174d43de845039cb71a5815dc0197e3787cd3c485ea6b72e21eb3fce36"
+          ],
+          "state": "known",
+          "value": "Cấu hình"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 4,
+          "file_id": "file:84f1a9419471e289c6b6e2b0209b329e20df6cef81d1f7f0a193ddc2fc6ad69d",
+          "id": "ev:429fea174d43de845039cb71a5815dc0197e3787cd3c485ea6b72e21eb3fce36",
+          "path": "app/config.py",
+          "sha256": "90941ef5045d2072f521d47d14fa9f45caef3645edbe1e4b9cdc81a90be787c9",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 4
+        }
+      ],
+      "id": "fact:5edf791eb00f0388f3e1a68e7d4f4ad90b3f0bb024529603e5ae567d0dac6ffd",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "app = FastAPI(title=settings.PROJECT_NAME)"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "app/main.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8"
+          ],
+          "state": "known",
+          "value": "Điểm vào"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 12,
+          "file_id": "file:990f7e4140fab1ad82afc787505090b64d4024e63a891405cd9085e7e6b249dd",
+          "id": "ev:2878408ecd188e7c176ae1fe2cb97f80e07ac20f19fe57e40d0882747d8f74e8",
+          "path": "app/main.py",
+          "sha256": "9b51d466ebc89d0fc1621a3094ec263a0d9068f2cdbbd1b3482f8f673884ee38",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 12
+        }
+      ],
+      "id": "fact:a1326de383865b332a2b2faa7e6bbaee53190c21c6320e9922542db50d348708",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    },
+    {
+      "attributes": {
+        "code": {
+          "evidence_ids": [
+            "ev:843b0d29dd1859c3e59b96fa85dda3307b1f9283827ad1ea4e753ccc7600fbf3"
+          ],
+          "state": "known",
+          "value": "sub_app = FastAPI(title=\"Sub app\")"
+        },
+        "file": {
+          "evidence_ids": [
+            "ev:843b0d29dd1859c3e59b96fa85dda3307b1f9283827ad1ea4e753ccc7600fbf3"
+          ],
+          "state": "known",
+          "value": "app/sub.py"
+        },
+        "role": {
+          "evidence_ids": [
+            "ev:843b0d29dd1859c3e59b96fa85dda3307b1f9283827ad1ea4e753ccc7600fbf3"
+          ],
+          "state": "known",
+          "value": "Điểm vào"
+        }
+      },
+      "completeness": "full",
+      "confidence": "exact",
+      "evidence": [
+        {
+          "end_column": null,
+          "end_line": 3,
+          "file_id": "file:483295d1464e99d0e344423f5790392a36b23b5c0221694bf6d962444bb77309",
+          "id": "ev:843b0d29dd1859c3e59b96fa85dda3307b1f9283827ad1ea4e753ccc7600fbf3",
+          "path": "app/sub.py",
+          "sha256": "a0ddcbed5f48e5142d86f82684a23c5efa81c8c3effe27bb661adc3bed18d42b",
+          "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+          "start_column": null,
+          "start_line": 3
+        }
+      ],
+      "id": "fact:d81efd223dc9d7f0a678662fde4fa2e3cb429283d521f3e77c2524b70bbcc372",
+      "kind": "file_role",
+      "resolution": "not_applicable",
+      "target_fact_ids": [],
+      "unit_id": "unit:c956f958cc36cd5dc3dc29ff5f46be3aea6100e6a7fce0e78ed5341bf739a46e"
+    }
+  ],
+  "limitations": [
+    {
+      "code": "DIAGRAM_NOT_PROVIDED",
+      "message": "Chưa được cấp sơ đồ component từ bước kiến trúc (FR-028); README chưa đủ mục sơ đồ của AC-029-06",
+      "stage": "input"
+    },
+    {
+      "code": "ARCHITECTURE_NOT_EVALUATED",
+      "message": "Chưa đối chiếu được với archdia.json (AC-029-04): Chưa được cấp archdia.json cùng snapshot",
+      "stage": "input"
+    },
+    {
+      "code": "CLAIMS_REJECTED",
+      "message": "2 lần nộp bị bộ kiểm từ chối (agent có thể đã nộp lại bản đúng); chi tiết ở result.json",
+      "stage": "verification"
+    }
+  ],
+  "pipeline_version": "fr029-doc-v1",
+  "provenance": {
+    "model": "gpt-6-luna",
+    "prompt_version": "fr029-agent-prompt-v13",
+    "provider": "https://api.openai.com/v1"
+  },
+  "rejected_claims": [
+    {
+      "errors": [
+        "file rỗng thuộc component Khác theo FR-028; không nộp vai trò cho file này"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "reason",
+        "role"
+      ],
+      "kind": "file_roles"
+    },
+    {
+      "errors": [
+        "file rỗng thuộc component Khác theo FR-028; không nộp vai trò cho file này"
+      ],
+      "fields": [
+        "at",
+        "file",
+        "reason",
+        "role"
+      ],
+      "kind": "file_roles"
+    }
+  ],
+  "render_notices": [
+    {
+      "artifact_path": "tech-specs/HE-THONG/api/API-PREFIX-CHAIN-HE-THONG-v1.md",
+      "code": "OPENAPI_OPERATION_OMITTED",
+      "fact_ids": [
+        "fact:c30ae2aa8ca0cbe9ddfd6cff087f8715416f1052336c411799b4ac705b4e5087"
+      ],
+      "field_paths": [
+        "/attributes/path"
+      ],
+      "reason": "Path đầy đủ chưa biết"
+    }
+  ],
+  "repository_name": "prefix_chain",
+  "run_id": "pilot_prefix_chain_r1",
+  "schema_version": "0.1.0",
+  "snapshot_id": "snap:c76102dcd74977697e638089e01037e517bb8e4d9a039f63ffbf8bf79eaca9b7",
+  "unassigned": []
+}

@@ -1,0 +1,3 @@
+- limitation | [README.md:19](/D:/VSF/l3-generator-l3/ket-qua-chay/fr029-pilot-20261007/luna4/prefix_chain-r1/README.md:19), dòng 68 | Ghi “Chưa được cấp sơ đồ…” | Thiếu sơ đồ component bắt buộc theo AC-029-06; ghi giới hạn chưa đáp ứng yêu cầu này | Căn cứ source: `app/main.py:18–23`, `app/api/api.py:6–7`; component theo membership đầu vào.
+
+Đã kiểm: 11 route (method/path), 0 model request/response, 0 lời gọi HTTP, 12 file source/manifest và 7 file đầu ra; **1 lỗi**.

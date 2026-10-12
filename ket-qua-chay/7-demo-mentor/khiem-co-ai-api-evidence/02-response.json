@@ -1,0 +1,22 @@
+{
+  "id": "chatcmpl-EUBhK9FAeS95w3OPrsjNv0Gw1jBsc",
+  "model": "gpt-5.6-sol",
+  "usage": {
+    "prompt_tokens": 890,
+    "completion_tokens": 243,
+    "total_tokens": 1133,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "audio_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  },
+  "finish_reason": "stop",
+  "content": "{\"blocks\":[{\"key\":\"application\",\"name\":\"Khởi tạo ứng dụng\",\"role\":\"Khởi tạo ứng dụng FastAPI và cấu hình thông tin dịch vụ.\",\"role_line\":\"L1\"},{\"key\":\"http_api\",\"name\":\"Router HTTP API\",\"role\":\"Tiếp nhận các yêu cầu HTTP để tạo notebook và note.\",\"role_line\":\"L4\"},{\"key\":\"note_management\",\"name\":\"Service quản lý ghi chú\",\"role\":\"Thực thi các use case quản lý notebook và note.\",\"role_line\":\"L7\"},{\"key\":\"models\",\"name\":\"Mô hình dữ liệu\",\"role\":\"Định nghĩa các thực thể dữ liệu Notebook và Note.\",\"role_line\":\"L11\"},{\"key\":\"database\",\"name\":\"Hạ tầng database\",\"role\":\"Khởi tạo engine bất đồng bộ để kết nối database.\",\"role_line\":\"L15\"}],\"edges\":[{\"id\":\"E1\",\"label\":\"Gắn API router\"},{\"id\":\"E2\",\"label\":\"Thực thi use case\"},{\"id\":\"E3\",\"label\":\"Truy vấn database\"},{\"id\":\"E4\",\"label\":\"Làm mới dữ liệu\"},{\"id\":\"E5\",\"label\":\"Đọc models\"}],\"externals\":[]}"
+}

@@ -1,0 +1,24 @@
+flowchart LR
+  n0["Cơ sở dữ liệu"]
+  n1["Ngoài sơ đồ: (gốc)"]
+  n2["Xác thực người dùng"]
+  n3["Ứng dụng FastAPI"]
+  n4["Ngoài sơ đồ: tests"]
+  n5["Mô hình và CRUD"]
+  n6["Dùng chung"]
+  n7["Router API"]
+  n8["SMTP email service"]
+  n9["Khởi tạo dữ liệu"]
+  n7 -->|calls| n5
+  n0 -->|calls| n5
+  n7 -->|calls| n8
+  n7 -->|calls| n2
+  n4 -->|depends_on| n5
+  n4 -->|calls| n2
+  n9 -->|calls| n0
+  n0 -->|depends_on| n5
+  n7 -->|depends_on| n5
+  n4 -->|calls| n5
+  n4 -->|calls| n8
+  n5 -->|calls| n2
+  n4 -->|calls| n0

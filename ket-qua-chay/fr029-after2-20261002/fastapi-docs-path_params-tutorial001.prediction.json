@@ -1,0 +1,105 @@
+{
+  "schema_version": "0.1",
+  "kind": "prediction",
+  "case_id": "fastapi-docs-path_params-tutorial001",
+  "source_digest": "f29fc704e9d5a8ad4659d250ff11e0f8f537c072849f3b8cf895c576867f40e6",
+  "status": "facts_only",
+  "entities": [
+    {
+      "id": "path_params/tutorial001_py310.py::read_item",
+      "path": "path_params/tutorial001_py310.py",
+      "line_start": 7,
+      "line_end": 8,
+      "symbol": "read_item",
+      "kind": "function"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e1311a85cf4654c03",
+      "path": "path_params/tutorial001_py310.py",
+      "line_start": 1,
+      "line_end": 8,
+      "sha256": "c10c9be93c07a592e1bc473ff53027152459d6565043d9fef5548089752fd0e2"
+    },
+    {
+      "id": "e3794fbcad59cb7eb",
+      "path": "path_params/tutorial001_py310.py",
+      "line_start": 6,
+      "line_end": 7,
+      "sha256": "c10c9be93c07a592e1bc473ff53027152459d6565043d9fef5548089752fd0e2"
+    },
+    {
+      "id": "e7bac5d4fe88e7316",
+      "path": "path_params/tutorial001_py310.py",
+      "line_start": 7,
+      "line_end": 8,
+      "sha256": "c10c9be93c07a592e1bc473ff53027152459d6565043d9fef5548089752fd0e2"
+    },
+    {
+      "id": "ea9c5b2f742009a54",
+      "path": "path_params/tutorial001_py310.py",
+      "line_start": 7,
+      "line_end": 7,
+      "sha256": "c10c9be93c07a592e1bc473ff53027152459d6565043d9fef5548089752fd0e2"
+    },
+    {
+      "id": "eb69fe8649205ecc7",
+      "path": "path_params/tutorial001_py310.py",
+      "line_start": 6,
+      "line_end": 6,
+      "sha256": "c10c9be93c07a592e1bc473ff53027152459d6565043d9fef5548089752fd0e2"
+    },
+    {
+      "id": "ed5ae1a579a3c64e7",
+      "path": "path_params/tutorial001_py310.py",
+      "line_start": 6,
+      "line_end": 6,
+      "sha256": "c10c9be93c07a592e1bc473ff53027152459d6565043d9fef5548089752fd0e2"
+    },
+    {
+      "id": "ef618ef23e6d72a94",
+      "path": "path_params/tutorial001_py310.py",
+      "line_start": 3,
+      "line_end": 3,
+      "sha256": "c10c9be93c07a592e1bc473ff53027152459d6565043d9fef5548089752fd0e2"
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:44162b0fce401850ff49ec796586251e830822a2501f97e0e033d336dbe516f0",
+      "evidence_refs": [
+        "e3794fbcad59cb7eb",
+        "ea9c5b2f742009a54",
+        "eb69fe8649205ecc7",
+        "ed5ae1a579a3c64e7",
+        "ef618ef23e6d72a94"
+      ],
+      "target_id": null,
+      "kind": "route",
+      "source_id": "path_params/tutorial001_py310.py::read_item",
+      "context": "path_params/tutorial001_py310.py::app",
+      "attributes": {
+        "method": "GET",
+        "path": "/items/{item_id}",
+        "condition": null
+      },
+      "confidence": "exact",
+      "completeness": "full",
+      "reason": null
+    }
+  ],
+  "architectures": [
+    {
+      "id": "facts-only",
+      "components": [],
+      "edges": []
+    }
+  ],
+  "provenance": {
+    "origin": "product",
+    "author": "l3slice",
+    "tool_revision": "slice-ast-v4",
+    "unsupported": []
+  }
+}

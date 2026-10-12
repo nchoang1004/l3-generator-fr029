@@ -1,0 +1,360 @@
+<title>Cách L3 Generator chạy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column; a six-step strip opens the page, every section ends with one sentence to say aloud. */
+:root {
+  --bg: #f6f7f8; --panel: #ffffff; --ink: #18212b; --muted: #5a6573; --line: #dde2e7;
+  --accent: #1d6b73; --accent-soft: #e2f0f1; --code: #eef1f4;
+  --ok: #1f7a4d; --warn: #9a5b00; --bad: #b3261e;
+  --sans: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171d; --panel: #1a2129; --ink: #e4e9ee; --muted: #9aa6b3; --line: #2c3641;
+  --accent: #6cc3cb; --accent-soft: #1d3236; --code: #222b35;
+  --ok: #5cc28f; --warn: #e0a54a; --bad: #f08a80; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171d; --panel: #1a2129; --ink: #e4e9ee; --muted: #9aa6b3; --line: #2c3641;
+  --accent: #6cc3cb; --accent-soft: #1d3236; --code: #222b35;
+  --ok: #5cc28f; --warn: #e0a54a; --bad: #f08a80; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.65 var(--sans); padding-inline: 16px; padding-block: 28px 64px; }
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+h1 { font-size: 30px; line-height: 1.25; margin: 0; text-wrap: balance; }
+h2 { font-size: 21px; line-height: 1.3; margin: 0 0 4px; text-wrap: balance; }
+h3 { font-size: 16px; margin: 14px 0 4px; }
+p { margin: 6px 0; max-width: 68ch; }
+ul, ol { margin: 6px 0; padding-left: 22px; max-width: 70ch; }
+li { margin: 3px 0; }
+code, .mono { font: 13.5px var(--mono); }
+code { background: var(--code); padding: 1px 5px; border-radius: 4px; }
+.lead { color: var(--muted); font-size: 17px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px 22px; min-width: 0; }
+.eyebrow { font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+nav.toc { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
+nav.toc a { color: var(--accent); text-decoration: none; }
+nav.toc a:hover, nav.toc a:focus-visible { text-decoration: underline; }
+.tbl { overflow-x: auto; margin: 10px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+th { font-weight: 600; color: var(--muted); font-size: 13px; white-space: nowrap; }
+td.n { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.say { margin-top: 12px; padding: 10px 14px; background: var(--accent-soft); border-radius: 8px; font-size: 15px; }
+.say b { color: var(--accent); font-weight: 600; margin-right: 4px; }
+/* six-step strip */
+.steps { list-style: none; padding: 0; margin: 4px 0 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; max-width: none; }
+.steps li { margin: 0; padding: 10px 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); position: relative; min-width: 0; }
+.steps li .k { font: 600 12px var(--mono); color: var(--muted); }
+.steps li .t { display: block; font-weight: 600; font-size: 15px; line-height: 1.3; margin: 2px 0 4px; }
+.steps li .d { display: block; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.steps li.khiem { border-style: dashed; }
+.steps li .f { display: block; margin-top: 6px; font: 12px var(--mono); color: var(--accent); overflow-wrap: anywhere; }
+@media (max-width: 760px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pill { display: inline-block; padding: 0 8px; border-radius: 10px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.p-ok { color: var(--ok); border: 1px solid var(--ok); }
+.p-warn { color: var(--warn); border: 1px solid var(--warn); }
+.p-mute { color: var(--muted); border: 1px solid var(--line); }
+pre { background: var(--code); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font: 13px/1.55 var(--mono); margin: 10px 0; }
+pre .hl { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+.cap { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
+.note { font-size: 14px; color: var(--muted); }
+a { color: var(--accent); }
+.big { font-size: 17.5px; line-height: 1.6; }
+.probs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin: 12px 0; }
+@media (max-width: 760px) { .probs { grid-template-columns: 1fr; } }
+.prob { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+.prob h3 { margin: 0 0 6px; display: flex; gap: 8px; align-items: baseline; }
+.prob .no { font: 600 13px var(--mono); color: var(--accent); }
+.prob p { font-size: 15px; margin: 5px 0; }
+.code-ref { font: 12px var(--mono); color: var(--muted); }
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">L3 Generator · tài liệu đọc để trình bày · 02/10/2026</div>
+  <h1>Cách L3 Generator chạy</h1>
+  <p class="lead">Trang này giải thích bằng lời thường: công cụ làm gì, chạy qua những bước nào, và mỗi thông tin trên màn hình lấy từ đâu. Ví dụ lấy từ repo teamhide.</p>
+  <nav class="toc" aria-label="Mục lục">
+    <a href="#tomtat">Làm gì</a><a href="#buoc">6 bước</a><a href="#dukien">Ghi lại gì</a><a href="#bangchung">Không bịa</a>
+    <a href="#nhan">Chắc đến đâu</a><a href="#timthay">Tìm ở đâu</a><a href="#gioihan">Tự khai</a><a href="#daura">File kết quả</a>
+    <a href="#web">Trên web</a><a href="#chua">Chưa làm</a><a href="#so">Số đo</a><a href="#hoi">Câu hỏi</a><a href="#vande">Đang vướng ở đâu</a>
+  </nav>
+</header>
+
+<section id="tomtat">
+  <h2>Công cụ làm gì, trong 4 câu</h2>
+  <ol>
+    <li>Bạn đưa vào code của một dự án Python dùng FastAPI, dạng file ZIP.</li>
+    <li>Công cụ đọc code và viết ra tài liệu: danh sách API, các bảng dữ liệu, các sự kiện.</li>
+    <li>Mỗi thông tin trong tài liệu đều chỉ ra được nó lấy từ file nào, dòng nào.</li>
+    <li>Công cụ chỉ đọc. Nó không chạy code, không sửa code. Phần này không dùng AI.</li>
+  </ol>
+  <p class="say"><b>Nói:</b>Công cụ đọc code, ghi lại từng thông tin kèm dòng code, tự kiểm lại, rồi mới viết tài liệu.</p>
+</section>
+
+<section id="buoc">
+  <h2>Sáu bước chạy</h2>
+  <p>Mỗi lần gửi một repo, công cụ đi qua 6 bước theo thứ tự. Bước 4 là phần của Khiêm.</p>
+  <ol class="steps">
+    <li><span class="k">1</span><span class="t">Nhận file</span><span class="d">Mở ZIP, chặn file nguy hiểm, lấy mã hash từng file</span><span class="f">snapshot.py</span></li>
+    <li><span class="k">2</span><span class="t">Chọn file</span><span class="d">Giữ file Python và file khai thư viện</span><span class="f">snapshot.py</span></li>
+    <li><span class="k">3</span><span class="t">Đọc code</span><span class="d">Tìm API, bảng, cấu hình, thư viện…</span><span class="f">pyindex.py, extract.py</span></li>
+    <li class="khiem"><span class="k">4 · Khiêm</span><span class="t">Chia khối</span><span class="d">Gom file thành các khối. Demo này chia tạm</span><span class="f">model.py</span></li>
+    <li><span class="k">5</span><span class="t">Tự kiểm</span><span class="d">So từng thông tin với đúng dòng code</span><span class="f">verify.py</span></li>
+    <li><span class="k">6</span><span class="t">Viết tài liệu</span><span class="d">Viết file, đọc lại để chắc ghi đúng</span><span class="f">render.py</span></li>
+  </ol>
+  <p class="note"><b>Mã hash</b> là một chuỗi ký tự tính từ nội dung file. File đổi dù một chữ thì mã cũng đổi. Công cụ dùng nó để biết file có bị sửa sau khi đã đọc hay không.</p>
+  <p class="say"><b>Nói:</b>Không bước nào của phần này dùng AI. Vì vậy chạy lại bao nhiêu lần cũng ra cùng một kết quả.</p>
+</section>
+
+<section id="dukien">
+  <h2>Công cụ ghi lại những gì</h2>
+  <p>Mỗi thứ công cụ tìm được gọi là một <b>dữ kiện</b>, ví dụ "có API <code>POST /api/v1/user/login</code>". Mỗi dữ kiện có nhiều ô: method, đường dẫn, dữ liệu gửi lên, dữ liệu trả về… Mỗi ô ở một trong 4 tình trạng:</p>
+  <div class="tbl"><table>
+    <tr><th>Tình trạng</th><th>Nghĩa</th><th>Ví dụ trong teamhide</th></tr>
+    <tr><td><span class="pill p-ok">biết</span></td><td>Có giá trị, có dòng code làm căn cứ</td><td>method là POST, ở <code>user.py</code> dòng 43</td></tr>
+    <tr><td><span class="pill p-warn">chưa biết</span></td><td>Code không cho thấy giá trị. Luôn ghi lý do</td><td>Auth: "có dependency nhưng không kết luận được cách đăng nhập"</td></tr>
+    <tr><td><span class="pill p-mute">đã che</span></td><td>Giá trị giống mật khẩu nên bị che</td><td>chuỗi kết nối database <code>WRITER_DB_URL</code></td></tr>
+    <tr><td><span class="pill p-mute">không áp dụng</span></td><td>Ô này không có nghĩa ở chỗ này</td><td>API không nằm trong câu <code>if</code>, nên ô "điều kiện" bỏ trống có chủ ý</td></tr>
+  </table></div>
+
+  <h3>Ví dụ: API đăng nhập được đọc ra thế nào</h3>
+  <div class="two">
+    <div>
+      <p class="cap">File 1: app/user/adapter/input/api/__init__.py</p>
+<pre>router.include_router(user_v1_router,
+    <span class="hl">prefix="/api/v1/user"</span>, tags=["User"])</pre>
+    </div>
+    <div>
+      <p class="cap">File 2: app/user/adapter/input/api/v1/user.py, dòng 43–48</p>
+<pre><span class="hl">@user_router.post(</span>
+    <span class="hl">"/login"</span>,
+    response_model=<span class="hl">LoginResponse</span>,
+)
+async def login(...)</pre>
+    </div>
+  </div>
+  <div class="tbl"><table>
+    <tr><th>Ô</th><th>Giá trị</th><th>Công cụ thấy ở đâu</th></tr>
+    <tr><td>Method</td><td><code>POST</code></td><td>Chữ <code>.post(</code> ở file 2</td></tr>
+    <tr><td>Đường dẫn</td><td><code>/api/v1/user/login</code></td><td>Ghép <code>/api/v1/user</code> ở file 1 với <code>/login</code> ở file 2</td></tr>
+    <tr><td>Dữ liệu gửi lên</td><td><code>LoginRequest</code></td><td>Kiểu của tham số trong hàm <code>login</code></td></tr>
+    <tr><td>Dữ liệu trả về</td><td><code>LoginResponse</code></td><td><code>response_model=</code> ở file 2</td></tr>
+    <tr><td>Status</td><td><code>200</code></td><td>Code không ghi. FastAPI mặc định trả 200, nên ô này được đánh dấu "suy ra"</td></tr>
+    <tr><td>Auth</td><td>chưa biết</td><td>Chưa có quy tắc nào để kết luận, nên công cụ không đoán</td></tr>
+  </table></div>
+  <p class="say"><b>Nói:</b>Không chỉ ra được dòng code thì công cụ không ghi. Chỗ nào không đọc được thì ghi "chưa biết" và nói lý do.</p>
+</section>
+
+<section id="bangchung">
+  <h2>Làm sao biết công cụ không bịa</h2>
+  <p>Mỗi giá trị đi kèm một <b>bằng chứng</b>: tên file và số dòng. Ở bước 5, công cụ tự kiểm 3 điều cho từng giá trị:</p>
+  <ol>
+    <li>File đó đúng là file đã nhận và chưa bị đổi. Công cụ so mã hash để biết.</li>
+    <li>Số dòng có thật trong file.</li>
+    <li>Giá trị nằm nguyên văn ở các dòng đó. Ví dụ với đường dẫn đăng nhập, công cụ phải thấy chữ <code>/api/v1/user</code> ở file 1 và chữ <code>/login</code> ở file 2.</li>
+  </ol>
+  <p>Sai một điều thì giá trị bị xóa, ô đó chuyển sang "chưa biết" kèm lý do.</p>
+  <p>Trên web, bấm nút <code>file:dòng</code> là thấy đúng đoạn code đó. Nếu file đã bị sửa sau khi phân tích, web báo thay vì hiện code mới.</p>
+  <p class="say"><b>Nói:</b>Trên 4 repo có 4.400 bằng chứng. Máy kiểm cả 4.400, tất cả đều đúng.</p>
+</section>
+
+<section id="nhan">
+  <h2>Chắc chắn đến đâu</h2>
+  <p>Có giá trị đọc thẳng từ code. Có giá trị phải suy ra theo quy ước của FastAPI. Ví dụ code không ghi status thì FastAPI mặc định trả 200. Công cụ vẫn ghi 200, nhưng đánh dấu là "suy ra" và ghi tên quy ước đã dùng.</p>
+  <div class="tbl"><table>
+    <tr><th>Chữ trong file kết quả</th><th>Nghĩa</th></tr>
+    <tr><td><code>exact</code></td><td>Đọc thẳng từ code</td></tr>
+    <tr><td><code>inferred</code></td><td>Suy ra theo một quy ước có tên</td></tr>
+    <tr><td><code>full</code></td><td>Mọi ô đều đã biết</td></tr>
+    <tr><td><code>partial</code></td><td>Còn ô chưa biết</td></tr>
+  </table></div>
+  <h3>Năm quy ước công cụ được phép dùng để suy ra</h3>
+  <div class="tbl"><table>
+    <tr><th>Code viết</th><th>Công cụ ghi</th></tr>
+    <tr><td>Dữ liệu gửi lên là một model Pydantic</td><td>Gửi dạng JSON</td></tr>
+    <tr><td>Không ghi <code>status_code</code></td><td>Status 200</td></tr>
+    <tr><td><code>status.HTTP_201_CREATED</code></td><td>Status 201</td></tr>
+    <tr><td><code>prefix=settings.API_V1_STR</code></td><td>Lấy giá trị mặc định khai trong lớp Settings</td></tr>
+    <tr><td>Cột bảng không ghi <code>primary_key</code> hay <code>nullable</code></td><td>Theo mặc định của SQLAlchemy: không phải khóa chính; được để trống nếu không phải khóa chính</td></tr>
+  </table></div>
+  <p>Quy định: thứ phải suy ra không bao giờ được ghi là "đọc thẳng". Trên web, cột "Độ chắc chắn" viết điều này bằng chữ, ví dụ "suy ra: status".</p>
+</section>
+
+<section id="timthay">
+  <h2>Mỗi loại thông tin tìm ở đâu</h2>
+  <div class="tbl"><table>
+    <tr><th>Loại</th><th>Công cụ nhìn vào</th><th>Không đọc được thì</th></tr>
+    <tr><td>API</td><td>Các dòng <code>@router.get</code>, <code>@router.post</code>…, và chỗ gắn router vào app kèm đường dẫn đầu</td><td>Ghi phần biết được, kèm lý do</td></tr>
+    <tr><td>Tham số</td><td>Tham số của hàm xử lý; <code>{id}</code> trong đường dẫn</td><td>Ghi "chưa biết" vị trí tham số</td></tr>
+    <tr><td>Dữ liệu gửi lên, trả về</td><td>Kiểu Pydantic của tham số; <code>response_model=</code>; kiểu trả về của hàm</td><td>Kiểu chung chung như <code>Any</code> thì ghi "chưa biết"</td></tr>
+    <tr><td>Bảng dữ liệu</td><td>Lớp SQLAlchemy có <code>__tablename__</code>, các cột <code>Column(…)</code></td><td>Không đoán tên bảng từ tên lớp</td></tr>
+    <tr><td>Cấu hình</td><td>Lớp Settings, biến môi trường</td><td>Giá trị giống mật khẩu thì che</td></tr>
+    <tr><td>Thư viện</td><td><code>pyproject.toml</code>, <code>requirements.txt</code>, rồi xem code có import không</td><td>Không thấy import thì ghi "chưa biết có dùng không"</td></tr>
+    <tr><td>Gọi ra ngoài</td><td><code>httpx</code>, <code>requests</code></td><td>Địa chỉ ghép lúc chạy thì ghi "chưa biết"</td></tr>
+    <tr><td>Sự kiện</td><td>Kafka: chỗ gửi, chỗ nhận</td><td>Celery, RabbitMQ ghi vào mục Giới hạn</td></tr>
+  </table></div>
+</section>
+
+<section id="gioihan">
+  <h2>Công cụ tự khai chỗ chưa đọc được</h2>
+  <p>Cuối kết quả luôn có mục <b>Giới hạn</b>. Với teamhide:</p>
+  <div class="tbl"><table>
+    <tr><th>Chưa đọc được gì</th><th>Mã</th></tr>
+    <tr><td>Bản này chỉ đọc API FastAPI và bảng SQLAlchemy</td><td class="mono">SLICE_SCOPE</td></tr>
+    <tr><td>Repo dùng Celery, công cụ chưa đọc được</td><td class="mono">QUEUE_LIBRARY_UNSUPPORTED</td></tr>
+    <tr><td>114 lời gọi hàm chưa tìm ra hàm đích</td><td class="mono">REFERENCE_UNRESOLVED</td></tr>
+    <tr><td>Có giá trị giống mật khẩu, đã che</td><td class="mono">VALUE_REDACTED</td></tr>
+    <tr><td>Chưa biết loại database nên chưa viết lệnh tạo bảng</td><td class="mono">DDL_…</td></tr>
+    <tr><td>Không gọi AI (phần chia khối của Khiêm)</td><td class="mono">MODEL_NOT_RUN</td></tr>
+  </table></div>
+  <p>Còn một giới hạn là kết quả bị ghi "một phần". Đây là chủ ý: chưa đủ thì không được trông như đã đủ.</p>
+  <p class="say"><b>Nói:</b>"Một phần" không phải lỗi. Đó là công cụ nói thật phần nó chưa đọc.</p>
+</section>
+
+<section id="daura">
+  <h2>Kết quả gồm những file nào</h2>
+  <div class="tbl"><table>
+    <tr><th>File</th><th>Dùng để</th></tr>
+    <tr><td class="mono">API-TEAMHIDE-APP-v1.md</td><td>Tài liệu API: bảng tóm tắt, chi tiết từng model, bảng truy vết về dòng code, và một khối OpenAPI để máy đọc</td></tr>
+    <tr><td class="mono">TBL-TEAMHIDE-APP.md</td><td>Tài liệu bảng dữ liệu: các cột, khóa, có được để trống không</td></tr>
+    <tr><td class="mono">README.md</td><td>Mục lục</td></tr>
+    <tr><td class="mono">result.json</td><td>Mọi thông tin và bằng chứng, cho máy đọc</td></tr>
+    <tr><td class="mono">architecture.svg</td><td>Sơ đồ khối, phần của Khiêm</td></tr>
+  </table></div>
+  <p>Tên file lấy theo tên repo: tải <code>teamhide.zip</code> thì ra <code>API-TEAMHIDE-…</code>. Viết xong, công cụ đọc lại từng file để chắc nội dung khớp. Lệch thì báo lỗi file đó và cho "Thử lại".</p>
+</section>
+
+<section id="web">
+  <h2>Trên web, cái gì ở đâu</h2>
+  <div class="tbl"><table>
+    <tr><th>Trên màn hình</th><th>Để làm gì</th><th>Ứng với PRD</th></tr>
+    <tr><td>Tên repo và chữ "một phần"</td><td>Biết lần chạy xong chưa, đủ chưa</td><td>FR-026</td></tr>
+    <tr><td>Vì sao "một phần"</td><td>Xem các lý do</td><td>FR-024</td></tr>
+    <tr><td>Tài liệu tải về</td><td>Lấy file kết quả</td><td>FR-025</td></tr>
+    <tr><td>Bảng API</td><td>Xem toàn bộ API; bấm một dòng để xem chi tiết</td><td>FR-021, FR-027</td></tr>
+    <tr><td>Nút <code>file:dòng</code></td><td>Mở đúng đoạn code làm căn cứ</td><td>FR-023</td></tr>
+    <tr><td>Bảng dữ liệu</td><td>Xem các bảng và cột</td><td>FR-021, FR-027</td></tr>
+    <tr><td>Giới hạn</td><td>Xem phần chưa đọc được</td><td>FR-024</td></tr>
+  </table></div>
+  <p class="note">Nút bằng chứng chỉ mở được với lần chạy tạo sau khi server khởi động. Server khởi động lại thì phải tải ZIP lên lại.</p>
+</section>
+
+<section id="chua">
+  <h2>Chưa làm, hoặc cố ý không làm</h2>
+  <ul>
+    <li><b>Không đoán auth.</b> Chưa có quy tắc. Đoán sai nguy hiểm hơn để trống.</li>
+    <li><b>Không viết lệnh tạo bảng</b> khi chưa biết loại database.</li>
+    <li><b>Mới đọc được một ứng dụng</b> trong mỗi repo.</li>
+    <li><b>Nhận repo từ GitHub:</b> đã có code, đang tắt chờ kiểm tra bảo mật.</li>
+    <li><b>Chia khối:</b> phần của Khiêm, chưa chọn cách chia.</li>
+    <li><b>Chưa chấm điểm chính thức.</b> Xem mục "Đang vướng ở đâu".</li>
+  </ul>
+</section>
+
+<section id="so">
+  <h2>Số đo hiện có</h2>
+  <div class="tbl"><table>
+    <tr><th>Repo</th><th>API</th><th>Bảng</th><th>Bằng chứng</th></tr>
+    <tr><td>rhoboro</td><td class="n">11</td><td class="n">2</td><td class="n">689</td></tr>
+    <tr><td>fullstack</td><td class="n">23</td><td class="n">2</td><td class="n">1.378</td></tr>
+    <tr><td>realworld</td><td class="n">19</td><td class="n">0 (7 bảng chỉ có trong migration, đã báo)</td><td class="n">1.437</td></tr>
+    <tr><td>teamhide</td><td class="n">5</td><td class="n">1</td><td class="n">896</td></tr>
+    <tr><th>Tổng</th><th class="n">58</th><th class="n">5</th><th class="n">4.400</th></tr>
+  </table></div>
+  <ul>
+    <li>58/58 API khớp đáp án làm bằng tay.</li>
+    <li>4.400/4.400 bằng chứng đúng.</li>
+    <li>177 bài test tự động đều qua.</li>
+    <li>Chạy lại ra kết quả giống hệt.</li>
+  </ul>
+  <p><b>Lưu ý:</b> 4 repo này cũng là repo dùng để sửa lỗi. Con số này chưa chứng minh công cụ chạy tốt với repo mới.</p>
+</section>
+
+<section id="hoi">
+  <h2>Mentor hay hỏi</h2>
+  <div class="tbl"><table>
+    <tr><th>Câu hỏi</th><th>Trả lời ngắn</th></tr>
+    <tr><td>Có dùng AI không?</td><td>Phần này không. AI chỉ có ở phần chia khối của Khiêm, và đề xuất của AI cũng phải qua bước tự kiểm.</td></tr>
+    <tr><td>Sao biết không bịa?</td><td>Mỗi giá trị phải nằm nguyên văn ở dòng code nó chỉ tới. Máy kiểm từng cái: 4.400/4.400.</td></tr>
+    <tr><td>Status 200 lấy ở đâu?</td><td>Từ quy ước của FastAPI. Ô này có đánh dấu "suy ra".</td></tr>
+    <tr><td>Sao Auth luôn "chưa biết"?</td><td>Chưa có quy tắc. Công cụ vẫn ghi dependency nó thấy để người đọc tự xem.</td></tr>
+    <tr><td>Sao kết quả là "một phần"?</td><td>Vì còn phần chưa đọc, ví dụ Celery. Mục Giới hạn ghi đủ.</td></tr>
+    <tr><td>Repo khác thì sao?</td><td>Chưa thử trên repo mới. Đó là bước tiếp theo.</td></tr>
+  </table></div>
+</section>
+
+<section id="vande">
+  <h2>Nhóm đang vướng ở đâu, và làm gì tiếp</h2>
+  <p class="big">Phần <b>đọc code và viết tài liệu API, bảng dữ liệu</b> đã chạy được. Phần <b>vẽ sơ đồ kiến trúc</b> chưa xong. Và nhóm <b>chưa có bài kiểm tra công bằng</b> để nói "đạt".</p>
+
+  <div class="probs">
+    <article class="prob">
+      <h3><span class="no">1</span>Chưa chọn cách chia code thành các khối</h3>
+      <p><b>Chuyện gì:</b> Muốn vẽ sơ đồ, công cụ phải gom file thành từng khối (component), ví dụ khối "người dùng", khối "đăng nhập". Có 3 cách gom đang được cân nhắc, nhóm chưa chọn cách nào. Hai tài liệu của nhóm còn ghi khác nhau về việc này.</p>
+      <p><b>Vì sao là vấn đề:</b> Chưa có khối thì chưa có sơ đồ. Tài liệu API cũng phải xếp theo khối, nên hiện đang để tạm một khối tên <code>APP</code>.</p>
+      <p><b>Làm gì:</b> Thử cả 3 cách trên cùng 4 repo, so với đáp án làm bằng tay, chọn cách tốt nhất rồi ghi lại.</p>
+      <p class="code-ref">Mã trong tài liệu: D-03, FR-022</p>
+    </article>
+    <article class="prob">
+      <h3><span class="no">2</span>Chưa có tài khoản AI miễn phí</h3>
+      <p><b>Chuyện gì:</b> PRD quy định chỉ dùng AI miễn phí (Groq, Gemini). Nhóm chưa có tài khoản này. Thí nghiệm của Khiêm đang dùng OpenAI, loại trả phí.</p>
+      <p><b>Vì sao là vấn đề:</b> Kết quả đang có không chạy đúng điều kiện PRD đặt ra.</p>
+      <p><b>Làm gì:</b> Đăng ký tài khoản miễn phí rồi chạy lại. Nếu bản miễn phí không đủ dùng, xin mentor cho phép trả phí.</p>
+      <p class="code-ref">PRD dòng 173</p>
+    </article>
+    <article class="prob">
+      <h3><span class="no">3</span>Chưa có bài kiểm tra công bằng</h3>
+      <p><b>Chuyện gì:</b> Muốn nói "công cụ đúng 80%", phải thử trên repo công cụ chưa từng thấy. 4 repo hiện tại là repo nhóm đã dùng để sửa lỗi. Số lượng cũng còn ít: cần ít nhất 100 route mà mới có 58; cần 20 bảng mà mới có 5.</p>
+      <p><b>Vì sao là vấn đề:</b> Con số đẹp trên 4 repo này chưa chứng minh được công cụ chạy tốt với repo mới. Giống chấm điểm bằng chính đề đã ôn.</p>
+      <p><b>Làm gì:</b> Tìm thêm 4–6 repo mới và khóa lại, không dùng để sửa lỗi. Người làm đáp án phải khác người viết phần đó.</p>
+      <p class="code-ref">OBS-L3GEN-001, 5 KPI</p>
+    </article>
+    <article class="prob">
+      <h3><span class="no">4</span>Giấy tờ đi sau việc làm</h3>
+      <p><b>Chuyện gì:</b> Theo quy trình, phải ký duyệt phạm vi rồi mới làm. Nhóm đã viết code nhưng chưa ký. PRD chưa ghi ngày cho các mốc. Nhiều file chưa lưu vào git.</p>
+      <p><b>Vì sao là vấn đề:</b> Mentor không biết bản nào là bản chốt, và không biết nhóm đang trễ hay đúng hạn.</p>
+      <p><b>Làm gì:</b> Trong tuần này: Khiêm ký duyệt, ghi ngày cho các mốc, rồi lưu các file vào git.</p>
+      <p class="code-ref">Scope Gate, PRD mục VIII và IX</p>
+    </article>
+    <article class="prob">
+      <h3><span class="no">5</span>Hai phần chưa ghép với nhau</h3>
+      <p><b>Chuyện gì:</b> Hoàng làm phần tài liệu API và bảng. Khiêm làm phần chia khối. Hai phần nằm ở hai nơi. Hôm nay mới ghép bằng tay qua một file ghi "file nào thuộc khối nào".</p>
+      <p><b>Vì sao là vấn đề:</b> PRD muốn mọi đầu ra sinh từ cùng một kết quả phân tích.</p>
+      <p><b>Làm gì:</b> Dùng chính file đó làm chỗ nối cố định. Khiêm xuất file theo đúng mẫu, Hoàng cho công cụ tự đọc.</p>
+      <p class="code-ref">File membership, AC-025-04</p>
+    </article>
+    <article class="prob">
+      <h3><span class="no">6</span>Tài liệu API còn vài chỗ trống</h3>
+      <p><b>Chuyện gì:</b> Repo chứa nhiều ứng dụng thì mới đọc được một. Chưa biết repo dùng loại database nào, nên chưa viết được lệnh tạo bảng. Chưa biết API nào cần đăng nhập. Chưa đọc được Celery.</p>
+      <p><b>Làm gì:</b> Làm trước việc đọc nhiều ứng dụng, vì PRD xếp mức bắt buộc. Sau đó đọc loại database từ chuỗi kết nối trong cấu hình, ví dụ <code>postgresql://</code>.</p>
+      <p class="code-ref">FR-020, AC-027-02</p>
+    </article>
+  </div>
+
+  <h3>Làm theo thứ tự nào</h3>
+  <div class="tbl"><table>
+    <tr><th>Thứ tự</th><th>Việc</th><th>Ai làm</th><th>Xong khi</th></tr>
+    <tr><td class="n">1</td><td>Ký duyệt, ghi ngày cho các mốc</td><td>Khiêm</td><td>PRD có chữ ký và ngày</td></tr>
+    <tr><td class="n">2</td><td>Chọn cách chia khối</td><td>Khiêm và Hoàng</td><td>Có bảng so 3 cách và cách được chọn</td></tr>
+    <tr><td class="n">3</td><td>Lấy tài khoản AI miễn phí, chạy lại</td><td>Khiêm</td><td>Có số đo với Groq và Gemini</td></tr>
+    <tr><td class="n">4</td><td>Ghép hai phần</td><td>Hoàng</td><td>Một lần chạy ra cả sơ đồ và tài liệu API đúng khối</td></tr>
+    <tr><td class="n">5</td><td>Làm bài kiểm tra mới</td><td>Cả hai, chấm chéo</td><td>Có điểm thật cho 5 chỉ số</td></tr>
+    <tr><td class="n">6</td><td>Bổ sung tài liệu API</td><td>Hoàng</td><td>Có test mới, chạy lại 4 repo</td></tr>
+  </table></div>
+  <p class="note">Người làm là đề xuất theo vai trò trong PRD. Nhóm cần xác nhận lại.</p>
+
+  <h3>Xin mentor góp ý 3 điều</h3>
+  <ol>
+    <li>Chọn cách chia khối theo tiêu chí nào.</li>
+    <li>Có cho phép trả phí AI không.</li>
+    <li>Lấy repo kiểm tra ở đâu, và ai chấm đáp án.</li>
+  </ol>
+  <p class="say"><b>Nói:</b>Phần đọc code và viết tài liệu đã chạy được và tự kiểm được. Nhóm đang vướng ba chỗ: chưa chọn cách chia khối, chưa có AI miễn phí, và chưa có bài kiểm tra công bằng. Em xin anh chị góp ý cho ba chỗ này.</p>
+</section>
+
+</div>

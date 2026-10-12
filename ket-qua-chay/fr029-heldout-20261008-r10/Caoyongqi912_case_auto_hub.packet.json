@@ -1,0 +1,35 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos2\\Caoyongqi912_case_auto_hub",
+  "files": 310,
+  "route_decorators": 301,
+  "decorators_refused": [],
+  "dependencies": {
+    "Authentication": {
+      "first_use": "app/controller/file/__init__.py:41",
+      "params": [
+        {
+          "in": "query",
+          "name": "isAdmin",
+          "at": "app/controller/__init__.py:21"
+        }
+      ]
+    },
+    "JenkinsWebhookAuth": {
+      "first_use": "app/controller/interface/interfaceTaskController.py:237",
+      "params": []
+    }
+  },
+  "suspects": [
+    {
+      "at": "common/httpxClient.py:110",
+      "looks_like": "http",
+      "text": "response = await self.client.request(method, url, **kwargs)"
+    },
+    {
+      "at": "croe/a_manager/script_manager.py:350",
+      "looks_like": "http",
+      "text": "response = await client.request(method=method, url=url, **kwargs)"
+    }
+  ],
+  "seconds": 10.98
+}

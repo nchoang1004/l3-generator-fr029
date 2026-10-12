@@ -1,0 +1,47 @@
+{
+  "status": "complete",
+  "files": 15,
+  "tokens": 3249,
+  "requests": 2,
+  "cached": 0,
+  "timing": {
+    "total_s": 12.6,
+    "model_s": 12.5
+  },
+  "components": 6,
+  "edges": 5,
+  "externals": 1,
+  "quotes": {
+    "returned": 5,
+    "valid": 5
+  },
+  "issues": 0,
+  "pass1": "model",
+  "evidence_by_code": 0,
+  "by_rule": 0,
+  "score": {
+    "internal": {
+      "precision": 1.0,
+      "precision_strict": 0.8,
+      "recall": 1.0
+    },
+    "external": {
+      "precision": 1.0,
+      "precision_strict": 1.0,
+      "recall": 1.0
+    },
+    "quote_validity": 1.0,
+    "grouping_agreement": 1.0,
+    "flow": {
+      "flow_precision": 1.0,
+      "flow_recall": 1.0,
+      "merged": 0,
+      "ari": 1.0
+    }
+  },
+  "provider": "openai",
+  "model": "gpt-5.6-sol",
+  "mode": "live-API-not-cache",
+  "usd_estimate_upper": 0.026715000000000003,
+  "billed_usd": null
+}

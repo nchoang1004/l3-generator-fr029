@@ -1,0 +1,170 @@
+{
+  "routes": {
+    "tp": 31,
+    "fp": [
+      "('GET', None, 'backend/src/infrastructure/app_factory.py::get_redoc_documentation')",
+      "('GET', None, 'backend/src/infrastructure/app_factory.py::get_swagger_documentation')",
+      "('GET', None, 'backend/src/infrastructure/app_factory.py::openapi')"
+    ],
+    "fn": [
+      "('GET', '/docs', 'backend/src/infrastructure/app_factory.py::get_swagger_documentation')",
+      "('GET', '/openapi.json', 'backend/src/infrastructure/app_factory.py::openapi')",
+      "('GET', '/redoc', 'backend/src/infrastructure/app_factory.py::get_redoc_documentation')"
+    ]
+  },
+  "models_on_matched_routes": {
+    "correct": 25,
+    "wrong": [
+      {
+        "route": "('GET', '/api/v1/api-keys/', 'backend/src/modules/api_keys/routes.py::get_user_api_keys')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[APIKeyRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/api-keys/{key_id}/usage', 'backend/src/modules/api_keys/routes.py::get_key_usage')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[KeyUsageRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/rate-limits/', 'backend/src/modules/rate_limit/routes.py::get_rate_limits')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[RateLimitRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/tiers/', 'backend/src/modules/tier/routes.py::get_tiers')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[TierRead]"
+        ]
+      },
+      {
+        "route": "('GET', '/api/v1/users/', 'backend/src/modules/user/routes.py::get_users')",
+        "got": [
+          null,
+          "unknown"
+        ],
+        "want": [
+          null,
+          "PaginatedListResponse[UserRead]"
+        ]
+      },
+      {
+        "route": "('POST', '/api/v1/auth/login', 'backend/src/infrastructure/auth/routes.py::login')",
+        "got": [
+          "unknown",
+          "dict"
+        ],
+        "want": [
+          null,
+          "dict[str, Any]"
+        ]
+      }
+    ]
+  },
+  "http_api": {
+    "tp": 0,
+    "fp": [],
+    "fn": [],
+    "out_of_scope": 0
+  },
+  "facts": {
+    "fact:6ef40a587a9ac15ea457ef0626fcf084f481c78e64d481c1641577826a2264fa": "wrong",
+    "fact:34f30f74930e8180af557010c2d8b51782aaab59bf6d1598acd93ca6ca2128fa": "wrong",
+    "fact:4bcaa61c0f03aafa9c1b4331e5e4b6f80906d62dcec4e7b73dc6078a2c388c9a": "wrong",
+    "fact:027c3abe9628efa5864fff10705b2da82b56949da7bce4ad446f551097cef37f": "ok",
+    "fact:abe17ea8555ca15190d78fa314a0bf9361bd0536026e08a62b5353d08f2e7ad7": "wrong",
+    "fact:8173799092e71997a708156728c4ff6ac13c655bb6a83c524c55ffcf79d660ad": "ok",
+    "fact:f26d7b88129bf9c2c92c97bc0c4e7811ecfbcb98884227b27138e5d86ec8334b": "ok",
+    "fact:b3a6a0c058a4bcfc962442848d37ab218c52bb950f54d482dfe08765cce0e2d8": "ok",
+    "fact:d72365f30b36c7359236028d7d10539ee985e974e42f36d874f5ab0f72bc15f4": "ok",
+    "fact:5670a67cdda46a5ff80a8ee49d600c54a26a7a7f3957b4cda331bed256319732": "ok",
+    "fact:a5d2f372556b80084ce144f171dc9c5ac73d1867fad98f45c863db45e1e3a844": "ok",
+    "fact:0b520f5c2ffd6f6fb8b0eb48bec97d4b109579781c378ac831b75745baac77c2": "ok",
+    "fact:a97f42a34d57acea6429079ad3f92ce0398b0fec7ad711c062a4b375634e1458": "ok",
+    "fact:1efd46f8c21574d2b59b4342348ba1e0d3e659ae26bf8fc7e07291370350f5f4": "wrong",
+    "fact:63deab2ad01e9f2659431da68fa96958735083bf82c0e88d49d4315b3938bf7a": "wrong",
+    "fact:8958668f54d97f34d3c3259a8aa10459a5d865d2f6dbcd0a0fd00d10e937722b": "ok",
+    "fact:c668c49f5aa5efbe88159f2e4830ef66da0bfa6219f3809e196de0307da81341": "ok",
+    "fact:7e4dad00c70729fd7b3ebe2b2e99cd492b0e6bae318d2d0212ca507dde2c7dd2": "ok",
+    "fact:373228f18377029842cc549b1c32675eacf9fe7a8ce6e54f577fd0018e807115": "ok",
+    "fact:33608969d2460ac3ac3f0a4d48372422611f36d9bfa9702e94c0f6de7cb93860": "wrong",
+    "fact:7ae2049f63a5f84d937e376bd9a8a2a24f9eb390ab887c33cdd519ec14bbcc0b": "ok",
+    "fact:ed55623904e81e79c107102226fa3253d0f4b3a81440d977fe08f6a957055ae5": "ok",
+    "fact:b61c3e495e7219377dc130068b68cbb6068dc6396e7407eb7ebea2f07231de27": "wrong",
+    "fact:735670adbcb793e995ffc05397c80a2f638078b1f46bfa18b65c590e32b2d670": "ok",
+    "fact:290f25c379eec87b4dc4d5ca7ae6bf2bcd731e026660732e7bef3adf2982e907": "ok",
+    "fact:a28f2b580129e5f771a9c75ab3690ae472632812f3f7f0c6dceec97329f6e779": "ok",
+    "fact:57e674f859512ccb2dc3bc5eb94a06d80335f6981e6b9808dfcc296e6f22a0f2": "ok",
+    "fact:47554e20a87fc2f81e858716b9d543b57c0981ee534182a1a139d7cea8c573aa": "ok",
+    "fact:9bfe5a32587d1600711f08e40a9faee8763f45d4a4b92b6fc306b02ea5e05501": "ok",
+    "fact:f13653f9e50082f20ce5ff4a68025dce145c0e62fd4099fd9b816442f760b42e": "ok",
+    "fact:17ab34c22ee0dee60b9422dbf6e3f5fd784d133da4e302073f31367674a65165": "ok",
+    "fact:822c74883bc6b217c215d4613f38df1b14a05fb13f1ec084310e803bc6e32a39": "wrong",
+    "fact:aa936ff83a89247460c38be185c91adb61bb4789bc834328bbc1991294f80c8e": "ok",
+    "fact:c626e21dc6f6a32e0ff306853abb83f82d6207700e9150037b9490d868357c4a": "ok",
+    "fact:38e4f354065b81a2ecbe37c717960502261fd1d8c619ddf3019ef45b1585bc6a": "ok",
+    "fact:a091e63ffe3b96db27f32b68bca3990e5ace20735c0d4f7a174c7308deed6da8": "ok",
+    "fact:9fc6a4b32fd4e5da404f7b7dcab0b97f581d37ace860aa488fbf56667de4a4c2": "ok",
+    "fact:01ab4d0be8ba8b1a38d3001b83de6a1cf3ccc9fac4cc1fdbec32214cd7e73740": "ok",
+    "fact:9c837c36bd24fe92657954b5fecbc28657126971bba4a7a1444ffe67622db081": "ok",
+    "fact:924bb345b172b62848b3f1a851d7319bd220dea2b320eca5b4bd75ed775898a4": "ok",
+    "fact:315c236606147af09fd6bf102be47297ade62d8a2043161a74011b0e44647d07": "ok",
+    "fact:c0d23b64ce0b8124fb781a11a50eb3d553a6f72a95a0977ce818e686e228a0b1": "ok",
+    "fact:82bff76d13cbbe969c537eab4a3e07fa272c556f939223665b3e4a9b80982433": "ok",
+    "fact:73cce512a64192554525f1acd3247ac55f14cea211c6ef52be10eaedcae7a7ef": "ok"
+  },
+  "models": {
+    "tp": 10,
+    "fp": 0,
+    "fn": 2,
+    "precision": 1.0,
+    "recall": 0.8333333333333334,
+    "false_positive": [],
+    "false_negative": [
+      "('backend/src/modules/api_keys/schemas.py', 'APIKeyRead')",
+      "('backend/src/modules/api_keys/schemas.py', 'KeyUsageRead')"
+    ],
+    "attributes": {
+      "fields": {
+        "correct": 10,
+        "acceptable_unknown": 0,
+        "wrong": []
+      }
+    },
+    "facts": {
+      "fact:38e4f354065b81a2ecbe37c717960502261fd1d8c619ddf3019ef45b1585bc6a": "ok",
+      "fact:a091e63ffe3b96db27f32b68bca3990e5ace20735c0d4f7a174c7308deed6da8": "ok",
+      "fact:9fc6a4b32fd4e5da404f7b7dcab0b97f581d37ace860aa488fbf56667de4a4c2": "ok",
+      "fact:01ab4d0be8ba8b1a38d3001b83de6a1cf3ccc9fac4cc1fdbec32214cd7e73740": "ok",
+      "fact:9c837c36bd24fe92657954b5fecbc28657126971bba4a7a1444ffe67622db081": "ok",
+      "fact:924bb345b172b62848b3f1a851d7319bd220dea2b320eca5b4bd75ed775898a4": "ok",
+      "fact:315c236606147af09fd6bf102be47297ade62d8a2043161a74011b0e44647d07": "ok",
+      "fact:c0d23b64ce0b8124fb781a11a50eb3d553a6f72a95a0977ce818e686e228a0b1": "ok",
+      "fact:82bff76d13cbbe969c537eab4a3e07fa272c556f939223665b3e4a9b80982433": "ok",
+      "fact:73cce512a64192554525f1acd3247ac55f14cea211c6ef52be10eaedcae7a7ef": "ok"
+    },
+    "accepted_extra": 0
+  }
+}

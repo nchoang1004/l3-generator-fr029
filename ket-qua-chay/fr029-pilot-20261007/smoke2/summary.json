@@ -1,0 +1,130 @@
+[
+  {
+    "fixture": "pydantic_v1",
+    "run": 1,
+    "key_env": "GROQ_API_KEY",
+    "model": "openai/gpt-oss-120b",
+    "status": "completed",
+    "reason": "",
+    "turns": 7,
+    "tokens_in": 21792,
+    "tokens_out": 2464,
+    "waited_s": 112,
+    "seconds": 130,
+    "coverage_complete": true,
+    "rejected": 0,
+    "artifacts_ready": true,
+    "score": {
+      "routes": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "params": {
+            "correct": 2,
+            "wrong": []
+          },
+          "request_body": {
+            "correct": 2,
+            "wrong": []
+          },
+          "response": {
+            "correct": 2,
+            "wrong": []
+          },
+          "status": {
+            "correct": 2,
+            "wrong": []
+          }
+        }
+      },
+      "models": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {
+          "fields": {
+            "correct": 0,
+            "wrong": [
+              {
+                "key": "('app/main.py', 'Note')",
+                "got": [
+                  [
+                    "body",
+                    null,
+                    "string",
+                    false,
+                    true
+                  ],
+                  [
+                    "priority",
+                    null,
+                    "integer",
+                    true,
+                    true
+                  ],
+                  [
+                    "title",
+                    null,
+                    "string",
+                    true,
+                    false
+                  ]
+                ],
+                "want": [
+                  [
+                    "body",
+                    null,
+                    "string",
+                    false,
+                    true
+                  ],
+                  [
+                    "priority",
+                    null,
+                    "integer",
+                    false,
+                    true
+                  ],
+                  [
+                    "title",
+                    null,
+                    "string",
+                    true,
+                    false
+                  ]
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "http_calls": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "file_roles": {
+        "status": "not_evaluated",
+        "reason": "Gold không có mục này"
+      },
+      "limitations": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "precision": null,
+        "recall": null,
+        "false_positive": [],
+        "false_negative": [],
+        "attributes": {}
+      }
+    }
+  }
+]
